@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECO-HY3 – Waybar → Quickshell Migration Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0c0e11;
+    --bg-soft: #101317;
+    --panel: #161a20;
+    --panel-2: #1a1f26;
+    --panel-3: #1e242e;
+    --border: #242b36;
+    --border-strong: #2f3847;
+    --border-faint: #1d232e;
+    --text: #e8ebf0;
+    --text-dim: #9aa3b2;
+    --text-faint: #677083;
+    --lav: #b4befe;
+    --lav-dim: #8d97d8;
+    --yellow: #e8c85e;
+    --red: #ff5e5e;
+    --green: #7fe0a8;
+    --orange: #ff8a3d;
+    --radius: 8px;
+    --radius-sm: 6px;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Public Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --display: "Bricolage Grotesque", "Public Sans", system-ui, sans-serif;
+    --max: 1220px;
+    --rail: 212px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    pointer-events:none;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.045) 1px, transparent 0);
+    background-size: 22px 22px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent 92%);
+    opacity:0.35;
+  }
+  a{color:var(--lav)}
+  a:hover{color:#cbd3ff}
+  ::selection{background:var(--lav); color:#0c0e11}
+  :focus-visible{outline:2px solid var(--lav); outline-offset:2px; border-radius:2px}
+  /* scrollbar */
+  *{scrollbar-width:thin; scrollbar-color: var(--border-strong) transparent}
+  ::-webkit-scrollbar{width:8px; height:8px}
+  ::-webkit-scrollbar-thumb{background: var(--border-strong); border-radius:999px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  /* doc control bar */
+  .doc-bar{
+    position:sticky; top:0; z-index:30;
+    display:grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items:center;
+    gap:1rem;
+    padding:.55rem 1.25rem;
+    background: var(--bg);
+    border-bottom:1px solid var(--border);
+    font-family: var(--mono);
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+  }
+  .doc-bar strong{color:var(--text-dim); font-weight:600}
+  .doc-bar .center{
+    display:flex; align-items:center; gap:.6rem;
+    color:var(--text-dim);
+    font-size:10px;
+  }
+  .doc-bar .center::before,
+  .doc-bar .center::after{
+    content:""; width:18px; height:1px; background:var(--border-strong); display:block;
+  }
+  .doc-bar .right{justify-self:end; display:flex; gap:.8rem; align-items:center}
+  .doc-bar .live-dot{
+    width:6px; height:6px; border-radius:50%; background:var(--green);
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--green) 18%, transparent);
+    display:inline-block;
+  }
+
+  /* title block */
+  .title-block{
+    max-width:var(--max);
+    margin:0 auto;
+    display:grid;
+    grid-template-columns: 1.22fr .78fr;
+    border-left:1px solid var(--border);
+    border-right:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    background: linear-gradient(180deg, #11151b 0%, #0f1318 100%);
+  }
+  .title-left{
+    padding: 2.2rem 2rem 1.9rem 1.7rem;
+    border-right:1px solid var(--border);
+    position:relative;
+  }
+  .title-left::after{
+    content:"";
+    position:absolute; right:-1px; top:12%; bottom:12%; width:1px;
+    background: linear-gradient(to bottom, transparent, var(--border-strong), transparent);
+    opacity:.6;
+  }
+  .eyeline{
+    display:flex; align-items:center; gap:.7rem;
+    font-family:var(--mono);
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:1.15rem;
+  }
+  .eyeline .rule{flex:0 0 28px; height:1px; background:var(--border-strong)}
+  .eyeline em{font-style:normal; color:var(--lav); letter-spacing:.12em}
+  h1{
+    font-family:var(--display);
+    font-weight:800;
+    font-size: clamp(30px, 4.2vw, 46px);
+    line-height:.92;
+    letter-spacing:-.04em;
+    margin:0;
+    color:var(--text);
+  }
+  h1 .thin{font-weight:600; color:var(--text-dim); letter-spacing:-.03em}
+  .subtitle{
+    margin:.9rem 0 0;
+    color:var(--text-dim);
+    font-size:14.5px; line-height:1.55;
+    max-width: 52ch;
+  }
+  .subtitle strong{color:var(--text); font-weight:600}
+
+  .progress-row{
+    display:flex; align-items:center; gap:.9rem;
+    margin-top:1.35rem;
+    padding-top:1.15rem;
+    border-top:1px solid var(--border);
+  }
+  .progress-label{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint);
+    white-space:nowrap;
+  }
+  .bar-track{
+    flex:1; height:6px; background:#0a0c0f; border:1px solid var(--border);
+    border-radius:999px; overflow:hidden; display:flex;
+  }
+  .bar-track i{display:block; height:100%}
+  .bar-track i.done{background:var(--lav)}
+  .bar-track i.part{background:var(--yellow)}
+  .bar-track i.todo{background:var(--border-strong)}
+  .progress-meta{
+    font-family:var(--mono); font-size:11px; color:var(--text-dim);
+    display:flex; gap:.5rem; align-items:center; white-space:nowrap;
+  }
+  .progress-meta b{color:var(--text); font-weight:600}
+  .dot{width:7px; height:7px; border-radius:50%; display:inline-block; vertical-align:middle}
+  .dot.done{background:var(--lav); box-shadow:0 0 0 3px color-mix(in srgb, var(--lav) 20%, transparent)}
+  .dot.part{background:var(--yellow)}
+  .dot.todo{background:var(--border-strong); border:1px solid #3a4455}
+
+  .title-right{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto 1fr;
+    background: var(--bg-soft);
+  }
+  .meta-cell{
+    padding: 1.05rem 1.15rem .95rem;
+    border-right:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+  }
+  .meta-cell:nth-child(2n){border-right:none}
+  .meta-cell.full{grid-column:1 / -1; display:flex; flex-direction:column; justify-content:center}
+  .meta-k{
+    font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--text-faint); margin-bottom:.35rem;
+  }
+  .meta-v{
+    font-family:var(--mono); font-size:12.5px; color:var(--text);
+    line-height:1.4; font-weight:500;
+  }
+  .meta-v small{color:var(--text-dim); font-weight:400}
+  .meta-v .chip{
+    display:inline-flex; align-items:center; gap:.35rem;
+    font-size:10.5px; padding:.18rem .5rem; border:1px solid var(--border-strong);
+    border-radius:999px; background: var(--panel); color:var(--text-dim);
+    vertical-align:middle; margin-left:.35rem;
+  }
+  .meta-cell.full .meta-v{font-family:var(--sans); font-weight:500; font-size:13px; line-height:1.5; color:var(--text-dim)}
+  .meta-cell.full strong{color:var(--text); font-weight:600}
+
+  /* status banner inside title right */
+  .status-banner{
+    grid-column:1 / -1;
+    display:flex; align-items:center; gap:.7rem;
+    padding: .85rem 1.15rem;
+    background: linear-gradient(90deg, #151a22 0%, #12161d 100%);
+    border-top:1px solid var(--border);
+    font-size:12.8px; line-height:1.5; color:var(--text-dim);
+  }
+  .status-banner b{color:var(--lav); font-weight:600}
+  .status-banner .icon{
+    width:26px; height:26px; border-radius:7px;
+    background: color-mix(in srgb, var(--yellow) 14%, transparent);
+    border:1px solid color-mix(in srgb, var(--yellow) 30%, transparent);
+    display:grid; place-items:center; flex:0 0 auto;
+    color:var(--yellow); font-family:var(--mono); font-size:12px;
+  }
+
+  /* layout */
+  .shell{
+    max-width:var(--max);
+    margin:0 auto;
+    display:grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    gap: 2rem;
+    padding: 1.6rem 0 3rem;
+    border-left:1px solid var(--border);
+    border-right:1px solid var(--border);
+    background: var(--bg);
+  }
+
+  /* rail */
+  .rail{
+    position:sticky; top: 44px;
+    align-self:start;
+    padding: .4rem 0 0 1rem;
+    height: calc(100vh - 44px);
+    overflow:auto;
+    scrollbar-width:none;
+  }
+  .rail::-webkit-scrollbar{display:none}
+  .rail-section{
+    margin-bottom:1.4rem;
+  }
+  .rail-label{
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--text-faint); margin:0 0 .6rem .35rem;
+  }
+  .rail ul{list-style:none; margin:0; padding:0; display:grid; gap:.22rem}
+  .rail a{
+    display:flex; align-items:center; gap:.55rem;
+    padding:.42rem .55rem .42rem .5rem;
+    border-radius:6px;
+    font-size:12.8px; line-height:1.3; font-weight:500;
+    color:var(--text-dim); text-decoration:none;
+    border:1px solid transparent;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .rail a:hover{background:var(--panel); color:var(--text); border-color:var(--border)}
+  .rail a.active{background:var(--panel-2); color:var(--text); border-color:var(--border-strong); box-shadow: 0 1px 0 rgba(0,0,0,.3)}
+  .rail a .num{
+    font-family:var(--mono); font-size:10.5px; font-weight:600;
+    width:22px; height:22px; display:grid; place-items:center;
+    border-radius:5px; background: #0f1318; border:1px solid var(--border);
+    color:var(--text-faint); flex:0 0 auto;
+  }
+  .rail a.active .num{background:var(--lav); color:#0c0e11; border-color:var(--lav)}
+  .rail a .dot{margin-left:auto}
+  .rail .toc-links a{font-size:12.2px; padding:.32rem .5rem; font-weight:400; color:var(--text-faint)}
+  .rail .toc-links a.active{color:var(--text);}
+
+  .rail-divider{height:1px; background:var(--border); margin:.9rem .4rem}
+
+  .rail-footer{
+    margin-top:1rem; padding:.7rem .6rem;
+    border:1px solid var(--border); background:var(--panel); border-radius:8px;
+  }
+  .rail-footer .k{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-faint)}
+  .rail-footer .v{font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-top:.25rem; line-height:1.5}
+
+  /* content */
+  .content{
+    min-width:0;
+    padding-right:1.6rem;
+  }
+  section{margin-bottom:2.2rem; scroll-margin-top: 56px}
+  .phase{scroll-margin-top: 56px}
+  .section-head{
+    display:flex; align-items:baseline; gap:.8rem;
+    margin-bottom:.9rem;
+    border-top:1px solid var(--border);
+    padding-top:1rem;
+  }
+  .section-head:first-child{border-top:none; padding-top:0}
+  .sec-num{
+    font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.08em;
+    color:var(--text-faint); background:#0f1318; border:1px solid var(--border);
+    padding:.18rem .4rem; border-radius:4px; line-height:1;
+  }
+  .section-head h2{
+    font-family:var(--display); font-weight:700; font-size:21px; letter-spacing:-.025em;
+    margin:0; color:var(--text); line-height:1.15;
+  }
+  .lead{
+    color:var(--text-dim); font-size:14.4px; line-height:1.65; margin:0 0 1rem; max-width:68ch;
+  }
+
+  /* cards / sheets */
+  .panel{
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    overflow:hidden;
+  }
+  .panel.pad{padding:1rem 1.15rem}
+
+  /* decision lists */
+  .dec-grid{
+    display:grid; grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .dec-card{
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    padding:1rem 1.05rem;
+  }
+  .dec-card h3{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    margin:0 0 .55rem; display:flex; align-items:center; gap:.5rem;
+  }
+  .dec-card h3 i{
+    font-style:normal; font-size:10px; padding:.12rem .38rem; border-radius:4px; border:1px solid var(--border-strong);
+    background:#0f1318; color:var(--lav);
+  }
+  .dec-card h3 i.ass{color:var(--yellow)}
+  .dec-card ul{margin:0; padding-left:1.05rem; color:var(--text-dim); font-size:13.2px; line-height:1.6}
+  .dec-card li{margin:.22rem 0}
+  .dec-card code{font-family:var(--mono); font-size:12.2px; background:#0f1318; border:1px solid var(--border); padding:.1rem .35rem; border-radius:4px; color:var(--text)}
+
+  .deviation{
+    margin-top:1rem;
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, #151a22 0%, #13171e 100%);
+    overflow:hidden;
+  }
+  .deviation-head{
+    display:flex; align-items:center; gap:.65rem;
+    padding:.75rem 1rem;
+    border-bottom:1px solid var(--border);
+    background: #0f1318;
+  }
+  .deviation-head .badge{
+    width:28px; height:28px; border-radius:7px; display:grid; place-items:center;
+    background: color-mix(in srgb, var(--yellow) 15%, transparent);
+    border:1px solid color-mix(in srgb, var(--yellow) 30%, transparent);
+    color:var(--yellow); font-family:var(--mono); font-weight:700; font-size:12px;
+  }
+  .deviation-head strong{font-size:13px; font-weight:600}
+  .deviation-head span{font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-left:auto}
+  .deviation-body{padding:.9rem 1rem 1rem}
+  .deviation-body ul{margin:0; padding:0; list-style:none; display:grid; gap:.55rem}
+  .deviation-body li{
+    display:grid; grid-template-columns: 16px 1fr;
+    gap:.6rem; font-size:13px; line-height:1.55; color:var(--text-dim);
+    padding:.55rem .7rem; background:#0f1318; border:1px solid var(--border); border-radius:6px;
+  }
+  .deviation-body li::before{content:"–"; color:var(--text-faint); font-family:var(--mono); font-size:12px; margin-top:.05rem}
+  .deviation-body b{color:var(--text); font-weight:600}
+  .deviation-body code{font-family:var(--mono); font-size:11.8px; background:#0a0c0f; border:1px solid var(--border); padding:.08rem .32rem; border-radius:4px; color:var(--text-dim)}
+
+  /* file tree */
+  .tree-wrap{
+    margin-top:1rem;
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    overflow:hidden;
+    background: #0e1216;
+  }
+  .tree-head{
+    display:flex; align-items:center; gap:.6rem;
+    padding:.65rem .9rem;
+    background:#0f1318; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:11.5px; color:var(--text-faint);
+  }
+  .tree-head .dots{display:flex; gap:4px; margin-right:.4rem}
+  .tree-head .dots i{width:9px; height:9px; border-radius:50%; border:1px solid var(--border-strong); background:#1a1f26}
+  .tree-head .dots i:nth-child(1){background:#ff5f56}
+  .tree-head .dots i:nth-child(2){background:#ffbd2e}
+  .tree-head .dots i:nth-child(3){background:#27c93f}
+  .tree-body{
+    padding: .9rem 1rem;
+    font-family:var(--mono); font-size:12.2px; line-height:1.7; color:var(--text-dim);
+    white-space:pre; overflow:auto;
+  }
+  .tree-body b{color:var(--text); font-weight:600}
+  .tree-body .ok{color:var(--lav)}
+  .tree-body .muted{color:var(--text-faint)}
+  .tree-note{
+    padding:.7rem 1rem; border-top:1px solid var(--border);
+    background: var(--panel);
+    font-size:12.8px; color:var(--text-dim); line-height:1.5;
+  }
+  .tree-note b{color:var(--text)}
+
+  /* phases */
+  .phases{display:grid; gap:.9rem}
+  .phase{
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+    overflow:hidden;
+  }
+  .phase-head{
+    display:grid;
+    grid-template-columns: 60px 1fr auto;
+    align-items:center;
+    gap: .8rem;
+    padding:.75rem .95rem .75rem .75rem;
+    background: linear-gradient(180deg, #1a1f27 0%, #161a20 100%);
+    border-bottom:1px solid var(--border);
+  }
+  .phase-num{
+    width:38px; height:32px; display:grid; place-items:center;
+    font-family:var(--mono); font-weight:700; font-size:13px;
+    background:var(--lav); color:#0c0e11; border-radius:6px;
+    letter-spacing:-.02em;
+  }
+  .phase-head h3{
+    margin:0; font-family:var(--display); font-weight:700; font-size:15.5px; letter-spacing:-.02em; line-height:1.1;
+    color:var(--text);
+  }
+  .phase-head h3 small{display:block; font-family:var(--mono); font-weight:400; font-size:11px; color:var(--text-faint); letter-spacing:.04em; margin-top:.18rem}
+  .badge{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+    padding:.32rem .55rem; border-radius:999px; border:1px solid var(--border-strong);
+    font-weight:600; display:inline-flex; align-items:center; gap:.35rem;
+    white-space:nowrap;
+  }
+  .badge.done{background:#0f1a14; color:var(--green); border-color: color-mix(in srgb, var(--green) 35%, transparent)}
+  .badge.part{background:#1a170f; color:var(--yellow); border-color: color-mix(in srgb, var(--yellow) 30%, transparent)}
+  .badge.todo{background:#1a0f0f; color:#ff8a8a; border-color: color-mix(in srgb, var(--red) 25%, transparent)}
+  .badge.neutral{background:#0f1318; color:var(--text-dim); border-color:var(--border-strong)}
+  .phase-body{padding: .9rem 1rem 1rem}
+  .phase-body ul{margin:0; padding-left:1.05rem; color:var(--text-dim); font-size:13.3px; line-height:1.65}
+  .phase-body li{margin:.28rem 0}
+  .phase-body li b{color:var(--text); font-weight:600}
+  .phase-body code{font-family:var(--mono); font-size:11.8px; background:#0f1318; border:1px solid var(--border); padding:.08rem .3rem; border-radius:4px; color:var(--text-dim)}
+  .phase-accept{
+    margin-top:.85rem; padding-top:.7rem;
+    border-top:1px dashed var(--border-strong);
+    display:flex; gap:.6rem; align-items:flex-start;
+    font-size:12.8px; line-height:1.5; color:var(--text-dim);
+  }
+  .phase-accept b{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--lav); background:#0f1318; border:1px solid var(--border); padding:.18rem .4rem; border-radius:4px; flex:0 0 auto; margin-top:.05rem}
+
+  /* tables */
+  .table-wrap{
+    border:1px solid var(--border); border-radius: var(--radius); overflow:hidden; background:var(--panel);
+  }
+  .table-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:.7rem 1rem; background:#0f1318; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint);
+  }
+  .table-scroll{overflow:auto}
+  table{width:100%; border-collapse:collapse; font-size:13px; min-width: 620px}
+  th{
+    text-align:left; font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--text-faint); font-weight:600;
+    background:#13171e; border-bottom:1px solid var(--border);
+    padding:.65rem .75rem; white-space:nowrap;
+  }
+  td{
+    padding:.62rem .75rem; border-bottom:1px solid var(--border-faint);
+    color:var(--text-dim); vertical-align:top; line-height:1.5;
+  }
+  tr:last-child td{border-bottom:none}
+  td:first-child code, td:nth-child(2) code{font-family:var(--mono); font-size:12px; color:var(--text); background:#0f1318; border:1px solid var(--border); padding:.12rem .35rem; border-radius:4px}
+  .mini{
+    font-family:var(--mono); font-size:10.5px; padding:.18rem .42rem; border-radius:999px; border:1px solid var(--border);
+    display:inline-flex; align-items:center; gap:.3rem; font-weight:600; letter-spacing:.04em;
+  }
+  .mini.done{color:var(--green); background:color-mix(in srgb, var(--green) 10%, transparent); border-color:color-mix(in srgb, var(--green) 22%, transparent)}
+  .mini.part{color:var(--yellow); background:color-mix(in srgb, var(--yellow) 10%, transparent); border-color:color-mix(in srgb, var(--yellow) 22%, transparent)}
+  .mini.todo{color:#ff8a8a; background:color-mix(in srgb, var(--red) 8%, transparent); border-color:color-mix(in srgb, var(--red) 18%, transparent)}
+  td small{color:var(--text-faint); font-size:12px}
+
+  /* theme */
+  .theme-grid{
+    display:grid; grid-template-columns: 1.05fr .95fr;
+    gap:1rem; align-items:start;
+  }
+  .swatches{
+    display:grid; grid-template-columns: repeat(3, 1fr); gap:.6rem;
+  }
+  .swatch{
+    border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--panel);
+  }
+  .swatch i{display:block; height:46px; border-bottom:1px solid var(--border)}
+  .swatch .meta{padding:.55rem .6rem .6rem}
+  .swatch .meta .k{font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint)}
+  .swatch .meta .v{font-family:var(--mono); font-size:11.5px; color:var(--text); margin-top:.15rem}
+  .swatch .meta .u{font-size:11px; color:var(--text-faint); margin-top:.15rem; line-height:1.4}
+  .geom-card{
+    border:1px solid var(--border); border-radius:8px; background:var(--panel); padding:1rem;
+  }
+  .geom-card h4{margin:0 0 .6rem; font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint)}
+  .geom-grid{display:grid; grid-template-columns: repeat(3, 1fr); gap:.6rem}
+  .geom-item{
+    background:#0f1318; border:1px solid var(--border); border-radius:6px; padding:.6rem .65rem;
+    text-align:center;
+  }
+  .geom-item b{display:block; font-family:var(--mono); font-size:16px; font-weight:700; color:var(--lav); line-height:1}
+  .geom-item span{font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); display:block; margin-top:.3rem}
+  .geom-note{margin-top:.75rem; font-size:12.5px; line-height:1.6; color:var(--text-dim); border-top:1px dashed var(--border); padding-top:.65rem}
+
+  /* monitors */
+  .monitor-wrap{
+    border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--panel);
+  }
+  .monitor-head{
+    display:flex; align-items:center; gap:.6rem; padding:.7rem 1rem;
+    background:#0f1318; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint);
+  }
+  .monitor-grid{
+    display:grid; grid-template-columns: 1fr 1fr;
+    gap:1rem; padding:1rem;
+  }
+  .monitor{
+    border:1px solid var(--border); border-radius:8px; background:#0f1318; padding:.9rem;
+  }
+  .monitor .label{
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint);
+    display:flex; align-items:center; gap:.5rem; margin-bottom:.6rem;
+  }
+  .monitor .label i{width:8px; height:8px; border-radius:50%; background:var(--lav); box-shadow:0 0 0 3px color-mix(in srgb, var(--lav) 18%, transparent)}
+  .monitor .label i.muted{background:var(--border-strong); box-shadow:none}
+  .bar-preview{
+    background:#0a0c0f; border:1px solid var(--border); border-radius:6px; padding:.45rem .5rem;
+    display:flex; align-items:center; gap:.35rem; font-family:var(--mono); font-size:11px;
+  }
+  .bar-preview span{
+    background:var(--panel-3); border:1px solid var(--border); border-radius:4px;
+    padding:.2rem .4rem; color:var(--text-dim); line-height:1;
+  }
+  .bar-preview span.accent{background:var(--lav); color:#0c0e11; border-color:var(--lav); font-weight:600}
+  .bar-preview .spacer{flex:1}
+  .monitor p{font-size:12.5px; color:var(--text-dim); line-height:1.55; margin:.6rem 0 0}
+  .code-block{
+    margin:1rem 0 0;
+    border:1px solid var(--border); border-radius:8px; overflow:hidden; background:#0a0c0f;
+  }
+  .code-head{
+    display:flex; align-items:center; gap:.5rem; padding:.5rem .75rem;
+    background:#0f1318; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+  }
+  .code-head .dots{display:flex; gap:4px}
+  .code-head .dots i{width:8px; height:8px; border-radius:50%; background:var(--border-strong); border:1px solid #2b3341}
+  .code-body{padding:.85rem .9rem; overflow:auto; font-family:var(--mono); font-size:12px; line-height:1.6; color:#c9d1de}
+  .code-body .kw{color:var(--lav)}
+  .code-body .str{color:#a6e3a1}
+  .code-body .cmt{color:var(--text-faint)}
+
+  /* interactions */
+  .interactions .table-scroll table{min-width:560px}
+
+  /* acceptance */
+  .accept-list{
+    display:grid; gap:.6rem; counter-reset: accept;
+  }
+  .accept-item{
+    display:grid; grid-template-columns: 32px 1fr auto;
+    gap:.75rem; align-items:start;
+    padding:.75rem .8rem;
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+  }
+  .accept-item .n{
+    width:28px; height:28px; display:grid; place-items:center;
+    font-family:var(--mono); font-size:11px; font-weight:700;
+    background:#0f1318; border:1px solid var(--border); border-radius:6px; color:var(--text-faint);
+  }
+  .accept-item p{margin:0; font-size:13.2px; line-height:1.55; color:var(--text-dim)}
+  .accept-item p b{color:var(--text)}
+  .accept-item .state{margin-left:.4rem}
+
+  /* risks */
+  .risk-grid{display:grid; gap:.6rem}
+  .risk{
+    display:grid; grid-template-columns: 48px 1fr;
+    gap:.9rem; padding:.85rem .9rem;
+    border:1px solid var(--border); border-radius:8px; background:var(--panel);
+  }
+  .risk .rnum{
+    width:38px; height:38px; display:grid; place-items:center;
+    font-family:var(--mono); font-weight:700; font-size:12px;
+    background:#0f1318; border:1px solid var(--border); border-radius:8px; color:var(--text-faint);
+  }
+  .risk h4{margin:0 0 .25rem; font-size:13.4px; font-weight:600; line-height:1.3}
+  .risk h4 em{font-style:normal; color:var(--text-faint); font-weight:500; font-size:12px}
+  .risk p{margin:0; font-size:12.8px; line-height:1.6; color:var(--text-dim)}
+  .risk p b{color:var(--text)}
+
+  /* questions */
+  .q-list{display:grid; gap:.6rem}
+  details.q{
+    border:1px solid var(--border); border-radius:8px; background:var(--panel); overflow:hidden;
+  }
+  details.q summary{
+    list-style:none; cursor:pointer;
+    display:flex; align-items:center; gap:.7rem;
+    padding:.75rem .85rem;
+    font-weight:600; font-size:13.4px; color:var(--text);
+  }
+  details.q summary::-webkit-details-marker{display:none}
+  details.q summary::before{
+    content:"+"; width:22px; height:22px; display:grid; place-items:center;
+    font-family:var(--mono); font-weight:500; font-size:13px;
+    background:#0f1318; border:1px solid var(--border); border-radius:5px; color:var(--text-faint);
+    flex:0 0 auto;
+  }
+  details.q[open] summary::before{content:"–"; color:var(--lav); border-color: color-mix(in srgb, var(--lav) 30%, transparent)}
+  details.q .q-body{
+    padding: .15rem .85rem .85rem 3.35rem;
+    color:var(--text-dim); font-size:13px; line-height:1.6;
+    border-top:1px solid var(--border-faint);
+    margin-top:.05rem;
+  }
+  details.q .q-body code{font-family:var(--mono); font-size:11.8px; background:#0f1318; border:1px solid var(--border); padding:.08rem .3rem; border-radius:4px}
+
+  /* appendix */
+  .cmd-grid{
+    display:grid; grid-template-columns: 1fr 1fr;
+    gap:1rem;
+  }
+  .cmd-card{
+    border:1px solid var(--border); border-radius:8px; background:var(--panel); overflow:hidden;
+  }
+  .cmd-card .cmd-card-head{padding:.6rem .85rem; background:#0f1318; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); display:flex; align-items:center; gap:.5rem}
+  .cmd-card pre{margin:0; padding:.8rem .85rem; font-family:var(--mono); font-size:12px; line-height:1.6; color:var(--text-dim); overflow:auto; background:#0a0c0f}
+  .footer{
+    max-width:var(--max); margin:0 auto;
+    border-left:1px solid var(--border); border-right:1px solid var(--border); border-top:1px solid var(--border);
+    padding:1rem 1.2rem; background:#0f1318;
+    font-family:var(--mono); font-size:11px; color:var(--text-faint); line-height:1.6;
+    display:flex; flex-wrap:wrap; gap:.6rem 1.2rem; justify-content:space-between;
+  }
+  .footer a{color:var(--text-dim); text-decoration:underline; text-underline-offset:3px}
+  .footer a:hover{color:var(--lav)}
+
+  /* mobile */
+  .mobile-toggle{
+    display:none;
+    position:fixed; bottom:1rem; left:50%; transform:translateX(-50%);
+    z-index:40;
+    background: var(--panel-2); border:1px solid var(--border-strong);
+    color:var(--text); font-family:var(--mono); font-size:12px; font-weight:600;
+    letter-spacing:.06em; text-transform:uppercase;
+    padding:.65rem .9rem; border-radius:999px; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+    align-items:center; gap:.5rem;
+  }
+  .mobile-toggle i{width:8px; height:8px; border-radius:50%; background:var(--lav); display:inline-block}
+
+  @media (max-width: 980px){
+    .title-block{grid-template-columns:1fr}
+    .title-left{border-right:none; border-bottom:1px solid var(--border)}
+    .shell{grid-template-columns:1fr; gap:1rem; padding-top:1rem}
+    .rail{position:relative; top:auto; height:auto; padding:0 1rem; display:none}
+    .rail.open{display:block}
+    .content{padding:0 1rem}
+    .dec-grid, .theme-grid, .monitor-grid, .cmd-grid{grid-template-columns:1fr}
+    .mobile-toggle{display:inline-flex}
+    .doc-bar{grid-template-columns:1fr auto; gap:.6rem; padding:.6rem .9rem}
+    .doc-bar .center{display:none}
+    .progress-row{flex-wrap:wrap}
+  }
+  @media (max-width: 640px){
+    .title-left{padding:1.4rem 1rem 1.2rem}
+    h1{font-size:30px}
+    .meta-cell{padding:.85rem .9rem}
+    .phase-head{grid-template-columns: 44px 1fr; gap:.6rem}
+    .phase-head .badge{grid-column:1 / -1; justify-self:start; margin-left:44px}
+    .accept-item{grid-template-columns:28px 1fr; gap:.6rem}
+    .accept-item .state{grid-column:2; justify-self:start}
+    .bar-preview{flex-wrap:wrap}
+  }
+  @media print{
+    body::before, .doc-bar, .rail, .mobile-toggle{display:none !important}
+    .title-block, .shell, .footer{border:none; max-width:none}
+    .shell{grid-template-columns:1fr}
+    .content{padding:0}
+    .phase, .panel, .table-wrap, .monitor-wrap{break-inside:avoid}
+  }
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    *{transition:none !important}
+  }
+</style>
+</head>
+<body>
+<!--
+THESIS: This plan is an Engineering Change Order dossier, not a centered doc template; it refuses the generic 920px card stack and purple-left-border language for a title-block + rail dossier that proves the migration mechanism in the first viewport.
+OWN-WORLD: Graphite paper (#0c0e11) with hairline #242b36, lavender #b4befe as sparse signal, Bricolage Grotesque display + Public Sans body + JetBrains Mono data, 6-8px sheets, title-block grid, vertical spine index, dot-grid texture.
+STORY: Maintainer scans status, locates per-phase acceptance, and trusts the spec to cut over; belief comes from field-sheet completeness, deviation log honesty, and monitor/as-built diagrams.
+FIRST VIEWPORT: Doc-control bar (ECO-HY3 · REV) + 2-column title block (left: 46px display title + lead + progress bar; right: 2×2 spec grid + status banner) + sticky rail (0-6) visible without scroll.
+FORM: Braun/industrial ECN service manual, seed ECN-01, position 1/7 (field dossier).
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
+  <div class="doc-bar" role="banner" id="top">
+    <div><strong>ECO-HY3</strong> &nbsp;·&nbsp; WAYBAR → QUICKSHELL &nbsp; <span style="opacity:.45">/</span> &nbsp; Hyprland</div>
+    <div class="center">Engineering Change Order</div>
+    <div class="right"><span class="live-dot" aria-hidden="true"></span> Rev 2026-08-21 &nbsp;·&nbsp; <span style="color:var(--text-dim)">In progress</span></div>
+  </div>
+
+  <header class="title-block">
+    <div class="title-left">
+      <h1>Migration Plan <br><span class="thin">Waybar → Quickshell</span></h1>
+      <p class="subtitle">Concrete implementation plan to recreate – and extend – the existing Waybar panel in Quickshell on Hyprland. Derived from <strong>config.jsonc</strong>, <strong>style.css</strong>, <strong>colors.css</strong> and <strong>toggle_audio.sh</strong>, reconciled against the working config on this machine.</p>
+
+      <div class="progress-row" aria-label="Implementation progress">
+        <span class="progress-label">Build progress · phases</span>
+        <span class="bar-track" aria-hidden="true"><i class="done" style="width:29%"></i><i class="part" style="width:43%"></i><i class="todo" style="width:28%"></i></span>
+        <span class="progress-meta"><b>2</b>/7 done &nbsp;<span class="dot done"></span> &nbsp; <b>3</b> partial &nbsp;<span class="dot part"></span> &nbsp; <b>2</b> todo &nbsp;<span class="dot todo"></span></span>
+      </div>
+    </div>
+
+    <div class="title-right">
+      <div class="meta-cell">
+        <div class="meta-k">Quickshell</div>
+        <div class="meta-v">0.3.0-2.1 <span class="chip"><span class="dot done" style="width:6px;height:6px"></span> installed</span></div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-k">Waybar</div>
+        <div class="meta-v">0.15.0.r970 <small>waybar-git</small></div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-k">Compositor</div>
+        <div class="meta-v">Hyprland <small>· Wayland</small></div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-k">Outputs</div>
+        <div class="meta-v">DP-1 <small>full</small> &nbsp;·&nbsp; DP-2 <small>minimal</small></div>
+      </div>
+      <div class="meta-cell full">
+        <div class="meta-k">As-built note</div>
+        <div class="meta-v"><strong>Phases 0–1 complete</strong>; Phase 4 mostly complete (Media, Cpu, Audio, Notifications, PowerMenu — Tray outstanding); Phase 2 partial (Clock + Workspaces done and clickable — D10/D11; Cava pending); Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases 3 and 6 not started. See phase sheets &amp; module map.</div>
+      </div>
+      <div class="status-banner">
+        <span class="icon">!</span>
+        <span><b>Deviation log active:</b> barHeight 28 (not 24), Screens modelData/monitorName, Cpu via Process+StdioCollector, Audio via wpctl. Full inventory in Scope.</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="rail" id="rail" aria-label="Dossier index">
+      <div class="rail-section">
+        <p class="rail-label">Phases 0 – 6</p>
+        <ul>
+          <li><a href="#phase-0"><span class="num">0</span> Scaffold <span class="dot done"></span></a></li>
+          <li><a href="#phase-1"><span class="num">1</span> Theme foundation <span class="dot done"></span></a></li>
+          <li><a href="#phase-2"><span class="num">2</span> Clock · Workspaces · Cava <span class="dot part"></span></a></li>
+          <li><a href="#phase-3"><span class="num">3</span> Active window <span class="dot todo"></span></a></li>
+          <li><a href="#phase-4"><span class="num">4</span> Right cluster <span class="dot part"></span></a></li>
+          <li><a href="#phase-5"><span class="num">5</span> Multi-monitor <span class="dot part"></span></a></li>
+          <li><a href="#phase-6"><span class="num">6</span> Polish & cutover <span class="dot todo"></span></a></li>
+        </ul>
+      </div>
+      <div class="rail-divider"></div>
+      <div class="rail-section">
+        <p class="rail-label">Sections</p>
+        <ul class="toc-links">
+          <li><a href="#scope">Scope &amp; Decisions</a></li>
+          <li><a href="#structure">File structure</a></li>
+          <li><a href="#phases">Phases</a></li>
+          <li><a href="#modules">Module map</a></li>
+          <li><a href="#theme">Theme</a></li>
+          <li><a href="#monitors">Multi-monitor</a></li>
+          <li><a href="#interactions">Interactions</a></li>
+          <li><a href="#acceptance">Acceptance</a></li>
+          <li><a href="#risks">Risks</a></li>
+          <li><a href="#questions">Open questions</a></li>
+          <li><a href="#appendix">Commands</a></li>
+        </ul>
+      </div>
+      <div class="rail-footer">
+        <div class="k">Sheet control</div>
+        <div class="v">Source: ~/.config/waybar/config.jsonc, style.css, colors.css, toggle_audio.sh<br>Verify: /usr/lib/qt6/qml/Quickshell/</div>
+      </div>
+    </nav>
+
+    <main class="content">
+      <!-- SCOPE -->
+      <section id="scope">
+        <div class="section-head">
+          <span class="sec-num">01</span>
+          <h2>Scope &amp; Decisions</h2>
+        </div>
+        <p class="lead">Reproduce current Waybar behaviour – modules, layout, theme and interactions – then extend only where Quickshell is strictly better. One codebase, two outputs: <b>DP-1 full</b>, <b>DP-2 minimal</b>.</p>
+
+        <div class="dec-grid">
+          <div class="dec-card">
+            <h3>Accepted decisions <i>DEC</i></h3>
+            <ul>
+              <li>Entry: <code>~/.config/quickshell/shell.qml</code> (Quickshell default dir).</li>
+              <li>One codebase, instanced per-monitor via <code>Variants</code> + <code>Quickshell.screens</code>; DP-1 full bar, DP-2 clock + workspaces only.</li>
+              <li>Audio: native <code>Quickshell.Services.Pipewire</code> (matches wireplumber).</li>
+              <li>Audio sink cycle <code>JadeAudio → AB13X Dongle → Creative Pebble V3</code> reimplemented in QML, replacing <code>toggle_audio.sh</code>.</li>
+              <li>Cava: real QML rectangles (not unicode blocks) via <code>cava</code> subprocess raw output.</li>
+              <li>Notifications: keep swaync; shell out to <code>swaync-client</code> as today.</li>
+              <li>Power menu: keep rofi script <code>~/.config/rofi/powermenu/type-1/powermenu.sh</code>.</li>
+            </ul>
+          </div>
+          <div class="dec-card">
+            <h3>Assumptions <i class="ass">ASS</i></h3>
+            <ul>
+              <li>Installed QML modules cover every requirement – verified: Hyprland, Mpris, Pipewire, SystemTray, Io, Wayland, Notifications, IdleInhibitor.</li>
+              <li>Comfortable editing QML; learning curve is the main cost, not capability gaps.</li>
+              <li>Waybar remains installed in parallel until Quickshell is validated; cutover is final.</li>
+            </ul>
+            <div style="margin-top:.9rem; padding:.65rem .7rem; background:#0f1318; border:1px solid var(--border); border-radius:6px; font-size:12.5px; color:var(--text-dim); line-height:1.5">
+              <b style="color:var(--text)">Ground rule:</b> preserve exact palette values and waybar spacing truth; reconcile drift in the deviation log, not in prose.
+            </div>
+          </div>
+        </div>
+
+        <div class="deviation" role="note" aria-label="Deviations from original plan">
+          <div class="deviation-head">
+            <span class="badge">Δ</span>
+            <strong>Deviation log – observed in working config</strong>
+            <span>11 findings · updated 2026-08-22</span>
+          </div>
+          <div class="deviation-body">
+            <ul>
+              <li><span><b>D1 · Bar height is 28, not 24.</b> <code>Globals.barHeight = 28</code>; PanelWindow height is <code>barHeight + moduleMargin</code> so 4px top margin doesn’t clip modules.</span></li>
+              <li><span><b>D2 · Multi-monitor uses Quickshell.screens + modelData / monitorName</b> (Variants <code>model</code>), not the plan’s conceptual <code>qs.monitor</code>.</span></li>
+              <li><span><b>D3 · Right cluster gated by <code>idPanelWindow.monitorName === "DP-1"</code>;</b> left <code>Clock</code> + <code>Workspaces</code> on every monitor.</span></li>
+              <li><span><b>D4 · Cpu uses Process running <code>bash -c "grep '^cpu ' /proc/stat"</code> + StdioCollector</b>, not plan’s <code>FileView</code>. Equivalent.</span></li>
+              <li><span><b>D5 · Audio sink cycle uses <code>wpctl set-default</code> via Process</b> (plan fallback R2), not pure Pipewire API. Works against three named sinks.</span></li>
+              <li><span><b>D6 · Mpris module is named <code>Media.qml</code></b>, not <code>Mpris.qml</code>.</span></li>
+              <li><span><b>D7 · Notifications toggles only</b> (<code>swaync-client -t -sw</code>); plan’s count badge (<code>-swb</code>) not yet.</span></li>
+              <li><span><b>D8 · Workspaces.qml built and wired (was stub).</b> Persistent 5 per monitor via <code>Repeater</code>, monitor split DP-1 → 1–5 / DP-2 → 6–10; active = lavender + secondary bg, urgent = red, hover = text. Not yet created: <code>Cava.qml</code>, <code>ActiveWindow.qml</code>, <code>Tray.qml</code>.</span></li>
+              <li><span><b>D9 · Font size is 14px, not waybar’s 16px.</b> <code>Globals.fontPixelSize = 14</code> chosen for barHeight 28; deliberate, logged per ground rule.</span></li>
+              <li><span><b>D10 · ModuleBox grew two properties.</b> <code>enableMouseArea</code> (default <code>true</code>) disables the box-level click pane for modules with their own buttons — Workspaces sets it <code>false</code>, else the pane (<code>z:1</code>) swallows per-button clicks/hover. <code>horizontalPadding</code> replaces hard-coded padding so Workspaces can tighten to 5px.</span></li>
+              <li><span><b>D11 · Hyprland ≥ 0.56 IPC is Lua-evaluated.</b> Legacy dispatch strings fail: quickshell’s <code>Hyprland.dispatch("workspace N")</code> errors with <code>')' expected</code> (same for <code>hyprctl dispatch</code>). Working form used in Workspaces.qml: <code>Hyprland.dispatch("hl.dsp.focus({ workspace = N })")</code>. Revisit when quickshell ships native 0.56 IPC support.</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- STRUCTURE -->
+      <section id="structure">
+        <div class="section-head">
+          <span class="sec-num">02</span>
+          <h2>Target File Structure</h2>
+        </div>
+        <p class="lead">Small tree of QML files – each module isolated so a typo in <code>Audio.qml</code> doesn’t take down the clock. <code>shell.qml</code> wires them into per-monitor <code>PanelWindow</code>s.</p>
+
+        <div class="tree-wrap">
+          <div class="tree-head"><span class="dots"><i></i><i></i><i></i></span> ~/.config/quickshell – as-built</div>
+          <div class="tree-body">~/.config/quickshell/
+├── <b>AGENTS.md</b>                <span class="muted"># QML id naming conventions (root + id* prefix)</span>
+├── <b>bar-switch</b>               <span class="muted"># waybar ↔ quickshell toggle script</span>
+├── <b>shell.qml</b>                <span class="muted"># entry: Variants per monitor → PanelWindow + WlrLayerShell</span>
+├── config/
+│   ├── <b>Colors.qml</b>           <span class="muted"># color singleton (from colors/colors.css)</span>
+│   ├── <b>Globals.qml</b>          <span class="muted"># height, spacing, bar geometry</span>
+│   └── <b>qmldir</b>               <span class="muted"># singleton declarations for Colors &amp; Globals</span>
+├── components/
+│   └── <b>ModuleBox.qml</b>        <span class="muted"># rounded translucent wrapper (≈ waybar #module)</span>
+└── modules/
+    ├── <b>Clock.qml</b>            <span class="muted">left   (Timer + Text)</span>                               <span class="ok">● done</span>
+    ├── <b>Workspaces.qml</b>       <span class="muted">left   (Repeater · Hyprland, Lua dispatch D11)</span>      <span class="ok">● done</span>
+    ├── <b>Media.qml</b>            <span class="muted">right  (Quickshell.Services.Mpris)</span>                  <span class="ok">● done  [plan: Mpris.qml]</span>
+    ├── <b>Cpu.qml</b>              <span class="muted">right  (/proc/stat via Process + StdioCollector)</span>    <span class="ok">● done</span>
+    ├── <b>Audio.qml</b>            <span class="muted">right  (Pipewire default sink + wpctl cycle)</span>        <span class="ok">● done</span>
+    ├── <b>Notifications.qml</b>    <span class="muted">right  (swaync-client -t -sw via Process)</span>          <span class="ok">● done</span>
+    └── <b>PowerMenu.qml</b>        <span class="muted">right  (Process → rofi powermenu script)</span>           <span class="ok">● done</span>
+    <span class="muted"># NOT YET CREATED (D8): Cava.qml, ActiveWindow.qml, Tray.qml</span>
+    <span class="muted"># also present: firstshell.qml (earlier prototype) · plans/ (this dossier)</span></div>
+          <div class="tree-note"><b>Why split?</b> Quickshell compiles each QML file separately; isolating modules makes acceptance checks per-module and keeps the bar resilient.</div>
+        </div>
+      </section>
+
+      <!-- PHASES -->
+      <section id="phases">
+        <div class="section-head">
+          <span class="sec-num">03</span>
+          <h2>Implementation Phases</h2>
+        </div>
+        <p class="lead">Each phase is independently runnable. Validate at the end of every phase before moving on. Status reflects the working tree on 2026-08-21.</p>
+
+        <div class="phases">
+          <article class="phase" id="phase-0">
+            <div class="phase-head">
+              <span class="phase-num">00</span>
+              <h3>Scaffold &amp; dev loop <small>Variants · PanelWindow · exclusive zone</small></h3>
+              <span class="badge done">● Done</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li>Create <code>~/.config/quickshell/</code> and <code>shell.qml</code> with an empty <code>Scope</code> root.</li>
+                <li>Inside <code>Variants</code>, define one <code>PanelWindow</code> anchored top, full width, height <code>28 + margin</code>, exclusive zone via <code>WlrLayerShell</code>.</li>
+                <li>Print <code>screen.name</code> to confirm DP-1 / DP-2 resolution.</li>
+                <li>Establish run/kill loop (see Commands) and watch stderr for QML errors.</li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>Empty translucent bar on each monitor; no QML errors; kill/restart clean.</span></div>
+            </div>
+          </article>
+
+          <article class="phase" id="phase-1">
+            <div class="phase-head">
+              <span class="phase-num">01</span>
+              <h3>Theme foundation <small>Colors · Globals · ModuleBox</small></h3>
+              <span class="badge done">● Done</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li><code>config/Colors.qml</code> exposes 9 palette colors as QML properties – exact hex/rgba from <code>colors.css</code>.</li>
+                <li><code>config/Globals.qml</code> – <code>barHeight</code> 28, <code>spacing</code> 4, <code>modulePadding</code> 12, <code>moduleMargin</code> 4, <code>horizontalBarMargin</code> 15, <code>radius</code> 5, <code>fontPixelSize</code> 14, <code>Iosevka</code>.</li>
+                <li><code>components/ModuleBox.qml</code> – <code>Rectangle</code> radius 5, <code>Colors.background</code>, padding <code>0 12px</code>, margin <code>4 2</code> – mirroring waybar <code>#module</code>.</li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>Placeholder ModuleBox renders with correct background, radius and spacing; palette matches <code>colors.css</code>.</span></div>
+            </div>
+          </article>
+
+          <article class="phase" id="phase-2">
+            <div class="phase-head">
+              <span class="phase-num">02</span>
+              <h3>Left cluster: Clock, Workspaces, Cava</h3>
+              <span class="badge part">◐ Partial</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li><b>Clock.qml</b> – <code>Timer</code> polling 1s, <code>Qt.formatDateTime(new Date(), "dd.MM HH:mm")</code> (24-hour, mirrors waybar <code>%H:%M</code>); lavender; max 25 chars. <span class="mini done">● Done</span></li>
+                <li><b>Workspaces.qml</b> – bind to <code>Quickshell.Hyprland</code>; persistent 5 per monitor via <code>Repeater</code> (<code>model: 5</code>), monitor split DP-1 → 1–5 / DP-2 → 6–10; active = lavender + secondary bg, urgent = red, hover = text; left-click focuses (Lua dispatch, D11); right-click no-op (waybar parity — plan’s urgent-toggle dropped). Event-driven refresh via <code>Hyprland.rawEvent</code>. <span class="mini done">● Done</span></li>
+                <li><b>Cava.qml</b> – <code>Process</code> running <code>cava</code> with temp raw config (method=raw, 16-bit, pipewire, 14 bars, 50–10000 cutoffs, 0.77 noise); parse frames into <code>Repeater</code> of <code>Rectangle</code> bars; hide on silence via threshold; right-click cycles cava’s rendering mode (mirrors waybar <code>on-click-right: "mode"</code>). <span class="mini todo">○ Todo</span></li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>Clock ticks each minute; workspaces reflect Hyprland with active highlight; cava animates and hides on silence.</span></div>
+            </div>
+          </article>
+
+          <article class="phase" id="phase-3">
+            <div class="phase-head">
+              <span class="phase-num">03</span>
+              <h3>Center: Active window</h3>
+              <span class="badge todo">○ Not started</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li><b>ActiveWindow.qml</b> – bind to focused client <code>title</code> from <code>Quickshell.Hyprland</code>; show on every bar (all-outputs); truncate to 40 chars.</li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>Center shows focused window title, updates on focus change, truncates long titles.</span></div>
+            </div>
+          </article>
+
+          <article class="phase" id="phase-4">
+            <div class="phase-head">
+              <span class="phase-num">04</span>
+              <h3>Right cluster: Mpris, Cpu, Audio, Notifications, Tray, PowerMenu</h3>
+              <span class="badge part">◐ Partial</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li><b>Mpris.qml</b> (as <code>Media.qml</code>) – <code>Quickshell.Services.Mpris</code>; show <code>status_icon</code> (▶/⏸/⏹) + title/artist ≤40; <code>ignored-players: ["firefox"]</code>; playing = lavender bg / dark text. <span class="mini done">● Done</span></li>
+                <li><b>Cpu.qml</b> – <code>Process</code> + <code>Timer</code> (≈1–2s) delta usage; format <code>{usage}% </code>; tooltip true. <span class="mini done">● Done</span></li>
+                <li><b>Audio.qml</b> – <code>Quickshell.Services.Pipewire</code> default sink: volume %, mute, bluetooth. Left-click cycles three named sinks via <code>wpctl set-default</code> (D5, replaces <code>toggle_audio.sh</code>). Right-click → <code>pavucontrol</code>. Waybar’s scroll-to-adjust volume (±5%) intentionally not ported yet. <span class="mini done">● Done</span></li>
+                <li><b>Notifications.qml</b> – as built: click → <code>swaync-client -t -sw</code>, toggle only (D7); original <code>-swb</code> count badge not yet ported. <span class="mini done">● Done</span></li>
+                <li><b>Tray.qml</b> – <code>Quickshell.Services.SystemTray</code> StatusNotifier items; icon ≈14, spacing 10. <span class="mini todo">○ Todo</span></li>
+                <li><b>PowerMenu.qml</b> – icon only; click → <code>Process</code> running rofi powermenu script (absolute path — see Interactions). <span class="mini done">● Done</span></li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>Each right-module matches waybar: media track, cpu %, volume cycles sinks, swaync toggles, tray lists apps, powermenu opens rofi.</span></div>
+            </div>
+          </article>
+
+          <article class="phase" id="phase-5">
+            <div class="phase-head">
+              <span class="phase-num">05</span>
+              <h3>Multi-monitor wiring</h3>
+              <span class="badge part">◐ Partial</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li>Gate visibility on <code>idPanelWindow.monitorName</code>: DP-1 → full bar; DP-2 → Clock + Workspaces only. <span class="mini done">● Done</span></li>
+                <li>Map persistent workspaces: DP-1 → 1–5, <b>DP-2 → 6–10</b>. Waybar’s config names <code>HDMI-A-2</code> here — stale entry, no such output on this machine (hyprctl shows DP-1/DP-2); don’t inherit it. <span class="mini done">● Done</span></li>
+                <li>Verify hotplug: unplug/replug and confirm <code>Variants</code> recreates bar without crash — explicit test; acceptance #7 stays “untested” until run. <span class="mini todo">○ Todo</span></li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>DP-1 complete bar; DP-2 only clock + workspaces; hotplug handled gracefully.</span></div>
+            </div>
+          </article>
+
+          <article class="phase" id="phase-6">
+            <div class="phase-head">
+              <span class="phase-num">06</span>
+              <h3>Polish &amp; cutover</h3>
+              <span class="badge todo">○ Not started</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li>Hover transitions (module bg on hover), smooth cava bar easing.</li>
+                <li>Side-by-side compare with waybar; reconcile visual drift (spacing, radius, color).</li>
+                <li>Replace Hyprland autostart entry with <code>quickshell</code>; stop waybar.</li>
+                <li><b>Rollback:</b> <code>~/.config/quickshell/bar-switch waybar</code> restores waybar instantly; until the autostart swap, a reboot also returns to waybar.</li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>Matches or exceeds waybar visually and behaviourally; waybar disabled; restart brings only Quickshell.</span></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- MODULE MAP -->
+      <section id="modules">
+        <div class="section-head">
+          <span class="sec-num">04</span>
+          <h2>Module Migration Map</h2>
+        </div>
+        <div class="table-wrap">
+          <div class="table-head"><span>Waybar → Quickshell source</span><span style="font-size:10px; letter-spacing:.06em; text-transform:none; color:var(--text-faint)">11 modules</span></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Waybar module</th><th>Quickshell source</th><th>Mapping</th><th>Notes</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><code>clock</code></td><td>QML Text + Timer</td><td>Direct</td><td>Format dd.MM HH:mm (24h), 1s poll</td><td><span class="mini done">● Done</span></td></tr>
+                <tr><td><code>hyprland/workspaces</code></td><td>Quickshell.Hyprland</td><td>Direct</td><td>Persistent 5/mon via Repeater, DP-1 (1–5) / DP-2 (6–10), Lua dispatch (D11)</td><td><span class="mini done">● Done</span></td></tr>
+                <tr><td><code>cava</code></td><td>Process (cava raw) + Repeater</td><td>Upgrade</td><td>Real rectangles vs unicode; pipewire</td><td><span class="mini todo">○ Not started</span></td></tr>
+                <tr><td><code>hyprland/window</code></td><td>Quickshell.Hyprland focused client</td><td>Direct</td><td>Title, truncate 40</td><td><span class="mini todo">○ Not started</span></td></tr>
+                <tr><td><code>mpris</code></td><td>Quickshell.Services.Mpris</td><td>Direct</td><td>Status icons, ignore firefox – as Media.qml</td><td><span class="mini done">● Done</span></td></tr>
+                <tr><td><code>cpu</code></td><td>Process (bash grep /proc/stat)</td><td>Direct</td><td>JS delta; deviates from FileView</td><td><span class="mini done">● Done</span></td></tr>
+                <tr><td><code>wireplumber</code></td><td>Quickshell.Services.Pipewire</td><td>Direct</td><td>Vol/mute, wpctl set-default cycle</td><td><span class="mini done">● Done</span></td></tr>
+                <tr><td><code>custom/notification</code></td><td>Process → swaync-client</td><td>Direct</td><td>Toggle only (-t -sw), no badge yet</td><td><span class="mini done">● Done</span></td></tr>
+                <tr><td><code>tray</code></td><td>Quickshell.Services.SystemTray</td><td>Direct</td><td>StatusNotifier items</td><td><span class="mini todo">○ Not started</span></td></tr>
+                <tr><td><code>custom/powermenu</code></td><td>Process → rofi script</td><td>Direct</td><td>Unchanged script</td><td><span class="mini done">● Done</span></td></tr>
+                <tr><td><code>idle_inhibitor</code> <small>(defined, unused)</small></td><td>Quickshell.Wayland._IdleInhibitor</td><td>Optional</td><td>Private API (<code>_IdleInhibitor</code>) — works today, may shift between releases</td><td><span class="mini todo">○ Not started</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- THEME -->
+      <section id="theme">
+        <div class="section-head">
+          <span class="sec-num">05</span>
+          <h2>Theme Translation</h2>
+        </div>
+        <p class="lead">GTK <code>@define-color</code> tokens become a QML singleton. No behaviour change – exact values preserved. Font stays Iosevka (icon glyphs render in QML Text unchanged).</p>
+        <div class="theme-grid">
+          <div>
+            <div class="table-wrap">
+              <div class="table-head"><span>Token – QML</span><span>Original CSS</span></div>
+              <div class="table-scroll">
+                <table style="min-width:0">
+                  <thead><tr><th>Token</th><th>Value</th><th>Usage</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>@background</code></td><td><code>rgba(20,17,24,0.95)</code></td><td>Module boxes, bar bg</td></tr>
+                    <tr><td><code>@background-secondary</code></td><td><code>#27222f</code></td><td>Active workspace, hover</td></tr>
+                    <tr><td><code>@text</code></td><td><code>#cac4d4</code></td><td>Primary text</td></tr>
+                    <tr><td><code>@text-secondary</code></td><td><code>#4f455f</code></td><td>Inactive, muted</td></tr>
+                    <tr><td><code>@purple</code></td><td><code>#a980db</code></td><td>Pulseaudio → Audio</td></tr>
+                    <tr><td><code>@red</code></td><td><code>#ff5252</code></td><td>Urgent</td></tr>
+                    <tr><td><code>@yellow</code></td><td><code>#d7d370</code></td><td>Reserved</td></tr>
+                    <tr><td><code>@lavender</code></td><td><code>#b4befe</code></td><td>Clock, active, mpris playing</td></tr>
+                    <tr><td><code>@surface</code></td><td><code>#282936</code></td><td>Reserved</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="swatches">
+              <div class="swatch"><i style="background: rgba(20,17,24,0.95)"></i><div class="meta"><div class="k">@background</div><div class="v">rgba(20,17,24,.95)</div><div class="u">Module bg</div></div></div>
+              <div class="swatch"><i style="background:#27222f"></i><div class="meta"><div class="k">@bg-secondary</div><div class="v">#27222f</div><div class="u">Active / hover</div></div></div>
+              <div class="swatch"><i style="background:#cac4d4"></i><div class="meta"><div class="k">@text</div><div class="v">#cac4d4</div><div class="u">Primary</div></div></div>
+              <div class="swatch"><i style="background:#a980db"></i><div class="meta"><div class="k">@purple</div><div class="v">#a980db</div><div class="u">Audio</div></div></div>
+              <div class="swatch"><i style="background:#b4befe"></i><div class="meta"><div class="k">@lavender</div><div class="v">#b4befe</div><div class="u">Clock, active</div></div></div>
+              <div class="swatch"><i style="background:#ff5252"></i><div class="meta"><div class="k">@red</div><div class="v">#ff5252</div><div class="u">Urgent</div></div></div>
+            </div>
+            <div class="geom-card">
+              <h4>Geometry – as-built</h4>
+              <div class="geom-grid">
+                <div class="geom-item"><b>28</b><span>barHeight</span></div>
+                <div class="geom-item"><b>4</b><span>spacing</span></div>
+                <div class="geom-item"><b>5</b><span>radius</span></div>
+                <div class="geom-item"><b>12</b><span>modulePad</span></div>
+                <div class="geom-item"><b>4</b><span>moduleMarg</span></div>
+                <div class="geom-item"><b>15</b><span>hBarMargin</span></div>
+              </div>
+              <div class="geom-note">PanelWindow height = <code>barHeight + moduleMargin</code> so the 4px top margin doesn’t clip the 28px modules. Radius, padding and margins mirror waybar <code>#module</code> rules.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MONITORS -->
+      <section id="monitors">
+        <div class="section-head">
+          <span class="sec-num">06</span>
+          <h2>Multi-Monitor Strategy</h2>
+        </div>
+        <p class="lead">Waybar uses two separate bar objects; Quickshell uses one <code>Variants</code> block that instantiates the panel once per connected monitor. Hotplug is automatic – Variants recreates instances when the monitor set changes.</p>
+
+        <div class="monitor-wrap">
+          <div class="monitor-head">Outputs – actual wiring <span style="margin-left:auto; text-transform:none; letter-spacing:.02em; font-size:11px; color:var(--text-dim)">Quickshell.screens modelData → monitorName</span></div>
+          <div class="monitor-grid">
+            <div class="monitor">
+              <div class="label"><i></i> DP-1 – Full bar</div>
+              <div class="bar-preview" aria-hidden="true">
+                <span class="accent">Clock</span>
+                <span>WS</span><span>Cava</span>
+                <span class="spacer"></span>
+                <span>Media</span><span>Audio</span><span>Cpu</span><span>Notif</span><span>Pow</span>
+              </div>
+              <p>Shows every built module. Right cluster visible only when <code>idPanelWindow.monitorName === "DP-1"</code>. Future: ActiveWindow in center, Cava on left.</p>
+            </div>
+            <div class="monitor">
+              <div class="label"><i class="muted"></i> DP-2 – Minimal</div>
+              <div class="bar-preview" aria-hidden="true">
+                <span class="accent">Clock</span>
+                <span>WS 6–10</span>
+                <span class="spacer"></span>
+                <span style="opacity:.28">– – –</span>
+              </div>
+              <p>Right cluster hidden. Clock + Workspaces live as planned; Workspaces shows 6–10 via the monitor split (D8).</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-head"><span class="dots"><i></i><i></i><i></i></span> shell.qml – actual</div>
+          <pre class="code-body"><span class="kw">pragma ComponentBehavior:</span> <span class="str">Bound</span>
+
+<span class="kw">import</span> <span class="str">Quickshell</span>
+<span class="kw">import</span> <span class="str">QtQuick</span>
+<span class="kw">import</span> <span class="str">QtQuick.Layouts</span>
+<span class="kw">import</span> <span class="str">"config"</span>
+<span class="kw">import</span> <span class="str">"modules"</span>
+
+<span class="kw">ShellRoot</span> {
+  <span class="kw">id:</span> root
+
+  <span class="kw">Variants</span> {
+    <span class="kw">id:</span> idScreenVariants
+    <span class="kw">model:</span> <span class="str">Quickshell.screens</span>
+
+    <span class="cmt">// qmllint disable uncreatable-type</span>
+    <span class="kw">PanelWindow</span> {
+      <span class="kw">id:</span> idPanelWindow
+
+      <span class="kw">required property var</span> modelData
+      <span class="kw">screen:</span> modelData
+      <span class="kw">property string</span> monitorName: modelData.name
+
+      <span class="kw">anchors.top:</span> <span class="str">true</span>
+      <span class="kw">anchors.left:</span> <span class="str">true</span>
+      <span class="kw">anchors.right:</span> <span class="str">true</span>
+      <span class="kw">implicitHeight:</span> Globals.barHeight + Globals.moduleMargin
+      <span class="kw">color:</span> <span class="str">"transparent"</span>
+
+      <span class="kw">RowLayout</span> {
+        <span class="kw">id:</span> idBarLayout
+        <span class="kw">anchors.fill:</span> parent
+        <span class="kw">anchors.leftMargin:</span> Globals.horizontalBarMargin
+        <span class="kw">anchors.rightMargin:</span> Globals.horizontalBarMargin
+        <span class="kw">anchors.topMargin:</span> Globals.moduleMargin
+        <span class="kw">spacing:</span> Globals.moduleMargin
+
+        <span class="cmt">// Left cluster</span>
+        <span class="str">Clock</span> {}
+        <span class="str">Workspaces</span> {
+          <span class="kw">monitorName:</span> idPanelWindow.monitorName
+        }
+
+        <span class="kw">Item</span> {
+          <span class="kw">id:</span> idSpacer
+          <span class="kw">Layout.fillWidth:</span> <span class="str">true</span>
+        }
+
+        <span class="cmt">// Right cluster (full bar only)</span>
+        <span class="str">Media</span> {
+          <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
+        }
+        <span class="str">Audio</span> {
+          <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
+        }
+        <span class="str">Cpu</span> {
+          <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
+        }
+        <span class="str">Notifications</span> {
+          <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
+        }
+        <span class="str">PowerMenu</span> {
+          <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
+        }
+      }
+    }
+  }
+}</pre>
+        </div>
+      </section>
+
+      <!-- INTERACTIONS -->
+      <section id="interactions">
+        <div class="section-head">
+          <span class="sec-num">07</span>
+          <h2>Interactions &amp; Click Handlers</h2>
+        </div>
+        <div class="table-wrap interactions">
+          <div class="table-head"><span>Element → Action → Implementation</span></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Element</th><th>Action</th><th>Implementation</th></tr></thead>
+              <tbody>
+                <tr><td>Audio (left)</td><td>Cycle sink: JadeAudio → AB13X Dongle → Pebble V3</td><td>Match sink in <code>Pipewire.nodes</code>, then <code>wpctl set-default</code> via Process (D5 — replaces <code>toggle_audio.sh</code>)</td></tr>
+                <tr><td>Audio (right)</td><td>Open pavucontrol</td><td><code>Process { command: ["pavucontrol"] }</code></td></tr>
+                <tr><td>Cava (right)</td><td>Cycle cava rendering mode</td><td>Signal the cava <code>Process</code> / flip QML state</td></tr>
+                <tr><td>Workspaces (left)</td><td>Focus workspace</td><td><code>Hyprland.dispatch("hl.dsp.focus({ workspace = N })")</code> — Lua form required on Hyprland ≥ 0.56, legacy <code>"workspace N"</code> fails (D11). Right-click: no-op</td></tr>
+                <tr><td>Mpris (click)</td><td>Play / pause (optional)</td><td><code>player.playPause()</code></td></tr>
+                <tr><td>Notifications</td><td>Toggle swaync</td><td><code>Process { command: ["swaync-client","-t","-sw"] }</code></td></tr>
+                <tr><td>PowerMenu</td><td>Open menu</td><td><code>Process { command: ["/home/alexiz/.config/rofi/powermenu/type-1/powermenu.sh"] }</code> — absolute path required: <code>Process</code> runs no shell, so <code>~</code> won’t expand</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ACCEPTANCE -->
+      <section id="acceptance">
+        <div class="section-head">
+          <span class="sec-num">08</span>
+          <h2>Acceptance Criteria</h2>
+        </div>
+        <div class="accept-list">
+          <div class="accept-item">
+            <span class="n">1</span>
+            <p><b>DP-1 bar order:</b> Clock, Workspaces, [Cava missing], [ActiveWindow missing], Mpris (Media), Cpu, Audio, Notifications, [Tray missing], PowerMenu – functional where present.</p>
+            <span class="badge part state">◐ Partial</span>
+          </div>
+          <div class="accept-item">
+            <span class="n">2</span>
+            <p><b>DP-2:</b> shows Clock + Workspaces (6–10) as planned; right cluster gated to DP-1. Matches the plan’s minimal-bar target.</p>
+            <span class="badge done state">● Done</span>
+          </div>
+          <div class="accept-item">
+            <span class="n">3</span>
+            <p><b>Theme parity:</b> same palette, rounded boxes radius 5, height 28, spacing 4, Iosevka. Palette/boxes done; full side-by-side compare pending (Phase 6).</p>
+            <span class="badge part state">◐ Partial</span>
+          </div>
+          <div class="accept-item">
+            <span class="n">4</span>
+            <p><b>Audio:</b> left-click cycles three named sinks via <code>wpctl set-default</code> (D5); right-click opens pavucontrol.</p>
+            <span class="badge done state">● Done</span>
+          </div>
+          <div class="accept-item">
+            <span class="n">5</span>
+            <p><b>Cava:</b> uses pipewire, hides on silence, animates as real bars.</p>
+            <span class="badge todo state">○ Not started</span>
+          </div>
+          <div class="accept-item">
+            <span class="n">6</span>
+            <p><b>Mpris / Cpu / swaync / Tray:</b> Media reflects track/status, Cpu % updates, swaync toggles; Tray lists apps – not built.</p>
+            <span class="badge part state">◐ Partial</span>
+          </div>
+          <div class="accept-item">
+            <span class="n">7</span>
+            <p><b>Hotplug:</b> Variants recreates bars without crash – test defined in Phase 5; not yet run.</p>
+            <span class="badge neutral state">○ Untested</span>
+          </div>
+          <div class="accept-item">
+            <span class="n">8</span>
+            <p><b>Cutover:</b> waybar can be stopped with no loss; session restart launches only Quickshell.</p>
+            <span class="badge todo state">○ Not started</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- RISKS -->
+      <section id="risks">
+        <div class="section-head">
+          <span class="sec-num">09</span>
+          <h2>Risks &amp; Mitigations</h2>
+        </div>
+        <div class="risk-grid">
+          <div class="risk">
+            <span class="rnum">R1</span>
+            <div><h4>QML learning curve <em>· JSON+CSS → QML</em></h4><p><b>Risk:</b> Waybar is JSON+CSS; Quickshell is QML. <b>Mitigation:</b> build module-by-module with per-phase validation; reuse <code>ModuleBox</code> so styling is written once.</p></div>
+          </div>
+          <div class="risk">
+            <span class="rnum">R2</span>
+            <div><h4>Pipewire property names <em>· API drift</em></h4><p><b>Risk:</b> Exact sink/volume API may differ from assumption. <b>Mitigation:</b> inspect <code>/usr/lib/qt6/qml/Quickshell/Services/Pipewire/quickshell-service-pipewire.qmltypes</code> before Audio.qml; fallback to <code>wpctl</code> via Process if needed.</p></div>
+          </div>
+          <div class="risk">
+            <span class="rnum">R3</span>
+            <div><h4>cava raw parsing <em>· framing</em></h4><p><b>Risk:</b> Raw 16-bit framing must match subprocess config. <b>Mitigation:</b> reuse framing logic proven in <code>cava_module.py</code> (chunk = 2 × bars, struct unpack).</p></div>
+          </div>
+          <div class="risk">
+            <span class="rnum">R4</span>
+            <div><h4>Theme fidelity <em>· GTK → QML</em></h4><p><b>Risk:</b> GTK CSS nuances (tray icon effects) may not translate 1:1. <b>Mitigation:</b> pixel-compare during Phase 6; accept minor tray-effect differences.</p></div>
+          </div>
+          <div class="risk">
+            <span class="rnum">R5</span>
+            <div><h4>swaync coupling <em>· external dep</em></h4><p><b>Risk:</b> Keeping swaync adds one external dependency. <b>Mitigation:</b> unchanged from today → low risk; native Notifications daemon is optional later swap (see Q1).</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUESTIONS -->
+      <section id="questions">
+        <div class="section-head">
+          <span class="sec-num">10</span>
+          <h2>Open Questions</h2>
+        </div>
+        <div class="q-list">
+          <details class="q">
+            <summary>Q1 – Keep swaync or switch to Quickshell’s native notification daemon?</summary>
+            <div class="q-body">Plan assumes keeping swaync (zero behaviour change). <code>Quickshell.Services.Notifications</code> can replace swaync entirely, removing a dependency and enabling richer in-bar notifications – but it changes the notification backend. Decide before Phase 4 if you want to attempt the native path.</div>
+          </details>
+          <details class="q">
+            <summary>Q2 – Cava via subprocess, or native Pipewire spectrum?</summary>
+            <div class="q-body">Plan assumes a <code>cava</code> subprocess feeding raw frames to a QML <code>Repeater</code>. Quickshell’s Pipewire service may expose per-channel levels directly, removing the subprocess. Subprocess is lower-risk and matches current behaviour; evaluate native levels only if you want to drop the cava dependency.</div>
+          </details>
+          <details class="q">
+            <summary>Q3 – Exact visual parity vs. deliberate improvement?</summary>
+            <div class="q-body">Target parity first (same look/feel). Once met, extensions – animated cava easing, hover transitions, per-sink labels – are low-risk additions in Phase 6. Confirm whether you want strictly faithful or “faithful then enhance”.</div>
+          </details>
+          <details class="q">
+            <summary>Q4 – Autostart cutover timing?</summary>
+            <div class="q-body">Keep both running in parallel through validation (Phases 0–5), then swap the Hyprland autostart entry in Phase 6. Confirm comfort with two bars briefly, or prefer an immediate single-bar cutover.</div>
+          </details>
+        </div>
+      </section>
+
+      <!-- APPENDIX -->
+      <section id="appendix">
+        <div class="section-head">
+          <span class="sec-num">11</span>
+          <h2>Appendix – Commands</h2>
+        </div>
+        <div class="cmd-grid">
+          <div class="cmd-card">
+            <div class="cmd-card-head">Run &amp; kill</div>
+            <pre># Run (loads ~/.config/quickshell/shell.qml)
+quickshell
+
+# Specific file
+quickshell --config ~/.config/quickshell/shell.qml
+
+# Kill
+pkill -f quickshell
+
+# Logs (QML errors → stderr)
+quickshell 2&gt;&amp;1 | less</pre>
+          </div>
+          <div class="cmd-card">
+            <div class="cmd-card-head">Verify modules &amp; Pipewire API</div>
+            <pre>ls /usr/lib/qt6/qml/Quickshell/Services/
+# Pipewire, Mpris, SystemTray, Notifications …
+
+ls /usr/lib/qt6/qml/Quickshell/Hyprland/
+ls /usr/lib/qt6/qml/Quickshell/Wayland/
+# _IdleInhibitor, _WlrLayerShell …
+
+# Inspect Audio API before writing Audio.qml
+cat /usr/lib/qt6/qml/Quickshell/Services/Pipewire/quickshell-service-pipewire.qmltypes</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>Derived from <code>~/.config/waybar/config.jsonc</code>, <code>style.css</code>, <code>colors/colors.css</code>, <code>scripts/toggle_audio.sh</code> · Module availability verified against <code>/usr/lib/qt6/qml/Quickshell/</code> on this system.</span>
+    <span><a href="#top">Back to top ↑</a></span>
+  </footer>
+
+  <button class="mobile-toggle" id="mobileToggle" aria-expanded="false" aria-controls="rail"><i></i> Index</button>
+
+<script>
+  // Rail active state & navigation
+  const rail = document.getElementById('rail');
+  const toggle = document.getElementById('mobileToggle');
+
+  function closeMobileRail() {
+    if (window.innerWidth <= 980 && rail && toggle) {
+      rail.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.innerHTML = '<i></i> Index';
+    }
+  }
+
+  if (toggle && rail) {
+    toggle.addEventListener('click', () => {
+      rail.classList.toggle('open');
+      const open = rail.classList.contains('open');
+      toggle.setAttribute('aria-expanded', open);
+      toggle.innerHTML = open ? '<i></i> Close' : '<i></i> Index';
+    });
+  }
+
+  const phaseLinks = [...document.querySelectorAll('.rail-section:first-child a[href^="#phase-"]')];
+  const sectionLinks = [...document.querySelectorAll('.rail .toc-links a[href^="#"]')];
+
+  const phaseTargets = phaseLinks.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const sectionTargets = sectionLinks.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const phasesSection = document.getElementById('phases');
+
+  let spyLock = false;
+  let spyLockTimer = null;
+
+  function lockSpy(duration = 800) {
+    spyLock = true;
+    clearTimeout(spyLockTimer);
+    spyLockTimer = setTimeout(() => {
+      spyLock = false;
+      updateActiveNav();
+    }, duration);
+  }
+
+  function updateActiveNav() {
+    if (spyLock) return;
+
+    const scrollY = window.scrollY;
+    const viewportHeight = window.innerHeight;
+    const docHeight = document.documentElement.scrollHeight;
+    const isBottom = scrollY + viewportHeight >= docHeight - 30;
+
+    // 1. Determine active section (lower rail)
+    let currentSection = null;
+    if (isBottom && sectionTargets.length > 0) {
+      currentSection = sectionTargets[sectionTargets.length - 1];
+    } else {
+      const SECTION_OFFSET = 100;
+      for (let i = 0; i < sectionTargets.length; i++) {
+        const rect = sectionTargets[i].getBoundingClientRect();
+        if (rect.top <= SECTION_OFFSET && rect.bottom > SECTION_OFFSET) {
+          currentSection = sectionTargets[i];
+          break;
+        }
+      }
+      if (!currentSection && sectionTargets.length > 0) {
+        for (let i = sectionTargets.length - 1; i >= 0; i--) {
+          if (sectionTargets[i].getBoundingClientRect().top <= SECTION_OFFSET) {
+            currentSection = sectionTargets[i];
+            break;
+          }
+        }
+      }
+    }
+
+    const currentSectionId = currentSection ? currentSection.id : null;
+    sectionLinks.forEach(l => {
+      l.classList.toggle('active', currentSectionId !== null && l.getAttribute('href') === '#' + currentSectionId);
+    });
+
+    // 2. Determine active phase (upper rail)
+    const isInsidePhases = currentSectionId === 'phases' || (phasesSection && (() => {
+      const pRect = phasesSection.getBoundingClientRect();
+      return pRect.top <= 100 && pRect.bottom > 100;
+    })());
+
+    if (!isInsidePhases) {
+      phaseLinks.forEach(l => l.classList.remove('active'));
+    } else {
+      let currentPhase = null;
+      const PHASE_OFFSET = 100;
+      for (let i = phaseTargets.length - 1; i >= 0; i--) {
+        const rect = phaseTargets[i].getBoundingClientRect();
+        if (rect.top <= PHASE_OFFSET) {
+          currentPhase = phaseTargets[i];
+          break;
+        }
+      }
+      if (!currentPhase && phaseTargets.length > 0) {
+        currentPhase = phaseTargets[0];
+      }
+
+      const currentPhaseId = currentPhase ? currentPhase.id : null;
+      phaseLinks.forEach(l => {
+        l.classList.toggle('active', currentPhaseId !== null && l.getAttribute('href') === '#' + currentPhaseId);
+      });
+    }
+  }
+
+  // Phase clicks (upper rail)
+  phaseLinks.forEach(l => {
+    l.addEventListener('click', () => {
+      phaseLinks.forEach(x => x.classList.toggle('active', x === l));
+      sectionLinks.forEach(x => x.classList.toggle('active', x.getAttribute('href') === '#phases'));
+      lockSpy(800);
+      closeMobileRail();
+    });
+  });
+
+  // Section clicks (lower rail)
+  sectionLinks.forEach(l => {
+    l.addEventListener('click', () => {
+      sectionLinks.forEach(x => x.classList.toggle('active', x === l));
+      const targetHref = l.getAttribute('href');
+      if (targetHref === '#phases') {
+        phaseLinks.forEach((x, idx) => x.classList.toggle('active', idx === 0));
+      } else {
+        phaseLinks.forEach(x => x.classList.remove('active'));
+      }
+      lockSpy(800);
+      closeMobileRail();
+    });
+  });
+
+  window.addEventListener('scroll', updateActiveNav, { passive: true });
+  updateActiveNav();
+</script>
+</body>
+</html>
