@@ -15,6 +15,7 @@ Rectangle {
     property int horizontalPadding: Globals.modulePadding
 
     signal clicked(var mouse)
+    signal wheelMoved(var wheel)
 
     // When true (default) the whole box is one click target.
     // Set false for containers with their own interactive children
@@ -39,6 +40,8 @@ Rectangle {
         anchors.fill: parent
         enabled: root.enableMouseArea
         z: 1
+
         onClicked: mouse => root.clicked(mouse)
+        onWheel: wheel => root.wheelMoved(wheel)
     }
 }

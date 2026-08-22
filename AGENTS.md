@@ -93,6 +93,8 @@ Timer { id: idMediaTimer }
 
 For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
 
+For current context on the project, refer to plans/quickshell-migration.html
+
 ### Notes
 
 - Keep ids **understandable at a glance** — a reader should know the module and purpose without reading surrounding code.

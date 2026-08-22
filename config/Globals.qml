@@ -9,8 +9,6 @@ QtObject {
     readonly property int moduleMargin: 4
     readonly property int horizontalBarMargin: 15
     readonly property int radius: 5
-    readonly property int fontPixelSize: 14
+    readonly property int fontPixelSize: 16
     readonly property string fontFamily: "Iosevka"
-
-    readonly property color backgroundColor: "#141118" // rgba(20,17,24,0.95)
 }

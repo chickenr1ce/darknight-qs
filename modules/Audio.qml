@@ -12,28 +12,27 @@ ModuleBox {
 
     property var defaultSink: Pipewire.defaultAudioSink
 
-    Text {
-        id: idAudioLabel
-
-        color: Colors.lavender
-        font.family: Globals.fontFamily
-        font.pixelSize: Globals.fontPixelSize
-        font.weight: Font.DemiBold
-        text: {
-            if (!root.defaultSink || !root.defaultSink.audio)
-                return "";
-            const audio = root.defaultSink.audio;
-            const volumePercent = isNaN(audio.volume) ? 0 : Math.round(audio.volume * 100);
-            const icon = audio.muted ? " " : " ";
-            return `${icon}${volumePercent}%`;
-        }
-    }
-
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton)
             openMixer();
         else
             cycleAudioSink();
+    }
+
+    onWheelMoved: wheel => {
+        if (!root.defaultSink || !root.defaultSink.audio)
+            return;
+
+        const audio = root.defaultSink.audio;
+        const currentPercent = Math.round(audio.volume * 100);
+
+        if (wheel.angleDelta.y > 0) {
+            const nextPercent = Math.min(100, Math.floor(currentPercent / 5) * 5 + 5);
+            audio.volume = nextPercent / 100;
+        } else if (wheel.angleDelta.y < 0) {
+            const prevPercent = Math.max(0, Math.ceil(currentPercent / 5) * 5 - 5);
+            audio.volume = prevPercent / 100;
+        }
     }
 
     function cycleAudioSink(): void {
@@ -58,6 +57,23 @@ ModuleBox {
     function openMixer(): void {
         idAudioMixerProcess.command = ["pavucontrol"];
         idAudioMixerProcess.running = true;
+    }
+
+    Text {
+        id: idAudioLabel
+
+        color: Colors.lavender
+        font.family: Globals.fontFamily
+        font.pixelSize: Globals.fontPixelSize
+        font.weight: Font.DemiBold
+        text: {
+            if (!root.defaultSink || !root.defaultSink.audio)
+                return "";
+            const audio = root.defaultSink.audio;
+            const volumePercent = isNaN(audio.volume) ? 0 : Math.round(audio.volume * 100);
+            const icon = audio.muted ? " " : " ";
+            return `${icon}${volumePercent}%`;
+        }
     }
 
     PwObjectTracker {

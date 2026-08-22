@@ -885,7 +885,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     ├── <b>Workspaces.qml</b>       <span class="muted">left   (Repeater · Hyprland, Lua dispatch D11)</span>      <span class="ok">● done</span>
     ├── <b>Media.qml</b>            <span class="muted">right  (Quickshell.Services.Mpris)</span>                  <span class="ok">● done  [plan: Mpris.qml]</span>
     ├── <b>Cpu.qml</b>              <span class="muted">right  (/proc/stat via Process + StdioCollector)</span>    <span class="ok">● done</span>
-    ├── <b>Audio.qml</b>            <span class="muted">right  (Pipewire default sink + wpctl cycle)</span>        <span class="ok">● done</span>
+    ├── <b>Audio.qml</b>            <span class="muted">right  (Pipewire default sink + wpctl cycle + scroll volume)</span> <span class="ok">● done</span>
     ├── <b>Notifications.qml</b>    <span class="muted">right  (swaync-client -t -sw via Process)</span>          <span class="ok">● done</span>
     └── <b>PowerMenu.qml</b>        <span class="muted">right  (Process → rofi powermenu script)</span>           <span class="ok">● done</span>
     <span class="muted"># NOT YET CREATED (D8): Cava.qml, ActiveWindow.qml, Tray.qml</span>
@@ -976,7 +976,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <ul>
                 <li><b>Mpris.qml</b> (as <code>Media.qml</code>) – <code>Quickshell.Services.Mpris</code>; show <code>status_icon</code> (▶/⏸/⏹) + title/artist ≤40; <code>ignored-players: ["firefox"]</code>; playing = lavender bg / dark text. <span class="mini done">● Done</span></li>
                 <li><b>Cpu.qml</b> – <code>Process</code> + <code>Timer</code> (≈1–2s) delta usage; format <code>{usage}% </code>; tooltip true. <span class="mini done">● Done</span></li>
-                <li><b>Audio.qml</b> – <code>Quickshell.Services.Pipewire</code> default sink: volume %, mute, bluetooth. Left-click cycles three named sinks via <code>wpctl set-default</code> (D5, replaces <code>toggle_audio.sh</code>). Right-click → <code>pavucontrol</code>. Waybar’s scroll-to-adjust volume (±5%) intentionally not ported yet. <span class="mini done">● Done</span></li>
+                <li><b>Audio.qml</b> – <code>Quickshell.Services.Pipewire</code> default sink: volume %, mute, bluetooth. Left-click cycles three named sinks via <code>wpctl set-default</code> (D5, replaces <code>toggle_audio.sh</code>). Right-click → <code>pavucontrol</code>. Scroll up/down adjusts volume ±5% (snapped 0–100%). <span class="mini done">● Done</span></li>
                 <li><b>Notifications.qml</b> – as built: click → <code>swaync-client -t -sw</code>, toggle only (D7); original <code>-swb</code> count badge not yet ported. <span class="mini done">● Done</span></li>
                 <li><b>Tray.qml</b> – <code>Quickshell.Services.SystemTray</code> StatusNotifier items; icon ≈14, spacing 10. <span class="mini todo">○ Todo</span></li>
                 <li><b>PowerMenu.qml</b> – icon only; click → <code>Process</code> running rofi powermenu script (absolute path — see Interactions). <span class="mini done">● Done</span></li>
@@ -1224,6 +1224,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <tbody>
                 <tr><td>Audio (left)</td><td>Cycle sink: JadeAudio → AB13X Dongle → Pebble V3</td><td>Match sink in <code>Pipewire.nodes</code>, then <code>wpctl set-default</code> via Process (D5 — replaces <code>toggle_audio.sh</code>)</td></tr>
                 <tr><td>Audio (right)</td><td>Open pavucontrol</td><td><code>Process { command: ["pavucontrol"] }</code></td></tr>
+                <tr><td>Audio (scroll)</td><td>Adjust volume ±5% (0–100%)</td><td><code>onWheelMoved</code> snaps to clean 5% increments via <code>audio.volume</code></td></tr>
                 <tr><td>Cava (right)</td><td>Cycle cava rendering mode</td><td>Signal the cava <code>Process</code> / flip QML state</td></tr>
                 <tr><td>Workspaces (left)</td><td>Focus workspace</td><td><code>Hyprland.dispatch("hl.dsp.focus({ workspace = N })")</code> — Lua form required on Hyprland ≥ 0.56, legacy <code>"workspace N"</code> fails (D11). Right-click: no-op</td></tr>
                 <tr><td>Mpris (click)</td><td>Play / pause (optional)</td><td><code>player.playPause()</code></td></tr>
@@ -1259,7 +1260,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           </div>
           <div class="accept-item">
             <span class="n">4</span>
-            <p><b>Audio:</b> left-click cycles three named sinks via <code>wpctl set-default</code> (D5); right-click opens pavucontrol.</p>
+            <p><b>Audio:</b> left-click cycles three named sinks via <code>wpctl set-default</code> (D5); right-click opens pavucontrol; scroll adjusts volume ±5%.</p>
             <span class="badge done state">● Done</span>
           </div>
           <div class="accept-item">
