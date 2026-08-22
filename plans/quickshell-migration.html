@@ -1844,10 +1844,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <header class="title-block">
     <div class="title-left">
       <h1>Migration Plan <br><span class="thin">Waybar → Quickshell</span></h1>
-      <p class="subtitle">Concrete implementation plan to recreate – and extend – the existing Waybar panel in
-        Quickshell on Hyprland. Derived from <strong>config.jsonc</strong>, <strong>style.css</strong>,
-        <strong>colors.css</strong> and <strong>toggle_audio.sh</strong>, reconciled against the working config on this
-        machine.
+      <p class="subtitle">Concrete implementation plan to recreate – and deliberately improve – the existing Waybar
+        panel in Quickshell on Hyprland. The goal is <strong>deliberate improvement, in form and function</strong>:
+        waybar parity is the baseline, not the destination. Derived from <strong>config.jsonc</strong>,
+        <strong>style.css</strong>, <strong>colors.css</strong> and <strong>toggle_audio.sh</strong>, reconciled against
+        the working config on this machine.
       </p>
 
       <div class="progress-row" aria-label="Implementation progress">
@@ -1901,7 +1902,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <li><a href="#phase-1"><span class="num">1</span> Theme foundation <span class="dot done"></span></a></li>
           <li><a href="#phase-2"><span class="num">2</span> Clock · Workspaces · Cava <span class="dot part"></span></a>
           </li>
-          <li><a href="#phase-3"><span class="num">3</span> Active window <span class="dot todo"></span></a></li>
+          <li><a href="#phase-3"><span class="num">3</span> Active window <span class="dot done"></span></a></li>
           <li><a href="#phase-4"><span class="num">4</span> Right cluster <span class="dot part"></span></a></li>
           <li><a href="#phase-5"><span class="num">5</span> Multi-monitor <span class="dot part"></span></a></li>
           <li><a href="#phase-6"><span class="num">6</span> Polish & cutover <span class="dot todo"></span></a></li>
@@ -1938,13 +1939,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <span class="sec-num">01</span>
           <h2>Scope &amp; Decisions</h2>
         </div>
-        <p class="lead">Reproduce current Waybar behaviour – modules, layout, theme and interactions – then extend only
-          where Quickshell is strictly better. One codebase, two outputs: <b>DP-1 full</b>, <b>DP-2 minimal</b>.</p>
+        <p class="lead"><b>The goal is deliberate improvement — in form and function.</b> Parity with the current
+          Waybar bar is the translation baseline: modules, layout, theme and interactions are reproduced first so
+          nothing is lost, then each module is improved where Quickshell does it better (native services over shell-outs,
+          accurate text elision, event-driven state, true centering). One codebase, two outputs: <b>DP-1 full</b>,
+          <b>DP-2 minimal</b>.</p>
 
         <div class="dec-grid">
           <div class="dec-card">
             <h3>Accepted decisions <i>DEC</i></h3>
             <ul>
+              <li><b>Goal: deliberate improvement in form and function.</b> Waybar parity is the translation baseline;
+                improvements over waybar are the point, logged per deviation.</li>
               <li>Entry: <code>~/.config/quickshell/shell.qml</code> (Quickshell default dir).</li>
               <li>One codebase, instanced per-monitor via <code>Variants</code> + <code>Quickshell.screens</code>; DP-1
                 full bar, DP-2 clock + workspaces only.</li>
@@ -1966,8 +1972,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             </ul>
             <div
               style="margin-top:.9rem; padding:.65rem .7rem; background:#0f1318; border:1px solid var(--border); border-radius:6px; font-size:12.5px; color:var(--text-dim); line-height:1.5">
-              <b style="color:var(--text)">Ground rule:</b> preserve exact palette values and waybar spacing truth;
-              reconcile drift in the deviation log, not in prose.
+              <b style="color:var(--text)">Ground rule:</b> preserve exact palette values and waybar spacing truth as
+              the baseline; improvements deviate deliberately and are reconciled in the deviation log, not in prose.
             </div>
           </div>
         </div>
@@ -1996,7 +2002,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   (<code>-swb</code>) not yet.</span></li>
               <li><span><b>D8 · Workspaces.qml built and wired (was stub).</b> Persistent 5 per monitor via
                   <code>Repeater</code>, monitor split DP-1 → 1–5 / DP-2 → 6–10; active = lavender + secondary bg,
-                  urgent = red, hover = text. Not yet created: <code>Cava.qml</code>, <code>ActiveWindow.qml</code>,
+                  urgent = red, hover = text. Not yet created: <code>Cava.qml</code>,
                   <code>Tray.qml</code>.</span></li>
               <li><span><b>D9 · Font size is 14px, not waybar’s 16px.</b> <code>Globals.fontPixelSize = 14</code> chosen
                   for barHeight 28; deliberate, logged per ground rule.</span></li>
@@ -2053,6 +2059,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             ├── <b>Clock.qml</b> <span class="muted">left (Timer + Text)</span> <span class="ok">● done</span>
             ├── <b>Workspaces.qml</b> <span class="muted">left (Repeater · Hyprland, Lua dispatch D11)</span> <span
               class="ok">● done</span>
+            ├── <b>ActiveWindow.qml</b> <span class="muted">center (Hyprland rawEvent + hyprctl seed, anchored
+              center)</span> <span class="ok">● done</span>
             ├── <b>Media.qml</b> <span class="muted">right (MprisPlayers singleton + native elide D12)</span> <span
               class="ok">● done
               [plan: Mpris.qml]</span>
@@ -2064,8 +2072,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               class="ok">● done</span>
             └── <b>PowerMenu.qml</b> <span class="muted">right (Process → rofi powermenu script)</span> <span
               class="ok">● done</span>
-            <span class="muted"># NOT YET CREATED (D8): Cava.qml, ActiveWindow.qml, Tray.qml</span>
-            <span class="muted"># also present: firstshell.qml (earlier prototype) · plans/ (this dossier)</span>
+            <span class="muted"># NOT YET CREATED (D8): Cava.qml, Tray.qml</span>
           </div>
           <div class="tree-note"><b>Why split?</b> Quickshell compiles each QML file separately; isolating modules makes
             acceptance checks per-module and keeps the bar resilient.</div>
@@ -2162,12 +2169,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <div class="phase-head">
               <span class="phase-num">03</span>
               <h3>Center: Active window</h3>
-              <span class="badge todo">○ Not started</span>
+              <span class="badge done">● Done</span>
             </div>
             <div class="phase-body">
               <ul>
                 <li><b>ActiveWindow.qml</b> – bind to focused client <code>title</code> from
                   <code>Quickshell.Hyprland</code>; show on every bar (all-outputs); truncate to 40 chars.
+                  Shipped as: focus tracked from <code>Hyprland.rawEvent</code>
+                  (<code>activewindow</code>; empty pair = no focus) + one-shot
+                  <code>hyprctl activewindow -j</code> seed at startup; elide cap via
+                  <code>maxWidth</code> with <code>Text.PlainText</code>; box anchored to the PanelWindow
+                  for true bar centering. <span class="mini done">● Done</span>
                 </li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>Center shows focused window title, updates on focus
@@ -2299,8 +2311,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <td><code>hyprland/window</code></td>
                   <td>Quickshell.Hyprland focused client</td>
                   <td>Direct</td>
-                  <td>Title, truncate 40</td>
-                  <td><span class="mini todo">○ Not started</span></td>
+                  <td>Title via rawEvent (<code>activewindow</code>) + hyprctl seed; elide cap; anchored bar
+                    center (as ActiveWindow.qml)</td>
+                  <td><span class="mini done">● Done</span></td>
                 </tr>
                 <tr>
                   <td><code>mpris</code></td>
@@ -2514,10 +2527,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 <span class="accent">Clock</span>
                 <span>WS</span><span>Cava</span>
                 <span class="spacer"></span>
+                <span>Window</span>
+                <span class="spacer"></span>
                 <span>Media</span><span>Audio</span><span>Cpu</span><span>Notif</span><span>Pow</span>
               </div>
               <p>Shows every built module. Right cluster visible only when
-                <code>idPanelWindow.monitorName === "DP-1"</code>. Future: ActiveWindow in center, Cava on left.
+                <code>idPanelWindow.monitorName === "DP-1"</code>; ActiveWindow is anchored to the bar
+                center on all outputs. Still missing: Cava on left.
               </p>
             </div>
             <div class="monitor">
@@ -2526,10 +2542,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 <span class="accent">Clock</span>
                 <span>WS 6–10</span>
                 <span class="spacer"></span>
+                <span>Window</span>
+                <span class="spacer"></span>
                 <span style="opacity:.28">– – –</span>
               </div>
-              <p>Right cluster hidden. Clock + Workspaces live as planned; Workspaces shows 6–10 via the monitor split
-                (D8).</p>
+              <p>Right cluster hidden; Window (ActiveWindow) is anchored to the bar center on every output. Clock +
+                Workspaces live as planned; Workspaces shows 6–10 via the monitor split (D8).</p>
             </div>
           </div>
         </div>
@@ -2600,6 +2618,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <span class="str">PowerMenu</span> {
           <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
         }
+      }
+
+      <span class="cmt">// Center module — anchored to the bar itself so it stays in
+      // the exact horizontal center regardless of side-cluster widths.</span>
+      <span class="str">ActiveWindow</span> {
+        <span class="kw">anchors.horizontalCenter:</span> parent.horizontalCenter
+        <span class="kw">anchors.verticalCenter:</span> parent.verticalCenter
+        <span class="kw">anchors.verticalCenterOffset:</span> Globals.moduleMargin / 2
       }
     }
   }
@@ -2683,13 +2709,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div class="accept-list">
           <div class="accept-item">
             <span class="n">1</span>
-            <p><b>DP-1 bar order:</b> Clock, Workspaces, [Cava missing], [ActiveWindow missing], Mpris (Media), Cpu,
+            <p><b>DP-1 bar order:</b> Clock, Workspaces, [Cava missing], ActiveWindow (center), Mpris (Media), Cpu,
               Audio, Notifications, [Tray missing], PowerMenu – functional where present.</p>
             <span class="badge part state">◐ Partial</span>
           </div>
           <div class="accept-item">
             <span class="n">2</span>
-            <p><b>DP-2:</b> shows Clock + Workspaces (6–10) as planned; right cluster gated to DP-1. Matches the plan’s
+            <p><b>DP-2:</b> shows Clock + Workspaces (6–10) as planned; right cluster gated to DP-1; Window
+              (ActiveWindow) appears on every bar by design (<code>all-outputs</code>). Matches the plan’s
               minimal-bar target.</p>
             <span class="badge done state">● Done</span>
           </div>
@@ -2804,11 +2831,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               want to drop the cava dependency.
             </div>
           </details>
-          <details class="q">
-            <summary>Q3 – Exact visual parity vs. deliberate improvement?</summary>
-            <div class="q-body">Target parity first (same look/feel). Once met, extensions – animated cava easing, hover
-              transitions, per-sink labels – are low-risk additions in Phase 6. Confirm whether you want strictly
-              faithful or “faithful then enhance”.</div>
+          <details class="q" open>
+            <summary>Q3 – Exact visual parity vs. deliberate improvement? <b>— Decided: deliberate
+                improvement.</b></summary>
+            <div class="q-body">Resolved. The goal is <b>deliberate improvement in form and function</b>: waybar is the
+              baseline for translation (palette, geometry, module set), and each module is then improved where
+              Quickshell does it better — native services over shell-outs, sub-pixel text elision over string slicing,
+              event-driven state over polling, anchored true centering. Improvements are logged in the deviation log so
+              form fidelity stays auditable.</div>
           </details>
           <details class="q">
             <summary>Q4 – Autostart cutover timing?</summary>
