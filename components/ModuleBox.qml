@@ -34,9 +34,11 @@ Rectangle {
 
     MouseArea {
         id: idModuleBoxMouseArea
+
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         anchors.fill: parent
-        z: 1
         enabled: root.enableMouseArea
+        z: 1
         onClicked: mouse => root.clicked(mouse)
     }
 }

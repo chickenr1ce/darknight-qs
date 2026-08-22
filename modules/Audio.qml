@@ -20,10 +20,11 @@ ModuleBox {
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
         text: {
-            if (!root.defaultSink)
+            if (!root.defaultSink || !root.defaultSink.audio)
                 return "";
-            const volumePercent = Math.round((root.defaultSink.volume ?? 1) * 100);
-            const icon = root.defaultSink.muted ? " " : " ";
+            const audio = root.defaultSink.audio;
+            const volumePercent = isNaN(audio.volume) ? 0 : Math.round(audio.volume * 100);
+            const icon = audio.muted ? " " : " ";
             return `${icon}${volumePercent}%`;
         }
     }
@@ -44,7 +45,7 @@ ModuleBox {
                 currentIndex = i;
         }
         const nextSinkName = sinkOrder[(currentIndex + 1) % sinkOrder.length];
-        for (const node of Pipewire.nodes) {
+        for (const node of Pipewire.nodes.values) {
             const nodeLabel = node.description ?? node.name ?? "";
             if (nodeLabel.includes(nextSinkName)) {
                 idAudioSetDefaultProcess.command = ["wpctl", "set-default", String(node.id)];
@@ -57,6 +58,12 @@ ModuleBox {
     function openMixer(): void {
         idAudioMixerProcess.command = ["pavucontrol"];
         idAudioMixerProcess.running = true;
+    }
+
+    PwObjectTracker {
+        id: idAudioSinkTracker
+
+        objects: [root.defaultSink]
     }
 
     Process {
