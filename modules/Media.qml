@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell.Services.Mpris
 import "../config"
 import "../components"
@@ -13,6 +14,7 @@ ModuleBox {
     readonly property MprisPlayer activePlayer: MprisPlayers.activePlayer
     readonly property bool isPlaying: activePlayer?.playbackState === MprisPlaybackState.Playing || Boolean(activePlayer?.isPlaying)
 
+    maxWidth: 360
     visible: activePlayer !== null
     color: root.isPlaying ? Colors.lavender : Colors.background
 
@@ -36,10 +38,15 @@ ModuleBox {
     Text {
         id: idMediaLabel
 
+        Layout.fillWidth: true
+        //Layout.minimumWidth: 0
+        elide: Text.ElideRight
+
         color: root.isPlaying ? Colors.background : Colors.lavender
         font.family: Globals.fontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
+
         text: {
             if (!root.activePlayer)
                 return "";
@@ -53,13 +60,7 @@ ModuleBox {
 
             const title = root.activePlayer.trackTitle ?? "";
             const artist = root.activePlayer.trackArtist ?? "";
-            let trackInfo = title;
-            if (artist) {
-                trackInfo = title ? `${title} - ${artist}` : artist;
-            }
-            if (trackInfo.length > 40) {
-                trackInfo = trackInfo.substring(0, 39) + "…";
-            }
+            const trackInfo = artist ? (title ? `${title} - ${artist}` : artist) : title;
             return trackInfo ? ` ${statusIcon} ${trackInfo}` : ` ${statusIcon}`;
         }
     }

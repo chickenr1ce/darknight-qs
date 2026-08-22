@@ -7,15 +7,9 @@ import "../config"
 Rectangle {
     id: root
 
-    color: Colors.background
-    radius: Globals.radius
-    implicitHeight: Globals.barHeight
-    implicitWidth: idModuleBoxLayout.implicitWidth + 2 * root.horizontalPadding
-
     property int horizontalPadding: Globals.modulePadding
-
-    signal clicked(var mouse)
-    signal wheelMoved(var wheel)
+    property int maxWidth: 0
+    property int minWidth: 0
 
     // When true (default) the whole box is one click target.
     // Set false for containers with their own interactive children
@@ -23,6 +17,22 @@ Rectangle {
     property bool enableMouseArea: true
 
     default property alias content: idModuleBoxLayout.data
+
+    signal clicked(var mouse)
+    signal wheelMoved(var wheel)
+
+    implicitHeight: Globals.barHeight
+    implicitWidth: {
+        let w = idModuleBoxLayout.implicitWidth + 2 * root.horizontalPadding;
+        if (root.minWidth != 0)
+            w = Math.max(w, root.minWidth);
+        if (root.maxWidth != 0)
+            w = Math.min(w, root.maxWidth);
+        return w;
+    }
+
+    color: Colors.background
+    radius: Globals.radius
 
     RowLayout {
         id: idModuleBoxLayout

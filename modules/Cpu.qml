@@ -10,6 +10,8 @@ ModuleBox {
     property real cpuUsagePercent: 0
     property var previousCpuSample: null
 
+    minWidth: 62 //sized for 2 digits + icon + padding
+
     Text {
         id: idCpuLabel
 
