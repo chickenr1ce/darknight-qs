@@ -30,16 +30,19 @@ ShellRoot {
             anchors.top: true
             anchors.left: true
             anchors.right: true
+
             implicitHeight: Globals.barHeight + Globals.moduleMargin
             color: "transparent"
 
             RowLayout {
                 id: idBarLayout
+
                 anchors.fill: parent
                 anchors.leftMargin: Globals.horizontalBarMargin
                 anchors.rightMargin: Globals.horizontalBarMargin
                 anchors.topMargin: Globals.moduleMargin
-                spacing: Globals.moduleMargin
+
+                spacing: Globals.spacing
 
                 // Left cluster
                 Clock {}

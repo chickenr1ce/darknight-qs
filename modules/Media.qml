@@ -2,61 +2,65 @@ import QtQuick
 import Quickshell.Services.Mpris
 import "../config"
 import "../components"
+import "../services"
 
-// First non-Firefox MPRIS player. Click toggles play/pause.
+// Media player module using MprisPlayers singleton service.
+// Click toggles play/pause. Wheel scroll cycles active player.
 // "Playing" state inverts the module colors like waybar.
-// Mpris.players is a QML model, not a JS array, so iterate by index.
 ModuleBox {
     id: root
 
-    property var activePlayer: null
-
-    function refreshActivePlayer(): void {
-        const players = Mpris.players;
-        if (!players) {
-            activePlayer = null;
-            return;
-        }
-        activePlayer = null;
-        for (let i = 0; i < players.count; i++) {
-            const candidate = players.get(i);
-            if (!(candidate.identity ?? "").toLowerCase().includes("firefox")) {
-                activePlayer = candidate;
-                break;
-            }
-        }
-    }
-
-    Component.onCompleted: refreshActivePlayer()
-
-    Timer {
-        id: idMediaTimer
-
-        interval: 1000
-        running: true
-        repeat: true
-        onTriggered: root.refreshActivePlayer()
-    }
+    readonly property MprisPlayer activePlayer: MprisPlayers.activePlayer
+    readonly property bool isPlaying: activePlayer?.playbackState === MprisPlaybackState.Playing || Boolean(activePlayer?.isPlaying)
 
     visible: activePlayer !== null
-    color: activePlayer?.isPlaying ? Colors.lavender : Colors.background
+    color: root.isPlaying ? Colors.lavender : Colors.background
+
+    onClicked: {
+        if (!root.activePlayer)
+            return;
+        if (root.activePlayer.togglePlaying)
+            root.activePlayer.togglePlaying();
+        else if (root.activePlayer.playPause)
+            root.activePlayer.playPause();
+    }
+
+    onWheelMoved: wheel => {
+        if (wheel.angleDelta.y > 0) {
+            MprisPlayers.selectPlayer(-1);
+        } else if (wheel.angleDelta.y < 0) {
+            MprisPlayers.selectPlayer(1);
+        }
+    }
 
     Text {
         id: idMediaLabel
 
-        color: root.activePlayer?.isPlaying ? Colors.background : Colors.lavender
+        color: root.isPlaying ? Colors.background : Colors.lavender
         font.family: Globals.fontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
         text: {
             if (!root.activePlayer)
                 return "";
-            const statusIcon = root.activePlayer.isPlaying ? "▶" : "⏸";
+
+            let statusIcon = "⏹";
+            if (root.isPlaying) {
+                statusIcon = "▶";
+            } else if (root.activePlayer.playbackState === MprisPlaybackState.Paused) {
+                statusIcon = "⏸";
+            }
+
             const title = root.activePlayer.trackTitle ?? "";
             const artist = root.activePlayer.trackArtist ?? "";
-            return ` ${statusIcon} ${title}${artist ? ` - ${artist}` : ""}`;
+            let trackInfo = title;
+            if (artist) {
+                trackInfo = title ? `${title} - ${artist}` : artist;
+            }
+            if (trackInfo.length > 40) {
+                trackInfo = trackInfo.substring(0, 39) + "…";
+            }
+            return trackInfo ? ` ${statusIcon} ${trackInfo}` : ` ${statusIcon}`;
         }
     }
-
-    onClicked: activePlayer?.playPause?.()
 }
