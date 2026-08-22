@@ -1847,7 +1847,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <p class="subtitle">Concrete implementation plan to recreate – and extend – the existing Waybar panel in
         Quickshell on Hyprland. Derived from <strong>config.jsonc</strong>, <strong>style.css</strong>,
         <strong>colors.css</strong> and <strong>toggle_audio.sh</strong>, reconciled against the working config on this
-        machine.</p>
+        machine.
+      </p>
 
       <div class="progress-row" aria-label="Implementation progress">
         <span class="progress-label">Build progress · phases</span>
@@ -1975,7 +1976,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <div class="deviation-head">
             <span class="badge">Δ</span>
             <strong>Deviation log – observed in working config</strong>
-            <span>11 findings · updated 2026-08-22</span>
+            <span>12 findings · updated 2026-08-22</span>
           </div>
           <div class="deviation-body">
             <ul>
@@ -1999,16 +2000,24 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <code>Tray.qml</code>.</span></li>
               <li><span><b>D9 · Font size is 14px, not waybar’s 16px.</b> <code>Globals.fontPixelSize = 14</code> chosen
                   for barHeight 28; deliberate, logged per ground rule.</span></li>
-              <li><span><b>D10 · ModuleBox grew two properties.</b> <code>enableMouseArea</code> (default
-                  <code>true</code>) disables the box-level click pane for modules with their own buttons — Workspaces
-                  sets it <code>false</code>, else the pane (<code>z:1</code>) swallows per-button clicks/hover.
-                  <code>horizontalPadding</code> replaces hard-coded padding so Workspaces can tighten to 5px.</span>
+              <li><span><b>D10 · ModuleBox sizing bounds &amp; properties.</b> <code>minWidth</code> and
+                  <code>maxWidth</code>
+                  constraints are computed directly in <code>implicitWidth</code> to keep the component layout-agnostic.
+                  <code>enableMouseArea</code> (default <code>true</code>) disables the box-level click pane for modules
+                  with
+                  their own buttons (Workspaces); <code>horizontalPadding</code> supports custom tightening.</span>
               </li>
               <li><span><b>D11 · Hyprland ≥ 0.56 IPC is Lua-evaluated.</b> Legacy dispatch strings fail: quickshell’s
                   <code>Hyprland.dispatch("workspace N")</code> errors with <code>')' expected</code> (same for
                   <code>hyprctl dispatch</code>). Working form used in Workspaces.qml:
                   <code>Hyprland.dispatch("hl.dsp.focus({ workspace = N })")</code>. Revisit when quickshell ships
                   native 0.56 IPC support.</span></li>
+              <li><span><b>D12 · Dynamic content stability &amp; native elision.</b> <code>Media.qml</code> is backed by
+                  <code>services/MprisPlayers.qml</code> singleton and caps width with <code>maxWidth: 360</code> +
+                  native Qt
+                  <code>elide: Text.ElideRight</code>. <code>Cpu.qml</code> prevents 1-digit vs 2-digit jitter
+                  symmetrically via
+                  <code>minWidth: 62</code>.</span></li>
             </ul>
           </div>
         </div>
@@ -2026,22 +2035,28 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div class="tree-wrap">
           <div class="tree-head"><span class="dots"><i></i><i></i><i></i></span> ~/.config/quickshell – as-built</div>
           <div class="tree-body">~/.config/quickshell/
-            ├── <b>AGENTS.md</b> <span class="muted"># QML id naming conventions (root + id* prefix)</span>
+            ├── <b>AGENTS.md</b> <span class="muted"># QML conventions (IDs, layout host pattern, sizing &amp;
+              stability)</span>
             ├── <b>bar-switch</b> <span class="muted"># waybar ↔ quickshell toggle script</span>
             ├── <b>shell.qml</b> <span class="muted"># entry: Variants per monitor → PanelWindow + WlrLayerShell</span>
             ├── config/
             │ ├── <b>Colors.qml</b> <span class="muted"># color singleton (from colors/colors.css)</span>
             │ ├── <b>Globals.qml</b> <span class="muted"># height, spacing, bar geometry</span>
             │ └── <b>qmldir</b> <span class="muted"># singleton declarations for Colors &amp; Globals</span>
+            ├── services/
+            │ ├── <b>MprisPlayers.qml</b> <span class="muted"># MPRIS player tracking singleton &amp; cycling</span>
+            │ └── <b>qmldir</b> <span class="muted"># singleton declaration for MprisPlayers</span>
             ├── components/
-            │ └── <b>ModuleBox.qml</b> <span class="muted"># rounded translucent wrapper (≈ waybar #module)</span>
+            │ └── <b>ModuleBox.qml</b> <span class="muted"># rounded translucent wrapper with min/maxWidth &amp; Layout
+              host</span>
             └── modules/
             ├── <b>Clock.qml</b> <span class="muted">left (Timer + Text)</span> <span class="ok">● done</span>
             ├── <b>Workspaces.qml</b> <span class="muted">left (Repeater · Hyprland, Lua dispatch D11)</span> <span
               class="ok">● done</span>
-            ├── <b>Media.qml</b> <span class="muted">right (Quickshell.Services.Mpris)</span> <span class="ok">● done
+            ├── <b>Media.qml</b> <span class="muted">right (MprisPlayers singleton + native elide D12)</span> <span
+              class="ok">● done
               [plan: Mpris.qml]</span>
-            ├── <b>Cpu.qml</b> <span class="muted">right (/proc/stat via Process + StdioCollector)</span> <span
+            ├── <b>Cpu.qml</b> <span class="muted">right (/proc/stat via Process + minWidth: 62 D12)</span> <span
               class="ok">● done</span>
             ├── <b>Audio.qml</b> <span class="muted">right (Pipewire default sink + wpctl cycle + scroll volume)</span>
             <span class="ok">● done</span>
@@ -2076,9 +2091,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <div class="phase-body">
               <ul>
                 <li>Create <code>~/.config/quickshell/</code> and <code>shell.qml</code> with an empty
-                  <code>Scope</code> root.</li>
+                  <code>Scope</code> root.
+                </li>
                 <li>Inside <code>Variants</code>, define one <code>PanelWindow</code> anchored top, full width, height
-                  <code>28 + margin</code>, exclusive zone via <code>WlrLayerShell</code>.</li>
+                  <code>28 + margin</code>, exclusive zone via <code>WlrLayerShell</code>.
+                </li>
                 <li>Print <code>screen.name</code> to confirm DP-1 / DP-2 resolution.</li>
                 <li>Establish run/kill loop (see Commands) and watch stderr for QML errors.</li>
               </ul>
@@ -2096,13 +2113,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <div class="phase-body">
               <ul>
                 <li><code>config/Colors.qml</code> exposes 9 palette colors as QML properties – exact hex/rgba from
-                  <code>colors.css</code>.</li>
+                  <code>colors.css</code>.
+                </li>
                 <li><code>config/Globals.qml</code> – <code>barHeight</code> 28, <code>spacing</code> 4,
                   <code>modulePadding</code> 12, <code>moduleMargin</code> 4, <code>horizontalBarMargin</code> 15,
-                  <code>radius</code> 5, <code>fontPixelSize</code> 14, <code>Iosevka</code>.</li>
+                  <code>radius</code> 5, <code>fontPixelSize</code> 14, <code>Iosevka</code>.
+                </li>
                 <li><code>components/ModuleBox.qml</code> – <code>Rectangle</code> radius 5,
                   <code>Colors.background</code>, padding <code>0 12px</code>, margin <code>4 2</code> – mirroring
-                  waybar <code>#module</code>.</li>
+                  waybar <code>#module</code>.
+                </li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>Placeholder ModuleBox renders with correct background,
                   radius and spacing; palette matches <code>colors.css</code>.</span></div>
@@ -2119,16 +2139,19 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <ul>
                 <li><b>Clock.qml</b> – <code>Timer</code> polling 1s,
                   <code>Qt.formatDateTime(new Date(), "dd.MM HH:mm")</code> (24-hour, mirrors waybar
-                  <code>%H:%M</code>); lavender; max 25 chars. <span class="mini done">● Done</span></li>
+                  <code>%H:%M</code>); lavender; max 25 chars. <span class="mini done">● Done</span>
+                </li>
                 <li><b>Workspaces.qml</b> – bind to <code>Quickshell.Hyprland</code>; persistent 5 per monitor via
                   <code>Repeater</code> (<code>model: 5</code>), monitor split DP-1 → 1–5 / DP-2 → 6–10; active =
                   lavender + secondary bg, urgent = red, hover = text; left-click focuses (Lua dispatch, D11);
                   right-click no-op (waybar parity — plan’s urgent-toggle dropped). Event-driven refresh via
-                  <code>Hyprland.rawEvent</code>. <span class="mini done">● Done</span></li>
+                  <code>Hyprland.rawEvent</code>. <span class="mini done">● Done</span>
+                </li>
                 <li><b>Cava.qml</b> – <code>Process</code> running <code>cava</code> with temp raw config (method=raw,
                   16-bit, pipewire, 14 bars, 50–10000 cutoffs, 0.77 noise); parse frames into <code>Repeater</code> of
                   <code>Rectangle</code> bars; hide on silence via threshold; right-click cycles cava’s rendering mode
-                  (mirrors waybar <code>on-click-right: "mode"</code>). <span class="mini todo">○ Todo</span></li>
+                  (mirrors waybar <code>on-click-right: "mode"</code>). <span class="mini todo">○ Todo</span>
+                </li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>Clock ticks each minute; workspaces reflect Hyprland with
                   active highlight; cava animates and hides on silence.</span></div>
@@ -2144,7 +2167,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <div class="phase-body">
               <ul>
                 <li><b>ActiveWindow.qml</b> – bind to focused client <code>title</code> from
-                  <code>Quickshell.Hyprland</code>; show on every bar (all-outputs); truncate to 40 chars.</li>
+                  <code>Quickshell.Hyprland</code>; show on every bar (all-outputs); truncate to 40 chars.
+                </li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>Center shows focused window title, updates on focus
                   change, truncates long titles.</span></div>
@@ -2159,15 +2183,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             </div>
             <div class="phase-body">
               <ul>
-                <li><b>Mpris.qml</b> (as <code>Media.qml</code>) – <code>Quickshell.Services.Mpris</code>; show
-                  <code>status_icon</code> (▶/⏸/⏹) + title/artist ≤40; <code>ignored-players: ["firefox"]</code>;
-                  playing = lavender bg / dark text. <span class="mini done">● Done</span></li>
-                <li><b>Cpu.qml</b> – <code>Process</code> + <code>Timer</code> (≈1–2s) delta usage; format
-                  <code>{usage}% </code>; tooltip true. <span class="mini done">● Done</span></li>
+                <li><b>Mpris.qml</b> (as <code>Media.qml</code>) – <code>Quickshell.Services.Mpris</code> via
+                  <code>services/MprisPlayers.qml</code> singleton; status icon (▶/⏸/⏹) + title/artist, capped
+                  at <code>maxWidth: 360</code> with native elide (D12); playing = lavender bg / dark text; scroll
+                  cycles players. <span class="mini done">● Done</span>
+                </li>
+                <li><b>Cpu.qml</b> – <code>Process</code> + <code>Timer</code> (≈2s) delta usage; format
+                  <code>{usage}% </code>; stabilized with <code>minWidth: 62</code> (D12). <span class="mini done">●
+                    Done</span>
+                </li>
                 <li><b>Audio.qml</b> – <code>Quickshell.Services.Pipewire</code> default sink: volume %, mute,
                   bluetooth. Left-click cycles three named sinks via <code>wpctl set-default</code> (D5, replaces
                   <code>toggle_audio.sh</code>). Right-click → <code>pavucontrol</code>. Scroll up/down adjusts volume
-                  ±5% (snapped 0–100%). <span class="mini done">● Done</span></li>
+                  ±5% (snapped 0–100%). <span class="mini done">● Done</span>
+                </li>
                 <li><b>Notifications.qml</b> – as built: click → <code>swaync-client -t -sw</code>, toggle only (D7);
                   original <code>-swb</code> count badge not yet ported. <span class="mini done">● Done</span></li>
                 <li><b>Tray.qml</b> – <code>Quickshell.Services.SystemTray</code> StatusNotifier items; icon ≈14,
@@ -2192,7 +2221,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   Workspaces only. <span class="mini done">● Done</span></li>
                 <li>Map persistent workspaces: DP-1 → 1–5, <b>DP-2 → 6–10</b>. Waybar’s config names
                   <code>HDMI-A-2</code> here — stale entry, no such output on this machine (hyprctl shows DP-1/DP-2);
-                  don’t inherit it. <span class="mini done">● Done</span></li>
+                  don’t inherit it. <span class="mini done">● Done</span>
+                </li>
                 <li>Verify hotplug: unplug/replug and confirm <code>Variants</code> recreates bar without crash —
                   explicit test; acceptance #7 stays “untested” until run. <span class="mini todo">○ Todo</span></li>
               </ul>
@@ -2276,14 +2306,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <td><code>mpris</code></td>
                   <td>Quickshell.Services.Mpris</td>
                   <td>Direct</td>
-                  <td>Status icons, ignore firefox – as Media.qml</td>
+                  <td>Status icons, player cycling, maxWidth: 360 native elision – as Media.qml + MprisPlayers (D12)
+                  </td>
                   <td><span class="mini done">● Done</span></td>
                 </tr>
                 <tr>
                   <td><code>cpu</code></td>
                   <td>Process (bash grep /proc/stat)</td>
                   <td>Direct</td>
-                  <td>JS delta; deviates from FileView</td>
+                  <td>JS delta; minWidth: 62 width stabilization (D12)</td>
                   <td><span class="mini done">● Done</span></td>
                 </tr>
                 <tr>
@@ -2486,7 +2517,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 <span>Media</span><span>Audio</span><span>Cpu</span><span>Notif</span><span>Pow</span>
               </div>
               <p>Shows every built module. Right cluster visible only when
-                <code>idPanelWindow.monitorName === "DP-1"</code>. Future: ActiveWindow in center, Cava on left.</p>
+                <code>idPanelWindow.monitorName === "DP-1"</code>. Future: ActiveWindow in center, Cava on left.
+              </p>
             </div>
             <div class="monitor">
               <div class="label"><i class="muted"></i> DP-2 – Minimal</div>
@@ -2718,7 +2750,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <h4>Pipewire property names <em>· API drift</em></h4>
               <p><b>Risk:</b> Exact sink/volume API may differ from assumption. <b>Mitigation:</b> inspect
                 <code>/usr/lib/qt6/qml/Quickshell/Services/Pipewire/quickshell-service-pipewire.qmltypes</code> before
-                Audio.qml; fallback to <code>wpctl</code> via Process if needed.</p>
+                Audio.qml; fallback to <code>wpctl</code> via Process if needed.
+              </p>
             </div>
           </div>
           <div class="risk">
@@ -2760,14 +2793,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <div class="q-body">Plan assumes keeping swaync (zero behaviour change).
               <code>Quickshell.Services.Notifications</code> can replace swaync entirely, removing a dependency and
               enabling richer in-bar notifications – but it changes the notification backend. Decide before Phase 4 if
-              you want to attempt the native path.</div>
+              you want to attempt the native path.
+            </div>
           </details>
           <details class="q">
             <summary>Q2 – Cava via subprocess, or native Pipewire spectrum?</summary>
             <div class="q-body">Plan assumes a <code>cava</code> subprocess feeding raw frames to a QML
               <code>Repeater</code>. Quickshell’s Pipewire service may expose per-channel levels directly, removing the
               subprocess. Subprocess is lower-risk and matches current behaviour; evaluate native levels only if you
-              want to drop the cava dependency.</div>
+              want to drop the cava dependency.
+            </div>
           </details>
           <details class="q">
             <summary>Q3 – Exact visual parity vs. deliberate improvement?</summary>
