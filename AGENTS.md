@@ -2,7 +2,9 @@
 
 This file defines project conventions for AI agents and contributors working in `~/.config/quickshell`.
 
-## QML `id` Naming Convention
+---
+
+## 1. QML `id` Naming Convention
 
 ### Rule
 
@@ -21,37 +23,13 @@ id + <DescriptivePurpose>[<TypeSuffix>]
 
 ### Examples
 
-| File | Element | `id` |
-|------|---------|------|
-| `shell.qml` | `ShellRoot` (root) | `root` |
-| `shell.qml` | `Variants` | `idScreenVariants` |
-| `shell.qml` | `PanelWindow` | `idPanelWindow` |
-| `shell.qml` | `RowLayout` (bar) | `idBarLayout` |
-| `shell.qml` | `Item` (spacer) | `idSpacer` |
-| `components/ModuleBox.qml` | `Rectangle` (root) | `root` |
-| `components/ModuleBox.qml` | `RowLayout` | `idModuleBoxLayout` |
-| `components/ModuleBox.qml` | `MouseArea` | `idModuleBoxMouseArea` |
-| `modules/Workspaces.qml` | `ModuleBox` (root) | `root` |
-| `modules/Workspaces.qml` | `RowLayout` | `idWorkspaceRow` |
-| `modules/Workspaces.qml` | `Repeater` | `idWorkspaceRepeater` |
-| `modules/Workspaces.qml` | `Rectangle` (delegate) | `idWorkspaceButton` |
-| `modules/Workspaces.qml` | `Text` | `idWorkspaceLabel` |
-| `modules/Workspaces.qml` | `MouseArea` | `idWorkspaceMouseArea` |
-| `modules/Clock.qml` | `Text` | `idClockLabel` |
-| `modules/Clock.qml` | `Timer` | `idClockTimer` |
-| `modules/Cpu.qml` | `Text` | `idCpuLabel` |
-| `modules/Cpu.qml` | `Process` | `idCpuProcess` |
-| `modules/Cpu.qml` | `StdioCollector` | `idCpuCollector` |
-| `modules/Cpu.qml` | `Timer` | `idCpuTimer` |
-| `modules/Media.qml` | `Timer` | `idMediaTimer` |
-| `modules/Media.qml` | `Text` | `idMediaLabel` |
-| `modules/Audio.qml` | `Text` | `idAudioLabel` |
-| `modules/Audio.qml` | `Process` (set-default) | `idAudioSetDefaultProcess` |
-| `modules/Audio.qml` | `Process` (mixer) | `idAudioMixerProcess` |
-| `modules/Notifications.qml` | `Text` | `idNotificationsIcon` |
-| `modules/Notifications.qml` | `Process` | `idNotificationsProcess` |
-| `modules/PowerMenu.qml` | `Text` | `idPowerMenuIcon` |
-| `modules/PowerMenu.qml` | `Process` | `idPowerMenuProcess` |
+| Category | Example `id` |
+|----------|--------------|
+| Root element (any file) | `root` |
+| Labels / text | `idClockLabel`, `idMediaLabel` |
+| Layouts & containers | `idBarLayout`, `idWorkspaceRow` |
+| Delegates & buttons | `idWorkspaceButton`, `idModuleBoxMouseArea` |
+| Processes, timers & collectors | `idCpuProcess`, `idClockTimer`, `idCpuCollector` |
 
 ### Anti-patterns (do not use)
 
@@ -89,11 +67,70 @@ Rectangle { id: idWorkspaceButton }
 Timer { id: idMediaTimer }
 ```
 
-### Docs
+---
 
-For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
+## 2. Component Encapsulation & Sizing Conventions
 
-For current context on the project, refer to plans/quickshell-migration.html
+### Sizing Contract via `implicitWidth` / `implicitHeight`
+- Reusable components (e.g. `ModuleBox`) must **never assume their parent is a `Layout`** and must not declare `Layout.*` properties on their root item.
+- Sizing constraints (`minWidth`, `maxWidth`) must be computed directly within `implicitWidth`:
+  ```qml
+  implicitWidth: {
+      let w = idModuleBoxLayout.implicitWidth + (2 * root.horizontalPadding);
+      if (root.minWidth > 0) w = Math.max(w, root.minWidth);
+      if (root.maxWidth > 0) w = Math.min(w, root.maxWidth);
+      return w;
+  }
+  ```
+
+### Layout Host Pattern
+- `ModuleBox` acts as a layout host wrapping an internal `RowLayout`.
+- Children declared inside `ModuleBox` are reparented to the internal layout via `default property alias content: idModuleBoxLayout.data`.
+- Simple single-item modules do not need manual anchors or margins; `ModuleBox` handles vertical centering and padding automatically.
+
+---
+
+## 3. Dynamic Content & Visual Stability
+
+### Handling Long / Unbounded Text (e.g., Media Player)
+- Use `maxWidth` on the container combined with native Qt text elision on child text items.
+- Inside layout-hosted containers, configure eliding text items with:
+  ```qml
+  Text {
+      id: idMediaLabel
+      Layout.fillWidth: true
+      Layout.minimumWidth: 0
+      elide: Text.ElideRight
+  }
+  ```
+- **Avoid arbitrary string slicing in JavaScript** (e.g., `substring(0, 39) + "…"`); let Qt Quick perform accurate sub-pixel text elision.
+
+### Stabilizing Fluctuating Numbers (e.g., CPU, Memory, Volume)
+- **Do not use whitespace string padding** (e.g., `padStart(2, " ")`). It causes asymmetric visual gaps on the left side of single-digit numbers.
+- **Stabilize using `minWidth` and centered text**: Set `minWidth` on the `ModuleBox` to accommodate the maximum expected number of digits, and center the label:
+  ```qml
+  Text {
+      id: idCpuLabel
+      Layout.fillWidth: true
+      horizontalAlignment: Text.AlignHCenter
+  }
+  ```
+- Alternatively, use zero-padding (`padStart(2, "0")`) if a digital gauge / sysmon style is explicitly desired.
+
+---
+
+## 4. QML Layout & General Best Practices
+
+- **Never mix `anchors` and `Layout.*` on the same item.**
+- **Versionless imports (Qt 6):** Use `import QtQuick` and `import QtQuick.Layouts` without version numbers.
+- **Prefer declarative bindings** over imperative JavaScript assignments in signal handlers.
+
+---
+
+## 5. Docs
+
+- For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
+- For current context on the project, refer to `plans/quickshell-migration.html`
 
 ### Notes
 
