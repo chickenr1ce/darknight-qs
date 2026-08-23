@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ECO-HY3a – Phase 6a · Unified Slab Restyle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0e11;
+      --panel: #161a20;
+      --border: #242b36;
+      --border-strong: #2f3847;
+      --text: #e8ebf0;
+      --text-dim: #9aa3b2;
+      --text-faint: #677083;
+      --lav: #b4befe;
+      --yellow: #e8c85e;
+      --green: #7fe0a8;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: "Public Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      --display: "Bricolage Grotesque", "Public Sans", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--lav); }
+    code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #10141a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .08rem .32rem;
+      color: var(--text);
+    }
+
+    header {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 2.4rem 1.4rem 0;
+    }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: 1rem;
+    }
+    .eyebrow i { width: 26px; height: 1px; background: var(--border-strong); }
+    .eyebrow em { font-style: normal; color: var(--lav); }
+
+    h1 {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(28px, 4vw, 40px);
+      letter-spacing: -.04em;
+      line-height: .95;
+      margin: 0;
+    }
+    h1 span { font-weight: 600; color: var(--text-dim); letter-spacing: -.03em; }
+
+    .lede {
+      margin: .9rem 0 0;
+      color: var(--text-dim);
+      font-size: 14.5px;
+      max-width: 66ch;
+    }
+    .lede strong { color: var(--text); }
+
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 1.4rem 3rem;
+    }
+
+    section { margin-top: 2.2rem; }
+
+    h2 {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+      margin: 0 0 .9rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.2px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th {
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      background: #13171e;
+      border-bottom: 1px solid var(--border);
+      padding: .6rem .75rem;
+      white-space: nowrap;
+    }
+    td {
+      padding: .58rem .75rem;
+      border-bottom: 1px solid #1d232e;
+      color: var(--text-dim);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    td b { color: var(--text); font-weight: 600; }
+    td:first-child { white-space: nowrap; font-family: var(--mono); font-size: 12px; color: var(--text-faint); }
+
+    ul { margin: 0; padding-left: 1.15rem; color: var(--text-dim); font-size: 13.3px; }
+    li { margin: .3rem 0; }
+    li b { color: var(--text); font-weight: 600; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    .badge-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.1rem; }
+    .badge {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: .3rem .55rem;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      color: var(--text-dim);
+    }
+    .badge.ok { color: var(--green); border-color: rgba(127,224,168,.35); background: #0f1a14; }
+    .badge.warn { color: var(--yellow); border-color: rgba(232,200,94,.3); background: #1a170f; }
+
+    pre {
+      margin: 0;
+      padding: .85rem .95rem;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.6;
+      color: #c9d1de;
+      background: #0a0c0f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: auto;
+    }
+    pre .kw { color: var(--lav); }
+    pre .cmt { color: var(--text-faint); }
+
+    footer {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 1.4rem 2.5rem;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-faint);
+      line-height: 1.7;
+    }
+
+    @media (max-width: 720px) {
+      .grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow"><i></i> ECO-HY3<b>a</b> &nbsp;·&nbsp; Addendum to <em>Waybar → Quickshell migration plan</em> &nbsp;·&nbsp; Rev 2026-08-23</div>
+  <h1>Phase 6a <br><span>Unified Slab Restyle</span></h1>
+  <p class="lede">Decisions from the grilling session, frozen. The bar abandons waybar's floating-module look:
+     <strong>one full-width surface ("slab") on which modules become invisible regions</strong>, revealed by hover,
+     animated with a soft motion vocabulary, and unified under a single hero element.</p>
+  <div class="badge-row">
+    <span class="badge ok">● Approved 2026-08-23</span>
+    <span class="badge warn">◐ Not implemented</span>
+    <span class="badge">Pure QML · Tier ≤ 2 · no compiled code</span>
+  </div>
+</header>
+
+<main>
+
+  <section id="decisions">
+    <h2>Decisions — grilling session, all settled</h2>
+    <table>
+      <thead><tr><th>#</th><th>Decision</th><th>Call</th></tr></thead>
+      <tbody>
+        <tr><td>D-01</td><td>Unification concept</td><td><b>One full-width slab.</b> Modules lose their own backgrounds and become transparent hit-regions on the shared surface.</td></tr>
+        <tr><td>D-02</td><td>Hover treatment</td><td><b>Tint shift</b> to <code>background-secondary</code> <b>+ 2px lavender underline</b> sliding in from the left.</td></tr>
+        <tr><td>D-03</td><td>Click feedback</td><td><b>Press-scale ≈0.97 + release brightness pulse.</b> In Workspaces, <b>only the clicked pill</b> scales — never the whole module.</td></tr>
+        <tr><td>D-04</td><td>Register</td><td><b>One hero element:</b> living purple→lavender gradient on the active workspace pill. Everything else stays quiet.</td></tr>
+        <tr><td>D-05</td><td>Hero ownership</td><td>Workspace pill holds the slot <b>for now</b>; revisit if/when the audio visualizer lands (migration plan Phase 7) — it may take over, pill reverts to solid lavender.</td></tr>
+        <tr><td>D-06</td><td>Slab placement</td><td><b>Floating:</b> 4px top offset, 12px side insets (<code>Globals.horizontalBarMargin</code>), radius on all corners.</td></tr>
+        <tr><td>D-07</td><td>Region separation</td><td><b>Cluster hairlines:</b> 1px low-opacity vertical lines flanking the center ActiveWindow region only. No dividers between individual modules.</td></tr>
+        <tr><td>D-08</td><td>Motion personality</td><td><b>Soft:</b> 220ms hover / 120ms press transitions.</td></tr>
+        <tr><td>D-09</td><td>Sequencing</td><td>Restyle lands <b>first as Phase 6a</b>; new-module work (migration plan Phase 7) then builds against the final chassis. Native Notifications swap remains independent.</td></tr>
+        <tr><td>D-10</td><td>DP-2 parity</td><td><b>Inherits automatically</b> — restyle lives in shell chrome / ModuleBox, both outputs get it with zero branching.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="anatomy">
+    <h2>Resulting anatomy</h2>
+    <div class="card" style="font-size:12.4px; font-family:var(--mono); color:var(--text-dim); overflow:auto">
+<pre>PanelWindow (transparent, floating geometry unchanged)
+└── <span style="color:#b4befe">slab Rectangle</span>                      ← NEW: Colors.background, radius 5, fills bar area
+    ├── hairline │ ← left cluster          ← 1px rect, rgba(text-secondary, ~30%)
+    ├── RowLayout … Clock · Workspaces     ← regions: transparent until hover
+    ├── hairline │                          ← flanks center only (D-07)
+    ├── ActiveWindow (anchored true-center) ← keeps independent center anchoring
+    ├── hairline │
+    └── RowLayout … Media · Cpu · Audio · Notifications · Tray · PowerMenu</pre>
+    </div>
+    <ul style="margin-top:.8rem">
+      <li><b>Regions keep hit-testing</b>: each former <code>ModuleBox</code> still measures its own width (implicitWidth contract intact), draws nothing at rest, paints tint + underline on hover, scales/pulses on press.</li>
+      <li><b>ActiveWindow stays anchored to the PanelWindow's horizontal center</b> — slab must not change its centering math.</li>
+      <li><b>Hairlines are layout children of the slab</b>, not region decorations, so they never participate in hover.</li>
+    </ul>
+  </section>
+
+  <section id="implementation">
+    <h2>Implementation outline — file by file</h2>
+    <div class="grid2">
+      <div class="card">
+        <ul>
+          <li><code>config/Globals.qml</code> — new motion tokens: <code>hoverMs: 220</code>, <code>pressMs: 120</code>; placement constants stay (D-06 reuses them).</li>
+          <li><code>components/ModuleBox.qml</code> — root <code>color: "transparent"</code>; add hover-tint Rectangle, underline Rectangle (width animated via <code>Behavior</code>), press-scale + pulse behaviors driven by the existing MouseArea; emit coordinates if needed later.</li>
+          <li><code>modules/Workspaces.qml</code> — move press-scale to the per-pill delegate level so only the clicked workspace animates (D-03).</li>
+          <li><code>shell.qml</code> — insert slab Rectangle behind <code>idBarLayout</code>; insert three hairline Rectangles around the center anchor zone.</li>
+          <li>New: active-ws gradient — animated gradient fill on the Workspaces delegate when active (Tier 1, no shader needed; a two-color gradient with animated offset suffices).</li>
+        </ul>
+      </div>
+      <div class="card">
+        <ul>
+          <li><b>No C++/Go</b> — every effect maps to QML property transitions, <code>Behavior on</code>, or plain gradient animation.</li>
+          <li><b>Reduced-motion courtesy</b> (optional, cheap): honor a Globals flag to drop ambient gradient animation; interactions keep state feedback.</li>
+          <li><b>Ground rule</b> applies: this departs from waybar parity deliberately and is reconciled below, not in prose.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="deviations">
+    <h2>Deviation log entries (append to ECO-HY3)</h2>
+    <div class="card">
+      <ul>
+        <li><b>D13 · Unified slab replaces floating modules.</b> Single <code>Colors.background</code> surface behind all regions; modules transparent at rest (supersedes waybar <code>#module</code> per-box styling translated in Phase 1).</li>
+        <li><b>D14 · Motion system added.</b> Hover tint+underline 220ms, press-scale+pulse 120ms, per-pill scaling in Workspaces — no waybar counterpart.</li>
+        <li><b>D15 · Hero element.</b> Animated purple→lavender gradient on active workspace pill; ownership revisited if/when the audio visualizer lands (migration plan Phase 7, D-05).</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <ul>
+      <li><b>A1</b> — Bar reads as one continuous surface; no module has its own visible background at rest.</li>
+      <li><b>A2</b> — Hovering any region shows tint + underline within the soft timing budget; leaving reverses smoothly.</li>
+      <li><b>A3</b> — Pressing a module squashes only that region; release pulses. In Workspaces, adjacent pills do not move or scale.</li>
+      <li><b>A4</b> — Active workspace pill carries the living gradient; urgent-red and inactive states remain static colors.</li>
+      <li><b>A5</b> — Hairlines flank the center region only; ActiveWindow remains pixel-centered regardless of cluster widths.</li>
+      <li><b>A6</b> — DP-2 shows the identical treatment on its minimal set with no extra config.</li>
+      <li><b>A7</b> — No QML errors on load/hotplug; frame cost imperceptible (check with qmlprofiler if in doubt).</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  Source of record: grilling session 2026-08-23<br>
+  Parent plan: docs/plans/quickshell-migration.html (ECO-HY3) — this sheet is its Phase 6a addendum.
+</footer>
+
+</body>
+</html>

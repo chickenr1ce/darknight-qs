@@ -1853,10 +1853,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
       <div class="progress-row" aria-label="Implementation progress">
         <span class="progress-label">Build progress · phases</span>
-        <span class="bar-track" aria-hidden="true"><i class="done" style="width:29%"></i><i class="part"
-            style="width:43%"></i><i class="todo" style="width:28%"></i></span>
-        <span class="progress-meta"><b>2</b>/7 done &nbsp;<span class="dot done"></span> &nbsp; <b>3</b> partial
-          &nbsp;<span class="dot part"></span> &nbsp; <b>2</b> todo &nbsp;<span class="dot todo"></span></span>
+        <span class="bar-track" aria-hidden="true"><i class="done" style="width:45%"></i><i class="part"
+            style="width:22%"></i><i class="todo" style="width:33%"></i></span>
+        <span class="progress-meta"><b>4</b>/9 done &nbsp;<span class="dot done"></span> &nbsp; <b>2</b> partial
+          &nbsp;<span class="dot part"></span> &nbsp; <b>3</b> todo &nbsp;<span class="dot todo"></span></span>
       </div>
     </div>
 
@@ -1880,11 +1880,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
       <div class="meta-cell full">
         <div class="meta-k">As-built note</div>
-        <div class="meta-v"><strong>Phases 0–1 complete</strong>; Phase 4 mostly complete (Media, Cpu, Audio,
+        <div class="meta-v"><strong>Phases 0–3 complete</strong> (Cava deferred out of Phase 2 to Phase 7, 2026-08-23);
+          Phase 4 mostly complete (Media, Cpu, Audio,
           Notifications — swaync-based, to be swapped out for native service per Q1 — PowerMenu, Tray);
-          Phase 2 partial (Clock + Workspaces done and clickable —
-          D10/D11; Cava pending); Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases 3 and 6
-          not started. See phase sheets &amp; module map.</div>
+          Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases 6
+          and 7 not started. <strong>Phase 6a approved, not implemented:</strong> unified slab restyle per
+          <code>docs/plans/unified-slab-restyle.html</code> (ECO-HY3a). See phase sheets &amp; module map.</div>
       </div>
       <div class="status-banner">
         <span class="icon">!</span>
@@ -1897,16 +1898,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <div class="shell">
     <nav class="rail" id="rail" aria-label="Dossier index">
       <div class="rail-section">
-        <p class="rail-label">Phases 0 – 6</p>
+        <p class="rail-label">Phases 0 – 7</p>
         <ul>
           <li><a href="#phase-0"><span class="num">0</span> Scaffold <span class="dot done"></span></a></li>
           <li><a href="#phase-1"><span class="num">1</span> Theme foundation <span class="dot done"></span></a></li>
-          <li><a href="#phase-2"><span class="num">2</span> Clock · Workspaces · Cava <span class="dot part"></span></a>
+          <li><a href="#phase-2"><span class="num">2</span> Clock · Workspaces <span class="dot done"></span></a>
           </li>
           <li><a href="#phase-3"><span class="num">3</span> Active window <span class="dot done"></span></a></li>
           <li><a href="#phase-4"><span class="num">4</span> Right cluster <span class="dot part"></span></a></li>
           <li><a href="#phase-5"><span class="num">5</span> Multi-monitor <span class="dot part"></span></a></li>
+          <li><a href="#phase-6a"><span class="num">6a</span> Slab restyle <span class="dot todo"></span></a></li>
           <li><a href="#phase-6"><span class="num">6</span> Polish & cutover <span class="dot todo"></span></a></li>
+          <li><a href="#phase-7"><span class="num">7</span> New modules <span class="dot todo"></span></a></li>
         </ul>
       </div>
       <div class="rail-divider"></div>
@@ -1928,7 +1931,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
       <div class="rail-footer">
         <div class="k">Sheet control</div>
-        <div class="v">Source: ~/.config/waybar/config.jsonc, style.css, colors.css, toggle_audio.sh<br>Verify:
+        <div class="v">Source: ~/.config/waybar/config.jsonc, style.css, colors.css, toggle_audio.sh<br>Addendum:
+          docs/plans/unified-slab-restyle.html (ECO-HY3a · Phase 6a)<br>Verify:
           /usr/lib/qt6/qml/Quickshell/</div>
       </div>
     </nav>
@@ -1960,7 +1964,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <li>Audio: native <code>Quickshell.Services.Pipewire</code> (matches wireplumber).</li>
               <li>Audio sink cycle <code>JadeAudio → AB13X Dongle → Creative Pebble V3</code> reimplemented in QML,
                 replacing <code>toggle_audio.sh</code>.</li>
-              <li>Cava: real QML rectangles (not unicode blocks) via <code>cava</code> subprocess raw output.</li>
+              <li>Cava: real QML rectangles (not unicode blocks) via <code>cava</code> subprocess raw output.
+                <b>Deferred to Phase 7</b> (2026-08-23) — not required for parity.</li>
               <li>Notifications: native <code>Quickshell.Services.Notifications</code> daemon replaces swaync,
                 removing the external dependency; the existing <code>swaync-client</code> shell-out is migrated
                 (Q1).</li>
@@ -1987,7 +1992,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <div class="deviation-head">
             <span class="badge">Δ</span>
             <strong>Deviation log – observed in working config</strong>
-            <span>12 findings · updated 2026-08-22</span>
+            <span>15 findings · updated 2026-08-23</span>
           </div>
           <div class="deviation-body">
             <ul>
@@ -2008,7 +2013,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   decision — swap out for native <code>Quickshell.Services.Notifications</code>.</span></li>
               <li><span><b>D8 · Workspaces.qml built and wired (was stub).</b> Persistent 5 per monitor via
                   <code>Repeater</code>, monitor split DP-1 → 1–5 / DP-2 → 6–10; active = lavender + secondary bg,
-                  urgent = red, hover = text. Not yet created: <code>Cava.qml</code>.
+                  urgent = red, hover = text. <b>Cava deferred to Phase 7</b> (2026-08-23).
                   <b>Update:</b> <code>Tray.qml</code> has since been built and wired — see
                   <code>docs/tray-module.md</code>.</span></li>
               <li><span><b>D9 · Font size is 14px, not waybar’s 16px.</b> <code>Globals.fontPixelSize = 14</code> chosen
@@ -2031,6 +2036,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <code>elide: Text.ElideRight</code>. <code>Cpu.qml</code> prevents 1-digit vs 2-digit jitter
                   symmetrically via
                   <code>minWidth: 62</code>.</span></li>
+              <li><span><b>D13 · Unified slab replaces floating modules (approved, ECO-HY3a).</b> A single
+                  <code>Colors.background</code> surface spans the bar; modules lose their own backgrounds and become
+                  transparent hover regions. Supersedes the waybar <code>#module</code> per-box styling translated in
+                  Phase 1. Spec: <code>docs/plans/unified-slab-restyle.html</code>.</span></li>
+              <li><span><b>D14 · Motion system added (approved, ECO-HY3a).</b> Hover tint + lavender underline 220ms;
+                  press-scale + release pulse 120ms; Workspaces scales only the clicked pill. Cluster hairlines flank
+                  the center region. No waybar counterpart — deliberate improvement per ground rule.</span></li>
+              <li><span><b>D15 · Hero element: animated active-workspace gradient (approved, ECO-HY3a).</b> Living
+                  purple→lavender gradient on the active workspace pill; ownership revisited when Cava lands
+                  (Phase 7).</span></li>
             </ul>
           </div>
         </div>
@@ -2082,7 +2097,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               ≈14)</span> <span class="ok">● done</span>
             └── <b>PowerMenu.qml</b> <span class="muted">right (Process → rofi powermenu script)</span> <span
               class="ok">● done</span>
-            <span class="muted"># NOT YET CREATED (D8): Cava.qml</span>
+            <span class="muted"># DEFERRED to Phase 7 (2026-08-23): Cava.qml — see modules/new-modules backlog</span>
           </div>
           <div class="tree-note"><b>Why split?</b> Quickshell compiles each QML file separately; isolating modules makes
             acceptance checks per-module and keeps the bar resilient.</div>
@@ -2149,8 +2164,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <article class="phase" id="phase-2">
             <div class="phase-head">
               <span class="phase-num">02</span>
-              <h3>Left cluster: Clock, Workspaces, Cava</h3>
-              <span class="badge part">◐ Partial</span>
+              <h3>Left cluster: Clock &amp; Workspaces</h3>
+              <span class="badge done">● Done</span>
             </div>
             <div class="phase-body">
               <ul>
@@ -2164,14 +2179,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   right-click no-op (waybar parity — plan’s urgent-toggle dropped). Event-driven refresh via
                   <code>Hyprland.rawEvent</code>. <span class="mini done">● Done</span>
                 </li>
-                <li><b>Cava.qml</b> – <code>Process</code> running <code>cava</code> with temp raw config (method=raw,
-                  16-bit, pipewire, 14 bars, 50–10000 cutoffs, 0.77 noise); parse frames into <code>Repeater</code> of
-                  <code>Rectangle</code> bars; hide on silence via threshold; right-click cycles cava’s rendering mode
-                  (mirrors waybar <code>on-click-right: "mode"</code>). <span class="mini todo">○ Todo</span>
+                <li><b>Cava.qml</b> – deferred out of this phase (2026-08-23); full spec preserved in
+                  <a href="#phase-7">Phase 7 — new modules &amp; functionality</a>. <span class="mini todo">○ Deferred
+                    → Phase 7</span>
                 </li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>Clock ticks each minute; workspaces reflect Hyprland with
-                  active highlight; cava animates and hides on silence.</span></div>
+                  active highlight.</span></div>
             </div>
           </article>
 
@@ -2257,6 +2271,35 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             </div>
           </article>
 
+          <article class="phase" id="phase-6a">
+            <div class="phase-head">
+              <span class="phase-num">6a</span>
+              <h3>Unified slab restyle <small>full-width slab · soft motion · hero gradient — spec of record:
+                  ECO-HY3a</small></h3>
+              <span class="badge todo">○ Not started</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li><b>Approved addendum (2026-08-23):</b> full decision set (D-01…D-10), slab anatomy, per-file
+                  implementation outline and acceptance criteria live in
+                  <code>docs/plans/unified-slab-restyle.html</code>. This sheet is the summary.</li>
+                <li><b>One full-width slab</b> replaces floating module boxes: modules become transparent regions on a
+                  shared <code>Colors.background</code> surface. Hover = tint + 2px lavender underline (220ms); click =
+                  press-scale + release pulse (120ms) with per-pill scaling in Workspaces only.</li>
+                <li><b>Hairlines flank the center ActiveWindow region only;</b> ActiveWindow keeps its independent
+                  true-center anchoring. Slab stays floating: 4px top, 12px sides, radius all corners.</li>
+                <li><b>Hero element:</b> living purple→lavender gradient on the active workspace pill; ownership
+                  revisited when/if Cava lands (Phase 7). Pure QML throughout — no shaders, no compiled code.</li>
+                <li><b>Sequencing:</b> lands before any new-module work (Phase 7 — Cava, idle inhibitor, …) so those
+                  are built once against the final chassis;
+                  native Notifications swap remains independent; DP-2 inherits automatically.</li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>A1–A7 in the addendum: bar reads as one surface;
+                  soft-motion hover/click everywhere; adjacent workspace pills never move on press; no QML errors on
+                  load/hotplug.</span></div>
+            </div>
+          </article>
+
           <article class="phase" id="phase-6">
             <div class="phase-head">
               <span class="phase-num">06</span>
@@ -2265,8 +2308,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             </div>
             <div class="phase-body">
               <ul>
-                <li>Hover transitions (module bg on hover), smooth cava bar easing.</li>
-                <li>Side-by-side compare with waybar; reconcile visual drift (spacing, radius, color).</li>
+                <li>Side-by-side compare with waybar; reconcile visual drift (spacing, radius, color) — hover/click
+                  motion already delivered by <a href="#phase-6a">Phase 6a</a>.</li>
                 <li>Replace Hyprland autostart entry with <code>quickshell</code>; stop waybar.</li>
                 <li><b>Rollback:</b> <code>~/.config/quickshell/bar-switch waybar</code> restores waybar instantly;
                   until the autostart swap, a reboot also returns to waybar.</li>
@@ -2275,6 +2318,33 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   waybar disabled; restart brings only Quickshell.</span></div>
             </div>
           </article>
+
+          <article class="phase" id="phase-7">
+            <div class="phase-head">
+              <span class="phase-num">07</span>
+              <h3>New modules &amp; functionality <small>post-cutover backlog — not required for parity</small></h3>
+              <span class="badge todo">○ Not started</span>
+            </div>
+            <div class="phase-body">
+              <ul>
+                <li><b>Scope:</b> everything that goes beyond waybar parity, taken up only after Phase 6 cutover.
+                  Deliberate improvement continues here; each item is specified and accepted individually.</li>
+                <li><b>Cava visualizer (deferred from Phase 2, 2026-08-23)</b> – <code>Process</code> running
+                  <code>cava</code> with temp raw config (method=raw, 16-bit, pipewire, 14 bars, 50–10000 cutoffs,
+                  0.77 noise); parse frames into a <code>Repeater</code> of <code>Rectangle</code> bars; hide on
+                  silence via threshold; right-click cycles cava's rendering mode. Build against the finished slab
+                  (Phase 6a) so the hero-element question (D-05/D15) is decided with it in place.
+                  <span class="mini todo">○ Deferred</span>
+                </li>
+                <li><b>Idle inhibitor</b> – module map already reserves
+                  <code>Quickshell.Wayland._IdleInhibitor</code>; private API, revisit when needed.
+                  <span class="mini todo">○ Candidate</span>
+                </li>
+                <li><b>Further candidates</b> – notification count badge polish beyond the Q1 port, weather,
+                  system tray enhancements, anything worth a deviation entry.</li>
+              </ul>
+              <div class="phase-accept"><b>Acceptance</b><span>Per-item, defined when an item is pulled into active
+                  work; each ships with its own deviation-log entry and acceptance criteria.</span></div>
         </div>
       </section>
 
@@ -2318,8 +2388,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <td><code>cava</code></td>
                   <td>Process (cava raw) + Repeater</td>
                   <td>Upgrade</td>
-                  <td>Real rectangles vs unicode; pipewire</td>
-                  <td><span class="mini todo">○ Not started</span></td>
+                  <td>Real rectangles vs unicode; pipewire — <b>deferred to Phase 7</b> (2026-08-23)</td>
+                  <td><span class="mini todo">→ Phase 7</span></td>
                 </tr>
                 <tr>
                   <td><code>hyprland/window</code></td>
@@ -2540,7 +2610,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <div class="label"><i></i> DP-1 – Full bar</div>
               <div class="bar-preview" aria-hidden="true">
                 <span class="accent">Clock</span>
-                <span>WS</span><span>Cava</span>
+                <span>WS</span>
                 <span class="spacer"></span>
                 <span>Window</span>
                 <span class="spacer"></span>
@@ -2548,7 +2618,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               </div>
               <p>Shows every built module. Right cluster visible only when
                 <code>idPanelWindow.monitorName === "DP-1"</code>; ActiveWindow is anchored to the bar
-                center on all outputs. Still missing: Cava on left.
+                center on all outputs. Notifications still on the swaync bridge (Q1 swap pending).
               </p>
             </div>
             <div class="monitor">
@@ -2569,14 +2639,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
         <div class="code-block">
           <div class="code-head"><span class="dots"><i></i><i></i><i></i></span> shell.qml – actual</div>
-          <pre class="code-body"><span class="kw">pragma ComponentBehavior:</span> <span class="str">Bound</span>
+          <pre class="code-body"><span class="cmt">//@ pragma UseQApplication</span>
+<span class="kw">pragma ComponentBehavior:</span> <span class="str">Bound</span>
 
-<span class="kw">import</span> <span class="str">Quickshell</span>
 <span class="kw">import</span> <span class="str">QtQuick</span>
 <span class="kw">import</span> <span class="str">QtQuick.Layouts</span>
-<span class="kw">import</span> <span class="str">"config"</span>
-<span class="kw">import</span> <span class="str">"modules"</span>
+<span class="kw">import</span> <span class="str">Quickshell</span>
+<span class="kw">import</span> <span class="str">qs.config</span>
+<span class="kw">import</span> <span class="str">qs.modules</span>
 
+<span class="cmt">// One PanelWindow per connected screen (Variants over Quickshell.screens).</span>
 <span class="kw">ShellRoot</span> {
   <span class="kw">id:</span> root
 
@@ -2588,28 +2660,39 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     <span class="kw">PanelWindow</span> {
       <span class="kw">id:</span> idPanelWindow
 
-      <span class="kw">required property var</span> modelData
-      <span class="kw">screen:</span> modelData
+      <span class="kw">required property</span> <span class="typ">ShellScreen</span> modelData
       <span class="kw">property string</span> monitorName: modelData.name
 
-      <span class="kw">anchors.top:</span> <span class="str">true</span>
-      <span class="kw">anchors.left:</span> <span class="str">true</span>
-      <span class="kw">anchors.right:</span> <span class="str">true</span>
+      <span class="kw">screen:</span> modelData
+
       <span class="kw">implicitHeight:</span> Globals.barHeight + Globals.moduleMargin
       <span class="kw">color:</span> <span class="str">"transparent"</span>
 
+      <span class="kw">anchors</span> {
+        top: <span class="str">true</span>
+        left: <span class="str">true</span>
+        right: <span class="str">true</span>
+      }
+
       <span class="kw">RowLayout</span> {
         <span class="kw">id:</span> idBarLayout
-        <span class="kw">anchors.fill:</span> parent
-        <span class="kw">anchors.leftMargin:</span> Globals.horizontalBarMargin
-        <span class="kw">anchors.rightMargin:</span> Globals.horizontalBarMargin
-        <span class="kw">anchors.topMargin:</span> Globals.moduleMargin
-        <span class="kw">spacing:</span> Globals.moduleMargin
+
+        <span class="kw">spacing:</span> Globals.spacing
+
+        <span class="kw">anchors</span> {
+          fill: parent
+          leftMargin: Globals.horizontalBarMargin
+          rightMargin: Globals.horizontalBarMargin
+          topMargin: Globals.moduleMargin
+        }
 
         <span class="cmt">// Left cluster</span>
         <span class="str">Clock</span> {}
         <span class="str">Workspaces</span> {
           <span class="kw">monitorName:</span> idPanelWindow.monitorName
+        }
+        <span class="str">Tray</span> {
+          <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
         }
 
         <span class="kw">Item</span> {
@@ -2630,17 +2713,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <span class="str">Notifications</span> {
           <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
         }
+
         <span class="str">PowerMenu</span> {
           <span class="kw">visible:</span> idPanelWindow.monitorName === <span class="str">"DP-1"</span>
         }
       }
 
-      <span class="cmt">// Center module — anchored to the bar itself so it stays in
-      // the exact horizontal center regardless of side-cluster widths.</span>
+      <span class="cmt">// Center module — anchored to the bar itself so it stays in the
+      // exact horizontal center regardless of side-cluster widths
+      // (mirrors waybar's absolutely-positioned center section).</span>
       <span class="str">ActiveWindow</span> {
-        <span class="kw">anchors.horizontalCenter:</span> parent.horizontalCenter
-        <span class="kw">anchors.verticalCenter:</span> parent.verticalCenter
-        <span class="kw">anchors.verticalCenterOffset:</span> Globals.moduleMargin / 2
+        <span class="kw">anchors</span> {
+          horizontalCenter: parent.horizontalCenter
+          verticalCenter: parent.verticalCenter
+          verticalCenterOffset: Globals.moduleMargin / 2
+        }
       }
     }
   }
@@ -2683,7 +2770,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <td><code>onWheelMoved</code> snaps to clean 5% increments via <code>audio.volume</code></td>
                 </tr>
                 <tr>
-                  <td>Cava (right)</td>
+                  <td>Cava (right) <small>deferred → Phase 7</small></td>
                   <td>Cycle cava rendering mode</td>
                   <td>Signal the cava <code>Process</code> / flip QML state</td>
                 </tr>
@@ -2726,7 +2813,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div class="accept-list">
           <div class="accept-item">
             <span class="n">1</span>
-            <p><b>DP-1 bar order:</b> Clock, Workspaces, [Cava missing], ActiveWindow (center), Mpris (Media), Cpu,
+            <p><b>DP-1 bar order:</b> Clock, Workspaces, ActiveWindow (center), Mpris (Media), Cpu,
               Audio, Notifications, Tray, PowerMenu – functional where present.</p>
             <span class="badge part state">◐ Partial</span>
           </div>
@@ -2751,8 +2838,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           </div>
           <div class="accept-item">
             <span class="n">5</span>
-            <p><b>Cava:</b> uses pipewire, hides on silence, animates as real bars.</p>
-            <span class="badge todo state">○ Not started</span>
+            <p><b>Cava:</b> uses pipewire, hides on silence, animates as real bars. <b>Deferred to Phase 7</b>
+              (2026-08-23) — no longer gates migration acceptance.</p>
+            <span class="badge neutral state">→ Phase 7</span>
           </div>
           <div class="accept-item">
             <span class="n">6</span>
