@@ -1881,7 +1881,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <div class="meta-cell full">
         <div class="meta-k">As-built note</div>
         <div class="meta-v"><strong>Phases 0–1 complete</strong>; Phase 4 mostly complete (Media, Cpu, Audio,
-          Notifications — swaync-based, to be swapped out for native service per Q1 — PowerMenu; Tray outstanding);
+          Notifications — swaync-based, to be swapped out for native service per Q1 — PowerMenu, Tray);
           Phase 2 partial (Clock + Workspaces done and clickable —
           D10/D11; Cava pending); Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases 3 and 6
           not started. See phase sheets &amp; module map.</div>
@@ -2008,8 +2008,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   decision — swap out for native <code>Quickshell.Services.Notifications</code>.</span></li>
               <li><span><b>D8 · Workspaces.qml built and wired (was stub).</b> Persistent 5 per monitor via
                   <code>Repeater</code>, monitor split DP-1 → 1–5 / DP-2 → 6–10; active = lavender + secondary bg,
-                  urgent = red, hover = text. Not yet created: <code>Cava.qml</code>,
-                  <code>Tray.qml</code>.</span></li>
+                  urgent = red, hover = text. Not yet created: <code>Cava.qml</code>.
+                  <b>Update:</b> <code>Tray.qml</code> has since been built and wired — see
+                  <code>docs/tray-module.md</code>.</span></li>
               <li><span><b>D9 · Font size is 14px, not waybar’s 16px.</b> <code>Globals.fontPixelSize = 14</code> chosen
                   for barHeight 28; deliberate, logged per ground rule.</span></li>
               <li><span><b>D10 · ModuleBox sizing bounds &amp; properties.</b> <code>minWidth</code> and
@@ -2726,7 +2727,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <div class="accept-item">
             <span class="n">1</span>
             <p><b>DP-1 bar order:</b> Clock, Workspaces, [Cava missing], ActiveWindow (center), Mpris (Media), Cpu,
-              Audio, Notifications, [Tray missing], PowerMenu – functional where present.</p>
+              Audio, Notifications, Tray, PowerMenu – functional where present.</p>
             <span class="badge part state">◐ Partial</span>
           </div>
           <div class="accept-item">
@@ -2757,7 +2758,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <span class="n">6</span>
             <p><b>Mpris / Cpu / swaync / Tray:</b> Media reflects track/status, Cpu % updates, swaync toggles (to be
               replaced by native Notifications per Q1); Tray
-              lists apps – not built.</p>
+              lists apps (see <code>docs/tray-module.md</code>).</p>
             <span class="badge part state">◐ Partial</span>
           </div>
           <div class="accept-item">
