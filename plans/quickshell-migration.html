@@ -1881,7 +1881,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <div class="meta-cell full">
         <div class="meta-k">As-built note</div>
         <div class="meta-v"><strong>Phases 0–1 complete</strong>; Phase 4 mostly complete (Media, Cpu, Audio,
-          Notifications, PowerMenu — Tray outstanding); Phase 2 partial (Clock + Workspaces done and clickable —
+          Notifications — swaync-based, to be swapped out for native service per Q1 — PowerMenu; Tray outstanding);
+          Phase 2 partial (Clock + Workspaces done and clickable —
           D10/D11; Cava pending); Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases 3 and 6
           not started. See phase sheets &amp; module map.</div>
       </div>
@@ -1958,7 +1959,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <li>Audio sink cycle <code>JadeAudio → AB13X Dongle → Creative Pebble V3</code> reimplemented in QML,
                 replacing <code>toggle_audio.sh</code>.</li>
               <li>Cava: real QML rectangles (not unicode blocks) via <code>cava</code> subprocess raw output.</li>
-              <li>Notifications: keep swaync; shell out to <code>swaync-client</code> as today.</li>
+              <li>Notifications: native <code>Quickshell.Services.Notifications</code> daemon replaces swaync,
+                removing the external dependency; the existing <code>swaync-client</code> shell-out is migrated
+                (Q1).</li>
               <li>Power menu: keep rofi script <code>~/.config/rofi/powermenu/type-1/powermenu.sh</code>.</li>
             </ul>
           </div>
@@ -1999,7 +2002,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <li><span><b>D6 · Mpris module is named <code>Media.qml</code></b>, not <code>Mpris.qml</code>.</span>
               </li>
               <li><span><b>D7 · Notifications toggles only</b> (<code>swaync-client -t -sw</code>); plan’s count badge
-                  (<code>-swb</code>) not yet.</span></li>
+                  (<code>-swb</code>) not yet. <b>This swaync-based solution is deprecated:</b> superseded by the Q1
+                  decision — swap out for native <code>Quickshell.Services.Notifications</code>.</span></li>
               <li><span><b>D8 · Workspaces.qml built and wired (was stub).</b> Persistent 5 per monitor via
                   <code>Repeater</code>, monitor split DP-1 → 1–5 / DP-2 → 6–10; active = lavender + secondary bg,
                   urgent = red, hover = text. Not yet created: <code>Cava.qml</code>,
@@ -2068,8 +2072,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               class="ok">● done</span>
             ├── <b>Audio.qml</b> <span class="muted">right (Pipewire default sink + wpctl cycle + scroll volume)</span>
             <span class="ok">● done</span>
-            ├── <b>Notifications.qml</b> <span class="muted">right (swaync-client -t -sw via Process)</span> <span
-              class="ok">● done</span>
+            ├── <b>Notifications.qml</b> <span class="muted">right (swaync-client -t -sw via Process —
+              deprecated: swap out for native Notifications per Q1)</span> <span
+              class="ok">● done, pending replacement</span>
             └── <b>PowerMenu.qml</b> <span class="muted">right (Process → rofi powermenu script)</span> <span
               class="ok">● done</span>
             <span class="muted"># NOT YET CREATED (D8): Cava.qml, Tray.qml</span>
@@ -2210,14 +2215,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   ±5% (snapped 0–100%). <span class="mini done">● Done</span>
                 </li>
                 <li><b>Notifications.qml</b> – as built: click → <code>swaync-client -t -sw</code>, toggle only (D7);
-                  original <code>-swb</code> count badge not yet ported. <span class="mini done">● Done</span></li>
+                  original <code>-swb</code> count badge not yet ported. Per Q1, migrate to
+                  <code>Quickshell.Services.Notifications</code> (drop swaync dependency; port count-badge behaviour).
+                  <span class="mini todo">○ Migration pending</span></li>
                 <li><b>Tray.qml</b> – <code>Quickshell.Services.SystemTray</code> StatusNotifier items; icon ≈14,
                   spacing 10. <span class="mini todo">○ Todo</span></li>
                 <li><b>PowerMenu.qml</b> – icon only; click → <code>Process</code> running rofi powermenu script
                   (absolute path — see Interactions). <span class="mini done">● Done</span></li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>Each right-module matches waybar: media track, cpu %,
-                  volume cycles sinks, swaync toggles, tray lists apps, powermenu opens rofi.</span></div>
+                  volume cycles sinks, notifications toggle (native service per Q1), tray lists apps, powermenu opens
+                  rofi.</span></div>
             </div>
           </article>
 
@@ -2339,10 +2347,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 </tr>
                 <tr>
                   <td><code>custom/notification</code></td>
-                  <td>Process → swaync-client</td>
-                  <td>Direct</td>
-                  <td>Toggle only (-t -sw), no badge yet</td>
-                  <td><span class="mini done">● Done</span></td>
+                  <td>Quickshell.Services.Notifications</td>
+                  <td>Replace</td>
+                  <td>As built: Process → swaync-client toggle (Done); migrate to native service per Q1, port
+                    count-badge</td>
+                  <td><span class="mini todo">○ Migration pending</span></td>
                 </tr>
                 <tr>
                   <td><code>tray</code></td>
@@ -2685,8 +2694,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 </tr>
                 <tr>
                   <td>Notifications</td>
-                  <td>Toggle swaync</td>
-                  <td><code>Process { command: ["swaync-client","-t","-sw"] }</code></td>
+                  <td>Toggle notification panel / DND</td>
+                  <td><code>Quickshell.Services.Notifications</code> — native backend replaces the
+                    <code>swaync-client -t -sw</code> shell-out (Q1); as-built Process command retained until migrated</td>
                 </tr>
                 <tr>
                   <td>PowerMenu</td>
@@ -2739,7 +2749,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           </div>
           <div class="accept-item">
             <span class="n">6</span>
-            <p><b>Mpris / Cpu / swaync / Tray:</b> Media reflects track/status, Cpu % updates, swaync toggles; Tray
+            <p><b>Mpris / Cpu / swaync / Tray:</b> Media reflects track/status, Cpu % updates, swaync toggles (to be
+              replaced by native Notifications per Q1); Tray
               lists apps – not built.</p>
             <span class="badge part state">◐ Partial</span>
           </div>
@@ -2801,8 +2812,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <span class="rnum">R5</span>
             <div>
               <h4>swaync coupling <em>· external dep</em></h4>
-              <p><b>Risk:</b> Keeping swaync adds one external dependency. <b>Mitigation:</b> unchanged from today → low
-                risk; native Notifications daemon is optional later swap (see Q1).</p>
+              <p><b>Risk:</b> swaync adds one external dependency. <b>Resolution (Q1):</b> replace with native
+                <code>Quickshell.Services.Notifications</code>, removing the dependency; until the migration lands,
+                current behaviour remains low risk.</p>
             </div>
           </div>
         </div>
@@ -2815,20 +2827,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <h2>Open Questions</h2>
         </div>
         <div class="q-list">
-          <details class="q">
-            <summary>Q1 – Keep swaync or switch to Quickshell’s native notification daemon?</summary>
-            <div class="q-body">Plan assumes keeping swaync (zero behaviour change).
-              <code>Quickshell.Services.Notifications</code> can replace swaync entirely, removing a dependency and
-              enabling richer in-bar notifications – but it changes the notification backend. Decide before Phase 4 if
-              you want to attempt the native path.
+          <details class="q" open>
+            <summary>Q1 – Keep swaync or switch to Quickshell’s native notification daemon? <b>— Decided:
+                switch to native.</b></summary>
+            <div class="q-body">Resolved. Use <code>Quickshell.Services.Notifications</code> as the backend,
+              replacing swaync entirely – this drops the external dependency and enables richer in-bar notifications.
+              The as-built <code>Notifications.qml</code> (<code>swaync-client -t -sw</code> toggle, D7) must be
+              migrated to the native service; the original count-badge behaviour can be ported during that migration.
             </div>
           </details>
-          <details class="q">
-            <summary>Q2 – Cava via subprocess, or native Pipewire spectrum?</summary>
-            <div class="q-body">Plan assumes a <code>cava</code> subprocess feeding raw frames to a QML
-              <code>Repeater</code>. Quickshell’s Pipewire service may expose per-channel levels directly, removing the
-              subprocess. Subprocess is lower-risk and matches current behaviour; evaluate native levels only if you
-              want to drop the cava dependency.
+          <details class="q" open>
+            <summary>Q2 – Cava via subprocess, or native Pipewire spectrum? <b>— Decided: cava subprocess.</b></summary>
+            <div class="q-body">Resolved. Keep the <code>cava</code> subprocess feeding raw frames to a QML
+              <code>Repeater</code>, as already accepted in DEC. Lower-risk and matches current behaviour; the native
+              Pipewire spectrum path is not pursued.
             </div>
           </details>
           <details class="q" open>
@@ -2839,12 +2851,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               Quickshell does it better — native services over shell-outs, sub-pixel text elision over string slicing,
               event-driven state over polling, anchored true centering. Improvements are logged in the deviation log so
               form fidelity stays auditable.</div>
-          </details>
-          <details class="q">
-            <summary>Q4 – Autostart cutover timing?</summary>
-            <div class="q-body">Keep both running in parallel through validation (Phases 0–5), then swap the Hyprland
-              autostart entry in Phase 6. Confirm comfort with two bars briefly, or prefer an immediate single-bar
-              cutover.</div>
           </details>
         </div>
       </section>
