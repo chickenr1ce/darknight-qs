@@ -27,7 +27,17 @@ stability, layout best practices, attribute ordering — live in:
 
 ---
 
-## 3. Docs
+## 3. Agent Skills
+
+QML/Quickshell agent skills live in `.agents/skills/`:
+- `quickshell-patterns` / `qt-qml` — load when writing or editing any QML in this repo
+- `qt-qml-review` — part of the standard verification pass (with qmllint) after QML changes
+- `qt-qml-profiler` — performance/lag investigations
+- `qt-qml-docs` / `qt-qml-test` / `qt-qml-test-run` / `qt-ui-design` — docs generation, test writing/running, UI design audits
+
+---
+
+## 4. Docs
 
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
 - For current context on the project, refer to `docs/plans/quickshell-migration.html`
