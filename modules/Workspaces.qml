@@ -11,12 +11,12 @@ import qs.components
 ModuleBox {
     id: root
 
+    property string monitorName: ""
+    readonly property int firstWorkspaceId: root.monitorName === "DP-2" ? 6 : 1
+
     // Own buttons handle clicks, so disable the parent glass pane.
     enableMouseArea: false
     horizontalPadding: 5
-
-    property string monitorName: ""
-    readonly property int firstWorkspaceId: root.monitorName === "DP-2" ? 6 : 1
 
     RowLayout {
         id: idWorkspaceRow
@@ -29,11 +29,13 @@ ModuleBox {
             delegate: Rectangle {
                 id: idWorkspaceButton
 
+                Layout.alignment: Qt.AlignVCenter
+
                 required property int index
 
                 readonly property int workspaceId: root.firstWorkspaceId + index
 
-                property var workspace: {
+                readonly property var workspace: {
                     const allWorkspaces = Hyprland.workspaces?.values ?? [];
                     for (let i = 0; i < allWorkspaces.length; i++) {
                         if (allWorkspaces[i].id === idWorkspaceButton.workspaceId)
@@ -61,7 +63,6 @@ ModuleBox {
                 readonly property bool isUrgentWorkspace: idWorkspaceButton.workspace?.urgent ?? false
                 property bool isHovered: false
 
-                Layout.alignment: Qt.AlignVCenter
                 implicitWidth: idWorkspaceLabel.implicitWidth + 16
                 implicitHeight: 20
                 radius: Globals.radius
@@ -74,9 +75,11 @@ ModuleBox {
 
                     text: idWorkspaceButton.workspace?.name ?? String(idWorkspaceButton.workspaceId)
                     color: idWorkspaceButton.isUrgentWorkspace ? Colors.red : idWorkspaceButton.isHovered ? Colors.text : idWorkspaceButton.isActiveWorkspace ? Colors.lavender : Colors.textSecondary
-                    font.family: Globals.fontFamily
-                    font.pixelSize: Globals.fontPixelSize
-                    font.weight: Font.DemiBold
+                    font {
+                        family: Globals.fontFamily
+                        pixelSize: Globals.fontPixelSize
+                        weight: Font.DemiBold
+                    }
                 }
 
                 MouseArea {

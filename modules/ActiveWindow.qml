@@ -26,6 +26,11 @@ ModuleBox {
     // exactly maxChars while Qt does the actual elision.
     maxWidth: Math.ceil(idCharMetrics.advanceWidth * root.maxChars)
 
+    // One-shot seed: the IPC socket only streams changes, so at startup we
+    // ask hyprctl for the current window. Skipped if an event already won
+    // the race. "Invalid" (nothing focused) fails JSON.parse and clears.
+    Component.onCompleted: idTitleSeedProcess.running = true
+
     TextMetrics {
         id: idCharMetrics
 
@@ -69,8 +74,6 @@ ModuleBox {
             }
         }
     }
-
-    Component.onCompleted: idTitleSeedProcess.running = true
 
     Connections {
         target: Hyprland

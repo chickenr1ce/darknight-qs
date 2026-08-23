@@ -40,12 +40,17 @@ ModuleBox {
 
         Layout.fillWidth: true
         //Layout.minimumWidth: 0
+
+        textFormat: Text.PlainText
         elide: Text.ElideRight
 
         color: root.isPlaying ? Colors.background : Colors.lavender
-        font.family: Globals.fontFamily
-        font.pixelSize: Globals.fontPixelSize
-        font.weight: Font.DemiBold
+
+        font {
+            family: Globals.fontFamily
+            pixelSize: Globals.fontPixelSize
+            weight: Font.DemiBold
+        }
 
         text: {
             if (!root.activePlayer)

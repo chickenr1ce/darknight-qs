@@ -8,10 +8,10 @@ Singleton {
     id: root
 
     readonly property list<MprisPlayer> playerList: Mpris.players.values
-    property MprisPlayer selectedPlayer: playerList.length > 0 ? playerList[activeIndex] : null
+    readonly property MprisPlayer selectedPlayer: playerList.length > 0 ? playerList[activeIndex] : null
     readonly property MprisPlayer activePlayer: selectedPlayer
     property int activeIndex: 0
-    property string playerName: selectedPlayer?.identity ?? ""
+    readonly property string playerName: selectedPlayer?.identity ?? ""
 
     onPlayerListChanged: {
         if (!playerList || playerList.length === 0) {

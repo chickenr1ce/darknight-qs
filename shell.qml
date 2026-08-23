@@ -1,9 +1,9 @@
 //@ pragma UseQApplication
 pragma ComponentBehavior: Bound
 
-import Quickshell
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs.config
 import qs.modules
 
@@ -25,31 +25,39 @@ ShellRoot {
         PanelWindow {
             id: idPanelWindow
 
-            required property var modelData
-            screen: modelData
+            required property ShellScreen modelData
             property string monitorName: modelData.name
 
-            anchors.top: true
-            anchors.left: true
-            anchors.right: true
+            screen: modelData
 
             implicitHeight: Globals.barHeight + Globals.moduleMargin
             color: "transparent"
 
+            anchors {
+                top: true
+                left: true
+                right: true
+            }
+
             RowLayout {
                 id: idBarLayout
 
-                anchors.fill: parent
-                anchors.leftMargin: Globals.horizontalBarMargin
-                anchors.rightMargin: Globals.horizontalBarMargin
-                anchors.topMargin: Globals.moduleMargin
-
                 spacing: Globals.spacing
+
+                anchors {
+                    fill: parent
+                    leftMargin: Globals.horizontalBarMargin
+                    rightMargin: Globals.horizontalBarMargin
+                    topMargin: Globals.moduleMargin
+                }
 
                 // Left cluster
                 Clock {}
                 Workspaces {
                     monitorName: idPanelWindow.monitorName
+                }
+                Tray {
+                    visible: idPanelWindow.monitorName === "DP-1"
                 }
 
                 Item {
@@ -70,9 +78,7 @@ ShellRoot {
                 Notifications {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
-                Tray {
-                    visible: idPanelWindow.monitorName === "DP-1"
-                }
+
                 PowerMenu {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
@@ -83,11 +89,11 @@ ShellRoot {
             // (mirrors waybar's absolutely-positioned center section). May
             // overlap edge modules on very long titles, same as waybar.
             ActiveWindow {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.verticalCenter: parent.verticalCenter
-                // RowLayout content sits below topMargin; offset by half of it
-                // so this box lines up with the other modules.
-                anchors.verticalCenterOffset: Globals.moduleMargin / 2
+                anchors {
+                    horizontalCenter: parent.horizontalCenter
+                    verticalCenter: parent.verticalCenter
+                    verticalCenterOffset: Globals.moduleMargin / 2
+                }
             }
         }
     }

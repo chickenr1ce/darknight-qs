@@ -3,6 +3,8 @@ import QtQuick
 
 // Shared geometry/layout constants (mirrors waybar config.jsonc + style.css)
 QtObject {
+    id: root
+
     readonly property int barHeight: 28
     readonly property int spacing: 10
     readonly property int modulePadding: 12

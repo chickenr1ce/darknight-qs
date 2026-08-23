@@ -3,6 +3,8 @@ import QtQuick
 
 // Palette translated from ~/.config/waybar/colors/colors.css
 QtObject {
+    id: root
+
     readonly property color background: "#141118"          // rgba(20,17,24,0.95)
     readonly property color backgroundSecondary: "#27222f"
     readonly property color text: "#cac4d4"

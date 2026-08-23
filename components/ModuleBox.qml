@@ -24,9 +24,9 @@ Rectangle {
     implicitHeight: Globals.barHeight
     implicitWidth: {
         let w = idModuleBoxLayout.implicitWidth + 2 * root.horizontalPadding;
-        if (root.minWidth != 0)
+        if (root.minWidth !== 0)
             w = Math.max(w, root.minWidth);
-        if (root.maxWidth != 0)
+        if (root.maxWidth !== 0)
             w = Math.min(w, root.maxWidth);
         return w;
     }
@@ -37,10 +37,13 @@ Rectangle {
     RowLayout {
         id: idModuleBoxLayout
 
-        anchors.fill: parent
-        anchors.leftMargin: root.horizontalPadding
-        anchors.rightMargin: root.horizontalPadding
         spacing: Globals.spacing
+
+        anchors {
+            fill: parent
+            leftMargin: root.horizontalPadding
+            rightMargin: root.horizontalPadding
+        }
     }
 
     MouseArea {

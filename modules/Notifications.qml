@@ -7,24 +7,26 @@ import qs.components
 ModuleBox {
     id: root
 
+    onClicked: toggleNotifications()
+
     Text {
         id: idNotificationsIcon
 
         color: Colors.lavender
-        font.family: Globals.fontFamily
-        font.pixelSize: Globals.fontPixelSize
-        font.weight: Font.DemiBold
         text: ""
-    }
-
-    onClicked: toggleNotifications()
-
-    function toggleNotifications(): void {
-        idNotificationsProcess.command = ["swaync-client", "-t", "-sw"];
-        idNotificationsProcess.running = true;
+        font {
+            family: Globals.fontFamily
+            pixelSize: Globals.fontPixelSize
+            weight: Font.DemiBold
+        }
     }
 
     Process {
         id: idNotificationsProcess
+    }
+
+    function toggleNotifications(): void {
+        idNotificationsProcess.command = ["swaync-client", "-t", "-sw"];
+        idNotificationsProcess.running = true;
     }
 }

@@ -16,37 +16,25 @@ ModuleBox {
         id: idCpuLabel
 
         color: Colors.lavender
-        font.family: Globals.fontFamily
-        font.pixelSize: Globals.fontPixelSize
-        font.weight: Font.DemiBold
         text: `${Math.round(root.cpuUsagePercent)}% `
+        font {
+            family: Globals.fontFamily
+            pixelSize: Globals.fontPixelSize
+            weight: Font.DemiBold
+        }
     }
 
-    Process {
-        id: idCpuProcess
+    // In-process read of /proc/stat (no shell spawned per poll).
+    // procfs has no inotify support, so watchChanges cannot detect
+    // updates; idCpuTimer drives reload() instead. preload must stay
+    // enabled (default): with preload disabled nothing is ever loaded,
+    // and reload() only re-reads an already-loaded file.
+    FileView {
+        id: idCpuStatFile
 
-        command: ["bash", "-c", "grep '^cpu ' /proc/stat"]
-        running: true
+        path: "/proc/stat"
 
-        stdout: StdioCollector {
-            id: idCpuCollector
-            onStreamFinished: {
-                const fields = this.text.trim().split(/\s+/).slice(1).map(Number);
-                const idleTime = fields[3];
-                const totalTime = fields.reduce((sum, value) => sum + value, 0);
-
-                if (root.previousCpuSample !== null) {
-                    const deltaTotal = totalTime - root.previousCpuSample.totalTime;
-                    const deltaIdle = idleTime - root.previousCpuSample.idleTime;
-                    const usage = deltaTotal > 0 ? (1 - deltaIdle / deltaTotal) * 100 : 0;
-                    root.cpuUsagePercent = Math.max(0, Math.min(100, usage));
-                }
-                root.previousCpuSample = {
-                    totalTime: totalTime,
-                    idleTime: idleTime
-                };
-            }
-        }
+        onLoaded: root.updateCpuUsage(idCpuStatFile.text())
     }
 
     Timer {
@@ -55,6 +43,23 @@ ModuleBox {
         interval: 2000
         running: true
         repeat: true
-        onTriggered: idCpuProcess.running = true
+        onTriggered: idCpuStatFile.reload()
+    }
+
+    function updateCpuUsage(text: string): void {
+        const fields = text.split("\n")[0].trim().split(/\s+/).slice(1).map(Number);
+        const idleTime = fields[3];
+        const totalTime = fields.reduce((sum, value) => sum + value, 0);
+
+        if (root.previousCpuSample !== null) {
+            const deltaTotal = totalTime - root.previousCpuSample.totalTime;
+            const deltaIdle = idleTime - root.previousCpuSample.idleTime;
+            const usage = deltaTotal > 0 ? (1 - deltaIdle / deltaTotal) * 100 : 0;
+            root.cpuUsagePercent = Math.max(0, Math.min(100, usage));
+        }
+        root.previousCpuSample = {
+            totalTime: totalTime,
+            idleTime: idleTime
+        };
     }
 }

@@ -1,11 +1,11 @@
 pragma ComponentBehavior: Bound
 
+import QtQuick
+import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Services.SystemTray
 import Quickshell.Widgets
-import QtQuick
-import QtQuick.Layouts
 import qs.config
 import qs.components
 
@@ -25,6 +25,8 @@ ModuleBox {
         delegate: Rectangle {
             id: idTrayItem
 
+            Layout.alignment: Qt.AlignVCenter
+
             required property SystemTrayItem modelData
 
             property bool isHovered: idTrayItemMouseArea.containsMouse
@@ -35,7 +37,6 @@ ModuleBox {
             // untinted (colorization 0 leaves the image unchanged).
             readonly property bool isSymbolicIcon: String(idTrayItem.modelData.icon).includes("symbolic")
 
-            Layout.alignment: Qt.AlignVCenter
             implicitWidth: 22
             implicitHeight: 20
             radius: Globals.radius

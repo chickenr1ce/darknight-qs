@@ -125,6 +125,49 @@ Timer { id: idMediaTimer }
 - **Versionless imports (Qt 6):** Use `import QtQuick` and `import QtQuick.Layouts` without version numbers.
 - **Prefer declarative bindings** over imperative JavaScript assignments in signal handlers.
 
+### Attribute Ordering: `Layout.*` directly under `id`
+
+Attached `Layout.*` properties come **immediately after the `id` line**, before all
+property declarations, bindings, and other attributes:
+
+```qml
+// ✅ correct
+Text {
+    id: idMediaLabel
+
+    Layout.fillWidth: true
+    Layout.minimumWidth: 0
+
+    textFormat: Text.PlainText
+    elide: Text.ElideRight
+    color: Colors.lavender
+}
+
+Rectangle {
+    id: idWorkspaceButton
+
+    Layout.alignment: Qt.AlignVCenter
+
+    required property int index
+    implicitWidth: 40
+}
+```
+
+```qml
+// ❌ wrong — Layout.* buried among assignments/properties
+Text {
+    id: idMediaLabel
+    textFormat: Text.PlainText
+    elide: Text.ElideRight
+    color: Colors.lavender
+    Layout.fillWidth: true
+}
+```
+
+This ordering is a deliberate project style choice and intentionally overrides the
+ORD-1 rule of generic QML linters (which expect attached properties after plain
+assignments). Treat ORD-1 flags on `Layout.*` placement as false positives.
+
 ---
 
 ## 5. Docs

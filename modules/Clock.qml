@@ -9,10 +9,12 @@ ModuleBox {
         id: idClockLabel
 
         color: Colors.lavender
-        font.family: Globals.fontFamily
-        font.pixelSize: Globals.fontPixelSize
-        font.weight: Font.DemiBold
         text: Qt.formatDateTime(new Date(), "dd.MM HH:mm")
+        font {
+            family: Globals.fontFamily
+            pixelSize: Globals.fontPixelSize
+            weight: Font.DemiBold
+        }
     }
 
     Timer {

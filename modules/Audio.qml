@@ -10,7 +10,7 @@ import qs.components
 ModuleBox {
     id: root
 
-    property var defaultSink: Pipewire.defaultAudioSink
+    readonly property PwNode defaultSink: Pipewire.defaultAudioSink
 
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton)
@@ -63,9 +63,6 @@ ModuleBox {
         id: idAudioLabel
 
         color: Colors.lavender
-        font.family: Globals.fontFamily
-        font.pixelSize: Globals.fontPixelSize
-        font.weight: Font.DemiBold
         text: {
             if (!root.defaultSink || !root.defaultSink.audio)
                 return "";
@@ -73,6 +70,11 @@ ModuleBox {
             const volumePercent = isNaN(audio.volume) ? 0 : Math.round(audio.volume * 100);
             const icon = audio.muted ? " " : " ";
             return `${icon}${volumePercent}%`;
+        }
+        font {
+            family: Globals.fontFamily
+            pixelSize: Globals.fontPixelSize
+            weight: Font.DemiBold
         }
     }
 

@@ -7,6 +7,8 @@ import qs.components
 ModuleBox {
     id: root
 
+    onClicked: openPowerMenu()
+
     Text {
         id: idPowerMenuIcon
 
@@ -16,14 +18,12 @@ ModuleBox {
         text: "󰐥"
     }
 
-    onClicked: openPowerMenu()
+    Process {
+        id: idPowerMenuProcess
+    }
 
     function openPowerMenu(): void {
         idPowerMenuProcess.command = ["/home/alexiz/.config/rofi/powermenu/type-1/powermenu.sh"];
         idPowerMenuProcess.running = true;
-    }
-
-    Process {
-        id: idPowerMenuProcess
     }
 }
