@@ -1,6 +1,6 @@
 import QtQuick
-import "../config"
-import "../components"
+import qs.config
+import qs.components
 
 ModuleBox {
     id: root

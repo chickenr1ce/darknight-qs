@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import "../config"
+import qs.config
 
 // Rounded, translucent container matching waybar's #module styling.
 // Emits clicked(mouse) so modules don't need their own MouseArea.

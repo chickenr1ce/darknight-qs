@@ -2,8 +2,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Hyprland
-import "../config"
-import "../components"
+import qs.config
+import qs.components
 
 // Workspaces — persistent 5 per monitor, Hyprland-bound.
 // DP-1 → 1–5, DP-2 → 6–10 (HDMI-A-2 in waybar config is stale).

@@ -3,8 +3,8 @@ pragma ComponentBehavior: Bound
 import Quickshell
 import QtQuick
 import QtQuick.Layouts
-import "config"
-import "modules"
+import qs.config
+import qs.modules
 
 // Quickshell panel config.
 // One PanelWindow per connected screen (Variants over Quickshell.screens).

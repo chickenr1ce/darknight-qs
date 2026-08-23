@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell.Io
-import "../config"
-import "../components"
+import qs.config
+import qs.components
 
 // CPU usage from /proc/stat, polled every 2 s.
 ModuleBox {

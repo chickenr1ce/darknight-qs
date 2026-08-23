@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell.Io
-import "../config"
-import "../components"
+import qs.config
+import qs.components
 
 // swaync toggle, mirroring the waybar custom/notification module.
 ModuleBox {

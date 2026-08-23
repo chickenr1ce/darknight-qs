@@ -3,8 +3,8 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Hyprland
 import Quickshell.Io
-import "../config"
-import "../components"
+import qs.config
+import qs.components
 
 // ActiveWindow — focused client title from Hyprland, shown on every bar.
 ModuleBox {

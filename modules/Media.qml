@@ -1,9 +1,9 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Mpris
-import "../config"
-import "../components"
-import "../services"
+import qs.config
+import qs.components
+import qs.services
 
 // Media player module using MprisPlayers singleton service.
 // Click toggles play/pause. Wheel scroll cycles active player.

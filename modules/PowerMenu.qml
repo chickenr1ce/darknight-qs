@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell.Io
-import "../config"
-import "../components"
+import qs.config
+import qs.components
 
 // Power menu — launches the existing rofi powermenu script.
 ModuleBox {
