@@ -130,7 +130,7 @@ Timer { id: idMediaTimer }
 ## 5. Docs
 
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
-- For current context on the project, refer to `plans/quickshell-migration.html`
+- For current context on the project, refer to `docs/plans/quickshell-migration.html`
 
 ### Notes
 
