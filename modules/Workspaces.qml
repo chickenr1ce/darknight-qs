@@ -20,7 +20,7 @@ ModuleBox {
 
     RowLayout {
         id: idWorkspaceRow
-        spacing: 2
+        spacing: 0
 
         Repeater {
             id: idWorkspaceRepeater
