@@ -1,3 +1,4 @@
+//@ pragma UseQApplication
 pragma ComponentBehavior: Bound
 
 import Quickshell
@@ -10,8 +11,8 @@ import qs.modules
 // One PanelWindow per connected screen (Variants over Quickshell.screens).
 // Left:  Clock, Workspaces
 // Center: ActiveWindow (focused client title, all outputs)
-// Right: Mpris, Audio, Cpu, Notifications, PowerMenu  (DP-1 only for now)
-// Tray / visualizer land in a later pass.
+// Right: Mpris, Audio, Cpu, Notifications, Tray, PowerMenu (DP-1 only for now)
+// Visualizer lands in a later pass.
 
 ShellRoot {
     id: root
@@ -67,6 +68,9 @@ ShellRoot {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
                 Notifications {
+                    visible: idPanelWindow.monitorName === "DP-1"
+                }
+                Tray {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
                 PowerMenu {

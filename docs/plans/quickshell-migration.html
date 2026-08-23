@@ -1942,9 +1942,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         </div>
         <p class="lead"><b>The goal is deliberate improvement — in form and function.</b> Parity with the current
           Waybar bar is the translation baseline: modules, layout, theme and interactions are reproduced first so
-          nothing is lost, then each module is improved where Quickshell does it better (native services over shell-outs,
+          nothing is lost, then each module is improved where Quickshell does it better (native services over
+          shell-outs,
           accurate text elision, event-driven state, true centering). One codebase, two outputs: <b>DP-1 full</b>,
-          <b>DP-2 minimal</b>.</p>
+          <b>DP-2 minimal</b>.
+        </p>
 
         <div class="dec-grid">
           <div class="dec-card">
@@ -2073,11 +2075,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             ├── <b>Audio.qml</b> <span class="muted">right (Pipewire default sink + wpctl cycle + scroll volume)</span>
             <span class="ok">● done</span>
             ├── <b>Notifications.qml</b> <span class="muted">right (swaync-client -t -sw via Process —
-              deprecated: swap out for native Notifications per Q1)</span> <span
-              class="ok">● done, pending replacement</span>
+              deprecated: swap out for native Notifications per Q1)</span> <span class="ok">● done, pending
+              replacement</span>
+            ├── <b>Tray.qml</b> <span class="muted">right (Quickshell.Services.SystemTray StatusNotifier items + icon
+              ≈14)</span> <span class="ok">● done</span>
             └── <b>PowerMenu.qml</b> <span class="muted">right (Process → rofi powermenu script)</span> <span
               class="ok">● done</span>
-            <span class="muted"># NOT YET CREATED (D8): Cava.qml, Tray.qml</span>
+            <span class="muted"># NOT YET CREATED (D8): Cava.qml</span>
           </div>
           <div class="tree-note"><b>Why split?</b> Quickshell compiles each QML file separately; isolating modules makes
             acceptance checks per-module and keeps the bar resilient.</div>
@@ -2217,9 +2221,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 <li><b>Notifications.qml</b> – as built: click → <code>swaync-client -t -sw</code>, toggle only (D7);
                   original <code>-swb</code> count badge not yet ported. Per Q1, migrate to
                   <code>Quickshell.Services.Notifications</code> (drop swaync dependency; port count-badge behaviour).
-                  <span class="mini todo">○ Migration pending</span></li>
+                  <span class="mini todo">○ Migration pending</span>
+                </li>
                 <li><b>Tray.qml</b> – <code>Quickshell.Services.SystemTray</code> StatusNotifier items; icon ≈14,
-                  spacing 10. <span class="mini todo">○ Todo</span></li>
+                  spacing 10. <span class="mini done">● Done</span></li>
                 <li><b>PowerMenu.qml</b> – icon only; click → <code>Process</code> running rofi powermenu script
                   (absolute path — see Interactions). <span class="mini done">● Done</span></li>
               </ul>
@@ -2358,7 +2363,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <td>Quickshell.Services.SystemTray</td>
                   <td>Direct</td>
                   <td>StatusNotifier items</td>
-                  <td><span class="mini todo">○ Not started</span></td>
+                  <td><span class="mini done">● Done</span></td>
                 </tr>
                 <tr>
                   <td><code>custom/powermenu</code></td>
@@ -2696,7 +2701,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <td>Notifications</td>
                   <td>Toggle notification panel / DND</td>
                   <td><code>Quickshell.Services.Notifications</code> — native backend replaces the
-                    <code>swaync-client -t -sw</code> shell-out (Q1); as-built Process command retained until migrated</td>
+                    <code>swaync-client -t -sw</code> shell-out (Q1); as-built Process command retained until migrated
+                  </td>
                 </tr>
                 <tr>
                   <td>PowerMenu</td>
@@ -2814,7 +2820,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <h4>swaync coupling <em>· external dep</em></h4>
               <p><b>Risk:</b> swaync adds one external dependency. <b>Resolution (Q1):</b> replace with native
                 <code>Quickshell.Services.Notifications</code>, removing the dependency; until the migration lands,
-                current behaviour remains low risk.</p>
+                current behaviour remains low risk.
+              </p>
             </div>
           </div>
         </div>
