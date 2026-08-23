@@ -7,7 +7,8 @@ import qs.services
 
 // Media player module using MprisPlayers singleton service.
 // Click toggles play/pause. Wheel scroll cycles active player.
-// "Playing" state inverts the module colors like waybar.
+// Playing state shows in the text color only — the unified slab
+// (Phase 6a) forbids module backgrounds.
 ModuleBox {
     id: root
 
@@ -16,7 +17,6 @@ ModuleBox {
 
     maxWidth: 360
     visible: activePlayer !== null
-    color: root.isPlaying ? Colors.lavender : Colors.background
 
     onClicked: {
         if (!root.activePlayer)
@@ -44,7 +44,7 @@ ModuleBox {
         textFormat: Text.PlainText
         elide: Text.ElideRight
 
-        color: root.isPlaying ? Colors.background : Colors.lavender
+        color: root.isPlaying ? Colors.lavender : Colors.textSecondary
 
         font {
             family: Globals.fontFamily

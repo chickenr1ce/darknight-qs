@@ -1837,7 +1837,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     <div><strong>ECO-HY3</strong> &nbsp;·&nbsp; WAYBAR → QUICKSHELL &nbsp; <span style="opacity:.45">/</span> &nbsp;
       Hyprland</div>
     <div class="center">Engineering Change Order</div>
-    <div class="right"><span class="live-dot" aria-hidden="true"></span> Rev 2026-08-21 &nbsp;·&nbsp; <span
+    <div class="right"><span class="live-dot" aria-hidden="true"></span> Rev 2026-08-24 &nbsp;·&nbsp; <span
         style="color:var(--text-dim)">In progress</span></div>
   </div>
 
@@ -1853,10 +1853,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
       <div class="progress-row" aria-label="Implementation progress">
         <span class="progress-label">Build progress · phases</span>
-        <span class="bar-track" aria-hidden="true"><i class="done" style="width:45%"></i><i class="part"
-            style="width:22%"></i><i class="todo" style="width:33%"></i></span>
-        <span class="progress-meta"><b>4</b>/9 done &nbsp;<span class="dot done"></span> &nbsp; <b>2</b> partial
-          &nbsp;<span class="dot part"></span> &nbsp; <b>3</b> todo &nbsp;<span class="dot todo"></span></span>
+        <span class="bar-track" aria-hidden="true"><i class="done" style="width:56%"></i><i class="part"
+            style="width:22%"></i><i class="todo" style="width:22%"></i></span>
+        <span class="progress-meta"><b>5</b>/9 done &nbsp;<span class="dot done"></span> &nbsp; <b>2</b> partial
+          &nbsp;<span class="dot part"></span> &nbsp; <b>2</b> todo &nbsp;<span class="dot todo"></span></span>
       </div>
     </div>
 
@@ -1880,12 +1880,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
       <div class="meta-cell full">
         <div class="meta-k">As-built note</div>
-        <div class="meta-v"><strong>Phases 0–3 complete</strong> (Cava deferred out of Phase 2 to Phase 7, 2026-08-23);
+        <div class="meta-v"><strong>Phases 0–3, 6a complete</strong> (Cava deferred out of Phase 2 to Phase 7,
+          2026-08-23);
           Phase 4 mostly complete (Media, Cpu, Audio,
           Notifications — swaync-based, to be swapped out for native service per Q1 — PowerMenu, Tray);
-          Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases 6
-          and 7 not started. <strong>Phase 6a approved, not implemented:</strong> unified slab restyle per
-          <code>docs/plans/unified-slab-restyle.html</code> (ECO-HY3a). See phase sheets &amp; module map.</div>
+          Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases
+          6 and 7 not started. <strong>Phase 6a implemented</strong> (2026-08-24, commit b8c59fe on branch
+          phase-6a): unified slab restyle per <code>docs/plans/unified-slab-restyle.html</code>
+          (ECO-HY3a). See phase sheets &amp; module map.</div>
       </div>
       <div class="status-banner">
         <span class="icon">!</span>
@@ -1907,7 +1909,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <li><a href="#phase-3"><span class="num">3</span> Active window <span class="dot done"></span></a></li>
           <li><a href="#phase-4"><span class="num">4</span> Right cluster <span class="dot part"></span></a></li>
           <li><a href="#phase-5"><span class="num">5</span> Multi-monitor <span class="dot part"></span></a></li>
-          <li><a href="#phase-6a"><span class="num">6a</span> Slab restyle <span class="dot todo"></span></a></li>
+          <li><a href="#phase-6a"><span class="num">6a</span> Slab restyle <span class="dot done"></span></a></li>
           <li><a href="#phase-6"><span class="num">6</span> Polish & cutover <span class="dot todo"></span></a></li>
           <li><a href="#phase-7"><span class="num">7</span> New modules <span class="dot todo"></span></a></li>
         </ul>
@@ -2036,16 +2038,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <code>elide: Text.ElideRight</code>. <code>Cpu.qml</code> prevents 1-digit vs 2-digit jitter
                   symmetrically via
                   <code>minWidth: 62</code>.</span></li>
-              <li><span><b>D13 · Unified slab replaces floating modules (approved, ECO-HY3a).</b> A single
-                  <code>Colors.background</code> surface spans the bar; modules lose their own backgrounds and become
+              <li><span><b>D13 · Unified slab replaces floating modules (landed 2026-08-24, ECO-HY3a).</b> A single
+                  <code>Colors.background</code> surface spans the bar (<code>slabRadius: 9</code>); modules lose their own backgrounds and become
                   transparent hover regions. Supersedes the waybar <code>#module</code> per-box styling translated in
                   Phase 1. Spec: <code>docs/plans/unified-slab-restyle.html</code>.</span></li>
-              <li><span><b>D14 · Motion system added (approved, ECO-HY3a).</b> Hover tint + lavender underline 220ms;
-                  press-scale + release pulse 120ms; Workspaces scales only the clicked pill. Cluster hairlines flank
+              <li><span><b>D14 · Motion system added (landed 2026-08-24, ECO-HY3a).</b> Pill hover tint (inset 2px) + centered expanding lavender underline at 140ms;
+                  press-scale + release pulse 120ms; Workspaces and Tray scale only the clicked pill/icon. Cluster hairlines flank
                   the center region. No waybar counterpart — deliberate improvement per ground rule.</span></li>
-              <li><span><b>D15 · Hero element: animated active-workspace gradient (approved, ECO-HY3a).</b> Living
-                  purple→lavender gradient on the active workspace pill; ownership revisited when Cava lands
-                  (Phase 7).</span></li>
+              <li><span><b>D15 · Hero element iteration (landed 2026-08-24, ECO-HY3a).</b> Living gradient tested on active workspace pill and rejected as visually noisy; reverted to solid <code>backgroundSecondary</code> with lavender text. Hero ownership deferred to Cava audio visualizer (Phase 7).</span></li>
+              <li><span><b>D16 · Hairlines &amp; Media refinement (landed 2026-08-24, ECO-HY3a).</b> Hairlines upgraded to 2px @ 50% opacity with dynamic collision guards to prevent module overlap; Media module unified to transparent slab with text-color playback indication.</span></li>
             </ul>
           </div>
         </div>
@@ -2075,8 +2076,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             │ ├── <b>MprisPlayers.qml</b> <span class="muted"># MPRIS player tracking singleton &amp; cycling</span>
             │ └── <b>qmldir</b> <span class="muted"># singleton declaration for MprisPlayers</span>
             ├── components/
-            │ └── <b>ModuleBox.qml</b> <span class="muted"># rounded translucent wrapper with min/maxWidth &amp; Layout
-              host</span>
+            │ ├── <b>ModuleBox.qml</b> <span class="muted"># layout-agnostic slab region host: min/maxWidth, hover
+            │   tint + underline (D13/D14)</span>
+            │ ├── <b>PressFeedback.qml</b> <span class="muted"># shared release pulse + hover underline (D14)</span>
+            │ └── <b>PressScale.qml</b> <span class="muted"># shared press-squash driver, OutQuad/OutBack (D14)</span>
             └── modules/
             ├── <b>Clock.qml</b> <span class="muted">left (Timer + Text)</span> <span class="ok">● done</span>
             ├── <b>Workspaces.qml</b> <span class="muted">left (Repeater · Hyprland, Lua dispatch D11)</span> <span
@@ -2276,25 +2279,34 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <span class="phase-num">6a</span>
               <h3>Unified slab restyle <small>full-width slab · soft motion · hero gradient — spec of record:
                   ECO-HY3a</small></h3>
-              <span class="badge todo">○ Not started</span>
+              <span class="badge done">● Done</span>
             </div>
             <div class="phase-body">
               <ul>
-                <li><b>Approved addendum (2026-08-23):</b> full decision set (D-01…D-10), slab anatomy, per-file
+                <li><b>Approved addendum (2026-08-23), implemented 2026-08-24 (commit b8c59fe, branch phase-6a):</b>
+                  full decision set (D-01…D-10), slab anatomy, per-file
                   implementation outline and acceptance criteria live in
                   <code>docs/plans/unified-slab-restyle.html</code>. This sheet is the summary.</li>
                 <li><b>One full-width slab</b> replaces floating module boxes: modules become transparent regions on a
-                  shared <code>Colors.background</code> surface. Hover = tint + 2px lavender underline (220ms); click =
-                  press-scale + release pulse (120ms) with per-pill scaling in Workspaces only.</li>
+                  shared <code>Colors.background</code> surface. Hover = tint + 2px lavender underline (140ms); click =
+                  press-scale + release pulse (120ms) with per-pill scaling in Workspaces and Tray only.</li>
                 <li><b>Hairlines flank the center ActiveWindow region only;</b> ActiveWindow keeps its independent
                   true-center anchoring. Slab stays floating: 4px top, 12px sides, radius all corners.</li>
-                <li><b>Hero element:</b> living purple→lavender gradient on the active workspace pill; ownership
-                  revisited when/if Cava lands (Phase 7). Pure QML throughout — no shaders, no compiled code.</li>
-                <li><b>Sequencing:</b> lands before any new-module work (Phase 7 — Cava, idle inhibitor, …) so those
+                <li><b>Hero element:</b> animated purple→lavender gradient on the active workspace pill was
+                  <b>tested and rejected</b> as visually noisy during the build; shipped as solid
+                  <code>backgroundSecondary</code> + lavender text (D-04/D15). Hero ownership revisited when/if Cava
+                  lands (Phase 7). Pure QML throughout — no shaders, no compiled code.</li>
+                <li><b>As-built extras:</b> shared feedback components (<code>PressFeedback.qml</code>,
+                  <code>PressScale.qml</code>) so every clickable surface shares one timing/easing shape;
+                  <code>Globals.slabInset</code> derives slab geometry from
+                  <code>horizontalBarMargin + slabEdgePadding</code>; ActiveWindow clamps <code>maxWidth</code> to the
+                  visible bar interior so Qt elides before compositor clipping.</li>
+                <li><b>Sequencing:</b> landed before any new-module work (Phase 7 — Cava, idle inhibitor, …) so those
                   are built once against the final chassis;
                   native Notifications swap remains independent; DP-2 inherits automatically.</li>
               </ul>
-              <div class="phase-accept"><b>Acceptance</b><span>A1–A7 in the addendum: bar reads as one surface;
+              <div class="phase-accept"><b>Acceptance</b><span>A1–A7 in the addendum: verified at implementation
+                  (qmllint clean, qt-qml-review 6-agent pass, live load clean). Bar reads as one surface;
                   soft-motion hover/click everywhere; adjacent workspace pills never move on press; no QML errors on
                   load/hotplug.</span></div>
             </div>
@@ -2674,6 +2686,27 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         right: <span class="str">true</span>
       }
 
+      <span class="cmt">// Unified slab — one full-width surface behind all regions (Phase 6a, D-01).</span>
+      <span class="kw">Rectangle</span> {
+        <span class="kw">id:</span> idSlab
+
+        <span class="kw">anchors</span> {
+          top: parent.top
+          left: parent.left
+          right: parent.right
+          topMargin: Globals.moduleMargin
+          leftMargin: Globals.horizontalBarMargin
+          rightMargin: Globals.horizontalBarMargin
+        }
+
+        height: Globals.barHeight
+        radius: Globals.slabRadius
+        color: Colors.background
+
+        <span class="cmt">// Cluster hairlines flanking the center region only (D-07),</span>
+        <span class="cmt">// with collision/empty guards against side clusters.</span>
+      }
+
       <span class="kw">RowLayout</span> {
         <span class="kw">id:</span> idBarLayout
 
@@ -2681,8 +2714,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
         <span class="kw">anchors</span> {
           fill: parent
-          leftMargin: Globals.horizontalBarMargin
-          rightMargin: Globals.horizontalBarMargin
+          leftMargin: Globals.slabInset
+          rightMargin: Globals.slabInset
           topMargin: Globals.moduleMargin
         }
 

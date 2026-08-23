@@ -23,8 +23,14 @@ ModuleBox {
     visible: root.title !== ""
 
     // Iosevka is monospace, so one measured glyph width caps the label at
-    // exactly maxChars while Qt does the actual elision.
-    maxWidth: Math.ceil(idCharMetrics.advanceWidth * root.maxChars)
+    // exactly maxChars while Qt does the actual elision. The char budget is
+    // additionally clamped to the visible bar interior: a wider box would
+    // run past the physical screen edges, where the compositor clips raw
+    // instead of Qt eliding with a proper "…".
+    readonly property int maxCharsWidth: Math.ceil(idCharMetrics.advanceWidth * root.maxChars)
+    readonly property int visibleBarWidth: parent.width - 2 * Globals.slabInset
+
+    maxWidth: Math.min(root.maxCharsWidth, root.visibleBarWidth)
 
     // One-shot seed: the IPC socket only streams changes, so at startup we
     // ask hyprctl for the current window. Skipped if an event already won

@@ -29,8 +29,8 @@ ModuleBox {
 
             required property SystemTrayItem modelData
 
-            property bool isHovered: idTrayItemMouseArea.containsMouse
-            property bool isPressed: idTrayItemMouseArea.pressed
+            readonly property bool isHovered: idTrayItemMouseArea.containsMouse
+            readonly property bool isPressed: idTrayItemMouseArea.pressed
 
             // Monochrome symbolic icons often render near-black on the dark
             // bar; tint them to the text color. Full-color icons pass through
@@ -41,6 +41,21 @@ ModuleBox {
             implicitHeight: 20
             radius: Globals.radius
             color: idTrayItem.isPressed ? Colors.surface : idTrayItem.isHovered ? Colors.backgroundSecondary : "transparent"
+            scale: idPressScale.scale
+
+            PressFeedback {
+                id: idPressFeedback
+
+                active: idTrayItem.isHovered
+            }
+
+            // Press squash (D-03), magnitude shared via Globals.pressScalePill
+            PressScale {
+                id: idPressScale
+
+                pressed: idTrayItem.isPressed
+                pressedScale: Globals.pressScalePill
+            }
 
             QsMenuAnchor {
                 id: idTrayMenuAnchor
@@ -80,6 +95,7 @@ ModuleBox {
                 cursorShape: Qt.PointingHandCursor
 
                 onClicked: mouse => {
+                    idPressFeedback.pulse();
                     switch (mouse.button) {
                     case Qt.LeftButton:
                         // onlyMenu items have no activation action.

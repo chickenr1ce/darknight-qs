@@ -39,6 +39,65 @@ ShellRoot {
                 right: true
             }
 
+            // Unified slab — one full-width surface behind all regions
+            // (Phase 6a, D-01). Floating placement per D-06; modules render
+            // transparently on top of it.
+            Rectangle {
+                id: idSlab
+
+                anchors {
+                    top: parent.top
+                    left: parent.left
+                    right: parent.right
+                    topMargin: Globals.moduleMargin
+                    leftMargin: Globals.horizontalBarMargin
+                    rightMargin: Globals.horizontalBarMargin
+                }
+
+                height: Globals.barHeight
+                radius: Globals.slabRadius
+                color: Colors.background
+
+                // Side-cluster footprints in slab coordinates. idSpacer.x is
+                // measured in idBarLayout coordinates; converting to slab
+                // coordinates: layout adds Globals.slabInset of panel inset
+                // while the slab itself is inset horizontalBarMargin, leaving
+                // a net +slabEdgePadding.
+                readonly property real leftClusterEdge: idSpacer.x + Globals.slabEdgePadding
+                readonly property real rightClusterEdge: idSpacer.x + idSpacer.width + Globals.slabEdgePadding
+
+                // Cluster hairlines flanking the center ActiveWindow region
+                // only (D-07). Children of the slab so they never participate
+                // in hover. Track idActiveWindow's width to stay clear of it,
+                // and hide rather than collide with side modules on narrow
+                // bars or when the center region is empty.
+                Rectangle {
+                    id: idLeftHairline
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: parent.width / 2 - idActiveWindow.width / 2 - Globals.spacing - width
+
+                    width: 2
+                    height: parent.height - 2 * Globals.hairlineVerticalInset
+                    color: Colors.textSecondary
+                    opacity: 0.5
+                    visible: idActiveWindow.visible && x >= idSlab.leftClusterEdge
+                }
+
+                Rectangle {
+                    id: idRightHairline
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: parent.width / 2 + idActiveWindow.width / 2 + Globals.spacing
+
+                    width: 2
+                    height: parent.height - 2 * Globals.hairlineVerticalInset
+                    color: Colors.textSecondary
+                    opacity: 0.5
+                    visible: idActiveWindow.visible && x + width <= idSlab.rightClusterEdge
+                }
+            }
+
             RowLayout {
                 id: idBarLayout
 
@@ -46,8 +105,8 @@ ShellRoot {
 
                 anchors {
                     fill: parent
-                    leftMargin: Globals.horizontalBarMargin
-                    rightMargin: Globals.horizontalBarMargin
+                    leftMargin: Globals.slabInset
+                    rightMargin: Globals.slabInset
                     topMargin: Globals.moduleMargin
                 }
 
@@ -89,6 +148,8 @@ ShellRoot {
             // (mirrors waybar's absolutely-positioned center section). May
             // overlap edge modules on very long titles, same as waybar.
             ActiveWindow {
+                id: idActiveWindow
+
                 anchors {
                     horizontalCenter: parent.horizontalCenter
                     verticalCenter: parent.verticalCenter

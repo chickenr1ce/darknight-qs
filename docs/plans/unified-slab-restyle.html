@@ -196,14 +196,14 @@
 <body>
 
 <header>
-  <div class="eyebrow"><i></i> ECO-HY3<b>a</b> &nbsp;·&nbsp; Addendum to <em>Waybar → Quickshell migration plan</em> &nbsp;·&nbsp; Rev 2026-08-23</div>
+  <div class="eyebrow"><i></i> ECO-HY3<b>a</b> &nbsp;·&nbsp; Addendum to <em>Waybar → Quickshell migration plan</em> &nbsp;·&nbsp; Rev 2026-08-24</div>
   <h1>Phase 6a <br><span>Unified Slab Restyle</span></h1>
   <p class="lede">Decisions from the grilling session, frozen. The bar abandons waybar's floating-module look:
      <strong>one full-width surface ("slab") on which modules become invisible regions</strong>, revealed by hover,
      animated with a soft motion vocabulary, and unified under a single hero element.</p>
   <div class="badge-row">
     <span class="badge ok">● Approved 2026-08-23</span>
-    <span class="badge warn">◐ Not implemented</span>
+    <span class="badge ok">● Implemented 2026-08-24 · commit b8c59fe (phase-6a)</span>
     <span class="badge">Pure QML · Tier ≤ 2 · no compiled code</span>
   </div>
 </header>
@@ -216,13 +216,13 @@
       <thead><tr><th>#</th><th>Decision</th><th>Call</th></tr></thead>
       <tbody>
         <tr><td>D-01</td><td>Unification concept</td><td><b>One full-width slab.</b> Modules lose their own backgrounds and become transparent hit-regions on the shared surface.</td></tr>
-        <tr><td>D-02</td><td>Hover treatment</td><td><b>Tint shift</b> to <code>background-secondary</code> <b>+ 2px lavender underline</b> sliding in from the left.</td></tr>
-        <tr><td>D-03</td><td>Click feedback</td><td><b>Press-scale ≈0.97 + release brightness pulse.</b> In Workspaces, <b>only the clicked pill</b> scales — never the whole module.</td></tr>
-        <tr><td>D-04</td><td>Register</td><td><b>One hero element:</b> living purple→lavender gradient on the active workspace pill. Everything else stays quiet.</td></tr>
-        <tr><td>D-05</td><td>Hero ownership</td><td>Workspace pill holds the slot <b>for now</b>; revisit if/when the audio visualizer lands (migration plan Phase 7) — it may take over, pill reverts to solid lavender.</td></tr>
-        <tr><td>D-06</td><td>Slab placement</td><td><b>Floating:</b> 4px top offset, 12px side insets (<code>Globals.horizontalBarMargin</code>), radius on all corners.</td></tr>
-        <tr><td>D-07</td><td>Region separation</td><td><b>Cluster hairlines:</b> 1px low-opacity vertical lines flanking the center ActiveWindow region only. No dividers between individual modules.</td></tr>
-        <tr><td>D-08</td><td>Motion personality</td><td><b>Soft:</b> 220ms hover / 120ms press transitions.</td></tr>
+        <tr><td>D-02</td><td>Hover treatment</td><td><b>Pill tint shift</b> to <code>background-secondary</code> (inset 2px) <b>+ 2px lavender underline</b> expanding symmetrically from center with smooth opacity fade.</td></tr>
+        <tr><td>D-03</td><td>Click feedback</td><td><b>Press-scale ≈0.97 + release brightness pulse.</b> In Workspaces and Tray, <b>only the clicked pill/icon</b> scales — never the whole module.</td></tr>
+        <tr><td>D-04</td><td>Hero element</td><td><b>Hero gradient rejected:</b> Animated gradient on active pill tested and removed (unreadable/tacky); active workspace pill uses solid <code>Colors.backgroundSecondary</code> + lavender text.</td></tr>
+        <tr><td>D-05</td><td>Hero ownership</td><td>Revisit hero slot ownership if/when the audio visualizer lands (migration plan Phase 7).</td></tr>
+        <tr><td>D-06</td><td>Slab placement &amp; radius</td><td><b>Floating:</b> 4px top offset, 12px side insets (<code>Globals.horizontalBarMargin</code>), <code>slabRadius: 9</code> on outer corners (pills keep <code>radius: 5</code>).</td></tr>
+        <tr><td>D-07</td><td>Region separation</td><td><b>Cluster hairlines:</b> 2px vertical dividers at 50% opacity flanking the center ActiveWindow region only, with collision/empty guards. No dividers between individual modules.</td></tr>
+        <tr><td>D-08</td><td>Motion personality</td><td><b>Snappy &amp; Soft:</b> 140ms hover / 120ms press transitions.</td></tr>
         <tr><td>D-09</td><td>Sequencing</td><td>Restyle lands <b>first as Phase 6a</b>; new-module work (migration plan Phase 7) then builds against the final chassis. Native Notifications swap remains independent.</td></tr>
         <tr><td>D-10</td><td>DP-2 parity</td><td><b>Inherits automatically</b> — restyle lives in shell chrome / ModuleBox, both outputs get it with zero branching.</td></tr>
       </tbody>
@@ -233,16 +233,16 @@
     <h2>Resulting anatomy</h2>
     <div class="card" style="font-size:12.4px; font-family:var(--mono); color:var(--text-dim); overflow:auto">
 <pre>PanelWindow (transparent, floating geometry unchanged)
-└── <span style="color:#b4befe">slab Rectangle</span>                      ← NEW: Colors.background, radius 5, fills bar area
-    ├── hairline │ ← left cluster          ← 1px rect, rgba(text-secondary, ~30%)
-    ├── RowLayout … Clock · Workspaces     ← regions: transparent until hover
+└── <span style="color:#b4befe">slab Rectangle</span>                      ← Colors.background, slabRadius 9, fills bar area
+    ├── hairline │ ← left cluster          ← 2px rect, opacity 50%, with cluster collision guard
+    ├── RowLayout … Clock · Workspaces     ← regions: transparent until hover (pillInset 2px)
     ├── hairline │                          ← flanks center only (D-07)
     ├── ActiveWindow (anchored true-center) ← keeps independent center anchoring
     ├── hairline │
     └── RowLayout … Media · Cpu · Audio · Notifications · Tray · PowerMenu</pre>
     </div>
     <ul style="margin-top:.8rem">
-      <li><b>Regions keep hit-testing</b>: each former <code>ModuleBox</code> still measures its own width (implicitWidth contract intact), draws nothing at rest, paints tint + underline on hover, scales/pulses on press.</li>
+      <li><b>Regions keep hit-testing</b>: each former <code>ModuleBox</code> still measures its own width (implicitWidth contract intact), draws nothing at rest, paints pill tint + centered underline on hover, scales/pulses on press.</li>
       <li><b>ActiveWindow stays anchored to the PanelWindow's horizontal center</b> — slab must not change its centering math.</li>
       <li><b>Hairlines are layout children of the slab</b>, not region decorations, so they never participate in hover.</li>
     </ul>
@@ -253,17 +253,19 @@
     <div class="grid2">
       <div class="card">
         <ul>
-          <li><code>config/Globals.qml</code> — new motion tokens: <code>hoverMs: 220</code>, <code>pressMs: 120</code>; placement constants stay (D-06 reuses them).</li>
-          <li><code>components/ModuleBox.qml</code> — root <code>color: "transparent"</code>; add hover-tint Rectangle, underline Rectangle (width animated via <code>Behavior</code>), press-scale + pulse behaviors driven by the existing MouseArea; emit coordinates if needed later.</li>
-          <li><code>modules/Workspaces.qml</code> — move press-scale to the per-pill delegate level so only the clicked workspace animates (D-03).</li>
-          <li><code>shell.qml</code> — insert slab Rectangle behind <code>idBarLayout</code>; insert three hairline Rectangles around the center anchor zone.</li>
-          <li>New: active-ws gradient — animated gradient fill on the Workspaces delegate when active (Tier 1, no shader needed; a two-color gradient with animated offset suffices).</li>
+          <li><code>config/Globals.qml</code> — motion tokens: <code>hoverMs: 140</code>, <code>pressMs: 120</code>, <code>slabRadius: 9</code>; press-scale tokens (<code>pressScaleModule: 0.94</code>, <code>pressScalePill: 0.86</code>) and <code>slabInset</code> derived from <code>horizontalBarMargin + slabEdgePadding</code> so slab geometry lives in one place.</li>
+          <li><code>components/ModuleBox.qml</code> — root <code>color: "transparent"</code>; pill-shaped hover tint (2px inset), centered expanding underline with opacity fade, <code>HoverHandler</code> non-blocking hover detection, press-scale + pulse.</li>
+          <li><code>components/PressFeedback.qml</code> + <code>components/PressScale.qml</code> — shared feedback components: release pulse + underline, and the press-squash driver (OutQuad press / OutBack release), so every clickable surface shares one timing/easing shape.</li>
+          <li><code>modules/Workspaces.qml</code> — per-pill press scale (D-03), solid secondary background for active workspace button.</li>
+          <li><code>modules/Tray.qml</code> — per-icon press scale via the shared PressScale driver.</li>
+          <li><code>modules/Media.qml</code> — unified to transparent slab background with text-color play/pause state.</li>
+          <li><code>shell.qml</code> — slab Rectangle (radius 9) behind <code>idBarLayout</code>; 2px hairlines flanking center with collision guards against side clusters.</li>
         </ul>
       </div>
       <div class="card">
         <ul>
-          <li><b>No C++/Go</b> — every effect maps to QML property transitions, <code>Behavior on</code>, or plain gradient animation.</li>
-          <li><b>Reduced-motion courtesy</b> (optional, cheap): honor a Globals flag to drop ambient gradient animation; interactions keep state feedback.</li>
+          <li><b>No C++/Go</b> — every effect maps to QML property transitions, <code>Behavior on</code>, or declarative property bindings.</li>
+          <li><b>Consistent visual vocabulary</b>: pill geometry matches between module hover and workspace/tray buttons.</li>
           <li><b>Ground rule</b> applies: this departs from waybar parity deliberately and is reconciled below, not in prose.</li>
         </ul>
       </div>
@@ -274,9 +276,10 @@
     <h2>Deviation log entries (append to ECO-HY3)</h2>
     <div class="card">
       <ul>
-        <li><b>D13 · Unified slab replaces floating modules.</b> Single <code>Colors.background</code> surface behind all regions; modules transparent at rest (supersedes waybar <code>#module</code> per-box styling translated in Phase 1).</li>
-        <li><b>D14 · Motion system added.</b> Hover tint+underline 220ms, press-scale+pulse 120ms, per-pill scaling in Workspaces — no waybar counterpart.</li>
-        <li><b>D15 · Hero element.</b> Animated purple→lavender gradient on active workspace pill; ownership revisited if/when the audio visualizer lands (migration plan Phase 7, D-05).</li>
+        <li><b>D13 · Unified slab replaces floating modules.</b> Single <code>Colors.background</code> surface behind all regions (<code>slabRadius: 9</code>); modules transparent at rest (supersedes waybar <code>#module</code> per-box styling translated in Phase 1).</li>
+        <li><b>D14 · Motion system added.</b> Pill hover tint (inset 2px) + center-expanding lavender underline at 140ms, press-scale + release pulse at 120ms; per-pill/icon scaling in Workspaces and Tray — no waybar counterpart.</li>
+        <li><b>D15 · Hero element iteration.</b> Animated gradient tested on active workspace pill and rejected as visually noisy; reverted to solid <code>backgroundSecondary</code> with lavender text. Hero ownership deferred to audio visualizer (Phase 7).</li>
+        <li><b>D16 · Hairlines &amp; Media refinement.</b> Hairlines upgraded to 2px @ 50% opacity with dynamic collision guards to prevent module overlap; Media module unified to transparent slab with text-color playback indication.</li>
       </ul>
     </div>
   </section>
@@ -285,12 +288,12 @@
     <h2>Acceptance criteria</h2>
     <ul>
       <li><b>A1</b> — Bar reads as one continuous surface; no module has its own visible background at rest.</li>
-      <li><b>A2</b> — Hovering any region shows tint + underline within the soft timing budget; leaving reverses smoothly.</li>
-      <li><b>A3</b> — Pressing a module squashes only that region; release pulses. In Workspaces, adjacent pills do not move or scale.</li>
-      <li><b>A4</b> — Active workspace pill carries the living gradient; urgent-red and inactive states remain static colors.</li>
-      <li><b>A5</b> — Hairlines flank the center region only; ActiveWindow remains pixel-centered regardless of cluster widths.</li>
+      <li><b>A2</b> — Hovering any region shows pill tint + centered expanding underline within the 140ms budget; leaving reverses smoothly. Workspaces &amp; Tray modules receive hover correctly.</li>
+      <li><b>A3</b> — Pressing a module squashes only that region; release pulses. In Workspaces and Tray, only the clicked item scales.</li>
+      <li><b>A4</b> — Active workspace pill displays clean solid secondary background with lavender text; urgent-red and inactive states remain distinct.</li>
+      <li><b>A5</b> — 2px hairlines flank the center region only, hiding when center is empty or if clusters would collide. ActiveWindow remains pixel-centered regardless of cluster widths.</li>
       <li><b>A6</b> — DP-2 shows the identical treatment on its minimal set with no extra config.</li>
-      <li><b>A7</b> — No QML errors on load/hotplug; frame cost imperceptible (check with qmlprofiler if in doubt).</li>
+      <li><b>A7</b> — No QML errors on load/hotplug; frame cost imperceptible.</li>
     </ul>
   </section>
 
@@ -298,7 +301,10 @@
 
 <footer>
   Source of record: grilling session 2026-08-23<br>
-  Parent plan: docs/plans/quickshell-migration.html (ECO-HY3) — this sheet is its Phase 6a addendum.
+  Parent plan: docs/plans/quickshell-migration.html (ECO-HY3) — this sheet is its Phase 6a addendum.<br>
+  As built 2026-08-24 (commit b8c59fe, branch phase-6a): all decisions D-01…D-10 and acceptance criteria A1–A7
+  implemented; press-scale magnitudes tuned to 0.94 (modules) / 0.86 (pills) during code review instead of the
+  drafted ≈0.97; shared feedback extracted into components/PressFeedback.qml + components/PressScale.qml.
 </footer>
 
 </body>

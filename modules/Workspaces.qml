@@ -7,7 +7,7 @@ import qs.components
 
 // Workspaces — persistent 5 per monitor, Hyprland-bound.
 // DP-1 → 1–5, DP-2 → 6–10 (HDMI-A-2 in waybar config is stale).
-// Active = lavender on secondary bg, urgent = red, hover = text.
+// Active = secondary bg + lavender text, urgent = red, hover = text.
 ModuleBox {
     id: root
 
@@ -61,12 +61,29 @@ ModuleBox {
                 }
 
                 readonly property bool isUrgentWorkspace: idWorkspaceButton.workspace?.urgent ?? false
-                property bool isHovered: false
+                readonly property bool isHovered: idWorkspaceMouseArea.containsMouse
+                readonly property bool isPressed: idWorkspaceMouseArea.pressed
 
                 implicitWidth: idWorkspaceLabel.implicitWidth + 16
                 implicitHeight: 20
                 radius: Globals.radius
-                color: idWorkspaceButton.isActiveWorkspace ? Colors.backgroundSecondary : "transparent"
+                color: (idWorkspaceButton.isActiveWorkspace || idWorkspaceButton.isHovered) ? Colors.backgroundSecondary : "transparent"
+                scale: idPressScale.scale
+
+                // Shared pill feedback — release pulse + hover underline
+                PressFeedback {
+                    id: idPressFeedback
+
+                    active: idWorkspaceButton.isHovered
+                }
+
+                // Press squash (D-03), magnitude shared via Globals.pressScalePill
+                PressScale {
+                    id: idPressScale
+
+                    pressed: idWorkspaceButton.isPressed
+                    pressedScale: Globals.pressScalePill
+                }
 
                 Text {
                     id: idWorkspaceLabel
@@ -89,15 +106,15 @@ ModuleBox {
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton
 
-                    onEntered: idWorkspaceButton.isHovered = true
-                    onExited: idWorkspaceButton.isHovered = false
                     // Hyprland >= 0.56 evaluates IPC as Lua: the legacy
                     // "workspace N" string fails with a syntax error.
                     // hl.dsp.focus({ workspace = N }) is the working form;
                     // revisit when quickshell gains native 0.56 IPC support.
                     onClicked: mouse => {
-                        if (mouse.button === Qt.LeftButton)
+                        if (mouse.button === Qt.LeftButton) {
+                            idPressFeedback.pulse();
                             Hyprland.dispatch(`hl.dsp.focus({ workspace = ${idWorkspaceButton.workspaceId} })`);
+                        }
                     }
                 }
             }
