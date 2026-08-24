@@ -41,3 +41,12 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
 - For current context on the project, refer to `docs/plans/01-master-quickshell-migration.html`
+
+---
+
+## 5. Issue Tracking & Scratch Tickets
+
+- Active feature implementation tickets live in `.scratch/<feature>/issues/` (e.g. `.scratch/notifications/issues/`).
+- Tickets are tracer bullets declaring explicit blocking relationships (`Blocking` / `Blocked By`) and acceptance criteria.
+- When implementing a feature in a worktree, check `.scratch/<feature>/issues/` for pending tickets and work them blockers-first.
+
