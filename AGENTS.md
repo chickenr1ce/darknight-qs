@@ -50,3 +50,13 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 - Tickets are tracer bullets declaring explicit blocking relationships (`Blocking` / `Blocked By`) and acceptance criteria.
 - When implementing a feature in a worktree, check `.scratch/<feature>/issues/` for pending tickets and work them blockers-first.
 
+### 5.1 Ticket conventions
+
+These exist so history rewrites (squashes are routine here) never strand a reference:
+
+- **Reference direction**: commit messages cite their ticket (`#NN`, e.g. `feat(notifications): toasts (#02)`); tickets describe commits in words only ("the ticket-02 feature commit"), resolvable via `git log --grep "#NN"`. Raw SHAs go stale under squash; ticket numbers don't.
+- **Stable anchors are tags**: any long-lived commit anchor (review fixed point, milestone) gets a lightweight git tag at creation time (e.g. `git tag review-base/<feature> <sha>`); documents and review invocations cite the tag.
+- **Updates**: flip `Status` and dependency headers freely. Scope changes append an `## Amendments` section (each entry dated) instead of editing the objective or acceptance criteria in place — the ticket file is what code-review's Spec axis judges against. Work discovered mid-ticket becomes a new ticket noting its origin ("Discovered during #NN").
+- **Ownership**: a feature's tickets are edited only from that feature's worktree branch; cross-cutting docs change on the branch that owns them.
+- **Lifecycle**: `.scratch/<feature>/issues/` lives only as long as the feature. When all tickets are done, review is complete, and the branch merges: promote lasting lessons to `docs/` (coding conventions, spec, retro output), then delete the folder in the same merge/squash commit. Git history is the archive — deletion loses nothing.
+
