@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ECO-HY3b – Native Notification System Design Proposals</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0e11;
+      --bg-soft: #101317;
+      --panel: #161a20;
+      --panel-2: #1a1f26;
+      --panel-3: #1e242e;
+      --border: #242b36;
+      --border-strong: #2f3847;
+      --border-faint: #1d232e;
+      --text: #e8ebf0;
+      --text-dim: #9aa3b2;
+      --text-faint: #677083;
+      --lav: #b4befe;
+      --lav-dim: #8d97d8;
+      --purple: #a980db;
+      --yellow: #e8c85e;
+      --red: #ff5252;
+      --green: #7fe0a8;
+      --orange: #ff8a3d;
+      --radius: 6px;
+      --radius-lg: 9px;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: "Public Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      --display: "Bricolage Grotesque", "Public Sans", system-ui, sans-serif;
+      --max: 1220px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.04) 1px, transparent 0);
+      background-size: 22px 22px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 92%);
+      opacity: 0.35;
+      z-index: -1;
+    }
+
+    a { color: var(--lav); text-decoration: none; }
+    a:hover { text-decoration: underline; color: #cbd3ff; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #10141a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .08rem .32rem;
+      color: var(--lav);
+    }
+
+    /* Top Doc Bar */
+    .doc-bar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 1rem;
+      padding: .6rem 1.4rem;
+      background: rgba(12, 14, 17, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+    .doc-bar strong { color: var(--text-dim); font-weight: 600; }
+    .doc-bar .center {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      color: var(--text-dim);
+      font-size: 10.5px;
+    }
+    .doc-bar .center::before, .doc-bar .center::after {
+      content: "";
+      width: 18px;
+      height: 1px;
+      background: var(--border-strong);
+      display: block;
+    }
+    .doc-bar .right { justify-self: end; display: flex; gap: .8rem; align-items: center; }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 20%, transparent);
+      display: inline-block;
+    }
+
+    header {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2.5rem 1.4rem 1.5rem;
+    }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: 1rem;
+    }
+    .eyebrow i { width: 28px; height: 1px; background: var(--border-strong); }
+    .eyebrow em { font-style: normal; color: var(--lav); }
+
+    h1 {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(30px, 4.2vw, 44px);
+      letter-spacing: -.04em;
+      line-height: 1.0;
+      margin: 0;
+    }
+    h1 span { font-weight: 600; color: var(--text-dim); letter-spacing: -.03em; }
+
+    .lede {
+      margin: 1rem 0 0;
+      color: var(--text-dim);
+      font-size: 15px;
+      max-width: 74ch;
+      line-height: 1.65;
+    }
+    .lede strong { color: var(--text); }
+
+    .badge-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.3rem; }
+    .badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: .3rem .6rem;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      color: var(--text-dim);
+    }
+    .badge.ok { color: var(--green); border-color: rgba(127,224,168,.35); background: #0f1a14; }
+    .badge.info { color: var(--lav); border-color: rgba(180,190,254,.35); background: #131525; }
+    .badge.warn { color: var(--yellow); border-color: rgba(232,200,94,.3); background: #1a170f; }
+
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 1.4rem 4rem;
+    }
+
+    section { margin-top: 3rem; }
+
+    h2 {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      border-top: 1px solid var(--border);
+      padding-top: 1.2rem;
+      margin: 0 0 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    h2::before {
+      content: "§";
+      color: var(--lav);
+      font-weight: 700;
+    }
+
+    h3 {
+      font-family: var(--display);
+      font-size: 20px;
+      letter-spacing: -.02em;
+      margin: 0 0 .6rem;
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.3rem;
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+
+    @media (max-width: 900px) {
+      .grid2, .grid3 { grid-template-columns: 1fr; }
+    }
+
+    /* Comparison Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    th {
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      background: #12161d;
+      border-bottom: 1px solid var(--border);
+      padding: .75rem .9rem;
+    }
+    td {
+      padding: .75rem .9rem;
+      border-bottom: 1px solid var(--border-faint);
+      color: var(--text-dim);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    td b { color: var(--text); font-weight: 600; }
+
+    /* Interactive Showcase Stage */
+    .showcase-stage {
+      background: #090b0e;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stage-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding-bottom: 1.2rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-pills {
+      display: flex;
+      background: #12151b;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      gap: 3px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      padding: .45rem .9rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+    .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .tab-btn.active {
+      background: var(--lav);
+      color: #0c0e11;
+      font-weight: 600;
+    }
+
+    .action-group {
+      display: flex;
+      gap: .6rem;
+      align-items: center;
+    }
+
+    .ctrl-btn {
+      background: #181d24;
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      padding: .45rem .85rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      transition: all .14s ease;
+    }
+    .ctrl-btn:hover {
+      border-color: var(--lav);
+      color: var(--lav);
+      background: #1f2530;
+    }
+    .ctrl-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* Virtual Wayland Desktop Canvas */
+    .desktop-canvas {
+      position: relative;
+      height: 520px;
+      background: linear-gradient(135deg, #101217 0%, #15141c 50%, #0d0f13 100%);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+    }
+
+    /* Simulated Top Bar */
+    .virtual-bar {
+      position: absolute;
+      top: 6px;
+      left: 12px;
+      right: 12px;
+      height: 28px;
+      background: #141118;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      z-index: 20;
+    }
+
+    .bar-cluster {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 100%;
+    }
+
+    .bar-pill {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 2px 8px;
+      border-radius: 5px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+      transition: background 140ms ease, transform 120ms ease;
+    }
+    .bar-pill:hover {
+      background: #27222f;
+      color: var(--lav);
+    }
+    .bar-pill:hover::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 20%;
+      right: 20%;
+      height: 2px;
+      background: var(--lav);
+      border-radius: 1px;
+    }
+    .bar-pill:active {
+      transform: scale(0.94);
+    }
+
+    .bar-hairline {
+      width: 2px;
+      height: 12px;
+      background: #2f3847;
+      opacity: 0.5;
+    }
+
+    .notif-badge-pill {
+      background: var(--lav);
+      color: #0c0e11;
+      font-size: 9.5px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 0 4px;
+      min-width: 15px;
+      height: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .notif-badge-pill.critical {
+      background: var(--red);
+      color: #fff;
+      animation: pulseAlert 1.2s infinite;
+    }
+    @keyframes pulseAlert {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.15); opacity: 0.85; }
+    }
+
+    /* Interactive Notification Toast Container */
+    .toast-container {
+      position: absolute;
+      top: 42px;
+      right: 14px;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 30;
+      pointer-events: auto;
+    }
+
+    .toast-card {
+      background: #161a20;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 10px 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+      animation: slideInToast 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
+      transition: transform 150ms ease, opacity 150ms ease;
+    }
+    .toast-card.critical {
+      border-color: rgba(255, 82, 82, 0.5);
+      background: #1a1418;
+    }
+    .toast-card.critical::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 3px;
+      background: var(--red);
+    }
+    @keyframes slideInToast {
+      from { transform: translateX(40px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      background: var(--lav);
+      width: 100%;
+      animation: progressDecay 5000ms linear forwards;
+    }
+    @keyframes progressDecay {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+
+    .toast-app-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: #232832;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .toast-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .toast-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .toast-app {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--lav);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .toast-time {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      color: var(--text-faint);
+    }
+    .toast-summary {
+      font-weight: 600;
+      font-size: 12.5px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toast-body {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .toast-close {
+      background: transparent;
+      border: none;
+      color: var(--text-faint);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 0 2px;
+      align-self: start;
+    }
+    .toast-close:hover { color: var(--text); }
+
+    /* Interactive Flyout Notification Panel */
+    .flyout-panel {
+      position: absolute;
+      top: 38px;
+      right: 14px;
+      width: 350px;
+      max-height: 460px;
+      background: #141118;
+      border: 1px solid var(--border-strong);
+      border-radius: 9px;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      z-index: 40;
+      overflow: hidden;
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+    .flyout-panel.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-8px) scale(0.98);
+    }
+
+    .flyout-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #18151f;
+    }
+    .flyout-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--display);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .flyout-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mini-btn {
+      background: #27222f;
+      border: 1px solid rgba(255,255,255,0.06);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .mini-btn:hover { background: #332d3e; color: var(--lav); }
+    .mini-btn.active { background: var(--lav); color: #0c0e11; font-weight: 600; }
+
+    .flyout-body {
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 400px;
+    }
+
+    .notif-item {
+      background: #1b1722;
+      border: 1px solid var(--border-faint);
+      border-radius: 6px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 9px;
+      transition: background 120ms ease;
+    }
+    .notif-item:hover {
+      background: #221d2b;
+      border-color: var(--border-strong);
+    }
+
+    .notif-item-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 5px;
+      background: #282433;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .notif-item-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .notif-item-header {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-faint);
+    }
+    .notif-item-header .app { color: var(--lav); font-weight: 500; }
+    .notif-item-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .notif-item-body {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      line-height: 1.35;
+    }
+
+    .notif-item-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .notif-action-pill {
+      background: #27222f;
+      border: 1px solid rgba(255,255,255,0.06);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .notif-action-pill:hover { background: var(--lav); color: #0c0e11; }
+
+    .empty-state {
+      padding: 3rem 1rem;
+      text-align: center;
+      color: var(--text-faint);
+      font-family: var(--mono);
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Architecture Visualizer */
+    .arch-box {
+      background: #0f1318;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.2rem;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .arch-box .kw { color: var(--lav); font-weight: 600; }
+    .arch-box .fn { color: var(--green); }
+    .arch-box .str { color: var(--yellow); }
+    .arch-box .cmt { color: var(--text-faint); }
+
+    /* Footer */
+    footer {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2rem 1.4rem 3rem;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-faint);
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+
+<div class="doc-bar">
+  <div><strong>ECO-HY3b</strong> &nbsp;·&nbsp; Design Proposals</div>
+  <div class="center">Quickshell Native Notifications Daemon &amp; UI</div>
+  <div class="right">
+    <span class="live-dot"></span>
+    <span>Interactive Model</span>
+  </div>
+</div>
+
+<header>
+  <div class="eyebrow"><i></i> Architecture &amp; UI Draft &nbsp;·&nbsp; <em>Quickshell.Services.Notifications</em></div>
+  <h1>Quickshell Native Notifications<br><span>System Architecture &amp; UI Proposals</span></h1>
+  <p class="lede">
+    Replacing <code>swaync</code> with a native <code>org.freedesktop.Notifications</code> server implemented directly in Quickshell QML. 
+    Unified with the <strong>Phase 6a Unified Slab</strong> visual language, featuring snappy 140ms/120ms transitions, real-time transient toasts, and an integrated notification hub.
+  </p>
+  <div class="badge-row">
+    <span class="badge ok">● Resolves Migration Q1</span>
+    <span class="badge info">Pure QML / Tier 1-2</span>
+    <span class="badge">Unified Slab Theme</span>
+    <span class="badge warn">swaync Deprecated</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Interactive Sandbox & Comparison -->
+  <section id="interactive-preview">
+    <h2>1. Interactive Live Sandbox &amp; Design Concepts</h2>
+    <p style="color:var(--text-dim); margin-bottom:1rem; font-size:14px;">
+      Explore three distinct design archetypes for the notification toasts and drawer. Use the live simulation bar to test popups, DND toggling, and drawer interaction.
+    </p>
+
+    <div class="showcase-stage">
+      <div class="stage-toolbar">
+        <div class="tab-pills">
+          <button class="tab-btn active" onclick="switchDesign('A')">Design A: Slab Flyout &amp; Compact Toasts</button>
+          <button class="tab-btn" onclick="switchDesign('B')">Design B: Power User Action Center</button>
+          <button class="tab-btn" onclick="switchDesign('C')">Design C: HUD Island &amp; Stream</button>
+        </div>
+        <div class="action-group">
+          <button class="ctrl-btn" onclick="sendSampleToast('normal')">
+            <span>+</span> Send Normal
+          </button>
+          <button class="ctrl-btn" onclick="sendSampleToast('critical')">
+            <span style="color:var(--red)">⚠</span> Send Critical
+          </button>
+          <button class="ctrl-btn" onclick="toggleDnd()">
+            <span id="dndIcon"></span> <span id="dndLabel">DND: Off</span>
+          </button>
+          <button class="ctrl-btn" onclick="clearAllNotifications()">
+            <span>🗑</span> Clear All
+          </button>
+        </div>
+      </div>
+
+      <!-- Virtual Desktop Canvas -->
+      <div class="desktop-canvas" id="canvas">
+        <!-- Top Slab Bar -->
+        <div class="virtual-bar">
+          <div class="bar-cluster">
+            <div class="bar-pill"><span>󰥔</span> <span>10:50</span></div>
+            <div class="bar-pill" style="background:#27222f; color:var(--lav);"><span>1</span></div>
+            <div class="bar-pill"><span>2</span></div>
+            <div class="bar-pill"><span>3</span></div>
+          </div>
+
+          <div style="font-family:var(--mono); font-size:11px; color:var(--text-faint);">
+            foot — ~/worktrees/quickshell-notifications
+          </div>
+
+          <div class="bar-cluster">
+            <div class="bar-pill"><span>󰝚</span> <span>Solar Fields</span></div>
+            <div class="bar-hairline"></div>
+            <div class="bar-pill"><span></span> <span>18%</span></div>
+            <div class="bar-pill"><span></span> <span>64%</span></div>
+            <!-- Notification Bar Module -->
+            <div class="bar-pill" id="barNotifModule" onclick="toggleFlyout()" style="color:var(--lav);">
+              <span id="barBellIcon"></span>
+              <span class="notif-badge-pill" id="barBadge">3</span>
+            </div>
+            <div class="bar-hairline"></div>
+            <div class="bar-pill"><span>⏻</span></div>
+          </div>
+        </div>
+
+        <!-- Notification Toast Queue (Top-Right OSD) -->
+        <div class="toast-container" id="toastQueue">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Flyout Notification Center -->
+        <div class="flyout-panel" id="flyoutPanel">
+          <div class="flyout-header">
+            <div class="flyout-title">
+              <span>Notifications</span>
+              <span class="notif-badge-pill" id="panelBadge" style="font-size:10px;">3</span>
+            </div>
+            <div class="flyout-controls">
+              <button class="mini-btn" id="panelDndBtn" onclick="toggleDnd()"> DND</button>
+              <button class="mini-btn" onclick="clearAllNotifications()">Clear</button>
+              <button class="mini-btn" onclick="toggleFlyout()" style="padding:3px 6px;">✕</button>
+            </div>
+          </div>
+          <div class="flyout-body" id="flyoutList">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Detailed Design Concepts Comparison -->
+  <section id="design-concepts">
+    <h2>2. Detailed Design Proposals &amp; Characteristics</h2>
+    <div class="grid3">
+      
+      <!-- Design A -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem;">
+          <h3 style="font-size:18px;">Design A: Slab Flyout &amp; Compact Toasts</h3>
+          <span class="badge info">Recommended</span>
+        </div>
+        <p style="font-size:13.5px; color:var(--text-dim); margin-top:0;">
+          <strong>Minimalist &amp; Faithful to Phase 6a.</strong> A clean dropdown panel anchored under the bar's notification button with floating 320px toast popups.
+        </p>
+        <ul style="font-size:13px; color:var(--text-dim); padding-left:1.1rem; margin-bottom:1rem;">
+          <li><strong>Toast styling</strong>: Lightweight cards with 2px lavender countdown timer and subtle border glow on critical urgency.</li>
+          <li><strong>Drawer anatomy</strong>: 340px width, single chronological stream with app badges and direct dismissal.</li>
+          <li><strong>Bar integration</strong>: Bell icon with pill badge when count &gt; 0, muted slashed bell in DND mode.</li>
+          <li><strong>Complexity</strong>: Low footprint, pure QML <code>PopupWindow</code> + <code>PanelWindow</code>.</li>
+        </ul>
+      </div>
+
+      <!-- Design B -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem;">
+          <h3 style="font-size:18px;">Design B: Power User Action Center</h3>
+          <span class="badge">Rich Features</span>
+        </div>
+        <p style="font-size:13.5px; color:var(--text-dim); margin-top:0;">
+          <strong>Rich Interactive Hub.</strong> Grouped notifications by application with inline quick-replies, action buttons, and media preview thumbnails.
+        </p>
+        <ul style="font-size:13px; color:var(--text-dim); padding-left:1.1rem; margin-bottom:1rem;">
+          <li><strong>Toast styling</strong>: Expands on hover to reveal rich action buttons ("Reply", "Mark Read", "Open in Browser").</li>
+          <li><strong>Drawer anatomy</strong>: 380px full-height edge panel with collapsible per-app accordions and bulk app clearing.</li>
+          <li><strong>Inline Input</strong>: Built-in text field for instant Matrix / Discord / Email replies without focusing the app.</li>
+          <li><strong>Complexity</strong>: Moderate, requires action invocation bridge over DBus.</li>
+        </ul>
+      </div>
+
+      <!-- Design C -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.6rem;">
+          <h3 style="font-size:18px;">Design C: HUD Floating Island</h3>
+          <span class="badge">Experimental</span>
+        </div>
+        <p style="font-size:13.5px; color:var(--text-dim); margin-top:0;">
+          <strong>Keyboard-Driven Island Overlay.</strong> Floating centered/top pill that expands dynamically, with tab filters (All, Mentions, System).
+        </p>
+        <ul style="font-size:13px; color:var(--text-dim); padding-left:1.1rem; margin-bottom:1rem;">
+          <li><strong>Toast styling</strong>: Pill OSD centered at top-right, stacking with dynamic scale perspective.</li>
+          <li><strong>Drawer anatomy</strong>: Centered HUD overlay with category chips and vim-like keyboard shortcuts (<code>d</code> to dismiss, <code>c</code> to clear).</li>
+          <li><strong>Focus model</strong>: Captures transient keyboard navigation for instant triage.</li>
+          <li><strong>Complexity</strong>: Higher, requires keyboard grab &amp; focus management.</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Architecture & Technical Plan -->
+  <section id="architecture">
+    <h2>3. QML Component Architecture (DBus &amp; Services)</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>Component Topology</h3>
+        <div class="arch-box">
+<span class="cmt">// Quickshell Notification Server Hierarchy</span>
+Quickshell.Services.Notifications
+├── <span class="kw">NotificationServer</span> (<span class="str">"org.freedesktop.Notifications"</span>)
+│   ├── <span class="fn">onNotificationAdded</span>(notif)  → spawns Toast + inserts History
+│   ├── <span class="fn">onNotificationClosed</span>(id)    → dismisses Toast
+│   └── <span class="fn">capabilities</span>: [<span class="str">"actions"</span>, <span class="str">"body"</span>, <span class="str">"body-markup"</span>, <span class="str">"persistence"</span>]
+│
+├── <span class="kw">services/NotificationModel.qml</span> (Singleton state)
+│   ├── <span class="fn">property list&lt;Notification&gt; activeToasts</span>
+│   ├── <span class="fn">property list&lt;Notification&gt; history</span>
+│   ├── <span class="fn">property bool dndEnabled: false</span>
+│   └── <span class="fn">property int unreadCount</span>
+│
+├── <span class="kw">windows/NotificationPopups.qml</span> (OSD PanelWindow)
+│   └── <span class="fn">Repeater { model: NotificationModel.activeToasts }</span>
+│       └── <span class="fn">components/NotificationToast.qml</span>
+│
+└── <span class="kw">windows/NotificationCenter.qml</span> (PopupWindow / Panel)
+    └── <span class="fn">components/NotificationCard.qml</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>DBus Capabilities &amp; Hints Handling</h3>
+        <table>
+          <thead><tr><th>DBus Hint / Field</th><th>Type</th><th>Quickshell Handling</th></tr></thead>
+          <tbody>
+            <tr><td><code>urgency</code></td><td><code>byte (0, 1, 2)</code></td><td>0=Low (silent), 1=Normal (toast 5s), 2=Critical (sticky, red border)</td></tr>
+            <tr><td><code>actions</code></td><td><code>as [id, text]</code></td><td>Rendered as interactive action pills with click-to-invoke callback</td></tr>
+            <tr><td><code>image-data</code> / <code>app_icon</code></td><td><code>pixmap / string</code></td><td>Loaded via QtQuick <code>Image</code> or fallback Nerd Font glyph</td></tr>
+            <tr><td><code>resident</code> / <code>transient</code></td><td><code>boolean</code></td><td>If resident, remains in Drawer history after toast timeout</td></tr>
+            <tr><td><code>sound-file</code></td><td><code>string</code></td><td>Optional low-latency audio cue via <code>SoundEffect</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Matrix -->
+  <section id="matrix">
+    <h2>4. Architectural &amp; UX Comparison Matrix</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Feature / Vector</th>
+          <th>swaync (Legacy)</th>
+          <th>Design A (Slab Flyout)</th>
+          <th>Design B (Power Hub)</th>
+          <th>Design C (HUD Island)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Process Model</b></td>
+          <td>External C++ daemon + IPC</td>
+          <td><b>Native inside Quickshell process</b></td>
+          <td><b>Native inside Quickshell process</b></td>
+          <td><b>Native inside Quickshell process</b></td>
+        </tr>
+        <tr>
+          <td><b>Memory &amp; Startup</b></td>
+          <td>Separate daemon (~35MB)</td>
+          <td><b>Zero extra processes (&lt;2MB QML heap)</b></td>
+          <td><b>Zero extra processes (&lt;3MB QML heap)</b></td>
+          <td><b>Zero extra processes</b></td>
+        </tr>
+        <tr>
+          <td><b>Visual Unity</b></td>
+          <td>GTK CSS (mismatched curves)</td>
+          <td><b>100% matched to Slab &amp; Colors.qml</b></td>
+          <td><b>100% matched to Slab &amp; Colors.qml</b></td>
+          <td>Modern floating island styling</td>
+        </tr>
+        <tr>
+          <td><b>Animation System</b></td>
+          <td>GTK transitions (stiff)</td>
+          <td><b>140ms snappy easing (D-08)</b></td>
+          <td><b>200ms spring &amp; expandable</b></td>
+          <td>180ms kinetic motion</td>
+        </tr>
+        <tr>
+          <td><b>Action Buttons &amp; Reply</b></td>
+          <td>Basic buttons</td>
+          <td>Pill action buttons</td>
+          <td><b>Rich actions + Inline text reply</b></td>
+          <td>Keyboard-driven shortcuts</td>
+        </tr>
+        <tr>
+          <td><b>DND Integration</b></td>
+          <td>Process toggle via CLI</td>
+          <td><b>Instant declarative binding</b></td>
+          <td><b>Instant declarative binding + timer</b></td>
+          <td><b>Instant declarative binding</b></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  Document: <code>docs/plans/03-phase-6b-notifications-exploration.html</code> &nbsp;·&nbsp; Addendum to Migration Plan ECO-HY3.<br>
+  Target implementation: Quickshell Native Notification Daemon using <code>Quickshell.Services.Notifications</code>.
+</footer>
+
+<script>
+  let currentDesign = 'A';
+  let isDnd = false;
+  let flyoutOpen = false;
+
+  let sampleNotifications = [
+    {
+      id: 1,
+      app: 'Slack',
+      icon: '󰒱',
+      summary: 'Sarah Connor',
+      body: 'Review the latest pull request when you get a chance!',
+      time: '10:48',
+      urgency: 'normal',
+      actions: ['Reply', 'Mark Read']
+    },
+    {
+      id: 2,
+      app: 'Spotify',
+      icon: '󰝚',
+      summary: 'Now Playing',
+      body: 'Solar Fields — Movements (Album)',
+      time: '10:42',
+      urgency: 'low',
+      actions: ['Thumbs Up']
+    },
+    {
+      id: 3,
+      app: 'System',
+      icon: '󰞌',
+      summary: 'Package Updates',
+      body: '14 system packages ready to be updated.',
+      time: '09:15',
+      urgency: 'normal',
+      actions: ['Upgrade Now']
+    }
+  ];
+
+  function renderNotifications() {
+    const count = sampleNotifications.length;
+    const badgeEl = document.getElementById('barBadge');
+    const panelBadgeEl = document.getElementById('panelBadge');
+    
+    if (count > 0 && !isDnd) {
+      badgeEl.style.display = 'flex';
+      badgeEl.innerText = count;
+      panelBadgeEl.innerText = count;
+    } else {
+      badgeEl.style.display = count === 0 || isDnd ? 'none' : 'flex';
+      panelBadgeEl.innerText = count;
+    }
+
+    const listEl = document.getElementById('flyoutList');
+    if (count === 0) {
+      listEl.innerHTML = `
+        <div class="empty-state">
+          <span style="font-size:24px;">󰂛</span>
+          <span>No new notifications</span>
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = sampleNotifications.map(n => `
+      <div class="notif-item">
+        <div class="notif-item-icon">${n.icon}</div>
+        <div class="notif-item-content">
+          <div class="notif-item-header">
+            <span class="app">${n.app}</span>
+            <span>${n.time}</span>
+          </div>
+          <div class="notif-item-title">${escapeHtml(n.summary)}</div>
+          <div class="notif-item-body">${escapeHtml(n.body)}</div>
+          ${currentDesign === 'B' ? `
+            <div class="notif-item-actions">
+              ${n.actions.map(act => `<button class="notif-action-pill" onclick="triggerAction('${act}', ${n.id})">${act}</button>`).join('')}
+              <button class="notif-action-pill" onclick="dismissNotif(${n.id})">Dismiss</button>
+            </div>
+          ` : `
+            <div class="notif-item-actions">
+              <button class="notif-action-pill" onclick="dismissNotif(${n.id})">Dismiss</button>
+            </div>
+          `}
+        </div>
+        <button class="toast-close" onclick="dismissNotif(${n.id})">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function sendSampleToast(urgency = 'normal') {
+    const isCrit = urgency === 'critical';
+    const id = Date.now();
+    const newNotif = {
+      id: id,
+      app: isCrit ? 'Security Alert' : 'Matrix',
+      icon: isCrit ? '⚠' : '󰻞',
+      summary: isCrit ? 'High Temperature Warning' : 'dev-team channel',
+      body: isCrit ? 'CPU temperature exceeded 85°C. Throttling active.' : 'alex: Can we verify the QML layout changes?',
+      time: 'Just now',
+      urgency: urgency,
+      actions: isCrit ? ['Cool Down', 'Dismiss'] : ['Reply', 'Mute']
+    };
+
+    sampleNotifications.unshift(newNotif);
+    renderNotifications();
+
+    if (!isDnd) {
+      const queue = document.getElementById('toastQueue');
+      const toastEl = document.createElement('div');
+      toastEl.className = `toast-card ${isCrit ? 'critical' : ''}`;
+      toastEl.id = `toast-${id}`;
+      toastEl.innerHTML = `
+        <div class="toast-app-icon">${newNotif.icon}</div>
+        <div class="toast-content">
+          <div class="toast-header">
+            <span class="toast-app">${newNotif.app}</span>
+            <span class="toast-time">Just now</span>
+          </div>
+          <div class="toast-summary">${escapeHtml(newNotif.summary)}</div>
+          <div class="toast-body">${escapeHtml(newNotif.body)}</div>
+        </div>
+        <button class="toast-close" onclick="removeToastElement(${id})">✕</button>
+        <div class="toast-progress"></div>
+      `;
+      queue.prepend(toastEl);
+
+      setTimeout(() => {
+        removeToastElement(id);
+      }, 5000);
+    }
+  }
+
+  function removeToastElement(id) {
+    const el = document.getElementById(`toast-${id}`);
+    if (el) {
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(50px)';
+      setTimeout(() => el.remove(), 150);
+    }
+  }
+
+  function dismissNotif(id) {
+    sampleNotifications = sampleNotifications.filter(n => n.id !== id);
+    removeToastElement(id);
+    renderNotifications();
+  }
+
+  function clearAllNotifications() {
+    sampleNotifications = [];
+    document.getElementById('toastQueue').innerHTML = '';
+    renderNotifications();
+  }
+
+  function toggleDnd() {
+    isDnd = !isDnd;
+    const label = document.getElementById('dndLabel');
+    const icon = document.getElementById('dndIcon');
+    const barBell = document.getElementById('barBellIcon');
+    const panelDnd = document.getElementById('panelDndBtn');
+
+    if (isDnd) {
+      label.innerText = 'DND: On';
+      icon.innerText = '';
+      barBell.innerText = '';
+      barBell.style.color = 'var(--text-faint)';
+      panelDnd.classList.add('active');
+    } else {
+      label.innerText = 'DND: Off';
+      icon.innerText = '';
+      barBell.innerText = '';
+      barBell.style.color = 'var(--lav)';
+      panelDnd.classList.remove('active');
+    }
+    renderNotifications();
+  }
+
+  function toggleFlyout() {
+    flyoutOpen = !flyoutOpen;
+    const panel = document.getElementById('flyoutPanel');
+    if (flyoutOpen) {
+      panel.classList.remove('hidden');
+    } else {
+      panel.classList.add('hidden');
+    }
+  }
+
+  function triggerAction(act, id) {
+    alert(`Action "${act}" executed for notification #${id}`);
+  }
+
+  function switchDesign(designKey) {
+    currentDesign = designKey;
+    document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+      btn.classList.toggle('active', (designKey === 'A' && idx === 0) || (designKey === 'B' && idx === 1) || (designKey === 'C' && idx === 2));
+    });
+
+    const flyout = document.getElementById('flyoutPanel');
+    if (designKey === 'A') {
+      flyout.style.width = '340px';
+      flyout.style.right = '14px';
+    } else if (designKey === 'B') {
+      flyout.style.width = '380px';
+      flyout.style.right = '14px';
+    } else if (designKey === 'C') {
+      flyout.style.width = '350px';
+      flyout.style.right = 'calc(50% - 175px)';
+    }
+
+    renderNotifications();
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  renderNotifications();
+</script>
+
+</body>
+</html>

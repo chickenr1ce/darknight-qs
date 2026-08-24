@@ -1,6 +1,6 @@
 # AGENTS.md — Quickshell
 
-A Quickshell-based Wayland status bar and desktop shell (QML) replacing waybar: a multi-monitor panel with workspaces, system tray, media/audio/CPU modules, notifications and power menu, styled as a unified slab. Migration from waybar is in progress per `docs/plans/quickshell-migration.html`.
+A Quickshell-based Wayland status bar and desktop shell (QML) replacing waybar: a multi-monitor panel with workspaces, system tray, media/audio/CPU modules, notifications and power menu, styled as a unified slab. Migration from waybar is in progress per `docs/plans/01-master-quickshell-migration.html`.
 
 Workflow and repo conventions for AI agents and contributors working in `~/.config/quickshell`.
 
@@ -40,4 +40,4 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 ## 4. Docs
 
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
-- For current context on the project, refer to `docs/plans/quickshell-migration.html`
+- For current context on the project, refer to `docs/plans/01-master-quickshell-migration.html`

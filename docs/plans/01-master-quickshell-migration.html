@@ -1886,7 +1886,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           Notifications — swaync-based, to be swapped out for native service per Q1 — PowerMenu, Tray);
           Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases
           6 and 7 not started. <strong>Phase 6a implemented</strong> (2026-08-24, commit b8c59fe on branch
-          phase-6a): unified slab restyle per <code>docs/plans/unified-slab-restyle.html</code>
+          phase-6a): unified slab restyle per <code>docs/plans/02-phase-6a-unified-slab.html</code>
           (ECO-HY3a). See phase sheets &amp; module map.</div>
       </div>
       <div class="status-banner">
@@ -1934,7 +1934,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <div class="rail-footer">
         <div class="k">Sheet control</div>
         <div class="v">Source: ~/.config/waybar/config.jsonc, style.css, colors.css, toggle_audio.sh<br>Addendum:
-          docs/plans/unified-slab-restyle.html (ECO-HY3a · Phase 6a)<br>Verify:
+          docs/plans/02-phase-6a-unified-slab.html (ECO-HY3a · Phase 6a)<br>Verify:
           /usr/lib/qt6/qml/Quickshell/</div>
       </div>
     </nav>
@@ -2041,7 +2041,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <li><span><b>D13 · Unified slab replaces floating modules (landed 2026-08-24, ECO-HY3a).</b> A single
                   <code>Colors.background</code> surface spans the bar (<code>slabRadius: 9</code>); modules lose their own backgrounds and become
                   transparent hover regions. Supersedes the waybar <code>#module</code> per-box styling translated in
-                  Phase 1. Spec: <code>docs/plans/unified-slab-restyle.html</code>.</span></li>
+                  Phase 1. Spec: <code>docs/plans/02-phase-6a-unified-slab.html</code>.</span></li>
               <li><span><b>D14 · Motion system added (landed 2026-08-24, ECO-HY3a).</b> Pill hover tint (inset 2px) + centered expanding lavender underline at 140ms;
                   press-scale + release pulse 120ms; Workspaces and Tray scale only the clicked pill/icon. Cluster hairlines flank
                   the center region. No waybar counterpart — deliberate improvement per ground rule.</span></li>
@@ -2286,7 +2286,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 <li><b>Approved addendum (2026-08-23), implemented 2026-08-24 (commit b8c59fe, branch phase-6a):</b>
                   full decision set (D-01…D-10), slab anatomy, per-file
                   implementation outline and acceptance criteria live in
-                  <code>docs/plans/unified-slab-restyle.html</code>. This sheet is the summary.</li>
+                  <code>docs/plans/02-phase-6a-unified-slab.html</code>. This sheet is the summary.</li>
                 <li><b>One full-width slab</b> replaces floating module boxes: modules become transparent regions on a
                   shared <code>Colors.background</code> surface. Hover = tint + 2px lavender underline (140ms); click =
                   press-scale + release pulse (120ms) with per-pill scaling in Workspaces and Tray only.</li>

@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Design B — Power User Action Center: Interactive Grilling & Decision Spec</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0e11;
+      --bg-soft: #101317;
+      --panel: #161a20;
+      --panel-2: #1a1f26;
+      --panel-3: #1e242e;
+      --border: #242b36;
+      --border-strong: #2f3847;
+      --border-faint: #1d232e;
+      --text: #e8ebf0;
+      --text-dim: #9aa3b2;
+      --text-faint: #677083;
+      --lav: #b4befe;
+      --lav-dim: #8d97d8;
+      --purple: #a980db;
+      --yellow: #e8c85e;
+      --red: #ff5252;
+      --green: #7fe0a8;
+      --orange: #ff8a3d;
+      --radius: 6px;
+      --radius-lg: 9px;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: "Public Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      --display: "Bricolage Grotesque", "Public Sans", system-ui, sans-serif;
+      --max: 1280px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.04) 1px, transparent 0);
+      background-size: 22px 22px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 92%);
+      opacity: 0.35;
+      z-index: -1;
+    }
+
+    a { color: var(--lav); text-decoration: none; }
+    a:hover { text-decoration: underline; color: #cbd3ff; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #10141a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .08rem .32rem;
+      color: var(--lav);
+    }
+
+    /* Top Doc Bar */
+    .doc-bar {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 1rem;
+      padding: .6rem 1.4rem;
+      background: rgba(12, 14, 17, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+    .doc-bar strong { color: var(--text-dim); font-weight: 600; }
+    .doc-bar .center {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      color: var(--text-dim);
+      font-size: 10.5px;
+    }
+    .doc-bar .center::before, .doc-bar .center::after {
+      content: "";
+      width: 18px;
+      height: 1px;
+      background: var(--border-strong);
+      display: block;
+    }
+    .doc-bar .right { justify-self: end; display: flex; gap: .8rem; align-items: center; }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 20%, transparent);
+      display: inline-block;
+    }
+
+    header {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2.5rem 1.4rem 1.5rem;
+    }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: 1rem;
+    }
+    .eyebrow i { width: 28px; height: 1px; background: var(--border-strong); }
+    .eyebrow em { font-style: normal; color: var(--lav); }
+
+    h1 {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(30px, 4.2vw, 44px);
+      letter-spacing: -.04em;
+      line-height: 1.0;
+      margin: 0;
+    }
+    h1 span { font-weight: 600; color: var(--text-dim); letter-spacing: -.03em; }
+
+    .lede {
+      margin: 1rem 0 0;
+      color: var(--text-dim);
+      font-size: 15px;
+      max-width: 80ch;
+      line-height: 1.65;
+    }
+    .lede strong { color: var(--text); }
+
+    .badge-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.3rem; }
+    .badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: .3rem .6rem;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      color: var(--text-dim);
+    }
+    .badge.ok { color: var(--green); border-color: rgba(127,224,168,.35); background: #0f1a14; }
+    .badge.info { color: var(--lav); border-color: rgba(180,190,254,.35); background: #131525; }
+    .badge.warn { color: var(--yellow); border-color: rgba(232,200,94,.3); background: #1a170f; }
+
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 1.4rem 4rem;
+    }
+
+    section { margin-top: 3rem; }
+
+    h2 {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      border-top: 1px solid var(--border);
+      padding-top: 1.2rem;
+      margin: 0 0 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    h2::before {
+      content: "§";
+      color: var(--lav);
+      font-weight: 700;
+    }
+
+    h3 {
+      font-family: var(--display);
+      font-size: 19px;
+      letter-spacing: -.02em;
+      margin: 0 0 .5rem;
+      color: var(--text);
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.3rem;
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.3rem; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+
+    @media (max-width: 900px) {
+      .grid2, .grid3 { grid-template-columns: 1fr; }
+    }
+
+    /* Decision Container */
+    .decision-block {
+      background: #0d1014;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 2.2rem;
+    }
+
+    .decision-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.2rem;
+      gap: 1rem;
+    }
+
+    .decision-title {
+      font-family: var(--display);
+      font-size: 21px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .option-switcher {
+      display: flex;
+      background: #14181f;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      gap: 3px;
+    }
+
+    .opt-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: .4rem .85rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all .14s ease;
+      white-space: nowrap;
+    }
+    .opt-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .opt-btn.active {
+      background: var(--lav);
+      color: #0c0e11;
+      font-weight: 600;
+    }
+
+    /* Interactive Preview Shells */
+    .preview-canvas {
+      position: relative;
+      height: 480px;
+      background: linear-gradient(135deg, #101217 0%, #15141c 60%, #0c0e12 100%);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+    }
+
+    /* Top Bar in Preview */
+    .sim-bar {
+      position: absolute;
+      top: 6px;
+      left: 12px;
+      right: 12px;
+      height: 28px;
+      background: #141118;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      z-index: 20;
+    }
+
+    .sim-pill {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 2px 7px;
+      border-radius: 5px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+    .sim-pill:hover { background: #27222f; color: var(--lav); }
+
+    /* Common Drawer / Panel Styling */
+    .panel-base {
+      position: absolute;
+      background: #141118;
+      border: 1px solid var(--border-strong);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+      overflow: hidden;
+      transition: all 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+
+    .panel-hdr {
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #18151f;
+    }
+
+    .panel-hdr-title {
+      font-family: var(--display);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .pill-badge {
+      background: var(--lav);
+      color: #0c0e11;
+      font-size: 9.5px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 0 5px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .panel-actions { display: flex; gap: 5px; }
+    .p-btn {
+      background: #27222f;
+      border: 1px solid rgba(255,255,255,0.06);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .p-btn:hover { background: #352e40; color: var(--lav); }
+
+    .panel-scroll {
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    /* Notification Cards */
+    .rich-card {
+      background: #1c1824;
+      border: 1px solid var(--border-faint);
+      border-radius: 6px;
+      padding: 10px;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .rich-card:hover {
+      background: #221d2c;
+      border-color: var(--border-strong);
+    }
+    .rich-card.critical {
+      border-color: rgba(255, 82, 82, 0.4);
+      background: #22161b;
+      position: relative;
+    }
+    .rich-card.critical::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--red);
+      border-radius: 6px 0 0 6px;
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--text-faint);
+      margin-bottom: 4px;
+    }
+    .card-top .app-name { color: var(--lav); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+
+    .card-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .card-body {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    .card-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .action-pill {
+      background: #27222f;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .action-pill:hover {
+      background: var(--lav);
+      color: #0c0e11;
+    }
+
+    /* Accordion Group Header */
+    .group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 8px;
+      background: #17141f;
+      border: 1px solid var(--border-faint);
+      border-radius: 5px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--lav);
+      cursor: pointer;
+      user-select: none;
+    }
+    .group-header:hover { background: #1e1a29; }
+    .group-items {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-left: 6px;
+      border-left: 2px solid #27222f;
+      margin-top: 4px;
+      margin-bottom: 6px;
+    }
+
+    /* Inline Reply Box */
+    .reply-input-box {
+      margin-top: 8px;
+      display: flex;
+      gap: 4px;
+      background: #110e16;
+      border: 1px solid var(--border-strong);
+      border-radius: 5px;
+      padding: 3px;
+    }
+    .reply-field {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 11.5px;
+      padding: 4px 6px;
+      flex: 1;
+      outline: none;
+    }
+    .reply-field::placeholder { color: var(--text-faint); }
+    .reply-send-btn {
+      background: var(--lav);
+      color: #0c0e11;
+      border: none;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .reply-send-btn:hover { background: #cbd3ff; }
+
+    /* Media Player Mini Widget */
+    .media-widget {
+      background: #181421;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px;
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 9px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .media-cover {
+      width: 38px;
+      height: 38px;
+      border-radius: 4px;
+      background: #282236;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: var(--lav);
+    }
+    .media-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .media-title {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .media-artist {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      color: var(--lav);
+    }
+    .media-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+
+    /* Slider Row */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 3px 0;
+    }
+    .slider-track {
+      flex: 1;
+      height: 4px;
+      background: #27222f;
+      border-radius: 2px;
+      position: relative;
+      cursor: pointer;
+    }
+    .slider-fill {
+      height: 100%;
+      background: var(--lav);
+      border-radius: 2px;
+    }
+
+    /* Backdrop Dimmer for Modal */
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(2px);
+      z-index: 25;
+      display: none;
+    }
+
+    /* Code Snippet Box */
+    .code-box {
+      background: #090b0e;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .85rem;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: #cbd3ff;
+      margin-top: .8rem;
+      overflow-x: auto;
+    }
+
+    /* Footer */
+    footer {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2rem 1.4rem 3rem;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--text-faint);
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+
+<div class="doc-bar">
+  <div><strong>ECO-HY3b</strong> &nbsp;·&nbsp; Grilling Specification</div>
+  <div class="center">Design B Detailed Archetypes &amp; Trade-offs</div>
+  <div class="right">
+    <span class="live-dot"></span>
+    <span>Live Interactive Demo</span>
+  </div>
+</div>
+
+<header>
+  <div class="eyebrow"><i></i> Design B Grilling Session &nbsp;·&nbsp; <em>Concrete HTML Explorations</em></div>
+  <h1>Design B: Power User Action Center<br><span>Interactive Decision Breakdown</span></h1>
+  <p class="lede">
+    Detailed side-by-side interactive prototypes for each core architectural axis of Design B. 
+    Select your preferred options below to finalize the specification for implementation.
+  </p>
+  <div class="badge-row">
+    <span class="badge info">Phase 6a Unified Slab</span>
+    <span class="badge ok">Action Buttons &amp; Inline Reply</span>
+    <span class="badge">Pure QML / DBus</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Decision 1: Panel Positioning & Framing -->
+  <div class="decision-block" id="d1">
+    <div class="decision-header">
+      <div>
+        <div class="decision-title">
+          <span>Decision 1: Panel Positioning &amp; Framing</span>
+        </div>
+        <p style="font-size:13.5px; color:var(--text-dim); margin:.3rem 0 0;">
+          How should the notification center window be positioned relative to the screen and top bar?
+        </p>
+      </div>
+      <div class="option-switcher">
+        <button class="opt-btn active" onclick="setD1('floating')">Option 1A: Floating Drop Panel</button>
+        <button class="opt-btn" onclick="setD1('drawer')">Option 1B: Full-Height Edge Drawer</button>
+        <button class="opt-btn" onclick="setD1('modal')">Option 1C: Slide-in Modal + Dim</button>
+      </div>
+    </div>
+
+    <!-- Live Preview Stage 1 -->
+    <div class="preview-canvas" id="canvas1">
+      <div class="modal-backdrop" id="d1Backdrop" onclick="setD1('floating')"></div>
+
+      <!-- Top Bar -->
+      <div class="sim-bar">
+        <div style="display:flex; gap:6px;">
+          <div class="sim-pill"><span>󰥔</span> <span>10:59</span></div>
+          <div class="sim-pill" style="background:#27222f; color:var(--lav);"><span>1</span></div>
+          <div class="sim-pill"><span>2</span></div>
+        </div>
+        <div style="font-family:var(--mono); font-size:10.5px; color:var(--text-faint);">Desktop Shell · Wayland</div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <div class="sim-pill"><span></span> <span>72%</span></div>
+          <div class="sim-pill" style="color:var(--lav); background:#27222f;">
+            <span></span>
+            <span class="pill-badge">3</span>
+          </div>
+          <div class="sim-pill"><span>⏻</span></div>
+        </div>
+      </div>
+
+      <!-- Simulated Panel -->
+      <div class="panel-base" id="d1Panel" style="top:38px; right:14px; width:380px; height:420px; border-radius:9px;">
+        <div class="panel-hdr">
+          <div class="panel-hdr-title">
+            <span>Action Center</span>
+            <span class="pill-badge">3</span>
+          </div>
+          <div class="panel-actions">
+            <button class="p-btn"> DND</button>
+            <button class="p-btn">Clear All</button>
+          </div>
+        </div>
+        <div class="panel-scroll">
+          <div class="rich-card">
+            <div class="card-top">
+              <span class="app-name">󰒱 Slack</span>
+              <span>10:55</span>
+            </div>
+            <div class="card-title">Sarah Connor</div>
+            <div class="card-body">We deployed the new build to staging. Please check the logs.</div>
+            <div class="card-actions-row">
+              <button class="action-pill">Reply</button>
+              <button class="action-pill">Open Slack</button>
+            </div>
+          </div>
+          <div class="rich-card critical">
+            <div class="card-top">
+              <span class="app-name" style="color:var(--red);">⚠ Systemd</span>
+              <span>10:50</span>
+            </div>
+            <div class="card-title">High Memory Warning</div>
+            <div class="card-body">Process <code>rust-analyzer</code> exceeded 8.2GB RSS.</div>
+            <div class="card-actions-row">
+              <button class="action-pill">Inspect htop</button>
+              <button class="action-pill">Kill Process</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid3" style="margin-top:1.2rem;">
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">1A: Floating Drop Panel</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Anchored directly below the bar’s notification pill (380px width, max 520px height, 9px radius). Feels lightweight, leaves wallpaper/windows visible.
+        </p>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">1B: Full-Height Edge Drawer</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Anchored from top screen edge to bottom (380px width, 0px margin). Provides maximum vertical room for deep notification history and scrolling.
+        </p>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">1C: Slide-in Modal + Dim</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Slide-in right panel with a subtle darkened backdrop over your desktop windows. Focused triage modal that closes on outside click.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decision 2: Grouping & Organization -->
+  <div class="decision-block" id="d2">
+    <div class="decision-header">
+      <div>
+        <div class="decision-title">
+          <span>Decision 2: Grouping &amp; Organization Model</span>
+        </div>
+        <p style="font-size:13.5px; color:var(--text-dim); margin:.3rem 0 0;">
+          How should incoming notifications be ordered and clustered in the list?
+        </p>
+      </div>
+      <div class="option-switcher">
+        <button class="opt-btn active" onclick="setD2('accordion')">Option 2A: Collapsible App Accordions</button>
+        <button class="opt-btn" onclick="setD2('flat')">Option 2B: Flat Chronological Stream</button>
+        <button class="opt-btn" onclick="setD2('priority')">Option 2C: Priority-Sorted Feed</button>
+      </div>
+    </div>
+
+    <!-- Live Preview Stage 2 -->
+    <div class="preview-canvas" id="canvas2" style="height:440px;">
+      <div class="panel-base" style="top:20px; left:calc(50% - 190px); width:380px; height:400px; border-radius:9px;">
+        <div class="panel-hdr">
+          <div class="panel-hdr-title">
+            <span id="d2Title">Notifications</span>
+            <span class="pill-badge" id="d2CountBadge">4</span>
+          </div>
+          <div class="panel-actions">
+            <button class="p-btn" onclick="resetD2()">Reset</button>
+          </div>
+        </div>
+        <div class="panel-scroll" id="d2Container">
+          <!-- Dynamically filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="grid3" style="margin-top:1.2rem;">
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">2A: Collapsible App Accordions</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Clustered by sender app (e.g. <code>Slack (2)</code>, <code>Thunderbird (2)</code>). Groups expand/collapse and have a per-group "Clear App" button.
+        </p>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">2B: Flat Chronological Stream</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Simple reverse-chronological list (newest on top). Individual cards with app tag pills. Zero nested folding complexity.
+        </p>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">2C: Priority-Sorted Feed</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Critical/Urgent alerts pinned at the top with glowing borders, followed by regular notifications grouped into "Recent" and "Earlier".
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decision 3: Inline Quick Reply UX -->
+  <div class="decision-block" id="d3">
+    <div class="decision-header">
+      <div>
+        <div class="decision-title">
+          <span>Decision 3: Inline Quick Reply Interaction</span>
+        </div>
+        <p style="font-size:13.5px; color:var(--text-dim); margin:.3rem 0 0;">
+          How should users type and submit quick replies to messaging notifications?
+        </p>
+      </div>
+      <div class="option-switcher">
+        <button class="opt-btn active" onclick="setD3('click')">Option 3A: Click-to-Reveal Input</button>
+        <button class="opt-btn" onclick="setD3('persistent')">Option 3B: Pre-rendered Persistent Input</button>
+        <button class="opt-btn" onclick="setD3('chips')">Option 3C: Quick Canned Action Chips</button>
+      </div>
+    </div>
+
+    <!-- Live Preview Stage 3 -->
+    <div class="preview-canvas" id="canvas3" style="height:360px;">
+      <div class="panel-base" style="top:20px; left:calc(50% - 190px); width:380px; border-radius:9px;">
+        <div class="panel-hdr">
+          <div class="panel-hdr-title">
+            <span>Direct Message</span>
+            <span class="pill-badge">1</span>
+          </div>
+        </div>
+        <div class="panel-scroll" id="d3Container" style="max-height:300px;">
+          <!-- Dynamically filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="grid3" style="margin-top:1.2rem;">
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">3A: Click-to-Reveal Input</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Card shows a "Reply" pill. Clicking it slides open a sleek text field with auto-focus. Enter sends reply and dismisses card; Esc cancels.
+        </p>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">3B: Pre-rendered Persistent Input</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Cards from chat apps (Slack, Matrix, Discord) always show the reply field already expanded. Zero clicks needed to start typing.
+        </p>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">3C: Quick Canned Action Chips</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Presents one-click responses (e.g. <code>"👍 On it"</code>, <code>"Will check soon"</code>) alongside a custom reply field for fast triage.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decision 4: Media & Quick Settings Integration -->
+  <div class="decision-block" id="d4">
+    <div class="decision-header">
+      <div>
+        <div class="decision-title">
+          <span>Decision 4: Widget Integration Scope</span>
+        </div>
+        <p style="font-size:13.5px; color:var(--text-dim); margin:.3rem 0 0;">
+          Should the notification center include media playback controls or volume/brightness sliders?
+        </p>
+      </div>
+      <div class="option-switcher">
+        <button class="opt-btn active" onclick="setD4('pure')">Option 4A: Pure Notification Focus</button>
+        <button class="opt-btn" onclick="setD4('media')">Option 4B: Hybrid + Top Media Player</button>
+        <button class="opt-btn" onclick="setD4('full')">Option 4C: Full Control Center Hub</button>
+      </div>
+    </div>
+
+    <!-- Live Preview Stage 4 -->
+    <div class="preview-canvas" id="canvas4" style="height:480px;">
+      <div class="panel-base" style="top:20px; left:calc(50% - 190px); width:380px; height:440px; border-radius:9px;">
+        <div class="panel-hdr">
+          <div class="panel-hdr-title">
+            <span id="d4Title">Notifications</span>
+          </div>
+          <div class="panel-actions">
+            <button class="p-btn"> DND</button>
+            <button class="p-btn">Clear</button>
+          </div>
+        </div>
+        <div class="panel-scroll" id="d4Container">
+          <!-- Dynamically filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="grid3" style="margin-top:1.2rem;">
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">4A: Pure Notification Focus</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Dedicated solely to notification triage and history. Audio/Media remains in the top bar. Lowest memory footprint and simplest code.
+        </p>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">4B: Hybrid + Top Media Player</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          A compact MPRIS player card pinned above the notification list. Shows album art, track/artist, and play/pause/skip buttons.
+        </p>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <b style="color:var(--lav);">4C: Full Control Center Hub</b>
+        <p style="font-size:12.5px; color:var(--text-dim); margin:.4rem 0 0;">
+          Consolidated hub with volume slider, brightness slider, media player, and notifications in one unified slide-out panel.
+        </p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Interactive Grilling Specification: <code>docs/plans/04-phase-6b-notifications-spec.html</code> &nbsp;·&nbsp; ECO-HY3b.<br>
+  All options render with live CSS/JS simulating the final Quickshell QML properties.
+</footer>
+
+<script>
+  /* Decision 1 Handlers */
+  function setD1(type) {
+    document.querySelectorAll('#d1 .opt-btn').forEach((btn, idx) => {
+      btn.classList.toggle('active', (type === 'floating' && idx === 0) || (type === 'drawer' && idx === 1) || (type === 'modal' && idx === 2));
+    });
+
+    const panel = document.getElementById('d1Panel');
+    const backdrop = document.getElementById('d1Backdrop');
+
+    if (type === 'floating') {
+      panel.style.top = '38px';
+      panel.style.bottom = 'auto';
+      panel.style.right = '14px';
+      panel.style.height = '420px';
+      panel.style.borderRadius = '9px';
+      backdrop.style.display = 'none';
+    } else if (type === 'drawer') {
+      panel.style.top = '0px';
+      panel.style.bottom = '0px';
+      panel.style.right = '0px';
+      panel.style.height = '100%';
+      panel.style.borderRadius = '0px';
+      backdrop.style.display = 'none';
+    } else if (type === 'modal') {
+      panel.style.top = '0px';
+      panel.style.bottom = '0px';
+      panel.style.right = '0px';
+      panel.style.height = '100%';
+      panel.style.borderRadius = '0px';
+      backdrop.style.display = 'block';
+    }
+  }
+
+  /* Decision 2 Handlers */
+  let d2Data = [
+    { id: 1, app: 'Slack', icon: '󰒱', title: 'Sarah Connor', body: 'Can you review PR #42 before merging?', time: '10:55', critical: false },
+    { id: 2, app: 'Slack', icon: '󰒱', title: 'Alex Vance', body: 'Left some comments on the layout bindings.', time: '10:52', critical: false },
+    { id: 3, app: 'Thunderbird', icon: '󰇰', title: 'GitHub Notifications', body: 'Workflow "CI/CD Test Suite" passed on branch main.', time: '10:45', critical: false },
+    { id: 4, app: 'System', icon: '⚠', title: 'Thermal Alert', body: 'CPU Temp reached 86°C.', time: '10:30', critical: true }
+  ];
+
+  let collapsedGroups = { 'Slack': false, 'Thunderbird': false };
+
+  function setD2(mode) {
+    document.querySelectorAll('#d2 .opt-btn').forEach((btn, idx) => {
+      btn.classList.toggle('active', (mode === 'accordion' && idx === 0) || (mode === 'flat' && idx === 1) || (mode === 'priority' && idx === 2));
+    });
+
+    const cont = document.getElementById('d2Container');
+
+    if (mode === 'accordion') {
+      // Group by App
+      const groups = {};
+      d2Data.forEach(item => {
+        if (!groups[item.app]) groups[item.app] = [];
+        groups[item.app].push(item);
+      });
+
+      cont.innerHTML = Object.keys(groups).map(appName => {
+        const isCollapsed = collapsedGroups[appName];
+        const items = groups[appName];
+        return `
+          <div>
+            <div class="group-header" onclick="toggleGroup('${appName}')">
+              <span>${items[0].icon} ${appName} (${items.length})</span>
+              <span>${isCollapsed ? '▶' : '▼'}</span>
+            </div>
+            ${!isCollapsed ? `
+              <div class="group-items">
+                ${items.map(item => `
+                  <div class="rich-card ${item.critical ? 'critical' : ''}">
+                    <div class="card-top">
+                      <span class="app-name">${item.title}</span>
+                      <span>${item.time}</span>
+                    </div>
+                    <div class="card-body">${item.body}</div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    } else if (mode === 'flat') {
+      cont.innerHTML = d2Data.map(item => `
+        <div class="rich-card ${item.critical ? 'critical' : ''}">
+          <div class="card-top">
+            <span class="app-name">${item.icon} ${item.app}</span>
+            <span>${item.time}</span>
+          </div>
+          <div class="card-title">${item.title}</div>
+          <div class="card-body">${item.body}</div>
+        </div>
+      `).join('');
+    } else if (mode === 'priority') {
+      const crits = d2Data.filter(i => i.critical);
+      const norms = d2Data.filter(i => !i.critical);
+
+      cont.innerHTML = `
+        ${crits.length > 0 ? `
+          <div style="font-family:var(--mono); font-size:10px; color:var(--red); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">
+            ● Critical Alerts (${crits.length})
+          </div>
+          ${crits.map(item => `
+            <div class="rich-card critical" style="margin-bottom:8px;">
+              <div class="card-top">
+                <span class="app-name" style="color:var(--red);">${item.icon} ${item.app}</span>
+                <span>${item.time}</span>
+              </div>
+              <div class="card-title">${item.title}</div>
+              <div class="card-body">${item.body}</div>
+            </div>
+          `).join('')}
+        ` : ''}
+        <div style="font-family:var(--mono); font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; margin:8px 0 4px;">
+          Recent Notifications
+        </div>
+        ${norms.map(item => `
+          <div class="rich-card" style="margin-bottom:6px;">
+            <div class="card-top">
+              <span class="app-name">${item.icon} ${item.app}</span>
+              <span>${item.time}</span>
+            </div>
+            <div class="card-title">${item.title}</div>
+            <div class="card-body">${item.body}</div>
+          </div>
+        `).join('')}
+      `;
+    }
+  }
+
+  function toggleGroup(appName) {
+    collapsedGroups[appName] = !collapsedGroups[appName];
+    setD2('accordion');
+  }
+
+  function resetD2() {
+    collapsedGroups = { 'Slack': false, 'Thunderbird': false };
+    setD2('accordion');
+  }
+
+  /* Decision 3 Handlers */
+  let replyOpen = false;
+
+  function setD3(mode) {
+    document.querySelectorAll('#d3 .opt-btn').forEach((btn, idx) => {
+      btn.classList.toggle('active', (mode === 'click' && idx === 0) || (mode === 'persistent' && idx === 1) || (mode === 'chips' && idx === 2));
+    });
+
+    const cont = document.getElementById('d3Container');
+
+    if (mode === 'click') {
+      cont.innerHTML = `
+        <div class="rich-card">
+          <div class="card-top">
+            <span class="app-name">󰒱 Slack · #dev-core</span>
+            <span>Just now</span>
+          </div>
+          <div class="card-title">David Kim</div>
+          <div class="card-body">Hey, can we merge the quickshell-slab PR this morning?</div>
+          
+          ${replyOpen ? `
+            <div class="reply-input-box">
+              <input type="text" id="replyInput" class="reply-field" placeholder="Type quick reply and press Enter..." onkeydown="handleReplyKey(event, 'click')" autofocus>
+              <button class="reply-send-btn" onclick="sendReply('click')">Send</button>
+            </div>
+          ` : `
+            <div class="card-actions-row">
+              <button class="action-pill" onclick="toggleReplyBox()">↩ Reply</button>
+              <button class="action-pill">Mark Read</button>
+            </div>
+          `}
+        </div>
+      `;
+      if (replyOpen) {
+        setTimeout(() => {
+          const inp = document.getElementById('replyInput');
+          if (inp) inp.focus();
+        }, 50);
+      }
+    } else if (mode === 'persistent') {
+      cont.innerHTML = `
+        <div class="rich-card">
+          <div class="card-top">
+            <span class="app-name">󰒱 Slack · #dev-core</span>
+            <span>Just now</span>
+          </div>
+          <div class="card-title">David Kim</div>
+          <div class="card-body">Hey, can we merge the quickshell-slab PR this morning?</div>
+          <div class="reply-input-box">
+            <input type="text" id="replyInput" class="reply-field" placeholder="Reply to David..." onkeydown="handleReplyKey(event, 'persistent')">
+            <button class="reply-send-btn" onclick="sendReply('persistent')">Send</button>
+          </div>
+        </div>
+      `;
+    } else if (mode === 'chips') {
+      cont.innerHTML = `
+        <div class="rich-card">
+          <div class="card-top">
+            <span class="app-name">󰒱 Slack · #dev-core</span>
+            <span>Just now</span>
+          </div>
+          <div class="card-title">David Kim</div>
+          <div class="card-body">Hey, can we merge the quickshell-slab PR this morning?</div>
+          <div class="card-actions-row" style="margin-top:8px;">
+            <button class="action-pill" onclick="sendChip('👍 Yes, ready!')">👍 Yes, ready!</button>
+            <button class="action-pill" onclick="sendChip('👀 Reviewing now')">👀 Reviewing now</button>
+            <button class="action-pill" onclick="sendChip('⏳ Give me 10m')">⏳ Give me 10m</button>
+          </div>
+          <div class="reply-input-box" style="margin-top:6px;">
+            <input type="text" id="replyInput" class="reply-field" placeholder="Or custom reply..." onkeydown="handleReplyKey(event, 'chips')">
+            <button class="reply-send-btn" onclick="sendReply('chips')">Send</button>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  function toggleReplyBox() {
+    replyOpen = !replyOpen;
+    setD3('click');
+  }
+
+  function handleReplyKey(e, mode) {
+    if (e.key === 'Enter') {
+      sendReply(mode);
+    } else if (e.key === 'Escape' && mode === 'click') {
+      replyOpen = false;
+      setD3('click');
+    }
+  }
+
+  function sendReply(mode) {
+    const inp = document.getElementById('replyInput');
+    if (inp && inp.value.trim().length > 0) {
+      alert(`Sent reply via DBus: "${inp.value.trim()}"`);
+      replyOpen = false;
+      setD3(mode);
+    }
+  }
+
+  function sendChip(chipText) {
+    alert(`Sent instant response via DBus: "${chipText}"`);
+  }
+
+  /* Decision 4 Handlers */
+  let isPlaying = true;
+  let volumeVal = 68;
+
+  function setD4(mode) {
+    document.querySelectorAll('#d4 .opt-btn').forEach((btn, idx) => {
+      btn.classList.toggle('active', (mode === 'pure' && idx === 0) || (mode === 'media' && idx === 1) || (mode === 'full' && idx === 2));
+    });
+
+    const cont = document.getElementById('d4Container');
+    const title = document.getElementById('d4Title');
+
+    if (mode === 'pure') {
+      title.innerText = 'Notifications (3)';
+      cont.innerHTML = `
+        <div class="rich-card">
+          <div class="card-top">
+            <span class="app-name">󰒱 Slack</span>
+            <span>10:55</span>
+          </div>
+          <div class="card-title">Elena Vance</div>
+          <div class="card-body">The new Wayland protocol patch is ready for testing.</div>
+        </div>
+        <div class="rich-card">
+          <div class="card-top">
+            <span class="app-name">󰞌 System Updates</span>
+            <span>09:20</span>
+          </div>
+          <div class="card-title">12 Packages Upgradeable</div>
+          <div class="card-body">Linux kernel 6.12.1 is available.</div>
+        </div>
+      `;
+    } else if (mode === 'media') {
+      title.innerText = 'Action Center';
+      cont.innerHTML = `
+        <!-- Pinned Media Player -->
+        <div class="media-widget">
+          <div class="media-cover">󰝚</div>
+          <div class="media-info">
+            <div class="media-title">Movements (Album Mix)</div>
+            <div class="media-artist">Solar Fields — Spotify</div>
+            <div class="media-controls">
+              <span>󰒮</span>
+              <span onclick="togglePlay()" style="color:var(--lav); font-size:14px;">${isPlaying ? '󰏤' : '󰐊'}</span>
+              <span>󰒭</span>
+              <span style="font-size:9.5px; font-family:var(--mono); margin-left:auto; color:var(--text-faint);">02:44 / 06:18</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-family:var(--mono); font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; margin:6px 0 2px;">
+          Notifications
+        </div>
+        <div class="rich-card">
+          <div class="card-top"><span class="app-name">󰒱 Slack</span><span>10:55</span></div>
+          <div class="card-title">Elena Vance</div>
+          <div class="card-body">The new Wayland protocol patch is ready for testing.</div>
+        </div>
+      `;
+    } else if (mode === 'full') {
+      title.innerText = 'Control Center';
+      cont.innerHTML = `
+        <!-- Media Player -->
+        <div class="media-widget" style="margin-bottom:6px;">
+          <div class="media-cover">󰝚</div>
+          <div class="media-info">
+            <div class="media-title">Movements (Album Mix)</div>
+            <div class="media-artist">Solar Fields</div>
+            <div class="media-controls">
+              <span>󰒮</span>
+              <span onclick="togglePlay()" style="color:var(--lav); font-size:14px;">${isPlaying ? '󰏤' : '󰐊'}</span>
+              <span>󰒭</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sliders -->
+        <div style="background:#181421; border:1px solid var(--border); border-radius:6px; padding:8px; margin-bottom:8px;">
+          <div class="slider-row">
+            <span></span>
+            <div class="slider-track" onclick="setVolume(event)">
+              <div class="slider-fill" style="width:${volumeVal}%;"></div>
+            </div>
+            <span style="font-size:10px;">${volumeVal}%</span>
+          </div>
+        </div>
+
+        <div style="font-family:var(--mono); font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; margin:4px 0 2px;">
+          Notifications (2)
+        </div>
+        <div class="rich-card">
+          <div class="card-top"><span class="app-name">󰒱 Slack</span><span>10:55</span></div>
+          <div class="card-title">Elena Vance</div>
+          <div class="card-body">The new Wayland protocol patch is ready for testing.</div>
+        </div>
+      `;
+    }
+  }
+
+  function togglePlay() {
+    isPlaying = !isPlaying;
+    setD4('media');
+  }
+
+  function setVolume(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    volumeVal = Math.round(Math.max(0, Math.min(100, (x / rect.width) * 100)));
+    setD4('full');
+  }
+
+  // Initialize all interactive decision blocks
+  setD1('floating');
+  setD2('accordion');
+  setD3('click');
+  setD4('pure');
+</script>
+
+</body>
+</html>
+
+<!-- Frozen Architecture Record -->
+<section id="frozen-decisions" style="margin-top:3rem; padding-top:2rem; border-top:2px solid var(--border-strong);">
+  <h2>5. Frozen Architectural Decisions (Settled: 1A + 2A + 3A + 4A)</h2>
+  
+  <div class="card" style="background:#12161f; border-color:var(--lav-dim);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h3 style="margin:0; color:var(--lav);">Approved Final Blueprint · Phase 6b Native Notifications</h3>
+      <span class="badge ok">● Frozen &amp; Approved</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Decision Axis</th><th>Settled Choice</th><th>QML Implementation Specification</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>D1: Panel Framing</b></td>
+          <td><b>1A · Floating Drop Panel</b></td>
+          <td>
+            <code>PopupWindow</code> / <code>PanelWindow</code> anchored 8px below the top bar, right-aligned to notification pill.<br>
+            • Width: <code>380px</code>, Max Height: <code>540px</code><br>
+            • Corner radius: <code>Globals.slabRadius (9px)</code><br>
+            • Background: <code>Colors.background</code> with <code>Colors.surface</code> 1px border.
+          </td>
+        </tr>
+        <tr>
+          <td><b>D2: Grouping Model</b></td>
+          <td><b>2A · Collapsible App Accordions</b></td>
+          <td>
+            Clustered by <code>app_name</code> (e.g. <code>Slack (3)</code>, <code>Matrix (2)</code>).<br>
+            • Smooth 140ms height expand/collapse transitions via <code>Behavior on implicitHeight</code>.<br>
+            • Header with app icon glyph, count badge, accordion chevron, and per-app "Clear" button.
+          </td>
+        </tr>
+        <tr>
+          <td><b>D3: Quick Reply UX</b></td>
+          <td><b>3A · Click-to-Reveal Inline Input</b></td>
+          <td>
+            • Action pill <code>"↩ Reply"</code> expands inline <code>TextInput</code> field.<br>
+            • Auto-grabs active focus on expansion.<br>
+            • <code>Enter</code> key invokes DBus reply callback and closes input.<br>
+            • <code>Escape</code> key cancels/collapses input.
+          </td>
+        </tr>
+        <tr>
+          <td><b>D4: Scope &amp; Widgets</b></td>
+          <td><b>4A · Pure Notification Focus</b></td>
+          <td>
+            Dedicated solely to notification management, DND toggle, and unread triage.<br>
+            • Zero media/audio slider bloat (keeps memory &lt;2MB and codebase lean).<br>
+            • Top header includes Unread Count Pill, DND Switch, and "Clear All" button.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
