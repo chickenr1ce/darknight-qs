@@ -109,7 +109,8 @@ Rectangle {
     MouseArea {
         id: idModuleBoxMouseArea
 
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        // MiddleButton: DND shortcut (Notifications module)
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         anchors.fill: parent
         enabled: root.enableMouseArea
         z: 1

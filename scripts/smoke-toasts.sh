@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 # Smoke test for the notification toast layer (ticket 02).
 #
-# Launches a throwaway quickshell instance on this worktree, fires test
-# notifications, and asserts the instance survives and the runtime log is
-# free of TypeErrors/warnings. Catches what qmllint cannot: runtime null
-# bindings, delegate destruction, crashes on config load.
-#
-# Requires a running Wayland session (Hyprland). Owns
-# org.freedesktop.Notifications for the duration: stops swaync, restores it
-# on exit. Never touches quickshell instances it did not start.
+# Run a throwaway quickshell on this worktree, fire test notifications, assert
+# the instance survives and the runtime log is free of TypeErrors. Requires a
+# running Wayland session (Hyprland); the throwaway instance owns
+# org.freedesktop.Notifications for the duration.
 set -euo pipefail
 
 WORKTREE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,17 +15,11 @@ cleanup() {
     if [[ -n "$QSPID" ]] && kill -0 "$QSPID" 2>/dev/null; then
         kill "$QSPID"
     fi
-    if [[ "$SWAYNC_WAS_ACTIVE" == "1" ]]; then
-        systemctl --user start swaync.service
-    fi
     rm -f "$LOG"
 }
 trap cleanup EXIT
 
 fail() { echo "SMOKE FAIL: $*" >&2; exit 1; }
-
-SWAYNC_WAS_ACTIVE=$(systemctl --user is-active swaync.service 2>/dev/null | grep -c active || true)
-systemctl --user stop swaync.service 2>/dev/null || true
 
 # No trailing slash on the path (stray-instance history: see ticket 02).
 quickshell -p "$WORKTREE" >"$LOG" 2>&1 &

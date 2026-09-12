@@ -2093,9 +2093,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               class="ok">● done</span>
             ├── <b>Audio.qml</b> <span class="muted">right (Pipewire default sink + wpctl cycle + scroll volume)</span>
             <span class="ok">● done</span>
-            ├── <b>Notifications.qml</b> <span class="muted">right (swaync-client -t -sw via Process —
-              deprecated: swap out for native Notifications per Q1)</span> <span class="ok">● done, pending
-              replacement</span>
+            ├── <b>Notifications.qml</b> <span class="muted">right (native NotificationServer singleton
+              + bell/badge/DND per Q1 — no swaync)</span> <span class="ok">● done</span>
             ├── <b>Tray.qml</b> <span class="muted">right (Quickshell.Services.SystemTray StatusNotifier items + icon
               ≈14)</span> <span class="ok">● done</span>
             └── <b>PowerMenu.qml</b> <span class="muted">right (Process → rofi powermenu script)</span> <span
@@ -2236,10 +2235,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <code>toggle_audio.sh</code>). Right-click → <code>pavucontrol</code>. Scroll up/down adjusts volume
                   ±5% (snapped 0–100%). <span class="mini done">● Done</span>
                 </li>
-                <li><b>Notifications.qml</b> – as built: click → <code>swaync-client -t -sw</code>, toggle only (D7);
-                  original <code>-swb</code> count badge not yet ported. Per Q1, migrate to
-                  <code>Quickshell.Services.Notifications</code> (drop swaync dependency; port count-badge behaviour).
-                  <span class="mini todo">○ Migration pending</span>
+                <li><b>Notifications.qml</b> – native <code>Quickshell.Services.Notifications</code>
+                  via <code>services/NotificationServer.qml</code> (Q1 done, no swaync): left-click toggles the
+                  center, right/middle-click toggles DND; bell + unread pill badge ported from
+                  <code>-swb</code>.
+                  <span class="mini done">● Done</span>
                 </li>
                 <li><b>Tray.qml</b> – <code>Quickshell.Services.SystemTray</code> StatusNotifier items; icon ≈14,
                   spacing 10. <span class="mini done">● Done</span></li>
@@ -2437,9 +2437,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <td><code>custom/notification</code></td>
                   <td>Quickshell.Services.Notifications</td>
                   <td>Replace</td>
-                  <td>As built: Process → swaync-client toggle (Done); migrate to native service per Q1, port
-                    count-badge</td>
-                  <td><span class="mini todo">○ Migration pending</span></td>
+                  <td>Native <code>services/NotificationServer.qml</code> singleton; bell/badge/DND (Q1 done,
+                    no swaync)</td>
+                  <td><span class="mini done">● Done</span></td>
                 </tr>
                 <tr>
                   <td><code>tray</code></td>
@@ -2630,7 +2630,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               </div>
               <p>Shows every built module. Right cluster visible only when
                 <code>idPanelWindow.monitorName === "DP-1"</code>; ActiveWindow is anchored to the bar
-                center on all outputs. Notifications still on the swaync bridge (Q1 swap pending).
+                center on all outputs. Notifications on the native service (Q1 done, no swaync bridge).
               </p>
             </div>
             <div class="monitor">
@@ -2821,8 +2821,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 <tr>
                   <td>Notifications</td>
                   <td>Toggle notification panel / DND</td>
-                  <td><code>Quickshell.Services.Notifications</code> — native backend replaces the
-                    <code>swaync-client -t -sw</code> shell-out (Q1); as-built Process command retained until migrated
+                  <td><code>Quickshell.Services.Notifications</code> — native backend (Q1 done, no swaync);
+                    left-click toggles the center, right/middle-click toggles DND
                   </td>
                 </tr>
                 <tr>
@@ -2877,10 +2877,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           </div>
           <div class="accept-item">
             <span class="n">6</span>
-            <p><b>Mpris / Cpu / swaync / Tray:</b> Media reflects track/status, Cpu % updates, swaync toggles (to be
-              replaced by native Notifications per Q1); Tray
+            <p><b>Mpris / Cpu / Notifications / Tray:</b> Media reflects track/status, Cpu % updates,
+              Notifications bell/badge/DND via the native service (Q1 done, no swaync); Tray
               lists apps (see <code>docs/tray-module.md</code>).</p>
-            <span class="badge part state">◐ Partial</span>
+            <span class="badge done state">● Done</span>
           </div>
           <div class="accept-item">
             <span class="n">7</span>
