@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import Quickshell
 import qs.config
 import qs.modules
+import qs.windows
 
 // Quickshell panel config.
 // One PanelWindow per connected screen (Variants over Quickshell.screens).
@@ -164,4 +165,10 @@ ShellRoot {
             }
         }
     }
+
+    // Transient notification OSD popups (ticket 02)
+    NotificationPopups {}
+
+    // Floating notification center flyout (ticket 03)
+    NotificationCenter {}
 }

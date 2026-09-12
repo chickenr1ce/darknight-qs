@@ -132,6 +132,42 @@ Timer { id: idMediaTimer }
 - **Never mix `anchors` and `Layout.*` on the same item.**
 - **Versionless imports (Qt 6):** Use `import QtQuick` and `import QtQuick.Layouts` without version numbers.
 - **Prefer declarative bindings** over imperative JavaScript assignments in signal handlers.
+- **Positioners bypass `Behavior`**: `Column`/`Row` repositioning after a child is
+  removed moves surviving children in a single step — `Behavior on y` never
+  fires (verified empirically 2026-08-24). To animate model-driven reflow, use
+  a `ListView` with a `displaced` Transition.
+- **ListView assigns delegate `required property` values after instantiation**:
+  delegate bindings evaluate once with the role null/undefined. Null-guard
+  role-dependent bindings inside delegates (or wrap the delegate so role
+  access is confined to one assignment).
+- **Never size a window from animated content**: binding window/viewport
+  height to `contentHeight` while a `displaced`/`add` transition runs is a
+  feedback loop — `contentHeight` tracks the *animated* positions, the
+  viewport collapses, and off-viewport delegates are destroyed mid-animation.
+  Use a fixed-size canvas plus an input `mask` Region tracking real content.
+- **Font family roles**: Iosevka (`Globals.fontFamily`) is the bar/module
+  identity; `Globals.uiFontFamily` (Geist) is the reading-surface family for
+  notification toasts, the notification center, and future prose UI. Text
+  sizes on reading surfaces come from the named `Globals.ui*Size` scale —
+  never hardcode pixel sizes there.
+- **A bare singleton name can resolve to a C++ type**: if a file imports both
+  a Quickshell service module (for a delegate's role type) and the matching
+  `qs.*` module, e.g. `NotificationServer` from `Quickshell.Services.Notifications`
+  vs our `qs.services` singleton, the C++ type shadows the singleton and calls
+  die at runtime (`... is not a function`, verified 2026-09-12). Alias the
+  service import (`import Quickshell.Services.Notifications as Notif`) and say
+  why in a comment.
+- **Deleted C++ objects null out delegate bindings**: the notification server
+  deletes/recreates `NotificationAction` objects on update, so delegates
+  briefly hold a dead `modelData` during rebuild — null-guard member access
+  (`modelData ? modelData.text : ""`), not just the role assignment. Same for
+  any animator callback touching a model object (`toast.expire()`), which can
+  fire after its row is retired.
+- **`PanelWindow` takes no keyboard focus by default**: `focusable` is false
+  (layer-shell keyboard interactivity None), so `TextInput.forceActiveFocus()`
+  succeeds Qt-side while the compositor keeps routing keys to the focused app
+  (verified 2026-09-12). Any window hosting text input needs `focusable: true`
+  (on-demand: focus on click only, never stolen unprompted).
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 

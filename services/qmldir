@@ -1,0 +1,2 @@
+singleton MprisPlayers 1.0 MprisPlayers.qml
+singleton NotificationServer 1.0 NotificationServer.qml
