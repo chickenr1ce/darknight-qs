@@ -29,6 +29,8 @@ components/PressFeedback.qml ORD-1 property assignment appears after child objec
 modules/ActiveWindow.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 modules/ActiveWindow.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/ActiveWindow.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+modules/Cava.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+modules/Cava.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Cpu.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 modules/Cpu.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 modules/Media.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
@@ -42,6 +44,9 @@ modules/Tray.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, o
 modules/Tray.qml STY-3 3 anchor.* properties using dot notation -- use group notation: anchor { ... }
 modules/Workspaces.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Workspaces.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
+services/CavaService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/CavaService.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
+services/CavaService.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 services/MprisPlayers.qml BND-5 list<> property has no granular change signals -- add/move/remove won't notify; consider a ListModel or notify manually
 services/MprisPlayers.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation

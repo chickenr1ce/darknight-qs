@@ -113,15 +113,19 @@ ShellRoot {
                     Layout.fillWidth: true
                 }
 
+                Cava {
+                    visible: idPanelWindow.monitorName === "DP-1"
+                }
                 Media {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
                 Audio {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
-                Cpu {
-                    visible: idPanelWindow.monitorName === "DP-1"
-                }
+                // Cava holds the slot for now; uncomment to restore Cpu.
+                // Cpu {
+                //     visible: idPanelWindow.monitorName === "DP-1"
+                // }
                 Notifications {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
