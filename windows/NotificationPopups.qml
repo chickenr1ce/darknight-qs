@@ -6,11 +6,7 @@ import qs.components
 import qs.config
 import qs.services
 
-// Transient OSD popup layer (ticket 02): stacks incoming notification
-// toasts in the top-right corner of the primary screen, just below the
-// unified slab bar. Hidden entirely while no toasts are active so it never
-// intercepts input, and excluded from layer-shell exclusive zones so its
-// anchors cannot shift the bar.
+// Transient popup layer: excluded from exclusive zones so its anchors can't shift the bar; hidden while idle so it never intercepts input.
 //
 // No explicit screen binding: PanelWindow defaults to the primary screen.
 
@@ -31,17 +27,11 @@ PanelWindow {
         right: Globals.horizontalBarMargin
     }
 
-    // Hidden while no toasts are active OR while the notification center is
-    // open (ticket 03): the two surfaces share this corner and the center
-    // must be readable. Toasts suppressed this way keep decaying; whatever
-    // has not expired by the time the center closes reappears.
+    // Hidden while the center is open (shared corner); suppressed toasts keep decaying and survivors reappear on close.
     visible: NotificationServer.activeToasts.count > 0 && !NotificationServer.centerVisible
 
-    // Fixed visual canvas: binding the window height to contentHeight made
-    // the viewport collapse during the displaced transition (contentHeight
-    // tracks ANIMATED positions, so the window shrank mid-animation and
-    // ListView destroyed the delegates that fell outside it). The input
-    // mask keeps click-through everywhere except real toast area.
+    // Never bind window height to contentHeight: it tracks animated positions and collapses the viewport mid-transition.
+    // The mask keeps click-through everywhere except the real toast area.
     implicitWidth: Globals.toastWidth
     implicitHeight: 720
 
@@ -52,10 +42,7 @@ PanelWindow {
         height: idToastView.contentHeight
     }
 
-    // ListView (not Column+Repeater): its displaced transition is the
-    // supported way to animate survivors when a row is removed — Column
-    // repositioning bypasses Behavior on y (verified empirically, y moves
-    // in a single step).
+    // ListView displaced animates reflow; Column repositioning bypasses Behavior (conventions §4).
     ListView {
         id: idToastView
 
@@ -75,8 +62,7 @@ PanelWindow {
             }
         }
 
-        // The toast role fills NotificationToast's `required property
-        // Notification toast` automatically.
+        // The toast role fills NotificationToast's required toast property automatically.
         delegate: NotificationToast {}
     }
 }

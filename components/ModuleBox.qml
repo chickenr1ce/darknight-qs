@@ -2,11 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import qs.config
 
-// Transparent hit-region on the shared slab (Phase 6a, D-01).
-// Draws nothing at rest; hover paints a pill-shaped background-secondary
-// tint plus a 2px lavender underline expanding from center (D-02),
-// press squashes via PressScale and release pulses it (D-03).
-// Emits clicked(mouse)/wheelMoved(wheel) so modules don't need their own MouseArea.
+// Transparent hit-region: hover tint + underline, press squash/pulse; emits clicked(mouse)/wheelMoved(wheel).
 Rectangle {
     id: root
 
@@ -14,17 +10,14 @@ Rectangle {
     property int maxWidth: 0
     property int minWidth: 0
 
-    // When true (default) the whole box is one click & hover target.
-    // Set false for containers with their own interactive children
-    // like Workspaces and Tray where each button/icon handles its own hover/clicks.
+    // False for containers (Workspaces, Tray) whose children handle their own input.
     property bool enableMouseArea: true
     property bool enableHover: enableMouseArea
 
     readonly property bool isHovered: root.enableHover && idModuleBoxHoverHandler.hovered
     readonly property bool isPressed: idModuleBoxMouseArea.pressed
 
-    // Pill effects inset from the region edge: 2px breathing room so the
-    // tint reads generous around content while keeping separation between modules
+    // Pill effects inset 2px so the tint reads generous while modules stay separated.
     readonly property int pillInset: 2
 
     default property alias content: idModuleBoxLayout.data
@@ -44,9 +37,7 @@ Rectangle {
 
     color: "transparent"
     scale: idPressScale.scale
-    // Hover tint — pill hugging the content (D-02), matching the bar's
-    // pill vocabulary (workspace/tray pills). The full region stays the
-    // hit area; only the paint is pill-shaped.
+    // Pill hugging the content while the full region stays the hit area.
     Rectangle {
         id: idHoverTint
 
@@ -69,8 +60,7 @@ Rectangle {
         }
     }
 
-    // Shared pill feedback — release pulse + hover underline. The softer
-    // 0.18 peak keeps the larger module region subtler than per-item pills.
+    // Softer 0.18 peak keeps the larger module region subtler than per-item pills.
     PressFeedback {
         id: idPressFeedback
 
@@ -80,7 +70,6 @@ Rectangle {
         peakOpacity: 0.18
     }
 
-    // Press squash (D-03), magnitude shared via Globals.pressScaleModule
     PressScale {
         id: idPressScale
 
@@ -99,8 +88,7 @@ Rectangle {
         }
     }
 
-    // Module-level hover handler. Disabled for container modules (Workspaces, Tray)
-    // where individual items manage their own hover and press feedback.
+    // Disabled for container modules (Workspaces, Tray) where items manage their own hover.
     HoverHandler {
         id: idModuleBoxHoverHandler
         enabled: root.enableHover

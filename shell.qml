@@ -1,4 +1,3 @@
-//@ pragma UseQApplication
 pragma ComponentBehavior: Bound
 
 import QtQuick
@@ -8,12 +7,8 @@ import qs.config
 import qs.modules
 import qs.windows
 
-// Quickshell panel config.
-// One PanelWindow per connected screen (Variants over Quickshell.screens).
-// Left:  Clock, Workspaces
-// Center: ActiveWindow (focused client title, all outputs)
-// Right: Mpris, Audio, Cpu, Notifications, Tray, PowerMenu (DP-1 only for now)
-// Visualizer lands in a later pass.
+// One PanelWindow per screen; ActiveWindow stays centered, and the right cluster (DP-1 only)
+// holds Media, Audio, Cpu, Notifications, Tray, PowerMenu.
 
 ShellRoot {
     id: root
@@ -40,9 +35,7 @@ ShellRoot {
                 right: true
             }
 
-            // Unified slab — one full-width surface behind all regions
-            // (Phase 6a, D-01). Floating placement per D-06; modules render
-            // transparently on top of it.
+            // One full-width surface behind all regions; modules render transparently on top.
             Rectangle {
                 id: idSlab
 
@@ -59,19 +52,11 @@ ShellRoot {
                 radius: Globals.slabRadius
                 color: Colors.background
 
-                // Side-cluster footprints in slab coordinates. idSpacer.x is
-                // measured in idBarLayout coordinates; converting to slab
-                // coordinates: layout adds Globals.slabInset of panel inset
-                // while the slab itself is inset horizontalBarMargin, leaving
-                // a net +slabEdgePadding.
+                // idSpacer is measured in layout coordinates; +slabEdgePadding converts to slab coordinates.
                 readonly property real leftClusterEdge: idSpacer.x + Globals.slabEdgePadding
                 readonly property real rightClusterEdge: idSpacer.x + idSpacer.width + Globals.slabEdgePadding
 
-                // Cluster hairlines flanking the center ActiveWindow region
-                // only (D-07). Children of the slab so they never participate
-                // in hover. Track idActiveWindow's width to stay clear of it,
-                // and hide rather than collide with side modules on narrow
-                // bars or when the center region is empty.
+                // Flank the center region only; hidden rather than colliding with side modules on narrow bars.
                 Rectangle {
                     id: idLeftHairline
 
@@ -111,7 +96,6 @@ ShellRoot {
                     topMargin: Globals.moduleMargin
                 }
 
-                // Left cluster
                 Clock {
                     enableHover: false
                     enableMouseArea: false
@@ -128,7 +112,6 @@ ShellRoot {
                     Layout.fillWidth: true
                 }
 
-                // Right cluster (full bar only)
                 Media {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
@@ -147,10 +130,7 @@ ShellRoot {
                 }
             }
 
-            // Center module — anchored to the bar itself so it stays in the
-            // exact horizontal center regardless of side-cluster widths
-            // (mirrors waybar's absolutely-positioned center section). May
-            // overlap edge modules on very long titles, same as waybar.
+            // Stays centered regardless of side widths; may overlap edge modules on very long titles (as in waybar).
             ActiveWindow {
                 id: idActiveWindow
 
@@ -166,9 +146,7 @@ ShellRoot {
         }
     }
 
-    // Transient notification OSD popups (ticket 02)
     NotificationPopups {}
 
-    // Floating notification center flyout (ticket 03)
     NotificationCenter {}
 }

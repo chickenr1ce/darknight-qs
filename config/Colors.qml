@@ -1,7 +1,6 @@
 pragma Singleton
 import QtQuick
 
-// Palette translated from ~/.config/waybar/colors/colors.css
 QtObject {
     id: root
 
@@ -9,13 +8,9 @@ QtObject {
     readonly property color backgroundSecondary: "#27222f"
     readonly property color text: "#cac4d4"
     readonly property color textSecondary: "#4f455f"
-    // Reading text on notification surfaces (~7:1 on `background`); the old
-    // textSecondary value measured ~2.2:1 and is kept for decorative glyphs
-    // only (close ✕). Typography-pass verdict, 2026-08-24.
+    // Old textSecondary (~2.2:1) kept for decorative glyphs only; reading text needs ~7:1.
     readonly property color textSubtle: "#9d93ad"
-    // Quiet critical treatment for notification surfaces (prototype verdict,
-    // ticket 02): red mixed into `background` at ~10% reads as urgent without
-    // border effects. Derived pair kept here so tickets 03/04 can reuse it.
+    // Red mixed into background at ~10%: urgent without border effects.
     readonly property color criticalCard: "#2a161c"
     readonly property color criticalCardBorder: "#40222b"
 

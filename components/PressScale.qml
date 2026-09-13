@@ -2,23 +2,17 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.config
 
-// Shared press-squash driver (Phase 6a, D-03). Bind the host item's scale
-// to the driver's scale; pressing animates down to pressedScale (OutQuad)
-// and releasing animates back to 1.0 with a slight overshoot (OutBack).
-// One component so every clickable surface shares identical timing/easing.
+// Shared press-squash driver: identical timing/easing on every surface.
+// Release overshoots via OutBack.
 Item {
     id: root
 
-    // The host's pressed state driving the squash
     property bool pressed: false
 
-    // Squashed scale at full press: Globals.pressScaleModule for module
-    // regions, Globals.pressScalePill for small per-item pills
     property real pressedScale: Globals.pressScaleModule
 
-    // Parity with PressFeedback: filling via anchors keeps this driver out
-    // of layout management when hosted through ModuleBox's content alias
-    // (a plain zero-size item would otherwise consume layout spacing).
+    // Anchors fill keeps this driver out of layout management; a zero-size item
+    // would otherwise consume layout spacing via the content alias.
     anchors.fill: parent
 
     scale: root.pressed ? root.pressedScale : 1.0

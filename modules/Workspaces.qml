@@ -5,9 +5,7 @@ import Quickshell.Hyprland
 import qs.config
 import qs.components
 
-// Workspaces — persistent 5 per monitor, Hyprland-bound.
-// DP-1 → 1–5, DP-2 → 6–10 (HDMI-A-2 in waybar config is stale).
-// Active = secondary bg + lavender text, urgent = red, hover = text.
+// Persistent 5 per monitor: DP-1 holds 1–5, DP-2 holds 6–10.
 ModuleBox {
     id: root
 
@@ -70,14 +68,12 @@ ModuleBox {
                 color: (idWorkspaceButton.isActiveWorkspace || idWorkspaceButton.isHovered) ? Colors.backgroundSecondary : "transparent"
                 scale: idPressScale.scale
 
-                // Shared pill feedback — release pulse + hover underline
                 PressFeedback {
                     id: idPressFeedback
 
                     active: idWorkspaceButton.isHovered
                 }
 
-                // Press squash (D-03), magnitude shared via Globals.pressScalePill
                 PressScale {
                     id: idPressScale
 
@@ -106,10 +102,7 @@ ModuleBox {
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton
 
-                    // Hyprland >= 0.56 evaluates IPC as Lua: the legacy
-                    // "workspace N" string fails with a syntax error.
-                    // hl.dsp.focus({ workspace = N }) is the working form;
-                    // revisit when quickshell gains native 0.56 IPC support.
+                    // Hyprland ≥0.56 evaluates IPC as Lua: the legacy "workspace N" string fails; use hl.dsp.focus.
                     onClicked: mouse => {
                         if (mouse.button === Qt.LeftButton) {
                             idPressFeedback.pulse();

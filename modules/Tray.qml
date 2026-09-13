@@ -9,8 +9,7 @@ import Quickshell.Widgets
 import qs.config
 import qs.components
 
-// System tray — StatusNotifierItem icons via Quickshell.Services.SystemTray.
-// Matches waybar: icon-size 14, spacing 10. See docs/tray-module.md.
+// StatusNotifier icons matching waybar sizing (14px icons, 10 spacing).
 ModuleBox {
     id: root
 
@@ -32,9 +31,7 @@ ModuleBox {
             readonly property bool isHovered: idTrayItemMouseArea.containsMouse
             readonly property bool isPressed: idTrayItemMouseArea.pressed
 
-            // Monochrome symbolic icons often render near-black on the dark
-            // bar; tint them to the text color. Full-color icons pass through
-            // untinted (colorization 0 leaves the image unchanged).
+            // Symbolic icons render near-black on the dark bar, so tint them; full-color pass through untinted.
             readonly property bool isSymbolicIcon: String(idTrayItem.modelData.icon).includes("symbolic")
 
             implicitWidth: 22
@@ -49,7 +46,6 @@ ModuleBox {
                 active: idTrayItem.isHovered
             }
 
-            // Press squash (D-03), magnitude shared via Globals.pressScalePill
             PressScale {
                 id: idPressScale
 
@@ -72,8 +68,7 @@ ModuleBox {
                 width: 14
                 height: 14
                 source: idTrayItem.modelData.icon
-                // Hidden because MultiEffect below re-renders it; leaving it
-                // visible would draw every icon twice.
+                // Hidden: MultiEffect re-renders the source, so visible would draw every icon twice.
                 visible: false
             }
 
@@ -108,8 +103,6 @@ ModuleBox {
                         idTrayItem.modelData.secondaryActivate();
                         break;
                     case Qt.RightButton:
-                        // Fall back to secondary activation for items
-                        // without a menu.
                         if (idTrayItem.modelData.hasMenu)
                             idTrayMenuAnchor.open();
                         else

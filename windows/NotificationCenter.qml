@@ -7,15 +7,8 @@ import qs.components
 import qs.config
 import qs.services
 
-// Floating notification center (ticket 03), frozen decision 1A: 380px panel,
-// 540px max height, slab radius, floating 8px below the bar and right-aligned
-// toward the notification module. Pure notification focus per decision 4A:
-// unread badge, DND toggle and Clear All in one header row.
-//
-// Same fixed-canvas pattern as the toast layer: window height never binds to
-// content during transitions (docs/coding-conventions.md §4); the input mask
-// Region tracks the real panel size instead, and the fade-out keeps the
-// window mapped until opacity reaches zero.
+// Floating notification center: 380px panel, 540px max, 8px below the bar, right-aligned to the bell.
+// Fixed canvas: never bind window height to content during transitions (conventions §4); the mask tracks real size instead.
 
 // qmllint disable uncreatable-type
 PanelWindow {
@@ -24,10 +17,7 @@ PanelWindow {
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
 
-    // Keyboard focus for the inline-reply TextInput (3A): without this the
-    // compositor never routes keys to the panel and typing lands in the
-    // focused app window. OnDemand (the default mode behind this flag) only
-    // takes focus on click, so an open-but-untouched center never steals it.
+    // Lets the compositor route keys to the reply field; takes focus on click only, never unprompted.
     focusable: true
 
     anchors {
@@ -43,13 +33,10 @@ PanelWindow {
     implicitWidth: Globals.centerWidth
     implicitHeight: Globals.centerMaxHeight
 
-    // Fade/slide register: 140ms open, 120ms close. The animation lives on
-    // the inner panel (a Window has neither opacity-as-Item nor transform);
-    // `visible` stays true for the whole close animation so the fade renders.
+    // Animation lives on the inner panel (Windows lack opacity/transform); visible holds through close so the fade renders.
     visible: NotificationServer.centerVisible || idPanel.opacity > 0
 
-    // Click-through everywhere except the panel itself; emptied while hidden
-    // so a faded-out frame can never swallow input.
+    // Click-through everywhere except the panel; emptied while hidden so a faded frame can't swallow input.
     mask: Region {
         x: 0
         y: 0
@@ -57,9 +44,7 @@ PanelWindow {
         height: root.visible ? idPanel.height : 0
     }
 
-    // Expansion state keyed by app name so accordions survive history-driven
-    // rebuilds of the grouped model. Reassign (never mutate) so bindings on
-    // the map re-evaluate.
+    // Reassign, never mutate, so bindings on the map re-evaluate across history rebuilds.
     property var expandedGroups: ({})
 
     function toggleGroup(appName: string) {
@@ -68,8 +53,7 @@ PanelWindow {
         root.expandedGroups = next;
     }
 
-    // Groups in arrival order (newest last). Scans historyModel by count so
-    // this re-evaluates on every append/remove.
+    // Scans by count so this re-evaluates on every append/remove.
     readonly property var groups: {
         const order = [];
         const byName = {};
@@ -93,8 +77,6 @@ PanelWindow {
         anchors.left: parent.left
         anchors.right: parent.right
 
-        // Slide rides the animated opacity, so fade and move stay in
-        // lockstep: 8px above rest position when fully hidden.
         y: -8 * (1 - opacity)
         opacity: NotificationServer.centerVisible ? 1 : 0
 
@@ -189,8 +171,7 @@ PanelWindow {
 
                     Layout.alignment: Qt.AlignVCenter
 
-                    // Always laid out (disabled when empty) so DND never
-                    // slides sideways when this pill appears/disappears.
+                    // Always laid out (disabled when empty) so DND never slides when the pill appears/disappears.
                     disabled: NotificationServer.unreadCount === 0
                     text: qsTr("Clear All")
                     onClicked: NotificationServer.dismissAll()

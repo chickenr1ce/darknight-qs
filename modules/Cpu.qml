@@ -10,7 +10,7 @@ ModuleBox {
     property real cpuUsagePercent: 0
     property var previousCpuSample: null
 
-    minWidth: 62 //sized for 2 digits + icon + padding
+    minWidth: 62 // sized for 2 digits + icon + padding
 
     Text {
         id: idCpuLabel
@@ -24,11 +24,7 @@ ModuleBox {
         }
     }
 
-    // In-process read of /proc/stat (no shell spawned per poll).
-    // procfs has no inotify support, so watchChanges cannot detect
-    // updates; idCpuTimer drives reload() instead. preload must stay
-    // enabled (default): with preload disabled nothing is ever loaded,
-    // and reload() only re-reads an already-loaded file.
+    // procfs has no inotify, so the timer drives reload(); preload must stay enabled or nothing ever loads.
     FileView {
         id: idCpuStatFile
 

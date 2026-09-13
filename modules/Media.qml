@@ -5,10 +5,7 @@ import qs.config
 import qs.components
 import qs.services
 
-// Media player module using MprisPlayers singleton service.
-// Click toggles play/pause. Wheel scroll cycles active player.
-// Playing state shows in the text color only — the unified slab
-// (Phase 6a) forbids module backgrounds.
+// Media player: click toggles play/pause, wheel cycles players; state shows in text color only (the slab forbids module backgrounds).
 ModuleBox {
     id: root
 
@@ -39,7 +36,6 @@ ModuleBox {
         id: idMediaLabel
 
         Layout.fillWidth: true
-        //Layout.minimumWidth: 0
 
         textFormat: Text.PlainText
         elide: Text.ElideRight

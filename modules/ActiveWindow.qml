@@ -10,11 +10,7 @@ import qs.components
 ModuleBox {
     id: root
 
-    // Hyprland only emits "activewindow" with an empty class/title pair when
-    // focus leaves all windows; activeToplevel keeps pointing at the previous
-    // client, so focus is tracked from the event stream instead. The socket
-    // does not replay focus state at connect time, so the initial title is
-    // seeded once via hyprctl.
+    // activeToplevel goes stale and the socket never replays focus, so track it from the event stream seeded once via hyprctl.
     property string focusedTitle
     property int maxChars: 100
 
@@ -22,19 +18,13 @@ ModuleBox {
 
     visible: root.title !== ""
 
-    // Iosevka is monospace, so one measured glyph width caps the label at
-    // exactly maxChars while Qt does the actual elision. The char budget is
-    // additionally clamped to the visible bar interior: a wider box would
-    // run past the physical screen edges, where the compositor clips raw
-    // instead of Qt eliding with a proper "…".
+    // Monospace means one measured glyph caps the label at maxChars; also clamped
+    // to the bar interior, past which the compositor clips raw instead of eliding.
     readonly property int maxCharsWidth: Math.ceil(idCharMetrics.advanceWidth * root.maxChars)
     readonly property int visibleBarWidth: parent.width - 2 * Globals.slabInset
 
     maxWidth: Math.min(root.maxCharsWidth, root.visibleBarWidth)
 
-    // One-shot seed: the IPC socket only streams changes, so at startup we
-    // ask hyprctl for the current window. Skipped if an event already won
-    // the race. "Invalid" (nothing focused) fails JSON.parse and clears.
     Component.onCompleted: idTitleSeedProcess.running = true
 
     TextMetrics {
@@ -59,9 +49,7 @@ ModuleBox {
         font.pixelSize: Globals.fontPixelSize
     }
 
-    // One-shot seed: the IPC socket only streams changes, so at startup we
-    // ask hyprctl for the current window. Skipped if an event already won
-    // the race. "Invalid" (nothing focused) fails JSON.parse and clears.
+    // One-shot seed: the socket streams changes only. "Invalid" fails JSON.parse and clears; skipped if an event already won the race.
     Process {
         id: idTitleSeedProcess
 
@@ -84,7 +72,7 @@ ModuleBox {
     Connections {
         target: Hyprland
 
-        // Payload is CLASS,TITLE and titles may contain commas, hence parse(2).
+        // Titles may contain commas, hence parse(2).
         function onRawEvent(event): void {
             if (event.name !== "activewindow")
                 return;

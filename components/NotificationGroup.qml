@@ -2,30 +2,14 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-// Aliased: the bare name `NotificationServer` must resolve to our
-// qs.services singleton (dismissGroup lives there). An unaliased import of
-// this module exposes quickshell's C++ NotificationServer type under the
-// same name, which shadows the singleton and breaks per-app clearing at
-// runtime (TypeError, click silently dies). Only the delegate's role type
-// needs this module.
+// Aliased: the bare name resolves to the C++ type, shadowing the singleton (conventions §4).
 import Quickshell.Services.Notifications as Notif
 import qs.components
 import qs.config
 import qs.services
 
-// Collapsible per-app accordion (ticket 03, frozen decision 2A): header with
-// app glyph, title + count badge, chevron and a "Clear" button; content is
-// one NotificationCard per tracked notification of that app.
-//
-// Expansion state lives in the owner (windows/NotificationCenter.qml), not
-// here: the grouped model rebuilds whenever history changes, which would
-// reset a locally-stored flag. This component only reports toggleRequested().
-//
-// Height animation note: the accordion animates its own height with clip;
-// Column siblings below snap to their new position instantly (Column
-// repositioning bypasses Behavior — docs/coding-conventions.md §4). At 140ms
-// the gap-close is imperceptible; a displaced-style fix does not exist for
-// sibling height changes.
+// Collapsible per-app accordion; expansion state lives in the owner because history rebuilds would reset a local flag.
+// Height animates with clip while siblings snap (no displaced-style fix exists for sibling height changes).
 Rectangle {
     id: root
 
@@ -55,8 +39,7 @@ Rectangle {
         }
     }
 
-    // Header hit area sits UNDER the header controls (declaration order =
-    // z-order) so Clear keeps its own clicks; it only toggles expansion.
+    // Under the header controls so Clear keeps its clicks; toggles expansion only.
     MouseArea {
         id: idHeaderClickArea
 

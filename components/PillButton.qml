@@ -3,21 +3,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.config
 
-// Shared action-pill button (review extraction, tickets 02/03): the
-// label + 16/+6 inset, radius-4 pill previously hand-copied across the
-// toast, notification card, accordion header and center header.
-//
-// State visibility (option B, 2026-09-12): the fill always shows the true
-// state — `highlightColor` when `highlighted`, `baseColor` otherwise — and
-// hover NEVER touches the fill, so a resting cursor can't mask on/off.
-// Hover only draws a contrasting ring and brightens the label; press adds
-// the Phase 6a squash (PressScale at the pill magnitude).
-//
-// `highlightColor` lets destructive actions swap lavender for red.
-// `probeHovered` is the toast's hover routing: its topmost decay-pause probe
-// captures all hover events above the pills beneath it, so the toast binds
-// this from probe-relative geometry. Everywhere else the pill's own MouseArea
-// delivers hover directly; either path feeds `hovered`.
+// The fill always shows the true state; hover never touches it, so a resting
+// cursor can't mask on/off. probeHovered is the toast's hover routing, where
+// the topmost decay-pause probe captures all hover above the pills.
 Rectangle {
     id: root
 
@@ -26,8 +14,7 @@ Rectangle {
     property color highlightColor: Colors.lavender
     property bool highlighted: false
     property bool probeHovered: false
-    // Disabled pills keep their layout slot but go inert and dim: used for
-    // Clear All when history is empty, so the header never reflows.
+    // Disabled pills keep their slot but go inert, so the header never reflows.
     property bool disabled: false
 
     readonly property bool hovered: idMouseArea.containsMouse || root.probeHovered

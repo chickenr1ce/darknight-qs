@@ -3,7 +3,6 @@ import Quickshell.Io
 import qs.config
 import qs.components
 
-// Power menu — launches the existing rofi powermenu script.
 ModuleBox {
     id: root
 

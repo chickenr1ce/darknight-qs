@@ -4,9 +4,6 @@ import Quickshell.Services.Pipewire
 import qs.config
 import qs.components
 
-// Volume from the default PipeWire sink.
-// Left-click cycles the three named sinks (replaces toggle_audio.sh).
-// Right-click opens pavucontrol.
 ModuleBox {
     id: root
 

@@ -8,8 +8,7 @@ import qs.services
 ModuleBox {
     id: root
 
-    // The bell glyphs differ in advance width; reserve the wider so the DND
-    // swap never reflows the bar (conventions §3: stabilize via minWidth).
+    // Bell glyphs differ in advance width; reserve the wider so the DND swap never reflows the bar (conventions §3).
     minWidth: 2 * root.horizontalPadding + Math.max(idNotificationsBellOnMetrics.advanceWidth, idNotificationsBellOffMetrics.advanceWidth)
 
     onClicked: mouse => {

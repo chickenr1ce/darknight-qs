@@ -5,16 +5,7 @@ import QtQuick.Layouts
 import Quickshell.Services.Notifications
 import qs.config
 
-// One history notification card inside the notification center (ticket 03).
-// Shares the toast card's fill and typography — Colors.background so cards
-// read as dark slabs on the group's lighter backgroundSecondary frame — but
-// carries no decay countdown: history persists until explicitly dismissed
-// or cleared. Inset controls (action pills, reply field) ride
-// backgroundSecondary, the inverse of the card, mirroring the toast pairing.
-//
-// Inline quick reply (frozen decision 3A): the "↩ Reply" pill expands an
-// auto-focused TextInput; Enter sends via sendInlineReply() and dismisses,
-// Escape collapses the field.
+// History card: toast styling without the decay countdown; inline reply via the "↩ Reply" pill.
 Rectangle {
     id: root
 
@@ -139,20 +130,15 @@ Rectangle {
                 PillButton {
                     required property NotificationAction modelData
 
-                    // Null-guarded: the server deletes/recreates action objects
-                    // on update, so delegates briefly hold a dead modelData
-                    // during rebuild (log-observed TypeError otherwise).
-                    // No baseColor: the default backgroundSecondary is the
-                    // inset control on this card's background fill.
+                    // The server deletes/recreates actions on update; delegates briefly hold dead modelData (log-observed TypeError).
+                    // No baseColor: the default backgroundSecondary is the inset control on this card's background fill.
                     text: modelData ? modelData.text : ""
-                    // invoke() dismisses non-resident notifications
-                    // server-side; the closed handler retires the card.
+                    // invoke() dismisses non-resident notifications server-side; the closed handler retires the card.
                     onClicked: modelData.invoke()
                 }
             }
 
-            // Inline-reply trigger pill (3A). The DBus inline-reply action is
-            // not part of `actions`; it surfaces as hasInlineReply instead.
+            // The DBus inline-reply action isn't in `actions`; it surfaces as hasInlineReply instead.
             PillButton {
                 id: idReplyButton
 
@@ -162,8 +148,7 @@ Rectangle {
 
                 onClicked: {
                     root.replyExpanded = true;
-                    // Focus once the field is actually visible; a hidden
-                    // TextInput refuses active focus.
+                    // A hidden TextInput refuses focus; focus once the field is visible.
                     Qt.callLater(() => idReplyInput.forceActiveFocus());
                 }
             }
@@ -245,14 +230,11 @@ Rectangle {
             return;
         if (root.notification === null)
             return;
-        // Read before sending: sendInlineReply closes non-resident
-        // notifications itself (the closed signal retires the card), so
-        // touching the object afterwards would race its destruction.
+        // Read resident first: sendInlineReply closes non-resident notifications itself, racing later access.
         const resident = root.notification.resident;
         root.collapseReply();
         root.notification.sendInlineReply(text);
-        // Spec 3A: the card always dismisses on send; resident notifications
-        // are the ones sendInlineReply leaves behind.
+        // The card always dismisses on send; resident notifications are the ones left behind.
         if (resident)
             root.notification.dismiss();
     }

@@ -5,31 +5,21 @@ import QtQuick.Layouts
 import Quickshell.Services.Notifications
 import qs.config
 
-// One transient toast card (ticket 02). Owns its decay countdown (linear,
-// paused while hovered), renders action pills, and styles critical urgency
-// with a quiet red-tinted card (prototype verdict); critical toasts never
-// expire and leave on click. Typography pass 2026-08-24: all-Geist card at
-// Globals' named ui* scale, body/pills on Colors.textSubtle for contrast.
+// Transient toast: hover-paused decay; critical toasts never expire and dismiss on click.
 Rectangle {
     id: root
 
     required property Notification toast
 
     readonly property bool isCritical: toast !== null && toast.urgency === NotificationUrgency.Critical
-    // NOTE: verified empirically against quickshell 0.3.1 — expireTimeout
-    // arrives in milliseconds despite the docs claiming seconds.
-    // 0 means the sender explicitly asked for "never expire"; -1 (server
-    // decides) and other non-positive values fall back to the 5s default.
+    // expireTimeout arrives in milliseconds despite the docs claiming seconds; 0 = never expire, -1 falls back to 5s.
     readonly property int timeoutMs: Math.round(toast !== null && toast.expireTimeout > 0 ? toast.expireTimeout : 5000)
     readonly property bool sticky: root.isCritical || (toast !== null && toast.expireTimeout === 0)
     readonly property bool hovered: idToastHoverArea.containsMouse
 
-    // Driven imperatively by idDecayAnimator; feeds the countdown bar fill.
     property real decayProgress: 1.0
 
     implicitWidth: Globals.toastWidth
-    // Content-driven height: the inner layout keeps a fixed inset from the
-    // card edges (width via side anchors) while this height wraps it.
     implicitHeight: idToastLayout.implicitHeight
         + idToastLayout.anchors.topMargin + idToastLayout.anchors.bottomMargin
 
@@ -40,7 +30,6 @@ Rectangle {
 
     Component.onCompleted: idEntranceAnimator.start()
 
-    // Globals.toastMs ease-out slide-from-right + fade entrance.
     ParallelAnimation {
         id: idEntranceAnimator
 
@@ -62,8 +51,7 @@ Rectangle {
         }
     }
 
-    // Linear decay; pause/resume keeps the exact remaining time instead of
-    // restarting, so hovering cannot extend dismissal past the timeout.
+    // Pause (not restart) on hover, so hovering can't extend dismissal past the timeout.
     NumberAnimation {
         id: idDecayAnimator
 
@@ -73,12 +61,10 @@ Rectangle {
         from: 1.0
         to: 0.0
         easing.type: Easing.Linear
-        // `running && ...`: requesting paused on a stopped animator (sticky
-        // toasts) warns and is meaningless, so gate it on running.
+        // Requesting paused on a stopped animator warns, so gate on running (sticky toasts never run).
         running: !root.sticky
         paused: running && root.hovered
-        // Null-guarded: the row can be retired (cap eviction, manual dismiss)
-        // while decay is still running; a dead toast has nothing to expire.
+        // The row can be retired while decay still runs; a dead toast has nothing to expire.
         onFinished: {
             if (root.toast !== null)
                 root.toast.expire();
@@ -89,9 +75,7 @@ Rectangle {
         id: idEntranceSlide
     }
 
-    // Click-to-dismiss surface sits under the close button and action pills
-    // so their own handlers win; a bare click anywhere else dismisses (this
-    // is what makes sticky critical notifications clickable away).
+    // Under the pills and close button so their handlers win; a bare click dismisses (this clears sticky criticals).
     MouseArea {
         id: idCardClickArea
 
@@ -151,13 +135,8 @@ Rectangle {
                     anchors.centerIn: parent
 
                     text: "✕"
-                    // Decorative glyph only — the dim textSecondary tone is
-                    // acceptable here precisely because it must not be read.
-                    // Size rides the body step of the ui* scale (§4: no
-                    // hardcoded pixel sizes on reading surfaces).
-                    // Hover comes from probeOver, not containsMouse: the
-                    // topmost decay-pause probe captures all hover above this
-                    // button (the OR keeps the highlight if restacked).
+                    // Dim tone is fine: the glyph is decorative, never read.
+                    // Hover comes from probeOver, not containsMouse: the topmost probe captures all hover above this button.
                     color: idCloseMouseArea.containsMouse || root.probeOver(idCloseButton) ? Colors.text : Colors.textSecondary
 
                     font {
@@ -236,8 +215,7 @@ Rectangle {
 
                     required property NotificationAction modelData
 
-                    // Null-guarded like the card's pills: delegates outlive
-                    // their action during ListView displaced teardown.
+                    // Delegates outlive their action during displaced teardown; null-guard the dead modelData.
                     text: modelData ? modelData.text : ""
                     probeHovered: root.probeOver(idActionPill)
                     onClicked: modelData.invoke()
@@ -246,7 +224,6 @@ Rectangle {
         }
     }
 
-    // Linear countdown indicator decaying over timeoutMs along the bottom.
     Rectangle {
         id: idDecayTrack
 
@@ -272,10 +249,7 @@ Rectangle {
         }
     }
 
-    // Hover probe must sit ON TOP of all content: text items rendering
-    // StyledText accept hover events themselves and would otherwise shadow
-    // a probe placed underneath. It never consumes clicks, so the close
-    // button, action pills, and the dismiss surface below keep working.
+    // On top: StyledText accepts hover itself and would shadow a probe underneath; Qt.NoButton keeps clicks passing through.
     MouseArea {
         id: idToastHoverArea
 
@@ -285,12 +259,7 @@ Rectangle {
         cursorShape: Qt.PointingHandCursor
     }
 
-    // Probe-relative hover routing for the interactive elements beneath the
-    // probe (action pills, close button): they never receive containsMouse
-    // themselves, so they bind their highlight to this instead. Maps the
-    // probe-reported cursor into the item's own geometry; re-evaluates on
-    // every cursor move via the probe's mouseX/mouseY. Gated on hovered so
-    // a stale cursor position can't light anything up from outside the card.
+    // Pills/close never receive hover (probe sits above); they bind highlight to probe-relative geometry.
     function probeOver(item) {
         if (!root.hovered)
             return false;
