@@ -2033,7 +2033,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <code>Hyprland.dispatch("workspace N")</code> errors with <code>')' expected</code> (same for
                   <code>hyprctl dispatch</code>). Working form used in Workspaces.qml:
                   <code>Hyprland.dispatch("hl.dsp.focus({ workspace = N })")</code>. Revisit when quickshell ships
-                  native 0.56 IPC support.</span></li>
+                  native 0.56 IPC support. Window-focus and cursor gotchas (address <code>0x</code> prefix,
+                  cursor warp restore, SNI icon tint) now live in <code>docs/coding-conventions.md</code> §4.</span></li>
               <li><span><b>D12 · Dynamic content stability &amp; native elision.</b> <code>Media.qml</code> is backed by
                   <code>services/MprisPlayers.qml</code> singleton and caps width with <code>maxWidth: 360</code> +
                   native Qt

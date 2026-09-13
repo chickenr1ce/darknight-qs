@@ -183,6 +183,17 @@ Timer { id: idMediaTimer }
   (e.g. bell / slashed bell) differ in advance width and reflow the bar on
   swap. Measure the widest variant offscreen and reserve it, so the swap never
   moves siblings (verified live 2026-09-13).
+- **`HyprlandToplevel.address` omits the `0x` prefix**: the `address:` window
+  selector needs it, so prepend `0x` when missing (verified live 2026-09-13).
+  Selecting by `class:` needs no prefix.
+- **Focusing a Hyprland window warps the cursor**: snapshot the position first
+  (`hyprctl cursorpos`) and restore it after with
+  `hl.dsp.cursor.move({ x, y })`; focus stays on the window
+  (verified live 2026-09-13).
+- **SNI theme icons arrive as `image://icon/` and draw `currentColor` black**:
+  Qt renders monochrome panel SVGs (e.g. Papirus `spotify-linux-32`,
+  `steam_tray_mono`) as black on the dark bar, so tint theme sources to text
+  and pass pixmaps through untinted (verified live 2026-09-13).
 - **Comments are why-only one-liners** (verdict 2026-09-13): state the trap or
   reason, never what the code shows; directives (`// qmllint disable ...`)
   stay.
