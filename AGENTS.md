@@ -31,7 +31,7 @@ stability, layout best practices, attribute ordering — live in:
 
 QML/Quickshell agent skills live in `.agents/skills/`:
 - `quickshell-patterns` / `qt-qml` — load when writing or editing any QML in this repo
-- `qt-qml-review` — part of the standard verification pass (with qmllint) after QML changes
+- `qt-qml-review` — part of the standard verification pass (with qmllint) after QML changes; runnable entry points are `scripts/lint.sh` (types) and `scripts/lint-review.sh` (style, baseline-filtered)
 - `qt-qml-profiler` — performance/lag investigations
 - `qt-qml-docs` / `qt-qml-test` / `qt-qml-test-run` / `qt-ui-design` — docs generation, test writing/running, UI design audits
 
@@ -42,6 +42,7 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
 - For current context on the project, refer to `docs/plans/01-master-quickshell-migration.html`
 - Verify QML behavior against a live instance (`quickshell -p <dir>`); the standalone `qml` runtime's logging is broken in this environment. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.
+- Live debugging (log paths, geometry, IPC probing): `docs/debugging-quickshell.md`.
 - Test instances claim `org.freedesktop.Notifications` at startup: stop/mask the current holder first, and never run a second instance while the daily shell holds the bus (it passes vacuously and spams the live screen).
 - Launch persistent daemons with `setsid` so they outlive the invoking shell; capture regions with `grim -g "x,y WxH"` instead of full-screen grabs.
 
