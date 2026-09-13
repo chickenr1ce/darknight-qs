@@ -8,11 +8,34 @@ import qs.services
 ModuleBox {
     id: root
 
+    // The bell glyphs differ in advance width; reserve the wider so the DND
+    // swap never reflows the bar (conventions §3: stabilize via minWidth).
+    minWidth: 2 * root.horizontalPadding + Math.max(idNotificationsBellOnMetrics.advanceWidth, idNotificationsBellOffMetrics.advanceWidth)
+
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton)
             NotificationServer.toggleDnd();
         else
             NotificationServer.toggleCenter();
+    }
+
+    // Non-visual measurers (layouts ignore non-Items).
+    TextMetrics {
+        id: idNotificationsBellOnMetrics
+
+        font.family: Globals.fontFamily
+        font.pixelSize: Globals.fontPixelSize
+        font.weight: Font.DemiBold
+        text: ""
+    }
+
+    TextMetrics {
+        id: idNotificationsBellOffMetrics
+
+        font.family: Globals.fontFamily
+        font.pixelSize: Globals.fontPixelSize
+        font.weight: Font.DemiBold
+        text: ""
     }
 
     Text {

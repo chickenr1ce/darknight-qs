@@ -64,3 +64,14 @@ Complete the migration by replacing the legacy `swaync-client` process call in `
   eyes before merge.
 - **2026-09-12 (scope)**: §2 Files lists `shell.qml`, but ticket 03 already
   instantiated `NotificationCenter {}` there — no `shell.qml` change needed.
+- **2026-09-13 (live verification, eyes + screenshots)**: badge 0→4→5 and
+  0→1 across arrivals (increments, hides at 0); left toggles center open/closed;
+  right/middle toggle DND both directions (slashed grey bell, pill hides).
+  Toasts returning on center close is intended (`NotificationPopups.qml:36-37`;
+  `-t 0` test toasts are sticky so all returned). Residual width shift on DND
+  toggle is the spec'd pill hide, not the glyph swap — glyph advance reserved
+  via `minWidth` + `TextMetrics` measurers (first attempt used `FontMetrics`,
+  which has no `text`; caught by the runtime log same session, fixed,
+  error-free since). DP-2 bar shows workspaces only (no right cluster).
+  Setup note: swaync is dbus-activated (`Type=dbus`), so kill-then-stop races
+  it — `systemctl stop` + launch quickshell in one command wins the bus.
