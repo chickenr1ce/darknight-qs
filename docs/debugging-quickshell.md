@@ -35,6 +35,13 @@ Never run a second instance while the daily shell holds the bus: test
 instances claim `org.freedesktop.Notifications` at startup, pass
 vacuously, and spam the live screen. Stop/mask the current holder first.
 
+## Live Hyprland config
+
+The active config is the Lua tree at `~/.config/hypr/` (`hyprland.lua`
+plus `modules/`, autostart in `modules/autostart.lua`).
+`hyprland-old.conf` is retired legacy: grepping `*.conf` for exec or bind
+entries looks authoritative while being wrong.
+
 ## Lint entry points
 
 - `scripts/lint.sh` runs the Qt6 qmllint over tracked QML files. Never

@@ -25,6 +25,13 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
     mapfile -t FILES < <(cd "$ROOT" && git ls-files '*.qml')
 fi
 
+# A partial regeneration would silently drop every other entry, so refuse
+# scoped updates outright. Stage new files with git add first, then rerun bare.
+if [[ $UPDATE -eq 1 && ${#FILES[@]} -gt 0 ]]; then
+    echo "lint-review: --update-baseline always regenerates the whole baseline; rerun without file paths (stage new files with git add first)" >&2
+    exit 2
+fi
+
 RAW="$(mktemp /tmp/opencode/lint-review-XXXXXX)"
 CURRENT="$(mktemp /tmp/opencode/lint-review-XXXXXX)"
 trap 'rm -f "$RAW" "$CURRENT"' EXIT
