@@ -1853,9 +1853,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
       <div class="progress-row" aria-label="Implementation progress">
         <span class="progress-label">Build progress · phases</span>
-        <span class="bar-track" aria-hidden="true"><i class="done" style="width:56%"></i><i class="part"
-            style="width:22%"></i><i class="todo" style="width:22%"></i></span>
-        <span class="progress-meta"><b>5</b>/9 done &nbsp;<span class="dot done"></span> &nbsp; <b>2</b> partial
+        <span class="bar-track" aria-hidden="true"><i class="done" style="width:67%"></i><i class="part"
+            style="width:11%"></i><i class="todo" style="width:22%"></i></span>
+        <span class="progress-meta"><b>6</b>/9 done &nbsp;<span class="dot done"></span> &nbsp; <b>1</b> partial
           &nbsp;<span class="dot part"></span> &nbsp; <b>2</b> todo &nbsp;<span class="dot todo"></span></span>
       </div>
     </div>
@@ -1880,10 +1880,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
       <div class="meta-cell full">
         <div class="meta-k">As-built note</div>
-        <div class="meta-v"><strong>Phases 0–3, 6a complete</strong> (Cava deferred out of Phase 2 to Phase 7,
+        <div class="meta-v"><strong>Phases 0–4, 6a complete</strong> (Cava deferred out of Phase 2 to Phase 7,
           2026-08-23);
-          Phase 4 mostly complete (Media, Cpu, Audio,
-          Notifications — swaync-based, to be swapped out for native service per Q1 — PowerMenu, Tray);
+          Phase 4 done (Media, Cpu, Audio, Notifications — native service per Q1, landed 2026-09-12 — PowerMenu,
+          Tray);
           Phase 5 partial (DP-1 gating + workspace split live, hotplug untested); Phases
           6 and 7 not started. <strong>Phase 6a implemented</strong> (2026-08-24, commit b8c59fe on branch
           phase-6a): unified slab restyle per <code>docs/plans/02-phase-6a-unified-slab.html</code>
@@ -1907,7 +1907,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <li><a href="#phase-2"><span class="num">2</span> Clock · Workspaces <span class="dot done"></span></a>
           </li>
           <li><a href="#phase-3"><span class="num">3</span> Active window <span class="dot done"></span></a></li>
-          <li><a href="#phase-4"><span class="num">4</span> Right cluster <span class="dot part"></span></a></li>
+          <li><a href="#phase-4"><span class="num">4</span> Right cluster <span class="dot done"></span></a></li>
           <li><a href="#phase-5"><span class="num">5</span> Multi-monitor <span class="dot part"></span></a></li>
           <li><a href="#phase-6a"><span class="num">6a</span> Slab restyle <span class="dot done"></span></a></li>
           <li><a href="#phase-6"><span class="num">6</span> Polish & cutover <span class="dot todo"></span></a></li>
@@ -2007,17 +2007,19 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <li><span><b>D4 · Cpu uses Process running <code>bash -c "grep '^cpu ' /proc/stat"</code> +
                     StdioCollector</b>, not plan’s <code>FileView</code>. Equivalent.</span></li>
               <li><span><b>D5 · Audio sink cycle uses <code>wpctl set-default</code> via Process</b> (plan fallback R2),
-                  not pure Pipewire API. Works against three named sinks.</span></li>
+                  not pure Pipewire API. Works against three named sinks; disconnected entries are skipped
+                  (2026-09-13).</span></li>
               <li><span><b>D6 · Mpris module is named <code>Media.qml</code></b>, not <code>Mpris.qml</code>.</span>
               </li>
               <li><span><b>D7 · Notifications toggles only</b> (<code>swaync-client -t -sw</code>); plan’s count badge
                   (<code>-swb</code>) not yet. <b>This swaync-based solution is deprecated:</b> superseded by the Q1
-                  decision — swap out for native <code>Quickshell.Services.Notifications</code>.</span></li>
+                  decision — swap out for native <code>Quickshell.Services.Notifications</code>.
+                  <b>Update:</b> migrated to the native service 2026-09-12; the bar shows a bell icon swap
+                  (outline/solid/slashed for empty/unread/DND) instead of a count badge (2026-09-13).</span></li>
               <li><span><b>D8 · Workspaces.qml built and wired (was stub).</b> Persistent 5 per monitor via
                   <code>Repeater</code>, monitor split DP-1 → 1–5 / DP-2 → 6–10; active = lavender + secondary bg,
                   urgent = red, hover = text. <b>Cava deferred to Phase 7</b> (2026-08-23).
-                  <b>Update:</b> <code>Tray.qml</code> has since been built and wired — see
-                  <code>docs/tray-module.md</code>.</span></li>
+                  <b>Update:</b> <code>Tray.qml</code> has since been built and wired.</span></li>
               <li><span><b>D9 · Font size is 14px, not waybar’s 16px.</b> <code>Globals.fontPixelSize = 14</code> chosen
                   for barHeight 28; deliberate, logged per ground rule.</span></li>
               <li><span><b>D10 · ModuleBox sizing bounds &amp; properties.</b> <code>minWidth</code> and
@@ -2074,10 +2076,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             │ └── <b>qmldir</b> <span class="muted"># singleton declarations for Colors &amp; Globals</span>
             ├── services/
             │ ├── <b>MprisPlayers.qml</b> <span class="muted"># MPRIS player tracking singleton &amp; cycling</span>
-            │ └── <b>qmldir</b> <span class="muted"># singleton declaration for MprisPlayers</span>
+            │ ├── <b>NotificationServer.qml</b> <span class="muted"># native notification daemon singleton (Q1)</span>
+            │ └── <b>qmldir</b> <span class="muted"># singleton declarations</span>
             ├── components/
             │ ├── <b>ModuleBox.qml</b> <span class="muted"># layout-agnostic slab region host: min/maxWidth, hover
             │   tint + underline (D13/D14)</span>
+            │ ├── <b>NotificationCard.qml</b> / <b>NotificationGroup.qml</b> / <b>NotificationToast.qml</b> <span
+              class="muted"># notification center + popup UI (Q1)</span>
+            │ ├── <b>PillButton.qml</b> <span class="muted"># shared pill action button (Q1)</span>
             │ ├── <b>PressFeedback.qml</b> <span class="muted"># shared release pulse + hover underline (D14)</span>
             │ └── <b>PressScale.qml</b> <span class="muted"># shared press-squash driver, OutQuad/OutBack (D14)</span>
             └── modules/
@@ -2094,11 +2100,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             ├── <b>Audio.qml</b> <span class="muted">right (Pipewire default sink + wpctl cycle + scroll volume)</span>
             <span class="ok">● done</span>
             ├── <b>Notifications.qml</b> <span class="muted">right (native NotificationServer singleton
-              + bell/badge/DND per Q1 — no swaync)</span> <span class="ok">● done</span>
+              + bell icon swap/DND per Q1 — no swaync)</span> <span class="ok">● done</span>
             ├── <b>Tray.qml</b> <span class="muted">right (Quickshell.Services.SystemTray StatusNotifier items + icon
               ≈14)</span> <span class="ok">● done</span>
             └── <b>PowerMenu.qml</b> <span class="muted">right (Process → rofi powermenu script)</span> <span
               class="ok">● done</span>
+            ├── windows/
+            │ ├── <b>NotificationCenter.qml</b> <span class="muted"># action center panel (Q1)</span>
+            │ └── <b>NotificationPopups.qml</b> <span class="muted"># transient toast layer (Q1)</span>
             <span class="muted"># DEFERRED to Phase 7 (2026-08-23): Cava.qml — see modules/new-modules backlog</span>
           </div>
           <div class="tree-note"><b>Why split?</b> Quickshell compiles each QML file separately; isolating modules makes
@@ -2113,7 +2122,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <h2>Implementation Phases</h2>
         </div>
         <p class="lead">Each phase is independently runnable. Validate at the end of every phase before moving on.
-          Status reflects the working tree on 2026-08-21.</p>
+          Status reflects the working tree on 2026-08-21, with notification/audio entries refreshed
+          2026-09-13.</p>
 
         <div class="phases">
           <article class="phase" id="phase-0">
@@ -2217,7 +2227,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <div class="phase-head">
               <span class="phase-num">04</span>
               <h3>Right cluster: Mpris, Cpu, Audio, Notifications, Tray, PowerMenu</h3>
-              <span class="badge part">◐ Partial</span>
+              <span class="badge done">● Done</span>
             </div>
             <div class="phase-body">
               <ul>
@@ -2232,13 +2242,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 </li>
                 <li><b>Audio.qml</b> – <code>Quickshell.Services.Pipewire</code> default sink: volume %, mute,
                   bluetooth. Left-click cycles three named sinks via <code>wpctl set-default</code> (D5, replaces
-                  <code>toggle_audio.sh</code>). Right-click → <code>pavucontrol</code>. Scroll up/down adjusts volume
+                  <code>toggle_audio.sh</code>); disconnected sinks are skipped and only real sinks match, with a
+                  <code>notify-send</code> confirmation. Right-click → <code>pavucontrol</code>. Scroll up/down adjusts volume
                   ±5% (snapped 0–100%). <span class="mini done">● Done</span>
                 </li>
                 <li><b>Notifications.qml</b> – native <code>Quickshell.Services.Notifications</code>
                   via <code>services/NotificationServer.qml</code> (Q1 done, no swaync): left-click toggles the
-                  center, right/middle-click toggles DND; bell + unread pill badge ported from
-                  <code>-swb</code>.
+                  center, right/middle-click toggles DND; bell swaps outline for solid on unread, slashed bell
+                  for DND (replaces the <code>-swb</code> count badge, 2026-09-13).
                   <span class="mini done">● Done</span>
                 </li>
                 <li><b>Tray.qml</b> – <code>Quickshell.Services.SystemTray</code> StatusNotifier items; icon ≈14,
@@ -2302,8 +2313,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <code>horizontalBarMargin + slabEdgePadding</code>; ActiveWindow clamps <code>maxWidth</code> to the
                   visible bar interior so Qt elides before compositor clipping.</li>
                 <li><b>Sequencing:</b> landed before any new-module work (Phase 7 — Cava, idle inhibitor, …) so those
-                  are built once against the final chassis;
-                  native Notifications swap remains independent; DP-2 inherits automatically.</li>
+                  are built once against the final chassis; DP-2 inherits automatically. The native Notifications
+                  swap has since landed independently (2026-09-12).</li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>A1–A7 in the addendum: verified at implementation
                   (qmllint clean, qt-qml-review 6-agent pass, live load clean). Bar reads as one surface;
@@ -2352,8 +2363,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <code>Quickshell.Wayland._IdleInhibitor</code>; private API, revisit when needed.
                   <span class="mini todo">○ Candidate</span>
                 </li>
-                <li><b>Further candidates</b> – notification count badge polish beyond the Q1 port, weather,
-                  system tray enhancements, anything worth a deviation entry.</li>
+                <li><b>Further candidates</b> – weather, system tray enhancements,
+                  anything worth a deviation entry.</li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>Per-item, defined when an item is pulled into active
                   work; each ships with its own deviation-log entry and acceptance criteria.</span></div>
@@ -2430,14 +2441,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                   <td><code>wireplumber</code></td>
                   <td>Quickshell.Services.Pipewire</td>
                   <td>Direct</td>
-                  <td>Vol/mute, wpctl set-default cycle</td>
+                  <td>Vol/mute, wpctl set-default cycle (disconnected skipped, notify-send confirm)</td>
                   <td><span class="mini done">● Done</span></td>
                 </tr>
                 <tr>
                   <td><code>custom/notification</code></td>
                   <td>Quickshell.Services.Notifications</td>
                   <td>Replace</td>
-                  <td>Native <code>services/NotificationServer.qml</code> singleton; bell/badge/DND (Q1 done,
+                  <td>Native <code>services/NotificationServer.qml</code> singleton; bell icon swap/DND (Q1 done,
                     no swaync)</td>
                   <td><span class="mini done">● Done</span></td>
                 </tr>
@@ -2659,6 +2670,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <span class="kw">import</span> <span class="str">Quickshell</span>
 <span class="kw">import</span> <span class="str">qs.config</span>
 <span class="kw">import</span> <span class="str">qs.modules</span>
+<span class="kw">import</span> <span class="str">qs.windows</span>
 
 <span class="cmt">// One PanelWindow per connected screen (Variants over Quickshell.screens).</span>
 <span class="kw">ShellRoot</span> {
@@ -2764,6 +2776,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       }
     }
   }
+
+  <span class="cmt">// Native notification layer (Q1).</span>
+  <span class="str">NotificationPopups</span> {}
+  <span class="str">NotificationCenter</span> {}
 }</pre>
         </div>
       </section>
@@ -2789,8 +2805,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 <tr>
                   <td>Audio (left)</td>
                   <td>Cycle sink: JadeAudio → AB13X Dongle → Pebble V3</td>
-                  <td>Match sink in <code>Pipewire.nodes</code>, then <code>wpctl set-default</code> via Process (D5 —
-                    replaces <code>toggle_audio.sh</code>)</td>
+                  <td>Match sink in <code>Pipewire.nodes</code> (sinks only, disconnected skipped), then
+                    <code>wpctl set-default</code> via Process (D5 — replaces <code>toggle_audio.sh</code>) plus
+                    <code>notify-send</code> confirmation</td>
                 </tr>
                 <tr>
                   <td>Audio (right)</td>
@@ -2865,7 +2882,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           </div>
           <div class="accept-item">
             <span class="n">4</span>
-            <p><b>Audio:</b> left-click cycles three named sinks via <code>wpctl set-default</code> (D5); right-click
+            <p><b>Audio:</b> left-click cycles three named sinks via <code>wpctl set-default</code> (D5,
+              disconnected skipped, notify-send confirm); right-click
               opens pavucontrol; scroll adjusts volume ±5%.</p>
             <span class="badge done state">● Done</span>
           </div>
@@ -2878,8 +2896,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <div class="accept-item">
             <span class="n">6</span>
             <p><b>Mpris / Cpu / Notifications / Tray:</b> Media reflects track/status, Cpu % updates,
-              Notifications bell/badge/DND via the native service (Q1 done, no swaync); Tray
-              lists apps (see <code>docs/tray-module.md</code>).</p>
+              Notifications bell icon swap/DND via the native service (Q1 done, no swaync); Tray
+              lists apps.</p>
             <span class="badge done state">● Done</span>
           </div>
           <div class="accept-item">
@@ -2940,9 +2958,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <span class="rnum">R5</span>
             <div>
               <h4>swaync coupling <em>· external dep</em></h4>
-              <p><b>Risk:</b> swaync adds one external dependency. <b>Resolution (Q1):</b> replace with native
-                <code>Quickshell.Services.Notifications</code>, removing the dependency; until the migration lands,
-                current behaviour remains low risk.
+              <p><b>Risk:</b> swaync adds one external dependency. <b>Resolved (Q1, landed 2026-09-12):</b> native
+                <code>Quickshell.Services.Notifications</code> backend, dependency removed.
               </p>
             </div>
           </div>
@@ -2961,8 +2978,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 switch to native.</b></summary>
             <div class="q-body">Resolved. Use <code>Quickshell.Services.Notifications</code> as the backend,
               replacing swaync entirely – this drops the external dependency and enables richer in-bar notifications.
-              The as-built <code>Notifications.qml</code> (<code>swaync-client -t -sw</code> toggle, D7) must be
-              migrated to the native service; the original count-badge behaviour can be ported during that migration.
+              Migrated 2026-09-12 (D7 update): the bar shows a bell icon swap (outline/solid/slashed) instead of
+              the original count-badge behaviour.
             </div>
           </details>
           <details class="q" open>
