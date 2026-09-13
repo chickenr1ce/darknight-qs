@@ -111,7 +111,10 @@ ShellRoot {
                 }
 
                 // Left cluster
-                Clock {}
+                Clock {
+                    enableHover: false
+                    enableMouseArea: false
+                }
                 Workspaces {
                     monitorName: idPanelWindow.monitorName
                 }
@@ -149,6 +152,9 @@ ShellRoot {
             // overlap edge modules on very long titles, same as waybar.
             ActiveWindow {
                 id: idActiveWindow
+
+                enableHover: false
+                enableMouseArea: false
 
                 anchors {
                     horizontalCenter: parent.horizontalCenter
