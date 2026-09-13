@@ -24,8 +24,20 @@ Singleton {
 
     property bool centerVisible: false
 
+    // Press clears the grab before release toggles the bell, so a bell close would reopen without this window.
+    property double centerLastOutsideCloseAt: 0
+
     function toggleCenter() {
+        if (!root.centerVisible && Date.now() - root.centerLastOutsideCloseAt < 300)
+            return;
         root.centerVisible = !root.centerVisible;
+    }
+
+    function closeCenterFromOutside() {
+        if (root.centerVisible) {
+            root.centerLastOutsideCloseAt = Date.now();
+            root.centerVisible = false;
+        }
     }
 
     readonly property int unreadCount: idDBusServer.trackedNotifications.values.length

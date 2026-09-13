@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import qs.components
 import qs.config
 import qs.services
@@ -42,6 +43,15 @@ PanelWindow {
         y: 0
         width: root.visible ? idPanel.width : 0
         height: root.visible ? idPanel.height : 0
+    }
+
+    // Outside click closes the center; the compositor clears the grab when input lands outside the panel.
+    HyprlandFocusGrab {
+        id: idCenterFocusGrab
+
+        active: NotificationServer.centerVisible
+        windows: [root]
+        onCleared: NotificationServer.closeCenterFromOutside()
     }
 
     // Reassign, never mutate, so bindings on the map re-evaluate across history rebuilds.
