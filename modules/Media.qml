@@ -5,7 +5,7 @@ import qs.config
 import qs.components
 import qs.services
 
-// Media player: click toggles play/pause, wheel cycles players; state shows in text color only (the slab forbids module backgrounds).
+// Media player: left-click toggles play/pause, right-click next track, middle-click previous track; wheel cycles players; state shows in text color only (the slab forbids module backgrounds).
 ModuleBox {
     id: root
 
@@ -15,9 +15,19 @@ ModuleBox {
     maxWidth: 360
     visible: activePlayer !== null
 
-    onClicked: {
+    onClicked: mouse => {
         if (!root.activePlayer)
             return;
+        if (mouse.button === Qt.RightButton) {
+            if (root.activePlayer.canGoNext)
+                root.activePlayer.next();
+            return;
+        }
+        if (mouse.button === Qt.MiddleButton) {
+            if (root.activePlayer.canGoPrevious)
+                root.activePlayer.previous();
+            return;
+        }
         if (root.activePlayer.togglePlaying)
             root.activePlayer.togglePlaying();
         else if (root.activePlayer.playPause)
