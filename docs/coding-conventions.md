@@ -124,6 +124,10 @@ Timer { id: idMediaTimer }
   }
   ```
 - Alternatively, use zero-padding (`padStart(2, "0")`) if a digital gauge / sysmon style is explicitly desired.
+- **Keep state-swapped controls laid out**: when a control appears/disappears
+  with state (e.g. Clear All on empty history, badge on zero count), keep it
+  laid out `disabled` (dim + inert) or reserve its width instead of hiding it,
+  so siblings never slide.
 
 ---
 
@@ -168,6 +172,17 @@ Timer { id: idMediaTimer }
   succeeds Qt-side while the compositor keeps routing keys to the focused app
   (verified 2026-09-12). Any window hosting text input needs `focusable: true`
   (on-demand: focus on click only, never stolen unprompted).
+- **`expireTimeout` arrives in milliseconds**: Quickshell 0.3.1 delivers ms
+  despite the docs claiming seconds (verified empirically 2026-09-12). Treat
+  `0` as never-expire; fall back to 5s for `-1` and other non-positive values.
+- **Hover probes must sit above StyledText**: text items rendering StyledText
+  accept hover themselves and shadow a probe placed underneath. Put the probe
+  topmost with `Qt.NoButton` so clicks pass through, and route the covered
+  controls' highlights via probe-relative geometry instead of `containsMouse`.
+- **Reserve glyph width with `TextMetrics` + `minWidth`**: state-swapped glyphs
+  (e.g. bell / slashed bell) differ in advance width and reflow the bar on
+  swap. Measure the widest variant offscreen and reserve it, so the swap never
+  moves siblings (verified live 2026-09-13).
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 
