@@ -32,21 +32,40 @@ ModuleBox {
         }
     }
 
+    // Cycle order matches waybar toggle_audio.sh; disconnected sinks are skipped so a click never lands on nothing.
     function cycleAudioSink(): void {
         const sinkOrder = ["JadeAudio", "AB13X", "Pebble"];
+        const sinkLabels = {
+            "JadeAudio": "JadeAudio JIEZI",
+            "AB13X": "AB13X Dongle",
+            "Pebble": "Creative Pebble V3"
+        };
+        if (!Pipewire.nodes || !Pipewire.nodes.values)
+            return;
         const currentLabel = root.defaultSink ? (root.defaultSink.description ?? root.defaultSink.name ?? "") : "";
         let currentIndex = -1;
         for (let i = 0; i < sinkOrder.length; i++) {
             if (currentLabel.includes(sinkOrder[i]))
                 currentIndex = i;
         }
-        const nextSinkName = sinkOrder[(currentIndex + 1) % sinkOrder.length];
-        for (const node of Pipewire.nodes.values) {
-            const nodeLabel = node.description ?? node.name ?? "";
-            if (nodeLabel.includes(nextSinkName)) {
-                idAudioSetDefaultProcess.command = ["wpctl", "set-default", String(node.id)];
-                idAudioSetDefaultProcess.running = true;
-                return;
+        for (let step = 1; step <= sinkOrder.length; step++) {
+            const nextSinkName = sinkOrder[(currentIndex + step) % sinkOrder.length];
+            for (const node of Pipewire.nodes.values) {
+                // Sources share names with their sinks (AB13X mono vs stereo), so only match real sinks.
+                if (!node.isSink || node.isStream)
+                    continue;
+                const nodeLabel = node.description ?? node.name ?? "";
+                if (nodeLabel.includes(nextSinkName)) {
+                    if (!idAudioSetDefaultProcess.running) {
+                        idAudioSetDefaultProcess.command = ["wpctl", "set-default", String(node.id)];
+                        idAudioSetDefaultProcess.running = true;
+                    }
+                    if (!idAudioNotifyProcess.running) {
+                        idAudioNotifyProcess.command = ["notify-send", "Audio Switched", `Output: ${sinkLabels[nextSinkName]}`];
+                        idAudioNotifyProcess.running = true;
+                    }
+                    return;
+                }
             }
         }
     }
@@ -83,6 +102,9 @@ ModuleBox {
 
     Process {
         id: idAudioSetDefaultProcess
+    }
+    Process {
+        id: idAudioNotifyProcess
     }
     Process {
         id: idAudioMixerProcess
