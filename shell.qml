@@ -7,8 +7,8 @@ import qs.config
 import qs.modules
 import qs.windows
 
-// One PanelWindow per screen; ActiveWindow stays centered, and the right cluster (DP-1 only)
-// holds Media, Audio, Cpu, Notifications, Tray, PowerMenu.
+// One PanelWindow per screen; ActiveWindow stays centered, Tray rides the left
+// cluster and Media/Audio/Cpu/Notifications/PowerMenu the right (DP-1 only).
 
 ShellRoot {
     id: root

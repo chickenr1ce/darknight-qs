@@ -183,6 +183,9 @@ Timer { id: idMediaTimer }
   (e.g. bell / slashed bell) differ in advance width and reflow the bar on
   swap. Measure the widest variant offscreen and reserve it, so the swap never
   moves siblings (verified live 2026-09-13).
+- **Comments are why-only one-liners** (verdict 2026-09-13): state the trap or
+  reason, never what the code shows; directives (`// qmllint disable ...`)
+  stay.
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 

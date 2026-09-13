@@ -42,6 +42,8 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
 - For current context on the project, refer to `docs/plans/01-master-quickshell-migration.html`
 - Verify QML behavior against a live instance (`quickshell -p <dir>`); the standalone `qml` runtime's logging is broken in this environment. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.
+- Test instances claim `org.freedesktop.Notifications` at startup: stop/mask the current holder first, and never run a second instance while the daily shell holds the bus (it passes vacuously and spams the live screen).
+- Launch persistent daemons with `setsid` so they outlive the invoking shell; capture regions with `grim -g "x,y WxH"` instead of full-screen grabs.
 
 ---
 
@@ -59,5 +61,5 @@ These exist so history rewrites (squashes are routine here) never strand a refer
 - **Stable anchors are tags**: any long-lived commit anchor (review fixed point, milestone) gets a lightweight git tag at creation time (e.g. `git tag review-base/<feature> <sha>`); documents and review invocations cite the tag.
 - **Updates**: flip `Status` and dependency headers freely. Scope changes append an `## Amendments` section (each entry dated) instead of editing the objective or acceptance criteria in place — the ticket file is what code-review's Spec axis judges against. Work discovered mid-ticket becomes a new ticket noting its origin ("Discovered during #NN").
 - **Ownership**: a feature's tickets are edited only from that feature's worktree branch; cross-cutting docs change on the branch that owns them.
-- **Lifecycle**: `.scratch/<feature>/issues/` lives only as long as the feature. When all tickets are done, review is complete, and the branch merges: promote lasting lessons to `docs/` (coding conventions, spec, retro output), then delete the folder in the same merge/squash commit. Git history is the archive — deletion loses nothing.
+- **Lifecycle**: `.scratch/<feature>/issues/` lives only as long as the feature. When all tickets are done, review is complete, and the branch merges: promote lasting lessons to `docs/` (coding conventions, spec, retro output), then delete the folder in the same merge/squash commit. Git history is the archive — deletion loses nothing. Session handoffs (`~/.config/opencode/handoff-*.md`) die the same way: delete once the feature merges and its cutover verifies.
 
