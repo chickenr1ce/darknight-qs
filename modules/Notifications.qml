@@ -4,12 +4,14 @@ import qs.config
 import qs.components
 import qs.services
 
-// Bell + unread badge; left-click toggles the center, right/middle-click DND.
+// Bell swaps outline for solid when history is unread; left-click toggles the center, right/middle-click DND.
 ModuleBox {
     id: root
 
-    // Bell glyphs differ in advance width; reserve the wider so the DND swap never reflows the bar (conventions §3).
-    minWidth: 2 * root.horizontalPadding + Math.max(idNotificationsBellOnMetrics.advanceWidth, idNotificationsBellOffMetrics.advanceWidth)
+    readonly property bool hasUnread: NotificationServer.unreadCount > 0 && !NotificationServer.dndEnabled
+
+    // Bell glyphs differ in advance width; reserve the widest so state swaps never reflow the bar (conventions §3).
+    minWidth: 2 * root.horizontalPadding + Math.max(idNotificationsBellEmptyMetrics.advanceWidth, idNotificationsBellUnreadMetrics.advanceWidth, idNotificationsBellDndMetrics.advanceWidth)
 
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton)
@@ -20,21 +22,30 @@ ModuleBox {
 
     // Non-visual measurers (layouts ignore non-Items).
     TextMetrics {
-        id: idNotificationsBellOnMetrics
+        id: idNotificationsBellEmptyMetrics
 
         font.family: Globals.fontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
-        text: ""
+        text: ""
     }
 
     TextMetrics {
-        id: idNotificationsBellOffMetrics
+        id: idNotificationsBellUnreadMetrics
 
         font.family: Globals.fontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
-        text: ""
+        text: ""
+    }
+
+    TextMetrics {
+        id: idNotificationsBellDndMetrics
+
+        font.family: Globals.fontFamily
+        font.pixelSize: Globals.fontPixelSize
+        font.weight: Font.DemiBold
+        text: ""
     }
 
     Text {
@@ -42,41 +53,12 @@ ModuleBox {
 
         Layout.alignment: Qt.AlignVCenter
 
-        text: NotificationServer.dndEnabled ? "" : ""
+        text: NotificationServer.dndEnabled ? "" : (root.hasUnread ? "" : "")
         color: NotificationServer.dndEnabled ? Colors.textSecondary : Colors.lavender
         font {
             family: Globals.fontFamily
             pixelSize: Globals.fontPixelSize
             weight: Font.DemiBold
-        }
-    }
-
-    Rectangle {
-        id: idNotificationsBadge
-
-        Layout.alignment: Qt.AlignVCenter
-
-        Layout.preferredWidth: Math.max(idNotificationsBadgeLabel.implicitWidth + 12, 18)
-        Layout.preferredHeight: idNotificationsBadgeLabel.implicitHeight + 4
-
-        visible: NotificationServer.unreadCount > 0 && !NotificationServer.dndEnabled
-        radius: height / 2
-        color: Colors.lavender
-
-        Text {
-            id: idNotificationsBadgeLabel
-
-            anchors.centerIn: parent
-
-            textFormat: Text.PlainText
-            text: NotificationServer.unreadCount
-            color: Colors.background
-
-            font {
-                family: Globals.fontFamily
-                pixelSize: Globals.uiCaptionSize
-                weight: Font.DemiBold
-            }
         }
     }
 }
