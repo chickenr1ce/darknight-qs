@@ -2078,7 +2078,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <div class="tree-body">~/.config/quickshell/
             ├── <b>AGENTS.md</b> <span class="muted"># QML conventions (IDs, layout host pattern, sizing &amp;
               stability)</span>
-            ├── <b>bar-switch</b> <span class="muted"># waybar ↔ quickshell toggle script</span>
             ├── <b>shell.qml</b> <span class="muted"># entry: Variants per monitor → PanelWindow + WlrLayerShell</span>
             ├── config/
             │ ├── <b>Colors.qml</b> <span class="muted"># color singleton (from colors/colors.css)</span>
@@ -2346,8 +2345,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
                 <li>Side-by-side compare with waybar; visual drift reconciled (confirmed 2026-09-13) — hover/click
                   motion already delivered by <a href="#phase-6a">Phase 6a</a>.</li>
                 <li>Hyprland autostart entry replaced with <code>quickshell</code> (<code>modules/autostart.lua</code>); waybar stopped.</li>
-                <li><b>Rollback:</b> <code>~/.config/quickshell/bar-switch waybar</code> restores waybar instantly;
-                  a reboot now returns to quickshell.</li>
               </ul>
               <div class="phase-accept"><b>Acceptance</b><span>Matches or exceeds waybar visually and behaviourally;
                   waybar disabled; restart brings only Quickshell.</span></div>
