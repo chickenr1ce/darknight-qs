@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell.Io
 import Quickshell.Services.Pipewire
 import qs.config
@@ -77,6 +78,8 @@ ModuleBox {
 
     Text {
         id: idAudioLabel
+
+        Layout.alignment: Qt.AlignCenter
 
         color: Colors.lavender
         text: {

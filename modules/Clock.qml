@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import qs.config
 import qs.components
 
@@ -7,6 +8,8 @@ ModuleBox {
 
     Text {
         id: idClockLabel
+
+        Layout.alignment: Qt.AlignCenter
 
         color: Colors.lavender
         text: Qt.formatDateTime(new Date(), "dd.MM HH:mm")

@@ -51,7 +51,7 @@ ModuleBox {
     Text {
         id: idNotificationsIcon
 
-        Layout.alignment: Qt.AlignVCenter
+        Layout.alignment: Qt.AlignCenter
 
         text: NotificationServer.dndEnabled ? "" : (root.hasUnread ? "" : "")
         color: NotificationServer.dndEnabled ? Colors.textSecondary : Colors.lavender

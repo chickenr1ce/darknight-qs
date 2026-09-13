@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell.Io
 import qs.config
 import qs.components
@@ -11,9 +12,14 @@ ModuleBox {
     Text {
         id: idPowerMenuIcon
 
+        Layout.alignment: Qt.AlignCenter
+
         color: Colors.lavender
-        font.family: Globals.fontFamily
-        font.pixelSize: 13
+        font {
+            family: Globals.fontFamily
+            pixelSize: Globals.fontPixelSize
+            weight: Font.DemiBold
+        }
         text: "󰐥"
     }
 

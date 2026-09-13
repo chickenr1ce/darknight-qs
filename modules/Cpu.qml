@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell.Io
 import qs.config
 import qs.components
@@ -14,6 +15,8 @@ ModuleBox {
 
     Text {
         id: idCpuLabel
+
+        Layout.alignment: Qt.AlignCenter
 
         color: Colors.lavender
         text: `${Math.round(root.cpuUsagePercent)}% `

@@ -29,14 +29,18 @@ components/PressFeedback.qml ORD-1 property assignment appears after child objec
 modules/ActiveWindow.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 modules/ActiveWindow.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/ActiveWindow.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+modules/Audio.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Cava.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Cava.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+modules/Clock.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Cpu.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 modules/Cpu.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
+modules/Cpu.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Media.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 modules/Media.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Notifications.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Notifications.qml STY-3 3 font.* properties using dot notation -- use group notation: font { ... }
+modules/PowerMenu.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Tray.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 modules/Tray.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Tray.qml ORD-1 property declaration appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
