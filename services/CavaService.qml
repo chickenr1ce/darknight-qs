@@ -21,7 +21,7 @@ Singleton {
         // QString truncates binary nulls, so ascii keeps every frame parseable.
         // Sensitivity 750 fills the bars at typical listening volume; retune if peaks clip.
         // Waybar 0.77 noise maps to cava's 0-100 scale.
-        command: ["sh", "-c", "command -v cava >/dev/null 2>&1 || exit 0; cfg=\"${XDG_RUNTIME_DIR:-/tmp}/quickshell-cava.conf\"; printf '%s\\n' '[general]' 'framerate = 30' 'bars = 14' 'sensitivity = 750' 'autosens = 0' 'lower_cutoff_freq = 50' 'higher_cutoff_freq = 10000' '' '[input]' 'method = pipewire' 'source = auto' '' '[output]' 'method = raw' 'raw_target = /dev/stdout' 'data_format = ascii' 'ascii_max_range = 1000' 'bar_delimiter = 59' 'frame_delimiter = 10' 'channels = mono' 'mono_option = average' '' '[smoothing]' 'noise_reduction = 77' > \"$cfg\"; exec cava -p \"$cfg\""]
+        command: ["sh", "-c", "command -v cava >/dev/null 2>&1 || exit 0; cfg=\"${XDG_RUNTIME_DIR:-/tmp}/quickshell-cava.conf\"; printf '%s\\n' '[general]' 'framerate = 30' 'bars = 14' 'sensitivity = 1200' 'autosens = 0' 'lower_cutoff_freq = 50' 'higher_cutoff_freq = 10000' '' '[input]' 'method = pipewire' 'source = auto' '' '[output]' 'method = raw' 'raw_target = /dev/stdout' 'data_format = ascii' 'ascii_max_range = 1000' 'bar_delimiter = 59' 'frame_delimiter = 10' 'channels = mono' 'mono_option = average' '' '[smoothing]' 'noise_reduction = 77' > \"$cfg\"; exec cava -p \"$cfg\""]
         running: true
 
         stdout: SplitParser {
