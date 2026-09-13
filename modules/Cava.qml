@@ -14,7 +14,8 @@ ModuleBox {
     readonly property int barSpacing: 3
     readonly property int barRadius: 1
     readonly property int barMinHeight: 2
-    readonly property int barPeakHeight: 24
+    readonly property int barPeakHeight: 20
+    readonly property int barBaselineLift: 2
     readonly property int rowHeight: 22
 
     // Display only for v1, so no hover or click surface.
@@ -40,6 +41,8 @@ ModuleBox {
                 Layout.alignment: Qt.AlignBottom
                 Layout.preferredWidth: root.barWidth
                 Layout.preferredHeight: root.barMinHeight + ((CavaService.levels[index] ?? 0) * (root.barPeakHeight - root.barMinHeight))
+                // Bottoms sit above the row edge so they meet the text baseline instead of the border.
+                Layout.bottomMargin: root.barBaselineLift
 
                 required property int index
 
