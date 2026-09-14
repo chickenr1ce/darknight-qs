@@ -14,6 +14,11 @@ How to observe the running daily instance without disrupting it.
   Tag temporary probes with a unique prefix (e.g. `[DEBUG-xxxx]`) so one
   grep finds them and cleanup is one deletion. Remove all probes before
   finishing.
+- Every save auto-reloads, so a multi-file change with ordering dependencies
+  (an import alias landing before its usage renames) fails live between saves
+  and self-heals on the next one. Order edits so each prefix loads, keep the
+  sequence tight, and confirm the final `Configuration Loaded` has no
+  `Failed` after it.
 
 ## Geometry and layers
 
@@ -28,6 +33,14 @@ How to observe the running daily instance without disrupting it.
   `quickshell ipc show` and `quickshell ipc call <target> <fn>` drives
   the live instance in an agent-runnable way: open/close a panel,
   read back state. Delete the handler before finishing.
+- For exact widget geometry, expose a plain-numbers object from the component
+  (positions and sizes only, never QML objects), return it as
+  `JSON.stringify(...)` from a `: string` handler, and read it with
+  `quickshell ipc call <target> <fn> <i>`. Handler args need concrete types
+  (`QVariant` is rejected at registration) and untyped returns come back
+  void. Open the surface through IPC first so layout has run, and remove the
+  probe in one pass afterward. Every save reloads and closes popups, so batch
+  probe edits together.
 
 ## Second instance rule
 

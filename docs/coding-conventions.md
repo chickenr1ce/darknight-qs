@@ -197,6 +197,16 @@ Timer { id: idMediaTimer }
 - **Comments are why-only one-liners** (verdict 2026-09-13): state the trap or
   reason, never what the code shows; directives (`// qmllint disable ...`)
   stay.
+- **Fixed-height rows pin overflow to the top**: a row height shorter than its
+  tallest child never centers the excess — a 22px pill in a fixed 18px row
+  spans top to bottom of the slot (measured 8..30 in a 34 bar, verified live
+  2026-09-14). Size rows to fit their tallest child instead of fixing height
+  below content.
+- **`anchors.verticalCenter` rounds fractional centers down**: a 23 row in a
+  34 zone must sit at 5.5 but the anchor lands on 5 (measured live via IPC,
+  verified 2026-09-14). Pin with an explicit fractional margin
+  (`topMargin: (zoneHeight - implicitHeight) / 2`) when centering odd into
+  even; at scale 2 the half pixel lands on a physical pixel and stays crisp.
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 
