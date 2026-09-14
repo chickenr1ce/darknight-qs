@@ -20,16 +20,16 @@ Rectangle {
 
     signal toggleRequested()
 
-    readonly property int headerHeight: 34
+    readonly property int headerHeight: Globals.headerHeight
 
     implicitWidth: parent ? parent.width : 0
     implicitHeight: headerHeight
         + (expanded ? idContentColumn.implicitHeight + 8 : 0)
 
-    radius: 6
-    color: Colors.backgroundSecondary
+    radius: Globals.cardRadius
+    color: Colors.cardSecondary
     border.width: 1
-    border.color: Colors.surface
+    border.color: Colors.border
     clip: true
 
     Behavior on implicitHeight {
@@ -92,7 +92,7 @@ Rectangle {
             textFormat: Text.PlainText
             verticalAlignment: Text.AlignVCenter
             text: root.appName !== "" ? root.appName.charAt(0).toUpperCase() : "?"
-            color: Colors.lavender
+            color: Colors.accent
 
             font {
                 family: Globals.uiFontFamily
@@ -131,8 +131,8 @@ Rectangle {
 
             visible: root.notifications.length > 0
             text: qsTr("Clear")
-            baseColor: Colors.background
-            highlightColor: Colors.red
+            baseColor: Colors.card
+            highlightColor: Colors.danger
             onClicked: NotificationServer.dismissGroup(root.appName)
         }
 

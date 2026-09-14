@@ -16,8 +16,11 @@ ModuleBox {
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton)
             NotificationServer.toggleDnd();
-        else
+        else {
+            // Shared corner with the calendar; never stack both panels.
+            CalendarService.calendarVisible = false;
             NotificationServer.toggleCenter();
+        }
     }
 
     // Non-visual measurers (layouts ignore non-Items).

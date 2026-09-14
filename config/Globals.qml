@@ -45,4 +45,15 @@ QtObject {
     readonly property int slabInset: horizontalBarMargin + slabEdgePadding
     readonly property int slabEdgePadding: 6
     readonly property int hairlineVerticalInset: 8
+
+    // Panel and card geometry; semantic names for the shared design language.
+    readonly property int panelPadding: 12
+    readonly property int cardPadding: 10
+    readonly property int cardHPadding: 12
+    readonly property int cardRadius: 6
+    readonly property int pillRadius: 4
+    readonly property int panelRadius: slabRadius
+    readonly property int headerHeight: 34
+    readonly property int dayCellGap: 4
+    readonly property int dayCellHeight: 32
 }

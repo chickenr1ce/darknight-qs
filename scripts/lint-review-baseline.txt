@@ -1,16 +1,15 @@
 # Baseline of accepted style-linter findings (scripts/lint-review.sh).
 # Per line: FILE RULE-ID MESSAGE (line numbers stripped).
 # Regenerate with: scripts/lint-review.sh --update-baseline
+components/Card.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/ModuleBox.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 components/ModuleBox.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/ModuleBox.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 components/NotificationCard.qml BND-2 Imperative '=' on 'idReplyInput.text' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 components/NotificationCard.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
-components/NotificationCard.qml LAY-3 Four separate anchor edges -- use anchors.fill: parent instead
 components/NotificationCard.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/NotificationCard.qml ORD-1 signal handler appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/NotificationCard.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
-components/NotificationCard.qml STY-3 7 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationGroup.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 components/NotificationGroup.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 components/NotificationGroup.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
@@ -19,11 +18,11 @@ components/NotificationGroup.qml PRF-3 clip: true disables scene graph batching 
 components/NotificationGroup.qml STY-3 4 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationGroup.qml STY-3 6 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationToast.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
-components/NotificationToast.qml LAY-3 Four separate anchor edges -- use anchors.fill: parent instead
 components/NotificationToast.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/NotificationToast.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
-components/NotificationToast.qml STY-3 3 anchors.* properties using dot notation -- use group notation: anchors { ... }
-components/NotificationToast.qml STY-3 7 anchors.* properties using dot notation -- use group notation: anchors { ... }
+components/NotificationToast.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+components/PanelHeader.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+components/PanelShell.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/PillButton.qml ORD-1 attached property appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/PressFeedback.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/ActiveWindow.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
@@ -48,6 +47,7 @@ modules/Tray.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, o
 modules/Tray.qml STY-3 3 anchor.* properties using dot notation -- use group notation: anchor { ... }
 modules/Workspaces.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Workspaces.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
+services/CalendarService.qml BND-2 Imperative '=' on 'inMonth' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/CavaService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CavaService.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 services/CavaService.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
@@ -55,10 +55,14 @@ services/MprisPlayers.qml BND-5 list<> property has no granular change signals -
 services/MprisPlayers.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
 shell.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/CalendarCenter.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
+windows/CalendarCenter.qml ORD-1 child object appears after function -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+windows/CalendarCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 windows/NotificationCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
-windows/NotificationCenter.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/NotificationCenter.qml ORD-1 property declaration appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/NotificationCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationPopups.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions

@@ -1,10 +1,17 @@
 import QtQuick
 import QtQuick.Layouts
-import qs.config
 import qs.components
+import qs.config
+import qs.services
 
 ModuleBox {
     id: root
+
+    // Shared corner with the notification center; never stack both panels.
+    onClicked: {
+        NotificationServer.centerVisible = false;
+        CalendarService.toggleCalendar();
+    }
 
     Text {
         id: idClockLabel

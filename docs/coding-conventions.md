@@ -250,3 +250,24 @@ Text {
 This ordering is a deliberate project style choice and intentionally overrides the
 ORD-1 rule of generic QML linters (which expect attached properties after plain
 assignments). Treat ORD-1 flags on `Layout.*` placement as false positives.
+
+---
+
+## 5. Design Language for Panels and Plugins
+
+All panels and plugins share tokens and primitives; never invent a parallel visual vocabulary.
+
+### No new primitive
+
+- If a panel needs a button, card, header, or shell, extend the shared component in `components/` (`PanelShell`, `PanelHeader`, `Card`, `IconButton`, `PillButton`, `PressFeedback`, `PressScale`).
+- New panels compose `PanelShell` plus `PanelHeader`; new rows and cards compose `Card`. Ad-hoc `Rectangle` plus `MouseArea` buttons are off-limits.
+
+### No raw values
+
+- Colors, type sizes, radii, spacing, and durations come from `config/Colors.qml` or `config/Globals.qml` by role name (`Colors.panel`, `Colors.accent`, `Globals.panelPadding`, `Globals.cardRadius`), never hardcoded hex or pixel literals.
+- Bar identity stays Iosevka (`Globals.fontFamily`); reading surfaces use the named Geist scale (`Globals.ui*Size`). Text sizes on reading surfaces never hardcode pixels.
+
+### No layout reflow on state change
+
+- Reserve width with `TextMetrics` plus `minWidth` for state-swapped glyphs; keep disabled controls laid out (dim plus inert) instead of hiding them.
+- Panels use a fixed canvas plus input `mask` Region (see `PanelShell`); never bind window height to animated content.

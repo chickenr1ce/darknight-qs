@@ -4,11 +4,12 @@ import QtQuick
 import QtQuick.Layouts
 // Aliased: the bare name resolves to the C++ type, shadowing the singleton (conventions §4).
 import Quickshell.Services.Notifications as Notif
+import qs.components
 import qs.config
 import qs.services
 
 // History card: toast styling without the decay countdown; inline reply via the "↩ Reply" pill.
-Rectangle {
+Card {
     id: root
 
     required property Notif.Notification notification
@@ -17,215 +18,175 @@ Rectangle {
 
     property bool replyExpanded: false
 
-    implicitWidth: parent ? parent.width : 0
-    implicitHeight: idCardLayout.implicitHeight
-        + idCardLayout.anchors.topMargin + idCardLayout.anchors.bottomMargin
+    critical: root.isCritical
 
-    radius: 6
-    color: root.isCritical ? Colors.criticalCard : Colors.background
-    border.width: 1
-    border.color: root.isCritical ? Colors.criticalCardBorder : Colors.surface
+    RowLayout {
+        id: idHeaderRow
 
-    ColumnLayout {
-        id: idCardLayout
+        Layout.fillWidth: true
 
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 10
-        anchors.leftMargin: 12
-        anchors.rightMargin: 12
-
-        spacing: 6
-
-        RowLayout {
-            id: idHeaderRow
-
-            Layout.fillWidth: true
-
-            spacing: 8
-
-            Text {
-                id: idSummaryLabel
-
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-
-                visible: root.notification !== null && root.notification.summary !== ""
-                textFormat: Text.PlainText
-                elide: Text.ElideRight
-
-                text: root.notification !== null ? root.notification.summary : ""
-                color: Colors.text
-
-                font {
-                    family: Globals.uiFontFamily
-                    pixelSize: Globals.uiTitleSize
-                    weight: Font.DemiBold
-                }
-            }
-
-            Item {
-                id: idCloseButton
-
-                Layout.preferredWidth: 18
-                Layout.preferredHeight: 18
-
-                Text {
-                    anchors.centerIn: parent
-
-                    text: "✕"
-                    color: idCloseMouseArea.containsMouse ? Colors.text : Colors.textSecondary
-
-                    font {
-                        family: Globals.uiFontFamily
-                        pixelSize: Globals.uiBodySize
-                    }
-                }
-
-                MouseArea {
-                    id: idCloseMouseArea
-
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.notification.dismiss()
-                }
-            }
-        }
+        spacing: 8
 
         Text {
-            id: idBodyLabel
+            id: idSummaryLabel
 
             Layout.fillWidth: true
             Layout.minimumWidth: 0
 
-            visible: root.notification !== null && root.notification.body !== ""
-            textFormat: Text.StyledText
-            wrapMode: Text.Wrap
+            visible: root.notification !== null && root.notification.summary !== ""
+            textFormat: Text.PlainText
             elide: Text.ElideRight
 
-            text: root.notification !== null ? root.notification.body : ""
-            color: Colors.textSubtle
+            text: root.notification !== null ? root.notification.summary : ""
+            color: Colors.text
 
             font {
                 family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
+                pixelSize: Globals.uiTitleSize
+                weight: Font.DemiBold
             }
         }
 
-        Flow {
-            id: idActionsRow
+        IconButton {
+            id: idCloseButton
 
-            Layout.fillWidth: true
-            Layout.topMargin: 2
+            Layout.preferredWidth: 18
+            Layout.preferredHeight: 18
 
-            spacing: 5
-            visible: root.notification !== null
-                && (root.notification.actions.length > 0 || root.notification.hasInlineReply)
+            onClicked: root.notification.dismiss()
+        }
+    }
 
-            Repeater {
-                model: root.notification !== null ? root.notification.actions : []
+    Text {
+        id: idBodyLabel
 
-                // qmllint disable uncreatable-type
-                PillButton {
-                    required property Notif.NotificationAction modelData
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
 
-                    // The server deletes/recreates actions on update; delegates briefly hold dead modelData (log-observed TypeError).
-                    // No baseColor: the default backgroundSecondary is the inset control on this card's background fill.
-                    text: modelData ? modelData.text : ""
-                    // invoke() dismisses non-resident notifications server-side; focus first while the object is alive.
-                    onClicked: {
-                        NotificationServer.focusApp(root.notification);
-                        modelData.invoke();
-                    }
-                }
-            }
+        visible: root.notification !== null && root.notification.body !== ""
+        textFormat: Text.StyledText
+        wrapMode: Text.Wrap
+        elide: Text.ElideRight
 
-            // The DBus inline-reply action isn't in `actions`; it surfaces as hasInlineReply instead.
+        text: root.notification !== null ? root.notification.body : ""
+        color: Colors.textSubtle
+
+        font {
+            family: Globals.uiFontFamily
+            pixelSize: Globals.uiBodySize
+        }
+    }
+
+    Flow {
+        id: idActionsRow
+
+        Layout.fillWidth: true
+        Layout.topMargin: 2
+
+        spacing: 5
+        visible: root.notification !== null
+            && (root.notification.actions.length > 0 || root.notification.hasInlineReply)
+
+        Repeater {
+            model: root.notification !== null ? root.notification.actions : []
+
+            // qmllint disable uncreatable-type
             PillButton {
-                id: idReplyButton
+                required property Notif.NotificationAction modelData
 
-                visible: root.notification !== null && root.notification.hasInlineReply
-                text: "↩ Reply"
-                highlighted: root.replyExpanded
-
+                // The server deletes/recreates actions on update; delegates briefly hold dead modelData (log-observed TypeError).
+                // No baseColor: the default backgroundSecondary is the inset control on this card's background fill.
+                text: modelData ? modelData.text : ""
+                // invoke() dismisses non-resident notifications server-side; focus first while the object is alive.
                 onClicked: {
-                    root.replyExpanded = true;
-                    // A hidden TextInput refuses focus; focus once the field is visible.
-                    Qt.callLater(() => idReplyInput.forceActiveFocus());
+                    NotificationServer.focusApp(root.notification);
+                    modelData.invoke();
                 }
             }
         }
 
-        RowLayout {
-            id: idReplyRow
+        // The DBus inline-reply action isn't in `actions`; it surfaces as hasInlineReply instead.
+        PillButton {
+            id: idReplyButton
+
+            visible: root.notification !== null && root.notification.hasInlineReply
+            text: "↩ Reply"
+            highlighted: root.replyExpanded
+
+            onClicked: {
+                root.replyExpanded = true;
+                // A hidden TextInput refuses focus; focus once the field is visible.
+                Qt.callLater(() => idReplyInput.forceActiveFocus());
+            }
+        }
+    }
+
+    RowLayout {
+        id: idReplyRow
+
+        Layout.fillWidth: true
+
+        spacing: 5
+        visible: root.replyExpanded
+
+        Rectangle {
+            id: idReplyField
 
             Layout.fillWidth: true
+            Layout.preferredHeight: idReplyInput.implicitHeight + 10
 
-            spacing: 5
-            visible: root.replyExpanded
+            radius: Globals.pillRadius
+            color: Colors.cardSecondary
+            border.width: 1
+            border.color: idReplyInput.activeFocus ? Colors.accent : Colors.border
 
-            Rectangle {
-                id: idReplyField
+            TextInput {
+                id: idReplyInput
 
-                Layout.fillWidth: true
-                Layout.preferredHeight: idReplyInput.implicitHeight + 10
+                anchors.fill: parent
+                anchors.margins: 5
 
-                radius: 4
-                color: Colors.backgroundSecondary
-                border.width: 1
-                border.color: idReplyInput.activeFocus ? Colors.lavender : Colors.surface
+                clip: true
+                color: Colors.text
+                wrapMode: TextInput.Wrap
+                selectByMouse: true
+                font {
+                    family: Globals.uiFontFamily
+                    pixelSize: Globals.uiBodySize
+                }
 
-                TextInput {
-                    id: idReplyInput
-
+                Text {
                     anchors.fill: parent
-                    anchors.margins: 5
+                    verticalAlignment: Text.AlignVCenter
+                    visible: idReplyInput.text === "" && !idReplyInput.activeFocus
 
-                    clip: true
-                    color: Colors.text
-                    wrapMode: TextInput.Wrap
-                    selectByMouse: true
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    text: root.notification !== null && root.notification.inlineReplyPlaceholder !== ""
+                        ? root.notification.inlineReplyPlaceholder : qsTr("Reply…")
+                    color: Colors.textSubtle
+
                     font {
                         family: Globals.uiFontFamily
                         pixelSize: Globals.uiBodySize
                     }
-
-                    Text {
-                        anchors.fill: parent
-                        verticalAlignment: Text.AlignVCenter
-                        visible: idReplyInput.text === "" && !idReplyInput.activeFocus
-
-                        textFormat: Text.PlainText
-                        elide: Text.ElideRight
-                        text: root.notification !== null && root.notification.inlineReplyPlaceholder !== ""
-                            ? root.notification.inlineReplyPlaceholder : qsTr("Reply…")
-                        color: Colors.textSubtle
-
-                        font {
-                            family: Globals.uiFontFamily
-                            pixelSize: Globals.uiBodySize
-                        }
-                    }
-
-                    Keys.onReturnPressed: root.sendReply()
-                    Keys.onEnterPressed: root.sendReply()
-                    Keys.onEscapePressed: root.collapseReply()
                 }
+
+                Keys.onReturnPressed: root.sendReply()
+                Keys.onEnterPressed: root.sendReply()
+                Keys.onEscapePressed: root.collapseReply()
             }
+        }
 
-            PillButton {
-                id: idSendButton
+        PillButton {
+            id: idSendButton
 
-                Layout.preferredWidth: implicitWidth
-                Layout.preferredHeight: implicitHeight
-                Layout.alignment: Qt.AlignVCenter
+            Layout.preferredWidth: implicitWidth
+            Layout.preferredHeight: implicitHeight
+            Layout.alignment: Qt.AlignVCenter
 
-                text: qsTr("Send")
-                onClicked: root.sendReply()
-            }
+            text: qsTr("Send")
+            onClicked: root.sendReply()
         }
     }
 

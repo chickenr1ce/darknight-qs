@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 // Aliased: the bare name resolves to the C++ type, shadowing the singleton (conventions §4).
 import Quickshell.Services.Notifications as Notif
+import qs.components
 import qs.config
 import qs.services
 
@@ -25,10 +26,10 @@ Rectangle {
     implicitHeight: idToastLayout.implicitHeight
         + idToastLayout.anchors.topMargin + idToastLayout.anchors.bottomMargin
 
-    radius: 6
-    color: root.isCritical ? Colors.criticalCard : Colors.background
+    radius: Globals.cardRadius
+    color: root.isCritical ? Colors.criticalCard : Colors.card
     border.width: 1
-    border.color: root.isCritical ? Colors.criticalCardBorder : Colors.surface
+    border.color: root.isCritical ? Colors.criticalCardBorder : Colors.border
 
     Component.onCompleted: idEntranceAnimator.start()
 
@@ -89,13 +90,12 @@ Rectangle {
     ColumnLayout {
         id: idToastLayout
 
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 10
-        anchors.leftMargin: 12
-        anchors.rightMargin: 12
+        anchors {
+            fill: parent
+            margins: Globals.cardPadding
+            leftMargin: Globals.cardHPadding
+            rightMargin: Globals.cardHPadding
+        }
 
         spacing: 6
 
@@ -116,7 +116,7 @@ Rectangle {
                 elide: Text.ElideRight
 
                 text: root.toast !== null ? root.toast.appName.toUpperCase() : ""
-                color: root.isCritical ? Colors.red : Colors.lavender
+                color: root.isCritical ? Colors.danger : Colors.accent
 
                 font {
                     family: Globals.uiFontFamily
@@ -126,36 +126,15 @@ Rectangle {
                 }
             }
 
-            Item {
+            IconButton {
                 id: idCloseButton
 
                 Layout.preferredWidth: 18
                 Layout.preferredHeight: 18
 
-                Text {
-                    id: idCloseGlyph
-
-                    anchors.centerIn: parent
-
-                    text: "✕"
-                    // Dim tone is fine: the glyph is decorative, never read.
-                    // Hover comes from probeOver, not containsMouse: the topmost probe captures all hover above this button.
-                    color: idCloseMouseArea.containsMouse || root.probeOver(idCloseButton) ? Colors.text : Colors.textSecondary
-
-                    font {
-                        family: Globals.uiFontFamily
-                        pixelSize: Globals.uiBodySize
-                    }
-                }
-
-                MouseArea {
-                    id: idCloseMouseArea
-
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toast.dismiss()
-                }
+                // Hover comes from probeOver, not containsMouse: the topmost probe captures all hover above this button.
+                probeHovered: root.probeOver(idCloseButton)
+                onClicked: root.toast.dismiss()
             }
         }
 
@@ -234,25 +213,29 @@ Rectangle {
     Rectangle {
         id: idDecayTrack
 
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors {
+            bottom: parent.bottom
+            left: parent.left
+            right: parent.right
+        }
 
         height: 2
         radius: 1
-        color: Colors.backgroundSecondary
+        color: Colors.cardSecondary
         visible: !root.sticky
 
         Rectangle {
             id: idDecayFill
 
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
+            anchors {
+                top: parent.top
+                bottom: parent.bottom
+                left: parent.left
+            }
 
             width: parent.width * root.decayProgress
             radius: 1
-            color: Colors.lavender
+            color: Colors.accent
         }
     }
 

@@ -19,4 +19,16 @@ QtObject {
     readonly property color yellow: "#d7d370"
     readonly property color lavender: "#b4befe"
     readonly property color surface: "#282936"
+
+    // Semantic roles for panels and plugins; aliases so theme changes touch values above only.
+    readonly property color panel: background
+    readonly property color panelBorder: surface
+    readonly property color card: background
+    readonly property color cardSecondary: backgroundSecondary
+    readonly property color border: surface
+    readonly property color accent: lavender
+    readonly property color onAccent: background
+    readonly property color danger: red
+    readonly property color warning: yellow
+    readonly property color accentSecondary: purple
 }

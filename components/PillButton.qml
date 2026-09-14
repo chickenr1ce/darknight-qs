@@ -10,8 +10,8 @@ Rectangle {
     id: root
 
     property string text: ""
-    property color baseColor: Colors.backgroundSecondary
-    property color highlightColor: Colors.lavender
+    property color baseColor: Colors.cardSecondary
+    property color highlightColor: Colors.accent
     property bool highlighted: false
     property bool probeHovered: false
     // Disabled pills keep their slot but go inert, so the header never reflows.
@@ -24,10 +24,10 @@ Rectangle {
 
     implicitWidth: idLabel.implicitWidth + 16
     implicitHeight: idLabel.implicitHeight + 6
-    radius: 4
+    radius: Globals.pillRadius
     color: !root.disabled && root.highlighted ? root.highlightColor : root.baseColor
     border.width: !root.disabled && root.hovered ? 1 : 0
-    border.color: root.highlighted ? Colors.background : Colors.lavender
+    border.color: root.highlighted ? Colors.onAccent : Colors.accent
     scale: idPressScale.scale
 
     Text {
@@ -37,7 +37,7 @@ Rectangle {
 
         textFormat: Text.PlainText
         text: root.text
-        color: !root.disabled && root.highlighted ? Colors.background : (!root.disabled && root.hovered ? Colors.text : Colors.textSubtle)
+        color: !root.disabled && root.highlighted ? Colors.onAccent : (!root.disabled && root.hovered ? Colors.text : Colors.textSubtle)
 
         font {
             family: Globals.uiFontFamily

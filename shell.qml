@@ -98,8 +98,6 @@ ShellRoot {
                 }
 
                 Clock {
-                    enableHover: false
-                    enableMouseArea: false
                 }
                 Workspaces {
                     monitorName: idPanelWindow.monitorName
@@ -154,4 +152,6 @@ ShellRoot {
     NotificationPopups {}
 
     NotificationCenter {}
+
+    CalendarCenter {}
 }
