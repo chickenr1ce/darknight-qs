@@ -2,16 +2,18 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Services.Notifications
+// Aliased: the bare name resolves to the C++ type, shadowing the singleton (conventions §4).
+import Quickshell.Services.Notifications as Notif
 import qs.config
+import qs.services
 
 // Transient toast: hover-paused decay; critical toasts never expire and dismiss on click.
 Rectangle {
     id: root
 
-    required property Notification toast
+    required property Notif.Notification toast
 
-    readonly property bool isCritical: toast !== null && toast.urgency === NotificationUrgency.Critical
+    readonly property bool isCritical: toast !== null && toast.urgency === Notif.NotificationUrgency.Critical
     // expireTimeout arrives in milliseconds despite the docs claiming seconds; 0 = never expire, -1 falls back to 5s.
     readonly property int timeoutMs: Math.round(toast !== null && toast.expireTimeout > 0 ? toast.expireTimeout : 5000)
     readonly property bool sticky: root.isCritical || (toast !== null && toast.expireTimeout === 0)
@@ -64,10 +66,11 @@ Rectangle {
         // Requesting paused on a stopped animator warns, so gate on running (sticky toasts never run).
         running: !root.sticky
         paused: running && root.hovered
-        // The row can be retired while decay still runs; a dead toast has nothing to expire.
+        // Timeout hides the popup only; history persists until dismissed, so retire instead of expiring.
+        // The row can be retired while decay still runs; the retire scan no-ops then.
         onFinished: {
             if (root.toast !== null)
-                root.toast.expire();
+                NotificationServer.retireToast(root.toast);
         }
     }
 
@@ -213,7 +216,7 @@ Rectangle {
                 PillButton {
                     id: idActionPill
 
-                    required property NotificationAction modelData
+                    required property Notif.NotificationAction modelData
 
                     // Delegates outlive their action during displaced teardown; null-guard the dead modelData.
                     text: modelData ? modelData.text : ""

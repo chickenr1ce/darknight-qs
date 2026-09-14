@@ -165,7 +165,7 @@ Timer { id: idMediaTimer }
   deletes/recreates `NotificationAction` objects on update, so delegates
   briefly hold a dead `modelData` during rebuild — null-guard member access
   (`modelData ? modelData.text : ""`), not just the role assignment. Same for
-  any animator callback touching a model object (`toast.expire()`), which can
+  any animator callback touching a model object (`retireToast()`), which can
   fire after its row is retired.
 - **`PanelWindow` takes no keyboard focus by default**: `focusable` is false
   (layer-shell keyboard interactivity None), so `TextInput.forceActiveFocus()`

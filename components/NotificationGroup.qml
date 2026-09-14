@@ -53,24 +53,44 @@ Rectangle {
         onClicked: root.toggleRequested()
     }
 
+    // Fixed 34px zone; the row takes its implicit height (tallest child, the
+    // Clear pill) so nothing overflows the row, and centers in the full zone.
+    Item {
+        id: idHeaderZone
+
+        height: root.headerHeight
+
+        anchors {
+            top: parent.top
+            left: parent.left
+            right: parent.right
+        }
+    }
+
     RowLayout {
         id: idHeaderRow
 
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.margins: 8
-
-        height: root.headerHeight - 16
-
         spacing: 8
+
+        // Explicit fractional margin, not a center anchor: (34-23)/2 must land
+        // on 5.5, and the anchor rounds it down to 5 (measured live via IPC).
+        anchors {
+            top: idHeaderZone.top
+            left: parent.left
+            right: parent.right
+            topMargin: (root.headerHeight - idHeaderRow.implicitHeight) / 2
+            leftMargin: 8
+            rightMargin: 8
+        }
 
         Text {
             id: idAppGlyph
 
             Layout.preferredWidth: 18
+            Layout.alignment: Qt.AlignVCenter
 
             textFormat: Text.PlainText
+            verticalAlignment: Text.AlignVCenter
             text: root.appName !== "" ? root.appName.charAt(0).toUpperCase() : "?"
             color: Colors.lavender
 
@@ -86,8 +106,10 @@ Rectangle {
 
             Layout.fillWidth: true
             Layout.minimumWidth: 0
+            Layout.alignment: Qt.AlignVCenter
 
             textFormat: Text.PlainText
+            verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
 
             text: qsTr("%1 (%2)").arg(root.appName !== "" ? root.appName : qsTr("Unknown")).arg(root.notifications.length)
@@ -118,8 +140,11 @@ Rectangle {
             id: idChevron
 
             Layout.preferredWidth: 14
+            Layout.alignment: Qt.AlignVCenter
 
             textFormat: Text.PlainText
+            verticalAlignment: Text.AlignVCenter
+
             text: root.expanded ? "▾" : "▸"
             color: Colors.textSubtle
 

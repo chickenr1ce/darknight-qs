@@ -65,12 +65,9 @@ Singleton {
 
     // No ": void" return type: qmllint crashes (exit 255) on void returns in pragma Singleton files.
     function announceToast(notification: Notification) {
-        // Cap by expiring (not dismissing) the oldest, so overflow surfaces as normal DBus expiry; the row goes first so the closed scan no-ops.
-        if (root.activeToasts.count >= root.maxVisibleToasts) {
-            const oldest = root.activeToasts.get(0).toast;
+        // Overflow retires the toast visual only; expiring would close server-side and drop center history.
+        if (root.activeToasts.count >= root.maxVisibleToasts)
             root.activeToasts.remove(0);
-            oldest.expire();
-        }
         root.activeToasts.append({ toast: notification });
         root.toastReceived(notification);
     }
