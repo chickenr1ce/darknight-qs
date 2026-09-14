@@ -2,16 +2,18 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Services.Notifications
+// Aliased: the bare name resolves to the C++ type, shadowing the singleton (conventions §4).
+import Quickshell.Services.Notifications as Notif
 import qs.config
+import qs.services
 
 // History card: toast styling without the decay countdown; inline reply via the "↩ Reply" pill.
 Rectangle {
     id: root
 
-    required property Notification notification
+    required property Notif.Notification notification
 
-    readonly property bool isCritical: notification !== null && notification.urgency === NotificationUrgency.Critical
+    readonly property bool isCritical: notification !== null && notification.urgency === Notif.NotificationUrgency.Critical
 
     property bool replyExpanded: false
 
@@ -128,13 +130,16 @@ Rectangle {
 
                 // qmllint disable uncreatable-type
                 PillButton {
-                    required property NotificationAction modelData
+                    required property Notif.NotificationAction modelData
 
                     // The server deletes/recreates actions on update; delegates briefly hold dead modelData (log-observed TypeError).
                     // No baseColor: the default backgroundSecondary is the inset control on this card's background fill.
                     text: modelData ? modelData.text : ""
-                    // invoke() dismisses non-resident notifications server-side; the closed handler retires the card.
-                    onClicked: modelData.invoke()
+                    // invoke() dismisses non-resident notifications server-side; focus first while the object is alive.
+                    onClicked: {
+                        NotificationServer.focusApp(root.notification);
+                        modelData.invoke();
+                    }
                 }
             }
 

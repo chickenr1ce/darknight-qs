@@ -221,7 +221,11 @@ Rectangle {
                     // Delegates outlive their action during displaced teardown; null-guard the dead modelData.
                     text: modelData ? modelData.text : ""
                     probeHovered: root.probeOver(idActionPill)
-                    onClicked: modelData.invoke()
+                    // Focus first: invoke() dismisses non-resident notifications server-side, killing the object.
+                    onClicked: {
+                        NotificationServer.focusApp(root.toast);
+                        modelData.invoke();
+                    }
                 }
             }
         }
