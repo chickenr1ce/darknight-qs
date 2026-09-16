@@ -109,6 +109,8 @@ ShellRoot {
                 }
 
                 Cava {
+                    monitorName: idPanelWindow.monitorName
+                    triggerScreen: idPanelWindow.modelData
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
                 Media {
@@ -148,4 +150,6 @@ ShellRoot {
     NotificationCenter {}
 
     CalendarCenter {}
+
+    CavaCenter {}
 }

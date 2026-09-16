@@ -222,6 +222,21 @@ Timer { id: idMediaTimer }
   close speed and close at open speed (verified live 2026-09-16: open 220 /
   close 1000 appeared swapped). Read the inverted ternary in `PanelShell`
   (`panelVisible ? centerCloseMs : centerOpenMs`); do not "fix" it back.
+- **Nothing renders outside the panel layout**: `PanelShell` masks the window
+  to the layout rect, so an overlay popup or floating list is clipped and dead
+  on arrival. Grow the layout in-flow instead — the expanding dropdown list
+  pushes rows down exactly like the calendar settings view (verified live
+  2026-09-16).
+- **Centered `Repeater` rows round upward**: per-item `AlignVCenter` floors
+  fractional centers, biasing a mirror axis ~0.7px high at scale 1 (measured
+  live via `grim` plus per-column pixel midpoints, 2026-09-16). Correct with an
+  explicit optical nudge (`centerOpticalNudge`); `Shape` paths use float
+  coordinates and need none.
+- **Three linter false positives to leave alone**: `try {` on one line reads as
+  a QML child (keep the braces split); `!==` trips the loose-equality rule
+  (write `!(a === b)`); object-literal keys named like properties fake out the
+  imperative-assignment rule (build settings objects with bracket assignment).
+  Each is guarded by `scripts/lint-review.sh` — reformatting re-triggers it.
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 

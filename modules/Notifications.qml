@@ -21,6 +21,7 @@ ModuleBox {
         else {
             const centerX = Globals.triggerCenterX(root, root.triggerScreen);
             CalendarService.calendarVisible = false;
+            CavaService.cavaVisible = false;
             NotificationServer.toggleCenterAt(root.triggerScreen, centerX);
         }
     }

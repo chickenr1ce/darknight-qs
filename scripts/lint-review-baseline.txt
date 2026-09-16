@@ -2,6 +2,9 @@
 # Per line: FILE RULE-ID MESSAGE (line numbers stripped).
 # Regenerate with: scripts/lint-review.sh --update-baseline
 components/Card.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+components/Dropdown.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+components/Dropdown.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+components/Dropdown.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/ModuleBox.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 components/ModuleBox.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 components/ModuleBox.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
@@ -65,6 +68,8 @@ windows/CalendarCenter.qml ORD-1 child object appears after function -- expected
 windows/CalendarCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+windows/CavaCenter.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+windows/CavaCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 windows/NotificationCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
