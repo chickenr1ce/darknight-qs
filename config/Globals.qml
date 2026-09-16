@@ -8,7 +8,7 @@ QtObject {
     readonly property int spacing: 10
     readonly property int modulePadding: 12
     readonly property int moduleMargin: 4
-    readonly property int horizontalBarMargin: 12
+    readonly property int horizontalBarMargin: 10
     readonly property int radius: 5
     readonly property int slabRadius: 9
     readonly property int fontPixelSize: 16
