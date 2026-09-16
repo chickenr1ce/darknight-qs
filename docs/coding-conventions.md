@@ -216,6 +216,12 @@ Timer { id: idMediaTimer }
   next minute tick). Defer the start with
   `Qt.callLater(() => idZoneProcess.running = true)`; the command read at
   launch then sees the fresh value.
+- **`Behavior` animation starts before its `duration` binding refreshes**:
+  a `duration: visible ? openMs : closeMs` inside the animated `Behavior`
+  still holds the previous value when the animation starts, so open runs at
+  close speed and close at open speed (verified live 2026-09-16: open 220 /
+  close 1000 appeared swapped). Read the inverted ternary in `PanelShell`
+  (`panelVisible ? centerCloseMs : centerOpenMs`); do not "fix" it back.
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 

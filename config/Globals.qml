@@ -25,7 +25,7 @@ QtObject {
     readonly property int centerWidth: 380
     readonly property int centerMaxHeight: 540
     readonly property int centerOpenMs: 140
-    readonly property int centerCloseMs: 120
+    readonly property int centerCloseMs: 140
 
     readonly property int panelTopGap: 8
     readonly property int panelEdgeMargin: horizontalBarMargin
