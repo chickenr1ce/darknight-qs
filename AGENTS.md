@@ -54,6 +54,7 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 - Active feature implementation tickets live in `.scratch/<feature>/issues/` (e.g. `.scratch/notifications/issues/`).
 - Tickets are tracer bullets declaring explicit blocking relationships (`Blocking` / `Blocked By`) and acceptance criteria.
 - When implementing a feature in a worktree, check `.scratch/<feature>/issues/` for pending tickets and work them blockers-first.
+- `.scratch/<feature>/issues/` is the configured issue tracker and `Status: ready-for-agent` is the triage label; engineering skills needing a tracker use these directly with no setup step.
 
 ### 5.1 Ticket conventions
 
