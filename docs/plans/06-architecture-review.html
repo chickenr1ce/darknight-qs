@@ -1,310 +1,401 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>Architecture review — quickshell</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
-      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
-    </script>
-    <style>
-      .seam { stroke-dasharray: 4 4; }
-      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
-      .mod { border: 1.5px solid #94a3b8; border-radius: .5rem; background: #fff; }
-      .mod-deep { border: 3px solid #0f172a; border-radius: .5rem; background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; }
-      .mod-faded { border: 1.5px solid #cbd5e1; border-radius: .5rem; background: #f1f5f9; color: #94a3b8; }
-      .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
-      pre.mermaid { background: transparent; }
-    </style>
-  </head>
-  <body class="bg-stone-50 text-slate-900 font-sans">
-    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REVIEW-01: full codebase architecture review</title>
+<style>
+  :root {
+    --bg: #000000;
+    --panel: #0a0a0a;
+    --line: #262626;
+    --text: #e9efef;
+    --dim: #a8b5b5;
+    --faint: #7d8b8b;
+    --mint: #9ed7b6;
+    --sage: #22362c;
+    --clay: #c08d8d;
+    --amber: #d7d370;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+  .page {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+    border-top: 1px solid var(--line);
+    margin-top: 1.5rem;
+  }
+  h1 {
+    font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 1.6rem 0 0.6rem;
+  }
+  .kicker {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    color: var(--faint);
+    margin: 1.2rem 0 0;
+  }
+  .lede { color: var(--dim); max-width: 68ch; margin: 0 0 1.6rem; }
+  .lede strong { color: var(--text); }
+  nav.index { margin: 0 0 1.6rem; font-size: 0.9rem; color: var(--faint); }
+  nav.index a { color: var(--dim); margin-right: 1.1rem; }
+  .panel {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 2rem 1.5rem 1.4rem;
+    position: relative;
+  }
+  .marker {
+    position: absolute;
+    top: 0.9rem;
+    bottom: 4.6rem;
+    left: 50%;
+    border-left: 1px dashed var(--mint);
+  }
+  .marker span {
+    position: absolute;
+    top: -0.2rem;
+    left: 0.5rem;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--mint);
+  }
+  .seq { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; margin-top: 1.6rem; }
+  .seq-row { display: contents; }
+  .bar {
+    background: var(--sage);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    padding: 0.45rem 0.7rem;
+    margin: 0.35rem 0.35rem 0.35rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .caption {
+    color: var(--faint);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    margin: 1.4rem 0 0;
+    max-width: 78ch;
+  }
+  .flow { list-style: none; margin: 1.4rem 0 0; padding: 0; max-width: 78ch; }
+  .flow li {
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--dim);
+    font-size: 0.92rem;
+  }
+  .flow li strong { color: var(--text); }
+  table { width: 100%; border-collapse: collapse; margin-top: 2.5rem; }
+  th {
+    text-align: left;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text);
+    padding: 0.7rem 0.8rem 0.7rem 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  td {
+    padding: 1rem 0.8rem 1rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    color: var(--dim);
+    font-size: 0.95rem;
+  }
+  th[scope="row"] {
+    color: var(--text);
+    font-weight: 700;
+    white-space: nowrap;
+    padding: 1rem 0.8rem 1rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    font-size: 0.95rem;
+    text-align: left;
+  }
+  .scroll { overflow-x: auto; }
+  .scroll table { min-width: 46rem; }
+  .sev {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    border: 1px solid var(--line);
+    padding: 0.1rem 0.45rem;
+    margin-bottom: 0.4rem;
+    color: var(--text);
+  }
+  .sev.high { border-color: var(--clay); color: var(--clay); }
+  .sev.med { border-color: var(--amber); color: var(--amber); }
+  .sev.low { border-color: var(--mint); color: var(--mint); }
+  .close { color: var(--dim); margin: 1.6rem 0 0; max-width: 78ch; }
+  .close strong { color: var(--text); }
+  h2.list-head {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text);
+    border-top: 1px solid var(--line);
+    padding-top: 0.9rem;
+    margin: 2.5rem 0 0;
+  }
+  ul.rows { list-style: none; margin: 0; padding: 0; }
+  ul.rows li {
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--dim);
+    max-width: 78ch;
+  }
+  ul.rows li strong { color: var(--text); }
+  .risk { color: var(--clay); }
+  footer { color: var(--faint); font-size: 0.82rem; margin-top: 2.5rem; }
+  @media (max-width: 40rem) {
+    .seq { grid-template-columns: 1fr; }
+    .bar { white-space: normal; }
+    .marker { display: none; }
+  }
+  @media print {
+    body { background: #fff; color: #000; }
+    .page { border-top-color: #000; }
+    .lede, td, th, th[scope="row"], h2.list-head, .close, ul.rows li, .flow li, .caption, footer { color: #333; }
+    .flow li strong, .close strong, ul.rows li strong, .lede strong { color: #000; }
+    .kicker, .risk { color: #555; }
+    .panel { background: #fff; border-color: #000; }
+    .bar { background: #ddd; color: #000; }
+    .sev, .sev.high, .sev.med, .sev.low { color: #000; border-color: #000; }
+    .marker { border-left-color: #000; }
+    .marker span { color: #000; }
+    nav.index { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none; animation: none; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <p class="kicker">REVIEW-01 · feat/calendar-panel @ 97093ac · 2026-09-16 · full shell</p>
+  <h1>Full codebase architecture review</h1>
+  <p class="lede">This review covers the whole shell at <strong>97093ac</strong>: bar, modules, panels, services, helpers, tests, and docs.
+    I read every QML file, the Python helpers, the lint gates, and the calendar tickets. The layering is sound.
+    I ordered the findings below by effect on daily use, each with its files and the check that closes it.</p>
+  <nav class="index" aria-label="Sections">
+    <a href="#map">Map</a><a href="#inventory">Inventory</a><a href="#findings">Findings</a><a href="#risks">Risks</a><a href="#questions">Questions</a><a href="#notes">Notes</a>
+  </nav>
 
-      <header class="space-y-4">
-        <p class="text-xs uppercase tracking-widest text-slate-500">quickshell · 2026-09-16 · 7 candidates</p>
-        <h1 class="font-serif text-4xl">Architecture review</h1>
-        <div class="flex flex-wrap gap-4 text-xs text-slate-600">
-          <span class="inline-flex items-center gap-2"><span class="inline-block w-8 h-5 mod"></span> module</span>
-          <span class="inline-flex items-center gap-2"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="#64748b" stroke-width="2" stroke-dasharray="4 3"/></svg> seam</span>
-          <span class="inline-flex items-center gap-2"><svg width="34" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#dc2626" stroke-width="2"/><polygon points="28,1 34,5 28,9" fill="#dc2626"/></svg> leakage</span>
-          <span class="inline-flex items-center gap-2"><span class="inline-block w-8 h-5 mod-deep"></span> deep module</span>
-        </div>
-      </header>
+  <div class="panel" role="region" aria-label="Layer map" id="map">
+    <div class="marker" aria-hidden="true"><span>State lives in services</span></div>
+    <div class="seq">
+      <div class="bar">1 · shell.qml</div>
+      <div class="bar">2 · modules + windows</div>
+      <div class="bar">3 · services</div>
+      <div class="bar">4 · helpers + backends</div>
+    </div>
+    <ul class="flow">
+      <li><strong>Shell root</strong> builds one slab bar per screen and owns the three floating windows. It imports no services directly.</li>
+      <li><strong>Modules and windows</strong> are thin views. Modules extend ModuleBox. Both centers extend PanelShell and read one service each.</li>
+      <li><strong>Services</strong> hold the mutable state. CalendarService, NotificationServer, MprisPlayers, and CavaService expose models and visibility flags. QML never touches the network directly.</li>
+      <li><strong>Helpers and backends</strong> do the polling. calendar-fetch.py writes the cache file. calendar-clock.py prints zone times to stdout for the collector. QML reads the cache through FileView.</li>
+    </ul>
+    <p class="caption">Read order, left to right. Shell passes screen and anchor down. Services push state up. Clock and the bell close each other through the other service. Toast popups read both services, and tray shares focus logic with the notification server.</p>
+  </div>
 
-      <section id="candidates" class="space-y-10">
+  <h2 class="list-head" id="inventory">Inventory</h2>
+  <div class="scroll" tabindex="0" role="region" aria-labelledby="inventory">
+  <table aria-labelledby="inventory">
+    <thead>
+      <tr><th scope="col">Item</th><th scope="col">Scope</th><th scope="col">Source</th><th scope="col">Health</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Shell</th>
+        <td>ShellRoot builds one PanelWindow per screen with a slab and hairlines. DP-1-only modules are Tray plus the right cluster. The shell splits workspaces into 1 to 5 and 6 to 10.</td>
+        <td><code>shell.qml</code> (151 lines)</td>
+        <td>Sound. Monitor gating is explicit. Hairline guards and cluster edges read well.</td>
+      </tr>
+      <tr>
+        <th scope="row">Tokens</th>
+        <td>Palette plus semantic aliases. Geometry, timing, panel size, press scale, and the under trigger anchor helper.</td>
+        <td><code>config/Colors.qml</code>, <code>config/Globals.qml</code></td>
+        <td>Sound. Theme edits touch values only. Panel rules <code>centerWidth 380</code> and <code>centerMaxHeight 540</code> hold.</td>
+      </tr>
+      <tr>
+        <th scope="row">Base parts</th>
+        <td>ModuleBox, PanelShell, PanelHeader, Card, PillButton, IconButton, PressScale, and PressFeedback. Bar and panels share them.</td>
+        <td><code>components/</code> (8 base parts, 26 to 112 lines, 11 files total with toasts)</td>
+        <td>Sound. The code contains no ad hoc buttons. Fixed canvas plus mask rule holds in both centers.</td>
+      </tr>
+      <tr>
+        <th scope="row">Toast parts</th>
+        <td>History card, per app accordion, transient toast with decay bar and hover probe routing.</td>
+        <td><code>components/NotificationCard.qml</code>, <code>NotificationGroup.qml</code>, <code>NotificationToast.qml</code></td>
+        <td>Sound with guards. Null guards for deleted actions and ms handling for <code>expireTimeout</code> are in place.</td>
+      </tr>
+      <tr>
+        <th scope="row">Bar modules</th>
+        <td>Clock, Workspaces, Tray, Cava, Media, Audio, Notifications, PowerMenu, and ActiveWindow. Cpu exists but no call site uses it.</td>
+        <td><code>modules/</code> (10 files, 34 to 215 lines)</td>
+        <td>Needs cleanup. Tray is the largest at 215 lines. Cpu has no call site. See F1 and F2.</td>
+      </tr>
+      <tr>
+        <th scope="row">Services</th>
+        <td>Calendar state and polls, notification bus models, MPRIS selector, shared cava process with silence and restart timers.</td>
+        <td><code>services/</code> (4 files, 56 to 440 lines)</td>
+        <td>Needs fixes. CalendarService mixes visibility, polling, and persistence. See F3 through F8.</td>
+      </tr>
+      <tr>
+        <th scope="row">Panels</th>
+        <td>Calendar dropdown with grid, agenda, settings, and world clocks. Notification history and top right toasts.</td>
+        <td><code>windows/CalendarCenter.qml</code> (675), <code>NotificationCenter.qml</code> (126), <code>NotificationPopups.qml</code> (68)</td>
+        <td>Needs split. CalendarCenter holds four concerns in one file. See F10.</td>
+      </tr>
+      <tr>
+        <th scope="row">Helpers</th>
+        <td>Dual backend fetch with atomic writes. Zone clock. Fixture tests for fetch and clock. Toast smoke gate.</td>
+        <td><code>scripts/calendar-fetch.py</code>, <code>calendar-clock.py</code>, <code>test-calendar-fetch.sh</code>, <code>test-calendar-clock.sh</code>, <code>smoke-toasts.sh</code></td>
+        <td>Strong for helpers, thin for QML. No panel regression net. See F12.</td>
+      </tr>
+      <tr>
+        <th scope="row">Docs</th>
+        <td>Conventions, Io notes, debug guide, four ADRs, one incident, and six plan docs including this review. Scratch tickets close on merge.</td>
+        <td><code>docs/</code>, <code>.scratch/calendar/</code></td>
+        <td>Sound. Trap knowledge lives in docs per the 2026-09-16 rule. Baseline needs care. See F11.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
 
-        <!-- C1 -->
-        <article id="c1" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-          <h2 class="font-serif text-2xl">Split the CalendarService singleton</h2>
-          <div class="flex gap-2">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
-            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
-          </div>
-          <p class="font-mono text-sm text-slate-600">services/CalendarService.qml · windows/CalendarCenter.qml · scripts/calendar-fetch.py</p>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div class="rounded-lg border border-slate-200 bg-white p-4">
-              <p class="lbl text-slate-500 mb-2">Before — one shallow hub</p>
-              <pre class="mermaid">flowchart TB
-                S[CalendarService 440 lines] --> E[events cache + monthCells]
-                S --> W[world clock poll + zones]
-                S --> H[hidden-calendar denylist]
-                S --> A[panel anchor + visibility]
-                S --> P[XDG path helpers]
-                classDef hub fill:#fef2f2,stroke:#dc2626,stroke-width:2px;</pre>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white p-4">
-              <p class="lbl text-slate-500 mb-2">After — façade over two deep modules</p>
-              <pre class="mermaid">flowchart TB
-                F[CalendarService façade] --> E[CalendarEvents]
-                F --> W[WorldClock]
-                E --> C[cache + monthCells + hidden]
-                W --> Z[zones + times + persistence]
-                classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
-                class E,W deep</pre>
-            </div>
-          </div>
-          <p><strong>Problem:</strong> one module owns events, world clock, denylist, anchor state, and path helpers, so every Agenda change wades through zone-timer wiring.</p>
-          <p><strong>Solution:</strong> hide CalendarEvents and WorldClock behind the existing CalendarService seam; call sites keep binding to the same interface.</p>
-          <ul class="list-disc pl-5 space-y-1 text-sm">
-            <li>locality: event bugs stop sharing a file with zone wiring</li>
-            <li>leverage: hottest file gets safe to change</li>
-            <li>pure date math becomes import-testable</li>
-            <li>interface unchanged; no caller churn</li>
-          </ul>
-        </article>
+  <h2 class="list-head" id="findings">Findings</h2>
+  <div class="scroll" tabindex="0" role="region" aria-labelledby="findings">
+  <table aria-labelledby="findings">
+    <thead>
+      <tr><th scope="col">Finding</th><th scope="col">Scope</th><th scope="col">Source</th><th scope="col">Done when</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row"><span class="sev high">High</span><br>F1. Dead Cpu module</th>
+        <td><code>Cpu.qml</code> ships 64 lines but no call site instantiates it. Cava holds the slot. Readers assume it runs.</td>
+        <td><code>modules/Cpu.qml</code>, <code>shell.qml</code> right cluster</td>
+        <td>Delete the file or wire it behind a flag. Record one deviation entry per the 05 carryover row.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev high">High</span><br>F2. Focus logic in two places</th>
+        <td>Tray and NotificationServer implement the same Hyprland match, cursor save, focus, and restore flow.</td>
+        <td><code>modules/Tray.qml</code>, <code>services/NotificationServer.qml</code> focusApp</td>
+        <td>One helper owns the flow. Both call sites use it. Live check passes on tray and toast actions.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev high">High</span><br>F3. Hidden calendar repoll can use stale args</th>
+        <td><code>setCalendarHidden</code> mutates the list then repolls in the same tick. The process command binding may not have refreshed yet.</td>
+        <td><code>services/CalendarService.qml</code> hiddenCalendarArgs, repollEvents</td>
+        <td>Defer with <code>Qt.callLater</code> as zones already do. Hide then show returns the right set on first poll.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev med">Medium</span><br>F4. Own writes trigger extra polls</th>
+        <td>Hidden and zone FileViews reload on their own <code>setText</code> and assign a new array each time, which queues another poll.</td>
+        <td><code>services/CalendarService.qml</code> idHiddenFile, idZonesFile</td>
+        <td>Compare before assign and skip when equal. Saving zones causes zero extra polls in the log.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev med">Medium</span><br>F5. Cache reload rebuilds the grid</th>
+        <td>Each cache reload parses to a new object, which invalidates the 42 cell grid and agenda even when days are unchanged.</td>
+        <td><code>services/CalendarService.qml</code> parseEventsCache, monthCells</td>
+        <td>Add a dirty check on file content. Rapid reloads keep the grid stable.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev low">Low</span><br>F6. Empty collector hides errors</th>
+        <td>The code attaches the events collector but leaves it empty. Failures surface only as exit codes, and the code drops helper stderr.</td>
+        <td><code>services/CalendarService.qml</code> idEventsCollector</td>
+        <td>Stream stderr to the log or remove the collector. A failed fetch names its cause.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev med">Medium</span><br>F7. State dir race is silent</th>
+        <td><code>mkdir -p</code> runs at the same time as FileViews on paths that may not exist. First load failures print nothing.</td>
+        <td><code>services/CalendarService.qml</code> idZonesDirProcess</td>
+        <td>Order dir creation before first read or log the miss. Cold start with no state dir loads defaults cleanly.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev med">Medium</span><br>F8. Last good cache sits in cache dir</th>
+        <td>The offline fallback lives under <code>XDG_CACHE_HOME</code>. Cache cleaners can wipe it. State dir would survive.</td>
+        <td><code>services/CalendarService.qml</code> calendar-events.json, <code>docs/adr/0002-*</code></td>
+        <td>Move the fallback to state dir or document the tradeoff. Clearing the cache keeps the last agenda.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev low">Low</span><br>F9. Panels close each other directly</th>
+        <td>Clock reaches into the notification service and the bell reaches into the calendar service to enforce one open panel.</td>
+        <td><code>modules/Clock.qml</code>, <code>modules/Notifications.qml</code></td>
+        <td>One closer owns the rule. Opening either panel closes the other in one live pass.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev med">Medium</span><br>F10. CalendarCenter mixes four views</th>
+        <td>Month grid, agenda, calendar settings, and world clock search share one 675 line file. Changes touch all four.</td>
+        <td><code>windows/CalendarCenter.qml</code></td>
+        <td>Extract one view at a time behind the same PanelShell. File count grows, line count per file falls.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev med">Medium</span><br>F11. Baseline can hide new debt</th>
+        <td>The lint baseline strips line numbers. A new violation with a known triple in a touched file may not surface as new.</td>
+        <td><code>scripts/lint-review-baseline.txt</code>, <code>scripts/lint-review.sh</code></td>
+        <td>Scope baselines per file or review touched files by hand. Next touch to CalendarService shows zero grandfathered adds.</td>
+      </tr>
+      <tr>
+        <th scope="row"><span class="sev high">High</span><br>F12. No QML regression net for panels</th>
+        <td>Placement clamp, stale marker, zone edit, and per calendar toggles rely on live checks. Helper tests and toast smoke do not cover them.</td>
+        <td><code>scripts/test-calendar-*.sh</code>, <code>scripts/smoke-toasts.sh</code>, <code>tests/fixtures/</code></td>
+        <td>Add one headless gate for panel placement and stale states. The gate runs without a compositor or documents why it cannot.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
 
-        <!-- C2 -->
-        <article id="c2" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-          <h2 class="font-serif text-2xl">Coordinate panels in one module</h2>
-          <div class="flex gap-2">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
-            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
-          </div>
-          <p class="font-mono text-sm text-slate-600">services/CalendarService.qml:217–240 · services/NotificationServer.qml:31–54 · modules/Clock.qml:14–18 · modules/Notifications.qml:18–26 · components/PanelShell.qml · windows/CalendarCenter.qml:53–54 · windows/NotificationCenter.qml:12–15 · windows/NotificationPopups.qml:31</p>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div class="rounded-lg border border-slate-200 bg-white p-4">
-              <p class="lbl text-slate-500 mb-2">Before — convention, copied twice</p>
-              <pre class="mermaid">flowchart LR
-                C[Clock trigger] -.->|hides center| N[Notifications trigger]
-                N -.->|hides calendar| C
-                C --> S1[CalendarService anchor]
-                N --> S2[NotificationServer anchor]
-                S1 & S2 --> P[PanelShell]
-                classDef leak stroke:#dc2626,stroke-width:2px;
-                class C,N,S1,S2 leak</pre>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white p-4">
-              <p class="lbl text-slate-500 mb-2">After — one seam owns exclusion</p>
-              <pre class="mermaid">flowchart LR
-                C[Clock trigger] --> K[PanelCoordinator]
-                N[Notifications trigger] --> K
-                K --> P[PanelShell]
-                classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
-                class K deep</pre>
-            </div>
-          </div>
-          <p><strong>Problem:</strong> one-panel-at-a-time is copied toggle/move/close wiring, so each new panel replicates the moved-check, the 300&nbsp;ms guard, and the cross-hide line — while both windows bind anchor per-singleton and popups read both visible flags.</p>
-          <p><strong>Solution:</strong> triggers call <span class="font-mono text-sm">open("calendar", screen, x)</span> on one coordinator; PanelShell binds to it.</p>
-          <ul class="list-disc pl-5 space-y-1 text-sm">
-            <li>leverage: weather panel gets placement free</li>
-            <li>locality: toggle/move/close in one module</li>
-            <li>popups bind one visible flag</li>
-            <li>mutual exclusion becomes drivable with stubs</li>
-          </ul>
-          <p class="text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Revises ADR-0001 wording (singletons as the state seam) to deliver its promise: future panels get placement free. Both windows bind anchor per-singleton today; popups read both visible flags.</p>
-        </article>
+  <p class="close">Gates run on every change: <strong><code>scripts/lint.sh</code></strong> for types,
+    <strong><code>scripts/lint-review.sh</code></strong> against the baseline,
+    <strong><code>scripts/test-calendar-fetch.sh</code></strong> and <strong><code>scripts/test-calendar-clock.sh</code></strong> for helpers,
+    <strong><code>scripts/smoke-toasts.sh</code></strong> for the toast layer. Logs at
+    <code>/run/user/1000/quickshell/by-id/*/log.log</code>. Never a second instance while the daily shell holds the
+    notification bus. Lasting gotchas go to <code>docs/coding-conventions.md</code> section 4, one-offs to
+    <code>docs/incidents/</code>.</p>
 
-        <!-- C3 -->
-        <article id="c3" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-          <h2 class="font-serif text-2xl">Unite toast and card action wiring</h2>
-          <div class="flex gap-2">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
-            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
-          </div>
-          <p class="font-mono text-sm text-slate-600">components/NotificationToast.qml:191–210 · components/NotificationCard.qml:80–122 · components/Card.qml</p>
-          <div class="grid md:grid-cols-2 gap-4 items-stretch">
-            <div class="rounded-lg border border-slate-200 p-4">
-              <p class="lbl text-slate-500 mb-3">Before — two shallow twins</p>
-              <div class="space-y-3">
-                <div>
-                  <div class="lbl text-slate-500 mb-1">Toast · interface ████████░ implementation ██</div>
-                  <div class="h-6 rounded bg-red-200 border border-red-400"></div>
-                  <div class="h-3 rounded bg-slate-200 mt-1"></div>
-                </div>
-                <div>
-                  <div class="lbl text-slate-500 mb-1">Card · interface ████████░ implementation ██</div>
-                  <div class="h-6 rounded bg-red-200 border border-red-400"></div>
-                  <div class="h-3 rounded bg-slate-200 mt-1"></div>
-                </div>
-              </div>
-            </div>
-            <div class="rounded-lg border border-slate-200 p-4">
-              <p class="lbl text-slate-500 mb-3">After — one deep action module</p>
-              <div>
-                <div class="lbl text-slate-500 mb-1">NotificationActions · interface ██ implementation ████████</div>
-                <div class="h-3 rounded bg-emerald-200 border border-emerald-500"></div>
-                <div class="h-14 rounded mt-1 deep"></div>
-                <div class="flex gap-2 mt-2">
-                  <div class="flex-1 mod-faded text-center lbl py-2">Toast</div>
-                  <div class="flex-1 mod-faded text-center lbl py-2">Card</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p><strong>Problem:</strong> two shallow modules repeat the same repeater plus focus-then-invoke ordering, so the use-after-dismiss fix lands in one and rots in the other.</p>
-          <p><strong>Solution:</strong> one NotificationActions module owns invoke/focus/reply ordering; toast and card bind to its small interface.</p>
-          <ul class="list-disc pl-5 space-y-1 text-sm">
-            <li>locality: invoke ordering fixed once</li>
-            <li>fake notification drives real assertions</li>
-            <li>interface shrinks; implementation absorbs twins</li>
-          </ul>
-        </article>
+  <h2 class="list-head" id="risks">Risks</h2>
+  <ul class="rows">
+    <li><span class="risk">Coupled closers.</span> Two panels enforce one open panel by writing to each other. A third panel triples the links. A shared closer removes the mesh.</li>
+    <li><span class="risk">All or nothing polls.</span> One dead calendar fails the whole 15 minute poll by design. Hiding the calendar is the escape hatch. Per calendar isolation stays out of scope until users ask.</li>
+    <li><span class="risk">Focus is best effort.</span> Outside click always dismisses. Escape needs panel focus. Fast re toggle inside 300 ms can swallow the open. Tests should encode this limit.</li>
+    <li><span class="risk">Cache loss looks like no data.</span> The stale marker covers failed polls. It does not cover a wiped cache dir. State dir storage or a startup seed closes the gap.</li>
+  </ul>
 
-        <!-- C4 -->
-        <article id="c4" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-          <h2 class="font-serif text-2xl">Own window focus in one module</h2>
-          <div class="flex gap-2">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
-            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
-          </div>
-          <p class="font-mono text-sm text-slate-600">services/NotificationServer.qml:78–153 · modules/Tray.qml:22–98</p>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div class="rounded-lg border border-slate-200 bg-white p-4">
-              <p class="lbl text-slate-500 mb-2">Before — same dance, two owners</p>
-              <pre class="mermaid">flowchart TB
-                A[focusApp in NotificationServer] --> D1[cursorpos + 0x + restore]
-                B[focusAppWindow in Tray] --> D2[cursorpos + 0x + restore]
-                classDef leak stroke:#dc2626,stroke-width:2px;
-                class D1,D2 leak</pre>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white p-4">
-              <p class="lbl text-slate-500 mb-2">After — one focus module</p>
-              <pre class="mermaid">flowchart TB
-                A[NotificationServer] --> F[FocusModule]
-                B[Tray] --> F
-                F --> H[hyprctl cursor dance]
-                classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
-                class F deep</pre>
-            </div>
-          </div>
-          <p><strong>Problem:</strong> token normalisation, class matching, and the cursor-save/restore workaround leak across the seam in duplicate, so one Hyprland change needs two landings.</p>
-          <p><strong>Solution:</strong> one focus module owns address normalisation plus the cursor dance; both call sites pass tokens.</p>
-          <ul class="list-disc pl-5 space-y-1 text-sm">
-            <li>leverage: one fix covers toasts, cards, tray</li>
-            <li>pure matching half becomes stub-testable</li>
-            <li>seam carries matching knowledge once</li>
-          </ul>
-        </article>
+  <h2 class="list-head" id="questions">Open questions</h2>
+  <ul class="rows">
+    <li><strong>Q1.</strong> Which CalendarCenter view splits first, and what stays shared through PanelShell?</li>
+    <li><strong>Q2.</strong> Where does the shared Hyprland focus helper live so Tray and NotificationServer both use it?</li>
+    <li><strong>Q3.</strong> Does the last good events cache move to state dir, or does the cache dir tradeoff stand?</li>
+    <li><strong>Q4.</strong> What headless check guards panel placement and stale rendering without a live compositor?</li>
+  </ul>
 
-        <!-- C5 -->
-        <article id="c5" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-          <h2 class="font-serif text-2xl">Section the CalendarCenter view</h2>
-          <div class="flex gap-2">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
-            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
-          </div>
-          <p class="font-mono text-sm text-slate-600">windows/CalendarCenter.qml (675 lines: grid 152–216 · settings 218–296 · agenda 298–419 · clock 430–636)</p>
-          <div class="grid md:grid-cols-2 gap-4 items-stretch">
-            <div class="rounded-lg border border-slate-200 p-4 space-y-1">
-              <p class="lbl text-slate-500 mb-2">Before — four thin bands</p>
-              <div class="h-10 rounded border-l-4 border-red-400 bg-red-50 flex items-center px-2 lbl">month grid</div>
-              <div class="h-10 rounded border-l-4 border-red-400 bg-red-50 flex items-center px-2 lbl">settings denylist</div>
-              <div class="h-10 rounded border-l-4 border-red-400 bg-red-50 flex items-center px-2 lbl">agenda + stale</div>
-              <div class="h-10 rounded border-l-4 border-red-400 bg-red-50 flex items-center px-2 lbl">world clock + zone edit</div>
-            </div>
-            <div class="rounded-lg border border-slate-200 p-4">
-              <p class="lbl text-slate-500 mb-2">After — deep sections</p>
-              <div class="mod-deep p-3 space-y-2">
-                <p class="lbl opacity-70">WorldClockSection</p>
-                <div class="rounded bg-white/10 px-2 py-1 lbl opacity-60">zoneMatches · canAddDraft · search row</div>
-              </div>
-              <div class="mod-deep p-3 mt-2">
-                <p class="lbl opacity-70">CalendarSettingsSection</p>
-              </div>
-              <div class="mod-faded text-center lbl py-2 mt-2">grid + agenda stay thin</div>
-            </div>
-          </div>
-          <p><strong>Problem:</strong> inline zone edit splits match/validate knowledge across the view and the module, so the view-to-module interface nearly matches the implementation.</p>
-          <p><strong>Solution:</strong> WorldClockSection and CalendarSettingsSection own their derivations; the view binds to small interfaces.</p>
-          <ul class="list-disc pl-5 space-y-1 text-sm">
-            <li>locality: zone bugs live in one module</li>
-            <li>sections render from stubbed zone lists</li>
-            <li>next clock feature skips 675 lines</li>
-          </ul>
-        </article>
-
-        <!-- C6 -->
-        <article id="c6" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-          <h2 class="font-serif text-2xl">Deepen MprisPlayers past selection</h2>
-          <div class="flex gap-2">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
-            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">mock</span>
-          </div>
-          <p class="font-mono text-sm text-slate-600">services/MprisPlayers.qml · modules/Media.qml</p>
-          <div class="grid md:grid-cols-2 gap-4">
-            <div class="rounded-lg border border-slate-200 bg-white p-4">
-              <p class="lbl text-slate-500 mb-2">Before — behaviour in the wiring</p>
-              <pre class="mermaid">flowchart LR
-                M[Media] -->|isPlaying, icons, text| S[MprisPlayers]
-                S -->|selection + index| M
-                S -.->|percentageProgress: no consumer| X((unused))
-                classDef leak stroke:#dc2626,stroke-width:2px;
-                class X leak</pre>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white p-4">
-              <p class="lbl text-slate-500 mb-2">After — strings and bools only</p>
-              <pre class="mermaid">flowchart LR
-                M[Media binds] --> S[MprisPlayers deep]
-                T[fake player in tests] --> S
-                classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
-                class S deep</pre>
-            </div>
-          </div>
-          <p><strong>Problem:</strong> playback-state quirks live in cross-file signal wiring, so the extracted selection state has no locality over the bugs that actually bite.</p>
-          <p><strong>Solution:</strong> the module owns isPlaying, status text, and progress with a fake-player injection point; Media binds only.</p>
-          <ul class="list-disc pl-5 space-y-1 text-sm">
-            <li>two adapters justify the seam: bus, fake</li>
-            <li>media gains its first stub test</li>
-            <li>dead progress finds a consumer or dies</li>
-          </ul>
-        </article>
-
-        <!-- C7 -->
-        <article id="c7" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-          <h2 class="font-serif text-2xl">Lift sink knowledge out of Audio</h2>
-          <div class="flex gap-2">
-            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-slate-200 text-slate-600">Speculative</span>
-            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">mock</span>
-          </div>
-          <p class="font-mono text-sm text-slate-600">modules/Audio.qml:20–72</p>
-          <div class="grid md:grid-cols-2 gap-4 items-stretch">
-            <div class="rounded-lg border border-slate-200 p-4">
-              <p class="lbl text-slate-500 mb-3">Before — device names in the view</p>
-              <div class="mod p-3 text-center lbl">Audio view<br/><span class="text-red-500">sinkOrder · sinkLabels · 5% math</span></div>
-            </div>
-            <div class="rounded-lg border border-slate-200 p-4">
-              <p class="lbl text-slate-500 mb-3">After — pure helper plus thin view</p>
-              <div class="mod-deep p-3 text-center lbl">AudioSinks helper<br/><span class="opacity-70">nextSink · stepVolume</span></div>
-              <div class="mod-faded text-center lbl py-2 mt-2">Audio view binds</div>
-            </div>
-          </div>
-          <p><strong>Problem:</strong> environment-specific sink names and volume rounding sit in a presentation module, untestable through clicks and wheel.</p>
-          <p><strong>Solution:</strong> pure AudioSinks helper takes the matching and the math; the view keeps bindings plus process calls.</p>
-          <ul class="list-disc pl-5 space-y-1 text-sm">
-            <li>pure half covers the breaking half</li>
-            <li>device list lives in one place</li>
-          </ul>
-        </article>
-
-      </section>
-
-      <section id="top-recommendation" class="bg-slate-900 text-stone-100 rounded-xl p-8 space-y-3">
-        <p class="text-xs uppercase tracking-widest text-emerald-300">Top recommendation</p>
-        <h2 class="font-serif text-3xl">Split the CalendarService singleton (<a href="#c1" class="underline text-emerald-300">C1</a>) first</h2>
-        <p class="text-stone-300">It is the hottest module in the repo and every recent calendar ticket touched it; a façade split is behaviour-preserving and makes each follow-up cheaper.</p>
-      </section>
-
-    </main>
-  </body>
+  <footer id="notes" aria-label="Notes">Both centers follow these rules: <code>centerWidth: 380</code>,
+    <code>centerMaxHeight: 540</code>, <code>centerOpenMs: 140</code>, <code>centerCloseMs: 120</code>,
+    <code>focusable: true</code>, <code>HyprlandFocusGrab</code> outside-close, <code>mask: Region</code> click-through.
+    Never bind window height to animated content. Toast popups use <code>toastWidth</code> with a fixed 720 canvas instead. <code>docs/plans/README.md</code> tracks this as REVIEW-01.
+    Source branch <code>feat/calendar-panel @ 97093ac</code>. I verified counts with the <code>lint.sh</code> file list.</footer>
+</main>
+</body>
 </html>
