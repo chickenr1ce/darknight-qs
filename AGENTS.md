@@ -43,6 +43,7 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 - For current context on the project, refer to `docs/plans/01-master-quickshell-migration.html`
 - Verify QML behavior against a live instance (`quickshell -p <dir>`); the standalone `qml` runtime's logging is broken in this environment. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.
 - Live debugging (log paths, geometry, IPC probing): `docs/debugging-quickshell.md`.
+- Io polling and file-cache behavior that upstream docs leave implicit (stale-command trap, FileView echo, probe recipe): `docs/quickshell-io-notes.md`.
 - Test instances claim `org.freedesktop.Notifications` at startup: stop/mask the current holder first, and never run a second instance while the daily shell holds the bus (it passes vacuously and spams the live screen).
 - Launch persistent daemons with `setsid` so they outlive the invoking shell; capture regions with `grim -g "x,y WxH"` instead of full-screen grabs.
 - Screenshots pasted into chat are not measurable: never call alignment from them. A visual verdict needs the capture saved to disk (`grim` to `/tmp`) plus a pixel or geometry reading; see `docs/debugging-quickshell.md`.

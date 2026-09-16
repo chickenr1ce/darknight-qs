@@ -194,9 +194,11 @@ Timer { id: idMediaTimer }
   Qt renders monochrome panel SVGs (e.g. Papirus `spotify-linux-32`,
   `steam_tray_mono`) as black on the dark bar, so tint theme sources to text
   and pass pixmaps through untinted (verified live 2026-09-13).
-- **Comments are why-only one-liners** (verdict 2026-09-13): state the trap or
-  reason, never what the code shows; directives (`// qmllint disable ...`)
-  stay.
+- **No comments unless absolutely necessary** (verdict 2026-09-16,
+  supersedes the why-only rule above): the code states the what, `docs/`
+  keeps the why. Keepers are machine directives (`// qmllint disable ...`,
+  `//@ pragma`, shebangs) and user-manual docstrings cited as docs. Trap
+  knowledge belongs in `docs/`, not beside the code.
 - **Fixed-height rows pin overflow to the top**: a row height shorter than its
   tallest child never centers the excess — a 22px pill in a fixed 18px row
   spans top to bottom of the slot (measured 8..30 in a 34 bar, verified live
@@ -207,6 +209,13 @@ Timer { id: idMediaTimer }
   verified 2026-09-14). Pin with an explicit fractional margin
   (`topMargin: (zoneHeight - implicitHeight) / 2`) when centering odd into
   even; at scale 2 the half pixel lands on a physical pixel and stays crisp.
+- **Root-level change handlers run before child bindings refresh**: a root
+  `onWorldZonesChanged` fires before a child `Process.command` binding
+  re-evaluates, so starting the process there captures the previous
+  arguments (verified live 2026-09-16: a new zone stayed blank until the
+  next minute tick). Defer the start with
+  `Qt.callLater(() => idZoneProcess.running = true)`; the command read at
+  launch then sees the fresh value.
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 

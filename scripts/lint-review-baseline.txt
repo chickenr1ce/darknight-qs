@@ -47,19 +47,24 @@ modules/Tray.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, o
 modules/Tray.qml STY-3 3 anchor.* properties using dot notation -- use group notation: anchor { ... }
 modules/Workspaces.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Workspaces.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
+services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CalendarService.qml BND-2 Imperative '=' on 'inMonth' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/CalendarService.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
+services/CalendarService.qml ORD-1 child object appears after function -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 services/CavaService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CavaService.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 services/CavaService.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 services/MprisPlayers.qml BND-5 list<> property has no granular change signals -- add/move/remove won't notify; consider a ListModel or notify manually
 services/MprisPlayers.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
+services/NotificationServer.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 shell.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 windows/CalendarCenter.qml ORD-1 child object appears after function -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CalendarCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
+windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 windows/NotificationCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions

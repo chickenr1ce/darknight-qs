@@ -1,29 +1,30 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs.config
 import qs.components
 import qs.services
 
-// Bell swaps outline for solid when history is unread; left-click toggles the center, right/middle-click DND.
 ModuleBox {
     id: root
 
+    property string monitorName: ""
+    property ShellScreen triggerScreen: null
+
     readonly property bool hasUnread: NotificationServer.unreadCount > 0 && !NotificationServer.dndEnabled
 
-    // Bell glyphs differ in advance width; reserve the widest so state swaps never reflow the bar (conventions §3).
     minWidth: 2 * root.horizontalPadding + Math.max(idNotificationsBellEmptyMetrics.advanceWidth, idNotificationsBellUnreadMetrics.advanceWidth, idNotificationsBellDndMetrics.advanceWidth)
 
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton)
             NotificationServer.toggleDnd();
         else {
-            // Shared corner with the calendar; never stack both panels.
+            const centerX = Globals.triggerCenterX(root, root.triggerScreen);
             CalendarService.calendarVisible = false;
-            NotificationServer.toggleCenter();
+            NotificationServer.toggleCenterAt(root.triggerScreen, centerX);
         }
     }
 
-    // Non-visual measurers (layouts ignore non-Items).
     TextMetrics {
         id: idNotificationsBellEmptyMetrics
 

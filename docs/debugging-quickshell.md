@@ -8,6 +8,11 @@ How to observe the running daily instance without disrupting it.
   reloads land here as `Configuration Loaded`, failures as
   `Failed to load configuration` with a `caused by` chain naming the file
   and line. The config auto-reloads on save, so watch this file after edits.
+- Every instance logs here, including `quickshell -p` test shells: match
+  the instance by its `Launching config:` line. Stale `by-id/` dirs pile
+  up across launches, so when in doubt pick the dir whose `log.log` was
+  written most recently. Redirecting stderr to a
+  file as well keeps one grepable stream per test run.
 - Binary log: the sibling `log.qslog` is not grepable directly; pipe it
   through strings first: `strings <log.qslog> | grep <pattern>`.
 - `console.log` lines appear in the text log prefixed with `DEBUG qml:`.

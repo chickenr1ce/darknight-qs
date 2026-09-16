@@ -2,78 +2,59 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
-// Calendar state for the clock panel; date-only plus world zones, no event backend yet.
-// No "pragma ComponentBehavior: Bound": combined with pragma Singleton it crashes qmllint (silent exit 255).
 Singleton {
     id: root
 
     property bool calendarVisible: false
 
-    // Press clears the grab before release toggles the clock, so a clock close would reopen without this window.
     property double calendarLastOutsideCloseAt: 0
 
-    function toggleCalendar() {
-        if (!root.calendarVisible && Date.now() - root.calendarLastOutsideCloseAt < 300)
-            return;
-        root.calendarVisible = !root.calendarVisible;
-    }
+    property ShellScreen anchorScreen: null
+    property real anchorCenterX: 0
 
-    function closeCalendarFromOutside() {
-        if (root.calendarVisible) {
-            root.calendarLastOutsideCloseAt = Date.now();
-            root.calendarVisible = false;
-        }
+    readonly property int eventsPollMs: 15 * 60 * 1000
+    readonly property int eventsStaleAfterMs: 30 * 60 * 1000
+    readonly property string eventsUrlFile: root.stateFile("calendar-url")
+    readonly property string eventsCachePath: root.cacheFile("calendar-events.json")
+    readonly property string stateDirPath: root.stateBase() + "/quickshell"
+    readonly property var eventsCache: root.parseEventsCache(idEventsCache.text())
+    readonly property var eventDays: root.eventsCache.days
+    readonly property string eventsFetchedAt: root.eventsCache.fetchedAt || ""
+    readonly property double eventsFetchedAtMs: Date.parse(root.eventsFetchedAt) || 0
+    readonly property var selectedDayEvents: root.eventDays[root.selectedIso] || []
+
+    property bool eventsLastPollFailed: false
+    property bool eventsPollQueued: false
+
+    property var hiddenCalendars: []
+    readonly property string hiddenCalendarsPath: root.stateFile("calendar-hidden")
+    readonly property var eventCalendars: Array.isArray(root.eventsCache.calendars) ? root.eventsCache.calendars : []
+    readonly property var hiddenCalendarArgs: {
+        const args = [];
+        for (let i = 0; i < root.hiddenCalendars.length; i++)
+            args.push("--gcalcli-ignore-calendar", root.hiddenCalendars[i]);
+        return args;
     }
 
     property int viewYear: new Date().getFullYear()
     property int viewMonth: new Date().getMonth()
 
-    // ISO yyyy-mm-dd for today; refreshed by the panel timer so midnight rolls over while open.
     property string todayIso: root.isoFor(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
 
     property string selectedIso: root.todayIso
 
-    function showToday() {
-        const now = new Date();
-        root.viewYear = now.getFullYear();
-        root.viewMonth = now.getMonth();
-        root.selectedIso = root.isoFor(now.getFullYear(), now.getMonth(), now.getDate());
-    }
+    property var worldZones: ["UTC", "America/New_York", "Europe/Berlin", "Asia/Tokyo"]
+    readonly property var commonZones: ["UTC", "America/New_York", "America/Chicago", "America/Los_Angeles", "Europe/London", "Europe/Berlin", "Asia/Tokyo", "Australia/Sydney"]
+    readonly property int maxZones: 6
+    readonly property string zonesPath: root.stateFile("calendar-zones")
+    readonly property string zonesListPath: Quickshell.shellDir + "/assets/iana-zones.json"
+    readonly property var ianaZones: root.parseZoneList(idZoneListFile.text())
 
-    function shiftMonth(delta: int) {
-        let month = root.viewMonth + delta;
-        let year = root.viewYear;
-        while (month < 0) {
-            month += 12;
-            year -= 1;
-        }
-        while (month > 11) {
-            month -= 12;
-            year += 1;
-        }
-        root.viewMonth = month;
-        root.viewYear = year;
-    }
-
-    function isoFor(year: int, month: int, day: int): string {
-        const m = String(month + 1).padStart(2, "0");
-        const d = String(day).padStart(2, "0");
-        return year + "-" + m + "-" + d;
-    }
-
-    // World zones shown under the grid; IANA names for Intl timeZone formatting.
-    readonly property var worldZones: ["UTC", "America/New_York", "Europe/Berlin", "Asia/Tokyo"]
-
-    function zoneLabel(iana: string): string {
-        const parts = iana.split("/");
-        return parts[parts.length - 1].replace("_", " ");
-    }
-
-    // 42 Monday-first cells covering the visible month plus leading and trailing days.
-    // Re-evaluates on view change and on today rollover via todayIso.
     readonly property var monthCells: {
         root.todayIso;
+        root.eventDays;
         const year = root.viewYear;
         const month = root.viewMonth;
         const first = new Date(year, month, 1);
@@ -110,13 +91,349 @@ Singleton {
                 day: cellDay,
                 inMonth: inMonth,
                 isToday: iso === root.todayIso,
-                isSelected: iso === root.selectedIso
+                isSelected: iso === root.selectedIso,
+                hasEvents: (root.eventDays[iso] || []).length > 0
             });
         }
         return cells;
     }
 
-    // No ": void" return type: qmllint crashes (exit 255) on void returns in pragma Singleton files.
+    property var zoneTimes: ({})
+
+    property bool zonePollQueued: false
+
+    onWorldZonesChanged: Qt.callLater(root.repollZoneTimes)
+
+    Timer {
+        id: idZoneTimer
+
+        interval: 60000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (!idZoneProcess.running)
+                idZoneProcess.running = true;
+        }
+    }
+
+    Process {
+        id: idZoneProcess
+
+        command: ["python3", Quickshell.shellDir + "/scripts/calendar-clock.py"].concat(root.worldZones)
+        stdout: idZoneCollector
+    }
+
+    StdioCollector {
+        id: idZoneCollector
+
+        onStreamFinished: {
+            root.zoneTimes = root.parseZoneTimes(idZoneCollector.text);
+            if (root.zonePollQueued) {
+                root.zonePollQueued = false;
+                idZoneProcess.running = true;
+            }
+        }
+    }
+
+    Timer {
+        id: idEventsTimer
+
+        interval: root.eventsPollMs
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.repollEvents()
+    }
+
+    Process {
+        id: idEventsProcess
+
+        command: ["python3", Quickshell.shellDir + "/scripts/calendar-fetch.py", "--url-file", root.eventsUrlFile, "--cache-file", root.eventsCachePath].concat(root.hiddenCalendarArgs)
+        stdout: idEventsCollector
+        onExited: code => {
+            if (code === 0) {
+                root.eventsLastPollFailed = false;
+                idEventsCache.reload();
+            } else {
+                root.eventsLastPollFailed = true;
+            }
+            if (root.eventsPollQueued) {
+                root.eventsPollQueued = false;
+                idEventsProcess.running = true;
+            }
+        }
+    }
+
+    StdioCollector {
+        id: idEventsCollector
+    }
+
+    FileView {
+        id: idEventsCache
+
+        path: "file://" + root.eventsCachePath
+        printErrors: false
+        watchChanges: true
+        onFileChanged: this.reload()
+    }
+
+    FileView {
+        id: idHiddenFile
+
+        path: "file://" + root.hiddenCalendarsPath
+        printErrors: false
+        watchChanges: true
+        onFileChanged: this.reload()
+        onLoaded: root.hiddenCalendars = root.parseHiddenCalendars(idHiddenFile.text())
+    }
+
+    Process {
+        id: idZonesDirProcess
+
+        command: ["mkdir", "-p", root.stateDirPath]
+        running: true
+    }
+
+    FileView {
+        id: idZonesFile
+
+        path: "file://" + root.zonesPath
+        printErrors: false
+        watchChanges: true
+        onFileChanged: this.reload()
+        onLoaded: root.worldZones = root.parseZones(idZonesFile.text())
+    }
+
+    FileView {
+        id: idZoneListFile
+
+        path: "file://" + root.zonesListPath
+        printErrors: false
+        watchChanges: true
+        onFileChanged: this.reload()
+    }
+
+    function toggleCalendar() {
+        if (!root.calendarVisible && Date.now() - root.calendarLastOutsideCloseAt < 300)
+            return;
+        root.calendarVisible = !root.calendarVisible;
+    }
+
+    function toggleCalendarAt(screen, centerX: real) {
+        if (screen) {
+            const prevName = root.anchorScreen ? root.anchorScreen.name : "";
+            const moved = root.calendarVisible && prevName !== "" && screen.name !== prevName;
+            root.anchorScreen = screen;
+            root.anchorCenterX = centerX;
+            if (moved)
+                return;
+        }
+        root.toggleCalendar();
+    }
+
+    function closeCalendarFromOutside() {
+        if (root.calendarVisible) {
+            root.calendarLastOutsideCloseAt = Date.now();
+            root.calendarVisible = false;
+        }
+    }
+
+    function stateBase(): string {
+        return Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state");
+    }
+
+    function cacheBase(): string {
+        return Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache");
+    }
+
+    function stateFile(name: string): string {
+        return root.stateDirPath + "/" + name;
+    }
+
+    function cacheFile(name: string): string {
+        return root.cacheBase() + "/quickshell/" + name;
+    }
+
+    function parseEventsCache(jsonText: string) {
+        try {
+            const parsed = JSON.parse(jsonText);
+            if (parsed && parsed.days)
+                return parsed;
+        } catch (e) {
+        }
+        return {
+            "fetchedAt": "",
+            "days": {},
+            "calendars": []
+        };
+    }
+
+    function dateLabel(iso: string): string {
+        const parts = iso.split("-");
+        if (parts.length !== 3)
+            return iso;
+        return Qt.formatDateTime(new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])), "dddd, d MMMM");
+    }
+
+    function showToday() {
+        const now = new Date();
+        root.viewYear = now.getFullYear();
+        root.viewMonth = now.getMonth();
+        root.selectedIso = root.isoFor(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+
+    function shiftMonth(delta: int) {
+        let month = root.viewMonth + delta;
+        let year = root.viewYear;
+        while (month < 0) {
+            month += 12;
+            year -= 1;
+        }
+        while (month > 11) {
+            month -= 12;
+            year += 1;
+        }
+        root.viewMonth = month;
+        root.viewYear = year;
+    }
+
+    function isoFor(year: int, month: int, day: int): string {
+        const m = String(month + 1).padStart(2, "0");
+        const d = String(day).padStart(2, "0");
+        return year + "-" + m + "-" + d;
+    }
+
+    function zoneLabel(iana: string): string {
+        const parts = iana.split("/");
+        return parts[parts.length - 1].replace("_", " ");
+    }
+
+    function parseZoneTimes(output) {
+        const times = {};
+        const lines = output.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+            const eq = lines[i].indexOf("=");
+            if (eq <= 0)
+                continue;
+            const rest = lines[i].slice(eq + 1);
+            const sp = rest.indexOf(" ");
+            times[lines[i].slice(0, eq)] = {
+                t: sp < 0 ? rest : rest.slice(0, sp),
+                d: sp < 0 ? null : rest.slice(sp + 1)
+            };
+        }
+        return times;
+    }
+
+    function zoneTime(iana: string): string {
+        const e = root.zoneTimes[iana];
+        return e && e.t ? e.t : "";
+    }
+
+    function zoneDiff(iana: string): string {
+        const e = root.zoneTimes[iana];
+        if (!e || e.d === undefined || e.d === null || e.d === "")
+            return "";
+        const m = Number(e.d);
+        const sign = m < 0 ? "-" : "+";
+        const abs = Math.abs(m);
+        const h = Math.floor(abs / 60);
+        const mm = abs % 60;
+        const body = mm === 0 ? h + "h" : h + ":" + String(mm).padStart(2, "0") + "h";
+        return "(" + sign + body + ")";
+    }
+
+    function zoneTitle(iana: string): string {
+        const diff = root.zoneDiff(iana);
+        return diff === "" ? root.zoneLabel(iana) : root.zoneLabel(iana) + " " + diff;
+    }
+
+    function isValidZoneName(name: string): bool {
+        return /^[A-Za-z0-9_\-+\/]+$/.test(name);
+    }
+
+    function parseZones(text: string) {
+        const zones = [];
+        const lines = text.split("\n");
+        for (let i = 0; i < lines.length && zones.length < root.maxZones; i++) {
+            const name = lines[i].trim();
+            if (name !== "" && root.isValidZoneName(name) && !zones.includes(name))
+                zones.push(name);
+        }
+        return zones;
+    }
+
+    function parseZoneList(text) {
+        try {
+            const parsed = JSON.parse(text);
+            if (Array.isArray(parsed))
+                return parsed;
+        } catch (e) {
+        }
+        return [];
+    }
+    function saveZones() {
+        idZonesFile.setText(root.worldZones.length > 0 ? root.worldZones.join("\n") + "\n" : "");
+    }
+
+    function parseHiddenCalendars(text: string) {
+        const hidden = [];
+        const lines = text.split("\n");
+        for (let i = 0; i < lines.length; i++) {
+            const name = lines[i].trim();
+            if (name !== "" && !hidden.includes(name))
+                hidden.push(name);
+        }
+        return hidden;
+    }
+
+    function saveHiddenCalendars() {
+        idHiddenFile.setText(root.hiddenCalendars.length > 0 ? root.hiddenCalendars.join("\n") + "\n" : "");
+    }
+
+    function setCalendarHidden(name: string, hide: bool) {
+        if (hide && !root.hiddenCalendars.includes(name))
+            root.hiddenCalendars = root.hiddenCalendars.concat([name]);
+        else if (!hide)
+            root.hiddenCalendars = root.hiddenCalendars.filter(n => n !== name);
+        else
+            return;
+        root.saveHiddenCalendars();
+        root.repollEvents();
+    }
+
+    function repollEvents() {
+        if (idEventsProcess.running)
+            root.eventsPollQueued = true;
+        else
+            idEventsProcess.running = true;
+    }
+
+    function repollZoneTimes() {
+        if (idZoneProcess.running)
+            root.zonePollQueued = true;
+        else
+            idZoneProcess.running = true;
+    }
+
+    function addZone(iana: string) {
+        const name = iana.trim();
+        if (name === "" || root.worldZones.includes(name) || root.worldZones.length >= root.maxZones)
+            return;
+        if (!root.isValidZoneName(name))
+            return;
+        root.worldZones = root.worldZones.concat([name]);
+        root.saveZones();
+    }
+
+    function removeZone(iana: string) {
+        if (!root.worldZones.includes(iana))
+            return;
+        root.worldZones = root.worldZones.filter(z => z !== iana);
+        root.saveZones();
+    }
+
     function selectDay(iso: string) {
         root.selectedIso = iso;
     }

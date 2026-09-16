@@ -8,8 +8,6 @@ import qs.config
 import qs.modules
 import qs.windows
 
-// One PanelWindow per screen; ActiveWindow stays centered, Tray rides the left
-// cluster and Media/Audio/Cpu/Notifications/PowerMenu the right (DP-1 only).
 
 ShellRoot {
     id: root
@@ -36,7 +34,6 @@ ShellRoot {
                 right: true
             }
 
-            // One full-width surface behind all regions; modules render transparently on top.
             Rectangle {
                 id: idSlab
 
@@ -53,11 +50,9 @@ ShellRoot {
                 radius: Globals.slabRadius
                 color: Colors.background
 
-                // idSpacer is measured in layout coordinates; +slabEdgePadding converts to slab coordinates.
                 readonly property real leftClusterEdge: idSpacer.x + Globals.slabEdgePadding
                 readonly property real rightClusterEdge: idSpacer.x + idSpacer.width + Globals.slabEdgePadding
 
-                // Flank the center region only; hidden rather than colliding with side modules on narrow bars.
                 Rectangle {
                     id: idLeftHairline
 
@@ -98,6 +93,8 @@ ShellRoot {
                 }
 
                 Clock {
+                    monitorName: idPanelWindow.monitorName
+                    triggerScreen: idPanelWindow.modelData
                 }
                 Workspaces {
                     monitorName: idPanelWindow.monitorName
@@ -120,11 +117,9 @@ ShellRoot {
                 Audio {
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
-                // Cava holds the slot for now; uncomment to restore Cpu.
-                // Cpu {
-                //     visible: idPanelWindow.monitorName === "DP-1"
-                // }
                 Notifications {
+                    monitorName: idPanelWindow.monitorName
+                    triggerScreen: idPanelWindow.modelData
                     visible: idPanelWindow.monitorName === "DP-1"
                 }
 
@@ -133,7 +128,6 @@ ShellRoot {
                 }
             }
 
-            // Stays centered regardless of side widths; may overlap edge modules on very long titles (as in waybar).
             ActiveWindow {
                 id: idActiveWindow
 

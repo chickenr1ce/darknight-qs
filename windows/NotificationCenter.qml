@@ -6,15 +6,15 @@ import qs.components
 import qs.config
 import qs.services
 
-// Floating notification center: 380px panel, 540px max, 8px below the bar, right-aligned to the bell.
-// Fixed canvas: never bind window height to content during transitions (conventions §4); the mask tracks real size instead.
 PanelShell {
     id: root
+
+    anchorScreen: NotificationServer.anchorScreen
+    anchorCenterX: NotificationServer.anchorCenterX
 
     panelVisible: NotificationServer.centerVisible
     onOutsideClicked: NotificationServer.closeCenterFromOutside()
 
-    // Reassign, never mutate, so bindings on the map re-evaluate across history rebuilds.
     property var expandedGroups: ({})
 
     function toggleGroup(appName: string) {
@@ -23,7 +23,6 @@ PanelShell {
         root.expandedGroups = next;
     }
 
-    // Scans by count so this re-evaluates on every append/remove.
     readonly property var groups: {
         const order = [];
         const byName = {};
@@ -63,7 +62,6 @@ PanelShell {
 
             Layout.alignment: Qt.AlignVCenter
 
-            // Always laid out (disabled when empty) so DND never slides when the pill appears/disappears.
             disabled: NotificationServer.unreadCount === 0
             text: qsTr("Clear All")
             onClicked: NotificationServer.dismissAll()

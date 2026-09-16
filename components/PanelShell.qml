@@ -6,8 +6,6 @@ import Quickshell
 import Quickshell.Hyprland
 import qs.config
 
-// Floating panel shell: fixed canvas, click-through mask, outside-close grab.
-// Content slots into the inner column; owners control visibility via panelVisible.
 
 // qmllint disable uncreatable-type
 PanelWindow {
@@ -16,31 +14,50 @@ PanelWindow {
     required property bool panelVisible
     default property alias content: idShellLayout.data
 
+    property ShellScreen anchorScreen: null
+    property real anchorCenterX: 0
+
     signal outsideClicked()
+
+    readonly property int anchorScreenWidth: root.anchorScreen ? root.anchorScreen.width : Globals.centerWidth + 2 * Globals.panelEdgeMargin
+    readonly property real anchorPanelWidth: Math.min(Globals.centerWidth, root.anchorScreenWidth - 2 * Globals.panelEdgeMargin)
+
+    readonly property real anchorLeft: {
+        const raw = root.anchorCenterX - root.anchorPanelWidth / 2;
+        const maxLeft = root.anchorScreenWidth - root.anchorPanelWidth - Globals.panelEdgeMargin;
+        return Math.min(Math.max(raw, Globals.panelEdgeMargin), Math.max(maxLeft, Globals.panelEdgeMargin));
+    }
 
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
 
-    // Lets the compositor route keys to fields inside; takes focus on click only, never unprompted.
+    screen: root.anchorScreen
+
     focusable: true
 
     anchors {
         top: true
-        right: true
+        left: true
     }
 
     margins {
-        top: Globals.barHeight + Globals.moduleMargin + 8
-        right: Globals.horizontalBarMargin + Globals.slabEdgePadding
+        top: Globals.barHeight + Globals.moduleMargin + Globals.panelTopGap
+        left: Math.round(root.anchorLeft)
     }
 
-    implicitWidth: Globals.centerWidth
+    implicitWidth: root.anchorPanelWidth
     implicitHeight: Globals.centerMaxHeight
 
-    // Animation lives on the inner panel (Windows lack opacity/transform); visible holds through close so the fade renders.
+    Shortcut {
+        id: idEscapeShortcut
+
+        enabled: root.panelVisible
+        sequence: "Escape"
+        onActivated: root.outsideClicked()
+    }
+
     visible: root.panelVisible || idPanel.opacity > 0
 
-    // Click-through everywhere except the panel; emptied while hidden so a faded frame can't swallow input.
     mask: Region {
         x: 0
         y: 0
@@ -48,7 +65,6 @@ PanelWindow {
         height: root.visible ? idPanel.height : 0
     }
 
-    // Outside click closes the panel; the compositor clears the grab when input lands outside.
     HyprlandFocusGrab {
         id: idShellFocusGrab
 
@@ -77,7 +93,7 @@ PanelWindow {
 
         radius: Globals.panelRadius
         color: Colors.panel
-        border.width: 1
+        border.width: Globals.hairlineHeight
         border.color: Colors.panelBorder
 
         ColumnLayout {

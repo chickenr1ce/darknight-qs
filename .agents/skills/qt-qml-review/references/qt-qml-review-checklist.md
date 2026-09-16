@@ -102,6 +102,14 @@ The runtime detects single-cycle loops
 loops cause performance degradation. Common source: `implicitWidth` /
 `implicitHeight` in layouts.
 
+### (agent): Stale child bindings in root change handlers
+A root-level `onXChanged` handler runs before child bindings depending
+on `X` refresh. Starting a `Process` or reading a child-bound property
+synchronously there captures the previous value — e.g. a repoll launched
+from `onWorldZonesChanged` runs with the old zone list. Flag any
+`running = true` (or bound-property read) in a root change handler whose
+target binds the changed property; the fix is `Qt.callLater`.
+
 ### (agent): Property alias chains
 Aliases to aliases are fragile. Each link must resolve; if any
 intermediate component hasn't finished initialization, the value is

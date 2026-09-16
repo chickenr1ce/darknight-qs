@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs.components
 import qs.config
 import qs.services
@@ -7,10 +8,13 @@ import qs.services
 ModuleBox {
     id: root
 
-    // Shared corner with the notification center; never stack both panels.
+    property string monitorName: ""
+    property ShellScreen triggerScreen: null
+
     onClicked: {
+        const centerX = Globals.triggerCenterX(root, root.triggerScreen);
         NotificationServer.centerVisible = false;
-        CalendarService.toggleCalendar();
+        CalendarService.toggleCalendarAt(root.triggerScreen, centerX);
     }
 
     Text {
