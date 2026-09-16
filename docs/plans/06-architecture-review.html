@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Architecture review — quickshell</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .mod { border: 1.5px solid #94a3b8; border-radius: .5rem; background: #fff; }
+      .mod-deep { border: 3px solid #0f172a; border-radius: .5rem; background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; }
+      .mod-faded { border: 1.5px solid #cbd5e1; border-radius: .5rem; background: #f1f5f9; color: #94a3b8; }
+      .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+      pre.mermaid { background: transparent; }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+      <header class="space-y-4">
+        <p class="text-xs uppercase tracking-widest text-slate-500">quickshell · 2026-09-16 · 7 candidates</p>
+        <h1 class="font-serif text-4xl">Architecture review</h1>
+        <div class="flex flex-wrap gap-4 text-xs text-slate-600">
+          <span class="inline-flex items-center gap-2"><span class="inline-block w-8 h-5 mod"></span> module</span>
+          <span class="inline-flex items-center gap-2"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="#64748b" stroke-width="2" stroke-dasharray="4 3"/></svg> seam</span>
+          <span class="inline-flex items-center gap-2"><svg width="34" height="10"><line x1="0" y1="5" x2="28" y2="5" stroke="#dc2626" stroke-width="2"/><polygon points="28,1 34,5 28,9" fill="#dc2626"/></svg> leakage</span>
+          <span class="inline-flex items-center gap-2"><span class="inline-block w-8 h-5 mod-deep"></span> deep module</span>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-10">
+
+        <!-- C1 -->
+        <article id="c1" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <h2 class="font-serif text-2xl">Split the CalendarService singleton</h2>
+          <div class="flex gap-2">
+            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
+            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+          </div>
+          <p class="font-mono text-sm text-slate-600">services/CalendarService.qml · windows/CalendarCenter.qml · scripts/calendar-fetch.py</p>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="lbl text-slate-500 mb-2">Before — one shallow hub</p>
+              <pre class="mermaid">flowchart TB
+                S[CalendarService 440 lines] --> E[events cache + monthCells]
+                S --> W[world clock poll + zones]
+                S --> H[hidden-calendar denylist]
+                S --> A[panel anchor + visibility]
+                S --> P[XDG path helpers]
+                classDef hub fill:#fef2f2,stroke:#dc2626,stroke-width:2px;</pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="lbl text-slate-500 mb-2">After — façade over two deep modules</p>
+              <pre class="mermaid">flowchart TB
+                F[CalendarService façade] --> E[CalendarEvents]
+                F --> W[WorldClock]
+                E --> C[cache + monthCells + hidden]
+                W --> Z[zones + times + persistence]
+                classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
+                class E,W deep</pre>
+            </div>
+          </div>
+          <p><strong>Problem:</strong> one module owns events, world clock, denylist, anchor state, and path helpers, so every Agenda change wades through zone-timer wiring.</p>
+          <p><strong>Solution:</strong> hide CalendarEvents and WorldClock behind the existing CalendarService seam; call sites keep binding to the same interface.</p>
+          <ul class="list-disc pl-5 space-y-1 text-sm">
+            <li>locality: event bugs stop sharing a file with zone wiring</li>
+            <li>leverage: hottest file gets safe to change</li>
+            <li>pure date math becomes import-testable</li>
+            <li>interface unchanged; no caller churn</li>
+          </ul>
+        </article>
+
+        <!-- C2 -->
+        <article id="c2" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <h2 class="font-serif text-2xl">Coordinate panels in one module</h2>
+          <div class="flex gap-2">
+            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
+            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+          </div>
+          <p class="font-mono text-sm text-slate-600">services/CalendarService.qml:217–240 · services/NotificationServer.qml:31–54 · modules/Clock.qml:14–18 · modules/Notifications.qml:18–26 · components/PanelShell.qml · windows/CalendarCenter.qml:53–54 · windows/NotificationCenter.qml:12–15 · windows/NotificationPopups.qml:31</p>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="lbl text-slate-500 mb-2">Before — convention, copied twice</p>
+              <pre class="mermaid">flowchart LR
+                C[Clock trigger] -.->|hides center| N[Notifications trigger]
+                N -.->|hides calendar| C
+                C --> S1[CalendarService anchor]
+                N --> S2[NotificationServer anchor]
+                S1 & S2 --> P[PanelShell]
+                classDef leak stroke:#dc2626,stroke-width:2px;
+                class C,N,S1,S2 leak</pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="lbl text-slate-500 mb-2">After — one seam owns exclusion</p>
+              <pre class="mermaid">flowchart LR
+                C[Clock trigger] --> K[PanelCoordinator]
+                N[Notifications trigger] --> K
+                K --> P[PanelShell]
+                classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
+                class K deep</pre>
+            </div>
+          </div>
+          <p><strong>Problem:</strong> one-panel-at-a-time is copied toggle/move/close wiring, so each new panel replicates the moved-check, the 300&nbsp;ms guard, and the cross-hide line — while both windows bind anchor per-singleton and popups read both visible flags.</p>
+          <p><strong>Solution:</strong> triggers call <span class="font-mono text-sm">open("calendar", screen, x)</span> on one coordinator; PanelShell binds to it.</p>
+          <ul class="list-disc pl-5 space-y-1 text-sm">
+            <li>leverage: weather panel gets placement free</li>
+            <li>locality: toggle/move/close in one module</li>
+            <li>popups bind one visible flag</li>
+            <li>mutual exclusion becomes drivable with stubs</li>
+          </ul>
+          <p class="text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Revises ADR-0001 wording (singletons as the state seam) to deliver its promise: future panels get placement free. Both windows bind anchor per-singleton today; popups read both visible flags.</p>
+        </article>
+
+        <!-- C3 -->
+        <article id="c3" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <h2 class="font-serif text-2xl">Unite toast and card action wiring</h2>
+          <div class="flex gap-2">
+            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
+            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+          </div>
+          <p class="font-mono text-sm text-slate-600">components/NotificationToast.qml:191–210 · components/NotificationCard.qml:80–122 · components/Card.qml</p>
+          <div class="grid md:grid-cols-2 gap-4 items-stretch">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-3">Before — two shallow twins</p>
+              <div class="space-y-3">
+                <div>
+                  <div class="lbl text-slate-500 mb-1">Toast · interface ████████░ implementation ██</div>
+                  <div class="h-6 rounded bg-red-200 border border-red-400"></div>
+                  <div class="h-3 rounded bg-slate-200 mt-1"></div>
+                </div>
+                <div>
+                  <div class="lbl text-slate-500 mb-1">Card · interface ████████░ implementation ██</div>
+                  <div class="h-6 rounded bg-red-200 border border-red-400"></div>
+                  <div class="h-3 rounded bg-slate-200 mt-1"></div>
+                </div>
+              </div>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-3">After — one deep action module</p>
+              <div>
+                <div class="lbl text-slate-500 mb-1">NotificationActions · interface ██ implementation ████████</div>
+                <div class="h-3 rounded bg-emerald-200 border border-emerald-500"></div>
+                <div class="h-14 rounded mt-1 deep"></div>
+                <div class="flex gap-2 mt-2">
+                  <div class="flex-1 mod-faded text-center lbl py-2">Toast</div>
+                  <div class="flex-1 mod-faded text-center lbl py-2">Card</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p><strong>Problem:</strong> two shallow modules repeat the same repeater plus focus-then-invoke ordering, so the use-after-dismiss fix lands in one and rots in the other.</p>
+          <p><strong>Solution:</strong> one NotificationActions module owns invoke/focus/reply ordering; toast and card bind to its small interface.</p>
+          <ul class="list-disc pl-5 space-y-1 text-sm">
+            <li>locality: invoke ordering fixed once</li>
+            <li>fake notification drives real assertions</li>
+            <li>interface shrinks; implementation absorbs twins</li>
+          </ul>
+        </article>
+
+        <!-- C4 -->
+        <article id="c4" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <h2 class="font-serif text-2xl">Own window focus in one module</h2>
+          <div class="flex gap-2">
+            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
+            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+          </div>
+          <p class="font-mono text-sm text-slate-600">services/NotificationServer.qml:78–153 · modules/Tray.qml:22–98</p>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="lbl text-slate-500 mb-2">Before — same dance, two owners</p>
+              <pre class="mermaid">flowchart TB
+                A[focusApp in NotificationServer] --> D1[cursorpos + 0x + restore]
+                B[focusAppWindow in Tray] --> D2[cursorpos + 0x + restore]
+                classDef leak stroke:#dc2626,stroke-width:2px;
+                class D1,D2 leak</pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="lbl text-slate-500 mb-2">After — one focus module</p>
+              <pre class="mermaid">flowchart TB
+                A[NotificationServer] --> F[FocusModule]
+                B[Tray] --> F
+                F --> H[hyprctl cursor dance]
+                classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
+                class F deep</pre>
+            </div>
+          </div>
+          <p><strong>Problem:</strong> token normalisation, class matching, and the cursor-save/restore workaround leak across the seam in duplicate, so one Hyprland change needs two landings.</p>
+          <p><strong>Solution:</strong> one focus module owns address normalisation plus the cursor dance; both call sites pass tokens.</p>
+          <ul class="list-disc pl-5 space-y-1 text-sm">
+            <li>leverage: one fix covers toasts, cards, tray</li>
+            <li>pure matching half becomes stub-testable</li>
+            <li>seam carries matching knowledge once</li>
+          </ul>
+        </article>
+
+        <!-- C5 -->
+        <article id="c5" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <h2 class="font-serif text-2xl">Section the CalendarCenter view</h2>
+          <div class="flex gap-2">
+            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
+            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+          </div>
+          <p class="font-mono text-sm text-slate-600">windows/CalendarCenter.qml (675 lines: grid 152–216 · settings 218–296 · agenda 298–419 · clock 430–636)</p>
+          <div class="grid md:grid-cols-2 gap-4 items-stretch">
+            <div class="rounded-lg border border-slate-200 p-4 space-y-1">
+              <p class="lbl text-slate-500 mb-2">Before — four thin bands</p>
+              <div class="h-10 rounded border-l-4 border-red-400 bg-red-50 flex items-center px-2 lbl">month grid</div>
+              <div class="h-10 rounded border-l-4 border-red-400 bg-red-50 flex items-center px-2 lbl">settings denylist</div>
+              <div class="h-10 rounded border-l-4 border-red-400 bg-red-50 flex items-center px-2 lbl">agenda + stale</div>
+              <div class="h-10 rounded border-l-4 border-red-400 bg-red-50 flex items-center px-2 lbl">world clock + zone edit</div>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">After — deep sections</p>
+              <div class="mod-deep p-3 space-y-2">
+                <p class="lbl opacity-70">WorldClockSection</p>
+                <div class="rounded bg-white/10 px-2 py-1 lbl opacity-60">zoneMatches · canAddDraft · search row</div>
+              </div>
+              <div class="mod-deep p-3 mt-2">
+                <p class="lbl opacity-70">CalendarSettingsSection</p>
+              </div>
+              <div class="mod-faded text-center lbl py-2 mt-2">grid + agenda stay thin</div>
+            </div>
+          </div>
+          <p><strong>Problem:</strong> inline zone edit splits match/validate knowledge across the view and the module, so the view-to-module interface nearly matches the implementation.</p>
+          <p><strong>Solution:</strong> WorldClockSection and CalendarSettingsSection own their derivations; the view binds to small interfaces.</p>
+          <ul class="list-disc pl-5 space-y-1 text-sm">
+            <li>locality: zone bugs live in one module</li>
+            <li>sections render from stubbed zone lists</li>
+            <li>next clock feature skips 675 lines</li>
+          </ul>
+        </article>
+
+        <!-- C6 -->
+        <article id="c6" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <h2 class="font-serif text-2xl">Deepen MprisPlayers past selection</h2>
+          <div class="flex gap-2">
+            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
+            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">mock</span>
+          </div>
+          <p class="font-mono text-sm text-slate-600">services/MprisPlayers.qml · modules/Media.qml</p>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="lbl text-slate-500 mb-2">Before — behaviour in the wiring</p>
+              <pre class="mermaid">flowchart LR
+                M[Media] -->|isPlaying, icons, text| S[MprisPlayers]
+                S -->|selection + index| M
+                S -.->|percentageProgress: no consumer| X((unused))
+                classDef leak stroke:#dc2626,stroke-width:2px;
+                class X leak</pre>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="lbl text-slate-500 mb-2">After — strings and bools only</p>
+              <pre class="mermaid">flowchart LR
+                M[Media binds] --> S[MprisPlayers deep]
+                T[fake player in tests] --> S
+                classDef deep fill:#0f172a,stroke:#0f172a,color:#f8fafc;
+                class S deep</pre>
+            </div>
+          </div>
+          <p><strong>Problem:</strong> playback-state quirks live in cross-file signal wiring, so the extracted selection state has no locality over the bugs that actually bite.</p>
+          <p><strong>Solution:</strong> the module owns isPlaying, status text, and progress with a fake-player injection point; Media binds only.</p>
+          <ul class="list-disc pl-5 space-y-1 text-sm">
+            <li>two adapters justify the seam: bus, fake</li>
+            <li>media gains its first stub test</li>
+            <li>dead progress finds a consumer or dies</li>
+          </ul>
+        </article>
+
+        <!-- C7 -->
+        <article id="c7" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+          <h2 class="font-serif text-2xl">Lift sink knowledge out of Audio</h2>
+          <div class="flex gap-2">
+            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-slate-200 text-slate-600">Speculative</span>
+            <span class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">mock</span>
+          </div>
+          <p class="font-mono text-sm text-slate-600">modules/Audio.qml:20–72</p>
+          <div class="grid md:grid-cols-2 gap-4 items-stretch">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-3">Before — device names in the view</p>
+              <div class="mod p-3 text-center lbl">Audio view<br/><span class="text-red-500">sinkOrder · sinkLabels · 5% math</span></div>
+            </div>
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-3">After — pure helper plus thin view</p>
+              <div class="mod-deep p-3 text-center lbl">AudioSinks helper<br/><span class="opacity-70">nextSink · stepVolume</span></div>
+              <div class="mod-faded text-center lbl py-2 mt-2">Audio view binds</div>
+            </div>
+          </div>
+          <p><strong>Problem:</strong> environment-specific sink names and volume rounding sit in a presentation module, untestable through clicks and wheel.</p>
+          <p><strong>Solution:</strong> pure AudioSinks helper takes the matching and the math; the view keeps bindings plus process calls.</p>
+          <ul class="list-disc pl-5 space-y-1 text-sm">
+            <li>pure half covers the breaking half</li>
+            <li>device list lives in one place</li>
+          </ul>
+        </article>
+
+      </section>
+
+      <section id="top-recommendation" class="bg-slate-900 text-stone-100 rounded-xl p-8 space-y-3">
+        <p class="text-xs uppercase tracking-widest text-emerald-300">Top recommendation</p>
+        <h2 class="font-serif text-3xl">Split the CalendarService singleton (<a href="#c1" class="underline text-emerald-300">C1</a>) first</h2>
+        <p class="text-stone-300">It is the hottest module in the repo and every recent calendar ticket touched it; a façade split is behaviour-preserving and makes each follow-up cheaper.</p>
+      </section>
+
+    </main>
+  </body>
+</html>

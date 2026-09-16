@@ -13,6 +13,7 @@ This directory contains the architectural blueprints, migration roadmaps, design
 | **03** | [`03-phase-6b-notifications-exploration.html`](03-phase-6b-notifications-exploration.html) | **ECO-HY3b** (Phase 6b) | 🟢 Archived | Initial exploratory designs (Concepts A, B, C), live sandbox, and comparative matrix for the native notification daemon. |
 | **04** | [`04-phase-6b-notifications-spec.html`](04-phase-6b-notifications-spec.html) | **ECO-HY3b** (Phase 6b) | 🟢 Implemented (spec frozen) | Concrete specification for **Design B** (Power User Action Center: `1A + 2A + 3A + 4A`), collapsible app accordions, inline reply, and floating drop panel. |
 | **05** | [`05-post-migration-roadmap.html`](05-post-migration-roadmap.html) | **ECO-HY4** (Roadmap) | 🟡 Active | Post-migration roadmap: hotplug and slot carryover, calendar and weather panels, theme switching through matugen, maintenance gates. |
+| **06** | [`06-architecture-review.html`](06-architecture-review.html) | **Review** | 🟡 Active | Architecture review (2026-09-16): seven deepening candidates (CalendarService split, panel coordinator, toast/card actions, focus, CalendarCenter sections, MprisPlayers, Audio) with before/after diagrams and top recommendation. |
 
 ---
 
