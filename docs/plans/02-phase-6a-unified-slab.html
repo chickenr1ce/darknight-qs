@@ -220,7 +220,7 @@
         <tr><td>D-03</td><td>Click feedback</td><td><b>Press-scale ≈0.97 + release brightness pulse.</b> In Workspaces and Tray, <b>only the clicked pill/icon</b> scales — never the whole module.</td></tr>
         <tr><td>D-04</td><td>Hero element</td><td><b>Hero gradient rejected:</b> Animated gradient on active pill tested and removed (unreadable/tacky); active workspace pill uses solid <code>Colors.backgroundSecondary</code> + lavender text.</td></tr>
         <tr><td>D-05</td><td>Hero ownership</td><td>Revisit hero slot ownership if/when the audio visualizer lands (migration plan Phase 7).</td></tr>
-        <tr><td>D-06</td><td>Slab placement &amp; radius</td><td><b>Floating:</b> 4px top offset, 12px side insets (<code>Globals.horizontalBarMargin</code>), <code>slabRadius: 9</code> on outer corners (pills keep <code>radius: 5</code>).</td></tr>
+        <tr><td>D-06</td><td>Slab placement &amp; radius</td><td><b>Floating:</b> 4px top offset, 10px side insets (<code>Globals.horizontalBarMargin</code>), <code>slabRadius: 9</code> on outer corners (pills keep <code>radius: 5</code>).</td></tr>
         <tr><td>D-07</td><td>Region separation</td><td><b>Cluster hairlines:</b> 2px vertical dividers at 50% opacity flanking the center ActiveWindow region only, with collision/empty guards. No dividers between individual modules.</td></tr>
         <tr><td>D-08</td><td>Motion personality</td><td><b>Snappy &amp; Soft:</b> 140ms hover / 120ms press transitions.</td></tr>
         <tr><td>D-09</td><td>Sequencing</td><td>Restyle lands <b>first as Phase 6a</b>; new-module work (migration plan Phase 7) then builds against the final chassis. Native Notifications swap remains independent.</td></tr>
@@ -304,7 +304,8 @@
   Parent plan: docs/plans/01-master-quickshell-migration.html (ECO-HY3) — this sheet is its Phase 6a addendum.<br>
   As built 2026-08-24 (commit b8c59fe, branch phase-6a): all decisions D-01…D-10 and acceptance criteria A1–A7
   implemented; press-scale magnitudes tuned to 0.94 (modules) / 0.86 (pills) during code review instead of the
-  drafted ≈0.97; shared feedback extracted into components/PressFeedback.qml + components/PressScale.qml.
+  drafted ≈0.97; shared feedback extracted into components/PressFeedback.qml + components/PressScale.qml.<br>
+  Amended 2026-09-21: D-06 side insets 12px to 10px to match Hyprland gaps (commit b9c00a0).
 </footer>
 
 </body>

@@ -166,8 +166,7 @@
 <div class="page">
   <p class="kicker">ECO-HY4 · follows ECO-HY3 (archived 2026-09-14)</p>
   <h1>Post-migration roadmap</h1>
-  <p class="lede">The Waybar migration is done. What remains is <strong>leftover verification</strong>, <strong>clock and
-    weather panels</strong>, <strong>theme switching through matugen</strong>, and <strong>routine gates</strong>.
+  <p class="lede">The Waybar migration is done. What remains is <strong>leftover verification</strong>, <strong>weather panel</strong> (calendar done 2026-09-16), <strong>theme switching through matugen</strong>, and <strong>routine gates</strong>.
     Each row below names its files and the check that closes it.</p>
   <nav class="index" aria-label="Sections">
     <a href="#work">Work</a><a href="#risks">Risks</a><a href="#questions">Questions</a><a href="#notes">Notes</a>
@@ -177,12 +176,11 @@
     <div class="marker" aria-hidden="true"><span>role map freezes</span></div>
     <div class="seq">
       <div class="bar">1 · carryover</div>
-      <div class="bar">2 · calendar + weather</div>
+      <div class="bar">2 · weather (calendar done 2026-09-16)</div>
       <div class="bar">3 · themes</div>
       <div class="bar">4 · gates on every change</div>
     </div>
-    <p class="caption">Build order, left to right. The role map freezes before theme code starts. Clock input lands
-      before the calendar. One panel open at a time.</p>
+    <p class="caption">Build order, left to right. The role map freezes before theme code starts. Clock input and calendar landed 2026-09-16. One panel open at a time.</p>
   </div>
 
   <div class="scroll" tabindex="0">
@@ -211,9 +209,9 @@
       </tr>
       <tr>
         <td>Calendar</td>
-        <td>Clock click opens a month view under the bar. Outside click closes it. Keys never stolen unprompted.</td>
-        <td><code>modules/Clock.qml</code>, new <code>windows/CalendarPanel.qml</code> after <code>windows/NotificationCenter.qml</code></td>
-        <td>Opens, closes, never grabs focus unprompted. Clock input enabled first.</td>
+        <td>Done 2026-09-16. Clock click opens a month view with events, agenda, and world clocks under the bar. Outside click closes it.</td>
+        <td><code>modules/Clock.qml</code>, <code>windows/CalendarCenter.qml</code>, <code>services/CalendarService.qml</code>, <code>scripts/calendar-fetch.py</code>, <code>scripts/calendar-clock.py</code></td>
+        <td>Shipped with iCal backend, per calendar toggles, and zone editing. See ADRs 0001 to 0004.</td>
       </tr>
       <tr>
         <td>Weather</td>
@@ -262,11 +260,11 @@
     <li><strong>Q1.</strong> Which generated roles drive which <code>Colors.qml</code> tokens?</li>
     <li><strong>Q2.</strong> Where does the switcher live? Module, powermenu, or keybind.</li>
     <li><strong>Q3.</strong> Which weather provider and interval? Must survive offline and rate limits.</li>
-    <li><strong>Q4.</strong> What calendar backend? Month grid first, events only with a named source.</li>
+    <li><strong>Q4.</strong> Answered. Secret iCal URL plus curl first, gcalcli optional, one fetch per calendar. Month grid renders from local cache.</li>
   </ul>
 
   <footer id="notes">Panel rules shared by every new panel: <code>centerWidth: 380</code>,
-    <code>centerMaxHeight: 540</code>, <code>centerOpenMs: 140</code>, <code>centerCloseMs: 120</code>,
+    <code>centerMaxHeight: 540</code>, <code>centerOpenMs: 140</code>, <code>centerCloseMs: 140</code>,
     <code>focusable: true</code>, <code>HyprlandFocusGrab</code> outside-close, <code>mask: Region</code> click-through.
     Never bind window height to animated content. Tracked as ECO-HY4 in <code>docs/plans/README.md</code>.</footer>
 </div>

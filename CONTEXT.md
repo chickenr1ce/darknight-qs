@@ -3,9 +3,12 @@
 ## Glossary
 
 * Calendar panel: the `windows/CalendarCenter.qml` floating window plus `services/CalendarService.qml` state. Trigger is the `modules/Clock.qml` module in the bar left cluster.
-* Under its trigger: every floating panel opens on the clicked monitor directly below its trigger module, pixel aligned, not side aligned. Calendar follows Clock, notification center follows the bell, future panels follow their own modules.
+* Under its trigger: every floating panel opens on the clicked monitor directly below its trigger module, pixel aligned, not side aligned. Calendar follows Clock, notification center follows the bell, cava follows its bars, future panels follow their own modules.
 * Agenda: selected day event list under the month grid. Driven by existing `selectedIso`. Dots mark days with events.
 * Inline zone edit: add and remove world clock zones inside the calendar panel. No separate settings window. Persisted to a file so zones survive restart.
 * Last good plus stale: offline pattern shared by events and zones. Keep the last fetched file, show a stale marker from file age instead of blank.
 * Backend: secret iCal URL plus curl first, `gcalcli` later if multi calendar search or true freshness matters. Per calendar URL, token is the URL.
 * Full feed plus per view expansion: poll the full ICS feed, cache locally, expand recurrences only for the rendered 42 days. Month shift never triggers network, any year renders from cache.
+* Cava panel: the `windows/CavaCenter.qml` floating window plus `services/CavaService.qml` state. Trigger is the `modules/Cava.qml` visualizer in the bar right cluster, DP-1 only.
+* Cava styles: six modes (Bars, Mirrored, Wave, Wave Blocks, Ribbon, Ribbon Blocks). Scroll on the bars cycles the mode, the panel dropdown picks it directly.
+* Cava tuning: sensitivity, auto sensitivity, bar count, max height. Persisted to the state file so settings survive restart. Changes that affect the engine restart the cava process. Bars flatten after 600ms without frames.
