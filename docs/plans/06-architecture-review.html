@@ -1,21 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>REVIEW-01: full codebase architecture review</title>
+<title>REVIEW-01+02: architecture review and deepening candidates</title>
+<!-- Design: Geist (Vercel) dark tokens; Geist Sans and Geist Mono are installed locally. -->
 <style>
   :root {
     --bg: #000000;
-    --panel: #0a0a0a;
-    --line: #262626;
-    --text: #e9efef;
-    --dim: #a8b5b5;
-    --faint: #7d8b8b;
-    --mint: #9ed7b6;
-    --sage: #22362c;
-    --clay: #c08d8d;
-    --amber: #d7d370;
+    --bg-1: #0a0a0a;
+    --bg-2: #111111;
+    --bg-3: #161616;
+    --line: #1f1f1f;
+    --line-2: #292929;
+    --line-3: #454545;
+    --text: #ededed;
+    --dim: #a1a1a1;
+    --faint: #666666;
+    --blue: #52a8ff;
+    --green: #62c073;
+    --amber: #ffb224;
+    --red: #ff6369;
+    --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "Geist Mono", "GeistMono Nerd Font", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
@@ -23,168 +30,360 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--sans);
+    font-size: 15px;
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
   code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.85em;
-    font-variant-numeric: tabular-nums;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.06em 0.32em;
+    color: #d7d7d7;
+    white-space: nowrap;
   }
-  :focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
-  .page {
-    max-width: 62rem;
-    margin: 0 auto;
-    padding: 0 1.5rem 4rem;
-    border-top: 1px solid var(--line);
-    margin-top: 1.5rem;
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  .page { max-width: 62rem; margin: 0 auto; padding: 0 1.5rem 4rem; }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 2.4rem 0 0.9rem;
   }
   h1 {
-    font-size: clamp(1.7rem, 3.4vw, 2.3rem);
-    letter-spacing: -0.02em;
+    font-size: clamp(1.75rem, 3.2vw, 2.35rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
     line-height: 1.1;
-    margin: 1.6rem 0 0.6rem;
+    margin: 0 0 0.8rem;
   }
-  .kicker {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.8rem;
-    color: var(--faint);
-    margin: 1.2rem 0 0;
-  }
-  .lede { color: var(--dim); max-width: 68ch; margin: 0 0 1.6rem; }
-  .lede strong { color: var(--text); }
-  nav.index { margin: 0 0 1.6rem; font-size: 0.9rem; color: var(--faint); }
-  nav.index a { color: var(--dim); margin-right: 1.1rem; }
-  .panel {
-    border: 1px solid var(--line);
-    background: var(--panel);
-    padding: 2rem 1.5rem 1.4rem;
-    position: relative;
-  }
-  .marker {
-    position: absolute;
-    top: 0.9rem;
-    bottom: 4.6rem;
-    left: 50%;
-    border-left: 1px dashed var(--mint);
-  }
-  .marker span {
-    position: absolute;
-    top: -0.2rem;
-    left: 0.5rem;
-    white-space: nowrap;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  .lede { color: var(--dim); max-width: 68ch; margin: 0 0 1.3rem; }
+  .lede strong { color: var(--text); font-weight: 500; }
+  nav.index {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.9rem;
+    font-family: var(--mono);
     font-size: 0.78rem;
-    color: var(--mint);
+    margin: 0 0 1.4rem;
   }
-  .seq { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; margin-top: 1.6rem; }
-  .seq-row { display: contents; }
-  .bar {
-    background: var(--sage);
-    color: var(--text);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.8rem;
-    padding: 0.45rem 0.7rem;
-    margin: 0.35rem 0.35rem 0.35rem 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .caption {
-    color: var(--faint);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.85rem;
-    margin: 1.4rem 0 0;
-    max-width: 78ch;
-  }
-  .flow { list-style: none; margin: 1.4rem 0 0; padding: 0; max-width: 78ch; }
-  .flow li {
-    padding: 0.55rem 0;
-    border-bottom: 1px solid var(--line);
-    color: var(--dim);
-    font-size: 0.92rem;
-  }
-  .flow li strong { color: var(--text); }
-  table { width: 100%; border-collapse: collapse; margin-top: 2.5rem; }
-  th {
-    text-align: left;
-    font-size: 0.75rem;
-    letter-spacing: 0.1em;
+  nav.index a { color: var(--dim); }
+  nav.index a:hover { color: var(--text); }
+  .nav-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
     text-transform: uppercase;
-    color: var(--text);
-    padding: 0.7rem 0.8rem 0.7rem 0;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
+    letter-spacing: 0.09em;
+    color: var(--blue);
   }
-  td {
-    padding: 1rem 0.8rem 1rem 0;
-    border-bottom: 1px solid var(--line);
-    vertical-align: top;
-    color: var(--dim);
-    font-size: 0.95rem;
+
+  h2.part-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    border-top: 1px solid var(--line-2);
+    margin: 3rem 0 1.1rem;
+    padding-top: 1.3rem;
   }
-  th[scope="row"] {
-    color: var(--text);
-    font-weight: 700;
-    white-space: nowrap;
-    padding: 1rem 0.8rem 1rem 0;
-    border-bottom: 1px solid var(--line);
-    vertical-align: top;
-    font-size: 0.95rem;
-    text-align: left;
+  h2.part-head .part-num {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--blue);
   }
-  .scroll { overflow-x: auto; }
-  .scroll table { min-width: 46rem; }
-  .sev {
-    display: inline-block;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.75rem;
-    border: 1px solid var(--line);
-    padding: 0.1rem 0.45rem;
-    margin-bottom: 0.4rem;
-    color: var(--text);
-  }
-  .sev.high { border-color: var(--clay); color: var(--clay); }
-  .sev.med { border-color: var(--amber); color: var(--amber); }
-  .sev.low { border-color: var(--mint); color: var(--mint); }
-  .close { color: var(--dim); margin: 1.6rem 0 0; max-width: 78ch; }
-  .close strong { color: var(--text); }
   h2.list-head {
-    font-size: 0.75rem;
-    letter-spacing: 0.1em;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 500;
     text-transform: uppercase;
-    color: var(--text);
-    border-top: 1px solid var(--line);
-    padding-top: 0.9rem;
-    margin: 2.5rem 0 0;
-  }
-  ul.rows { list-style: none; margin: 0; padding: 0; }
-  ul.rows li {
-    padding: 0.8rem 0;
-    border-bottom: 1px solid var(--line);
+    letter-spacing: 0.1em;
     color: var(--dim);
+    border-top: 1px solid var(--line);
+    margin: 2.4rem 0 0;
+    padding-top: 1rem;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    align-items: center;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 0.7rem 0;
+    margin-bottom: 0.5rem;
+    font-size: 0.76rem;
+    color: var(--dim);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .swatch { width: 1.1rem; height: 0.85rem; border: 1px solid var(--line-2); background: var(--bg-2); border-radius: 3px; }
+  .swatch.deep { border-color: rgba(82, 168, 255, 0.45); background: linear-gradient(180deg, #131a24, #0e1319); }
+  .swatch.seam { width: 1.5rem; height: 0; border: 0; border-top: 2px dashed var(--line-3); background: none; border-radius: 0; }
+  .swatch.leak { width: 1.5rem; height: 0; border: 0; border-top: 2px solid var(--red); background: none; border-radius: 0; }
+
+  article.cand { border-top: 1px solid var(--line); padding: 2.2rem 0 0.4rem; }
+  .cand-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.65rem; }
+  .cand-head h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .badge {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.14rem 0.5rem;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+  .badge.strong { color: var(--green); border-color: rgba(98, 192, 115, 0.35); background: rgba(98, 192, 115, 0.08); }
+  .badge.explore { color: var(--amber); border-color: rgba(255, 178, 36, 0.35); background: rgba(255, 178, 36, 0.08); }
+  .badge.high { color: var(--red); border-color: rgba(255, 99, 105, 0.35); background: rgba(255, 99, 105, 0.08); }
+  .badge.med { color: var(--amber); border-color: rgba(255, 178, 36, 0.35); background: rgba(255, 178, 36, 0.08); }
+  .badge.low { color: var(--green); border-color: rgba(98, 192, 115, 0.35); background: rgba(98, 192, 115, 0.08); }
+  .files {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.8;
+    color: var(--faint);
+    margin: 0.75rem 0 1.15rem;
+  }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.15rem; }
+  .panel { background: var(--bg-1); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; min-width: 0; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--faint);
+  }
+  .sub { font-size: 0.82rem; color: var(--dim); margin-top: 0.15rem; }
+
+  .diagram { display: flex; flex-direction: column; align-items: center; gap: 0.55rem; margin-top: 0.95rem; }
+  .lane { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; width: 100%; }
+  .node {
+    border: 1px solid var(--line-2);
+    background: var(--bg-2);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8rem;
+    text-align: center;
+    min-width: 0;
+  }
+  .node .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--faint);
+    margin-bottom: 0.15rem;
+  }
+  .node .mono { display: block; font-size: 0.7rem; color: var(--dim); margin-top: 0.15rem; }
+  .node.wide { width: 100%; max-width: 21rem; }
+  .node.deep { border-color: rgba(82, 168, 255, 0.45); background: linear-gradient(180deg, #131a24, #0e1319); }
+  .node.deep .tag { color: var(--blue); }
+  .node.leak { border-color: rgba(255, 99, 105, 0.5); background: rgba(255, 99, 105, 0.07); }
+  .node .dead { color: var(--red); text-decoration: line-through; }
+  .note { font-size: 0.74rem; color: var(--faint); text-align: center; max-width: 26rem; }
+  .note.red { color: var(--red); }
+
+  .arrow-v { width: 1px; height: 20px; background: var(--line-3); position: relative; }
+  .arrow-v::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: -3px;
+    border-left: 3.5px solid transparent;
+    border-right: 3.5px solid transparent;
+    border-top: 5px solid var(--line-3);
+  }
+  .seam { display: flex; align-items: center; gap: 0.6rem; width: 100%; max-width: 21rem; }
+  .seam::before, .seam::after { content: ""; flex: 1; border-top: 2px dashed var(--line-3); }
+  .seam span { font-family: var(--mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--faint); }
+
+  .matrix { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.7rem; margin-top: 0.6rem; }
+  .matrix th, .matrix td { text-align: left; padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--line); }
+  .matrix thead th { color: var(--faint); font-weight: 500; border-bottom-color: var(--line-2); }
+  .matrix th[scope="row"] { color: var(--text); font-weight: 500; }
+  .matrix td { color: var(--dim); }
+  .matrix .toggle { color: var(--green); }
+  .matrix .leak-cell { color: var(--red); }
+  .matrix tr.leak-row td, .matrix tr.leak-row th { background: rgba(255, 99, 105, 0.06); }
+
+  .bars { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.8rem; }
+  .bar {
+    border-left: 3px solid var(--line-3);
+    background: var(--bg-2);
+    border-radius: 0 4px 4px 0;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.78rem;
+    color: var(--dim);
+  }
+  .bar.red { border-left-color: var(--red); }
+  .bar.amber { border-left-color: var(--amber); }
+  .bar .mono { display: block; font-size: 0.7rem; color: var(--faint); }
+
+  .mass { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; align-items: end; margin-top: 0.9rem; }
+  .mass-col { display: flex; flex-direction: column; gap: 0.35rem; }
+  .mass-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    line-height: 1.35;
+  }
+  .mass-item.iface-shallow { height: 3.2rem; background: rgba(255, 99, 105, 0.14); border: 1px solid rgba(255, 99, 105, 0.45); color: #ffa3a7; }
+  .mass-item.impl-zero { height: 1.2rem; background: var(--bg-2); border: 1px solid var(--line-2); color: var(--faint); }
+  .mass-item.iface-deep { height: 1.4rem; background: rgba(98, 192, 115, 0.12); border: 1px solid rgba(98, 192, 115, 0.4); color: #8fd79c; }
+  .mass-item.impl-full {
+    height: 4.2rem;
+    background: linear-gradient(180deg, #131a24, #0e1319);
+    border: 1px solid rgba(82, 168, 255, 0.45);
+    color: var(--dim);
+  }
+  .mass-item.triplicate { height: 2.6rem; background: rgba(255, 99, 105, 0.1); border: 1px solid rgba(255, 99, 105, 0.35); color: #ffa3a7; }
+  .mass-item.small { height: 1.2rem; background: var(--bg-2); border: 1px solid var(--line-2); color: var(--dim); }
+  .mass-cap { text-align: center; font-size: 0.74rem; color: var(--dim); margin-top: 0.5rem; }
+  .mass-cap .mono { color: var(--faint); font-size: 0.68rem; }
+  .mass-cap .bad { color: var(--red); }
+  .mass-cap .good { color: var(--green); }
+
+  .prob { font-size: 0.9rem; color: var(--dim); margin: 0.35rem 0; max-width: 78ch; }
+  .prob strong { color: var(--text); font-weight: 600; }
+  .prob code { font-size: 0.82em; }
+  .why {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem 1.2rem;
+    list-style: none;
+    padding: 0;
+    margin: 0.85rem 0 0;
+    font-size: 0.82rem;
+    color: var(--dim);
+  }
+  .why .k {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--blue);
+    margin-right: 0.4rem;
+  }
+  .callout {
+    border-left: 3px solid var(--amber);
+    background: rgba(255, 178, 36, 0.07);
+    border-radius: 0 6px 6px 0;
+    padding: 0.65rem 0.85rem;
+    margin-top: 1rem;
+    font-size: 0.84rem;
+    color: #e7d3a6;
     max-width: 78ch;
   }
-  ul.rows li strong { color: var(--text); }
-  .risk { color: var(--clay); }
-  footer { color: var(--faint); font-size: 0.82rem; margin-top: 2.5rem; }
-  @media (max-width: 40rem) {
-    .seq { grid-template-columns: 1fr; }
-    .bar { white-space: normal; }
-    .marker { display: none; }
+  .callout code { background: rgba(255, 178, 36, 0.08); border-color: rgba(255, 178, 36, 0.25); color: #f0dcb4; }
+
+  .scroll { overflow-x: auto; }
+  .tbl { width: 100%; min-width: 48rem; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.7rem; }
+  .tbl th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--faint);
+    padding: 0.55rem 1rem 0.55rem 0;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .tbl td {
+    padding: 0.85rem 1rem 0.85rem 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    color: var(--dim);
+  }
+  .tbl th[scope="row"] {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.85rem 1rem 0.85rem 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tbl code { white-space: normal; }
+  .flow { list-style: none; margin: 1.2rem 0 0; padding: 0; max-width: 78ch; }
+  .flow li { padding: 0.6rem 0; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 0.88rem; }
+  .flow li strong { color: var(--text); font-weight: 600; }
+  .caption { color: var(--faint); font-size: 0.78rem; margin: 1.2rem 0 0; max-width: 78ch; }
+  ul.rows { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+  ul.rows li { padding: 0.75rem 0; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 0.88rem; max-width: 78ch; }
+  ul.rows li strong { color: var(--text); font-weight: 600; }
+  .risk { color: var(--red); }
+
+  .top-card {
+    border: 1px solid rgba(82, 168, 255, 0.4);
+    background: linear-gradient(180deg, #0d1420, #0a0e14);
+    border-radius: 10px;
+    padding: 1.6rem;
+    margin-top: 2.6rem;
+  }
+  .top-card .eyebrow { color: var(--blue); }
+  .top-card h2 { font-size: 1.45rem; font-weight: 600; letter-spacing: -0.02em; margin: 0.5rem 0 0.7rem; }
+  .top-card h2 a { color: var(--text); text-decoration: underline; text-decoration-color: var(--blue); text-underline-offset: 5px; }
+  .top-card p { color: var(--dim); font-size: 0.9rem; margin: 0; max-width: 74ch; }
+  footer { color: var(--faint); font-size: 0.78rem; margin-top: 2.6rem; max-width: 74ch; }
+  footer p { margin: 0.45rem 0 0; }
+  footer strong { color: var(--dim); font-weight: 600; }
+
+  @media (max-width: 46rem) {
+    .split, .mass, .why { grid-template-columns: 1fr; }
   }
   @media print {
     body { background: #fff; color: #000; }
-    .page { border-top-color: #000; }
-    .lede, td, th, th[scope="row"], h2.list-head, .close, ul.rows li, .flow li, .caption, footer { color: #333; }
-    .flow li strong, .close strong, ul.rows li strong, .lede strong { color: #000; }
-    .kicker, .risk { color: #555; }
-    .panel { background: #fff; border-color: #000; }
-    .bar { background: #ddd; color: #000; }
-    .sev, .sev.high, .sev.med, .sev.low { color: #000; border-color: #000; }
-    .marker { border-left-color: #000; }
-    .marker span { color: #000; }
+    .panel, .top-card { background: #fff; border-color: #000; }
+    .kicker, .sub, .note, .files, .lede, .prob, .why, footer, .matrix td, .matrix thead th, .mass-cap, .top-card p { color: #333; }
+    .cand-head h2, .lede strong, .prob strong, .matrix th[scope="row"], .top-card h2 a { color: #000; }
+    .callout { background: #fff; border-left-color: #000; color: #000; }
+    .node, .node.deep, .mass-item, .mass-item.iface-shallow, .mass-item.impl-zero, .mass-item.iface-deep, .mass-item.impl-full, .mass-item.triplicate, .mass-item.small, .bar, .matrix tr.leak-row td, .matrix tr.leak-row th {
+      background: #fff;
+      border-color: #666;
+      color: #333;
+    }
+    .node .mono, .node .tag, .node.deep .tag, .mass-item, .bar, .bar .mono { color: #333; }
+    .node .dead, .node .mono[style], .bar span[style] { color: #333 !important; }
     nav.index { display: none; }
+    h2.part-head { border-top-color: #000; }
+    h2.part-head .part-num, .nav-label { color: #555; }
+    h2.list-head { color: #555; border-top-color: #000; }
+    .flow li, ul.rows li, .caption { color: #333; border-color: #666; }
+    .flow li strong, ul.rows li strong { color: #000; }
+    .tbl th, .tbl td, .tbl th[scope="row"] { color: #333; border-color: #666; }
+    .tbl th { color: #555; }
+    .badge, .badge.strong, .badge.explore, .badge.high, .badge.med, .badge.low { color: #000 !important; border-color: #666 !important; background: #fff !important; }
+    .risk { color: #555; }
+    footer strong { color: #000; }
   }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none; animation: none; }
@@ -193,22 +392,42 @@
 </head>
 <body>
 <main class="page">
-  <p class="kicker">REVIEW-01 · feat/calendar-panel @ 97093ac · 2026-09-16 · full shell</p>
-  <h1>Full codebase architecture review</h1>
-  <p class="lede">This review covers the whole shell at <strong>97093ac</strong>: bar, modules, panels, services, helpers, tests, and docs.
+
+  <p class="kicker">REVIEW-01 + REVIEW-02 · feat/calendar-panel @ 97093ac → main @ 047ff21 · 2026-09-16 / 2026-09-23</p>
+  <h1>Architecture review: full shell pass and deepening candidates</h1>
+  <p class="lede"><strong>Part 1</strong> covers the whole shell at <strong>97093ac</strong>: bar, modules, panels, services, helpers, tests, and docs.
     I read every QML file, the Python helpers, the lint gates, and the calendar tickets. The layering is sound.
-    I ordered the findings below by effect on daily use, each with its files and the check that closes it.</p>
-  <nav class="index" aria-label="Sections">
+    I ordered the findings by effect on daily use, each with its files and the check that closes it.
+    <strong>Part 2</strong> covers <strong>main @ 047ff21</strong>: eight places where the shell's logic is copied, split, or scattered, ranked by how confident the move is.
+    Each candidate names the duplicated logic, the module that should own it, and what a test can reach once it does.
+    Vocabulary follows the <code>CONTEXT.md</code> glossary and the codebase-design terms (module, seam, depth).</p>
+
+  <nav class="index" aria-label="Contents">
+    <span class="nav-label">Part 1</span>
     <a href="#map">Map</a><a href="#inventory">Inventory</a><a href="#findings">Findings</a><a href="#risks">Risks</a><a href="#questions">Questions</a><a href="#notes">Notes</a>
+    <span class="nav-label">Part 2</span>
+    <a href="#c1">c1 · panel state</a>
+    <a href="#c2">c2 · monitor policy</a>
+    <a href="#c3">c3 · Hyprland focus</a>
+    <a href="#c4">c4 · calendar seam</a>
+    <a href="#c5">c5 · state files</a>
+    <a href="#c6">c6 · invoke order</a>
+    <a href="#c7">c7 · cava styles</a>
+    <a href="#c8">c8 · pressable pill</a>
+    <a href="#top">top recommendation</a>
   </nav>
 
-  <div class="panel" role="region" aria-label="Layer map" id="map">
-    <div class="marker" aria-hidden="true"><span>State lives in services</span></div>
-    <div class="seq">
-      <div class="bar">1 · shell.qml</div>
-      <div class="bar">2 · modules + windows</div>
-      <div class="bar">3 · services</div>
-      <div class="bar">4 · helpers + backends</div>
+  <h2 class="part-head"><span class="part-num">Part 1</span>Full review</h2>
+
+  <div class="panel" id="map" role="region" aria-label="Layer map">
+    <div class="eyebrow">Layer map · read order left to right · state lives in services</div>
+    <div class="diagram">
+      <div class="lane">
+        <div class="node"><span class="tag">layer 1</span>shell.qml<span class="mono">bars + floating windows</span></div>
+        <div class="node"><span class="tag">layer 2</span>modules + windows<span class="mono">thin views</span></div>
+        <div class="node"><span class="tag">layer 3</span>services<span class="mono">mutable state</span></div>
+        <div class="node"><span class="tag">layer 4</span>helpers + backends<span class="mono">polling</span></div>
+      </div>
     </div>
     <ul class="flow">
       <li><strong>Shell root</strong> builds one slab bar per screen and owns the three floating windows. It imports no services directly.</li>
@@ -221,7 +440,7 @@
 
   <h2 class="list-head" id="inventory">Inventory</h2>
   <div class="scroll" tabindex="0" role="region" aria-labelledby="inventory">
-  <table aria-labelledby="inventory">
+  <table class="tbl" aria-labelledby="inventory">
     <thead>
       <tr><th scope="col">Item</th><th scope="col">Scope</th><th scope="col">Source</th><th scope="col">Health</th></tr>
     </thead>
@@ -286,79 +505,79 @@
 
   <h2 class="list-head" id="findings">Findings</h2>
   <div class="scroll" tabindex="0" role="region" aria-labelledby="findings">
-  <table aria-labelledby="findings">
+  <table class="tbl" aria-labelledby="findings">
     <thead>
       <tr><th scope="col">Finding</th><th scope="col">Scope</th><th scope="col">Source</th><th scope="col">Done when</th></tr>
     </thead>
     <tbody>
       <tr>
-        <th scope="row"><span class="sev high">High</span><br>F1. Dead Cpu module</th>
+        <th scope="row"><span class="badge high">High</span><br>F1. Dead Cpu module</th>
         <td><code>Cpu.qml</code> ships 64 lines but no call site instantiates it. Cava holds the slot. Readers assume it runs.</td>
         <td><code>modules/Cpu.qml</code>, <code>shell.qml</code> right cluster</td>
         <td>Delete the file or wire it behind a flag. Record one deviation entry per the 05 carryover row.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev high">High</span><br>F2. Focus logic in two places</th>
+        <th scope="row"><span class="badge high">High</span><br>F2. Focus logic in two places</th>
         <td>Tray and NotificationServer implement the same Hyprland match, cursor save, focus, and restore flow.</td>
         <td><code>modules/Tray.qml</code>, <code>services/NotificationServer.qml</code> focusApp</td>
         <td>One helper owns the flow. Both call sites use it. Live check passes on tray and toast actions.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev high">High</span><br>F3. Hidden calendar repoll can use stale args</th>
+        <th scope="row"><span class="badge high">High</span><br>F3. Hidden calendar repoll can use stale args</th>
         <td><code>setCalendarHidden</code> mutates the list then repolls in the same tick. The process command binding may not have refreshed yet.</td>
         <td><code>services/CalendarService.qml</code> hiddenCalendarArgs, repollEvents</td>
         <td>Defer with <code>Qt.callLater</code> as zones already do. Hide then show returns the right set on first poll.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev med">Medium</span><br>F4. Own writes trigger extra polls</th>
+        <th scope="row"><span class="badge med">Medium</span><br>F4. Own writes trigger extra polls</th>
         <td>Hidden and zone FileViews reload on their own <code>setText</code> and assign a new array each time, which queues another poll.</td>
         <td><code>services/CalendarService.qml</code> idHiddenFile, idZonesFile</td>
         <td>Compare before assign and skip when equal. Saving zones causes zero extra polls in the log.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev med">Medium</span><br>F5. Cache reload rebuilds the grid</th>
+        <th scope="row"><span class="badge med">Medium</span><br>F5. Cache reload rebuilds the grid</th>
         <td>Each cache reload parses to a new object, which invalidates the 42 cell grid and agenda even when days are unchanged.</td>
         <td><code>services/CalendarService.qml</code> parseEventsCache, monthCells</td>
         <td>Add a dirty check on file content. Rapid reloads keep the grid stable.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev low">Low</span><br>F6. Empty collector hides errors</th>
+        <th scope="row"><span class="badge low">Low</span><br>F6. Empty collector hides errors</th>
         <td>The code attaches the events collector but leaves it empty. Failures surface only as exit codes, and the code drops helper stderr.</td>
         <td><code>services/CalendarService.qml</code> idEventsCollector</td>
         <td>Stream stderr to the log or remove the collector. A failed fetch names its cause.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev med">Medium</span><br>F7. State dir race is silent</th>
+        <th scope="row"><span class="badge med">Medium</span><br>F7. State dir race is silent</th>
         <td><code>mkdir -p</code> runs at the same time as FileViews on paths that may not exist. First load failures print nothing.</td>
         <td><code>services/CalendarService.qml</code> idZonesDirProcess</td>
         <td>Order dir creation before first read or log the miss. Cold start with no state dir loads defaults cleanly.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev med">Medium</span><br>F8. Last good cache sits in cache dir</th>
+        <th scope="row"><span class="badge med">Medium</span><br>F8. Last good cache sits in cache dir</th>
         <td>The offline fallback lives under <code>XDG_CACHE_HOME</code>. Cache cleaners can wipe it. State dir would survive.</td>
         <td><code>services/CalendarService.qml</code> calendar-events.json, <code>docs/adr/0002-*</code></td>
         <td>Move the fallback to state dir or document the tradeoff. Clearing the cache keeps the last agenda.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev low">Low</span><br>F9. Panels close each other directly</th>
+        <th scope="row"><span class="badge low">Low</span><br>F9. Panels close each other directly</th>
         <td>Clock reaches into the notification service and the bell reaches into the calendar service to enforce one open panel.</td>
         <td><code>modules/Clock.qml</code>, <code>modules/Notifications.qml</code></td>
         <td>One closer owns the rule. Opening either panel closes the other in one live pass.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev med">Medium</span><br>F10. CalendarCenter mixes four views</th>
+        <th scope="row"><span class="badge med">Medium</span><br>F10. CalendarCenter mixes four views</th>
         <td>Month grid, agenda, calendar settings, and world clock search share one 675 line file. Changes touch all four.</td>
         <td><code>windows/CalendarCenter.qml</code></td>
         <td>Extract one view at a time behind the same PanelShell. File count grows, line count per file falls.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev med">Medium</span><br>F11. Baseline can hide new debt</th>
+        <th scope="row"><span class="badge med">Medium</span><br>F11. Baseline can hide new debt</th>
         <td>The lint baseline strips line numbers. A new violation with a known triple in a touched file may not surface as new.</td>
         <td><code>scripts/lint-review-baseline.txt</code>, <code>scripts/lint-review.sh</code></td>
         <td>Scope baselines per file or review touched files by hand. Next touch to CalendarService shows zero grandfathered adds.</td>
       </tr>
       <tr>
-        <th scope="row"><span class="sev high">High</span><br>F12. No QML regression net for panels</th>
+        <th scope="row"><span class="badge high">High</span><br>F12. No QML regression net for panels</th>
         <td>Placement clamp, stale marker, zone edit, and per calendar toggles rely on live checks. Helper tests and toast smoke do not cover them.</td>
         <td><code>scripts/test-calendar-*.sh</code>, <code>scripts/smoke-toasts.sh</code>, <code>tests/fixtures/</code></td>
         <td>Add one headless gate for panel placement and stale states. The gate runs without a compositor or documents why it cannot.</td>
@@ -367,13 +586,16 @@
   </table>
   </div>
 
-  <p class="close">Gates run on every change: <strong><code>scripts/lint.sh</code></strong> for types,
-    <strong><code>scripts/lint-review.sh</code></strong> against the baseline,
-    <strong><code>scripts/test-calendar-fetch.sh</code></strong> and <strong><code>scripts/test-calendar-clock.sh</code></strong> for helpers,
-    <strong><code>scripts/smoke-toasts.sh</code></strong> for the toast layer. Logs at
-    <code>/run/user/1000/quickshell/by-id/*/log.log</code>. Never a second instance while the daily shell holds the
-    notification bus. Lasting gotchas go to <code>docs/coding-conventions.md</code> section 4, one-offs to
-    <code>docs/incidents/</code>.</p>
+  <div class="panel" id="gates">
+    <div class="eyebrow">Gates on every change</div>
+    <p class="prob" style="margin:0.5rem 0 0"><code>scripts/lint.sh</code> for types,
+      <code>scripts/lint-review.sh</code> against the baseline,
+      <code>scripts/test-calendar-fetch.sh</code> and <code>scripts/test-calendar-clock.sh</code> for helpers,
+      <code>scripts/smoke-toasts.sh</code> for the toast layer. Logs at
+      <code>/run/user/1000/quickshell/by-id/*/log.log</code>. Never a second instance while the daily shell holds the
+      notification bus. Lasting gotchas go to <code>docs/coding-conventions.md</code> section 4, one-offs to
+      <code>docs/incidents/</code>.</p>
+  </div>
 
   <h2 class="list-head" id="risks">Risks</h2>
   <ul class="rows">
@@ -391,11 +613,485 @@
     <li><strong>Q4.</strong> What headless check guards panel placement and stale rendering without a live compositor?</li>
   </ul>
 
-  <footer id="notes" aria-label="Notes">Both centers follow these rules: <code>centerWidth: 380</code>,
-    <code>centerMaxHeight: 540</code>, <code>centerOpenMs: 140</code>, <code>centerCloseMs: 120</code>,
-    <code>focusable: true</code>, <code>HyprlandFocusGrab</code> outside-close, <code>mask: Region</code> click-through.
-    Never bind window height to animated content. Toast popups use <code>toastWidth</code> with a fixed 720 canvas instead. <code>docs/plans/README.md</code> tracks this as REVIEW-01.
-    Source branch <code>feat/calendar-panel @ 97093ac</code>. I verified counts with the <code>lint.sh</code> file list.</footer>
+  <h2 class="part-head"><span class="part-num">Part 2</span>Deepening candidates</h2>
+  <p class="lede">Eight places where the shell's logic is copied, split, or scattered, ranked by how confident the move is.
+    Each candidate names the duplicated logic, the module that should own it, and what a test can reach once it does.
+    Vocabulary follows the <code>CONTEXT.md</code> glossary and the codebase-design terms (module, seam, depth).
+    Findings cited here (F2, F4, F7, F8, F9) are Part 1's recorded findings.</p>
+
+  <div class="legend" aria-label="Diagram legend">
+    <span><span class="swatch"></span> module</span>
+    <span><span class="swatch seam"></span> seam</span>
+    <span><span class="swatch leak"></span> leakage</span>
+    <span><span class="swatch deep"></span> deep module</span>
+  </div>
+
+  <section id="candidates">
+
+    <!-- ============ c1 ============ -->
+    <article class="cand" id="c1">
+      <div class="cand-head">
+        <h2>Deepen the panel open/close state machine</h2>
+        <span class="badge strong">Strong</span>
+        <span class="badge">in-process</span>
+      </div>
+      <div class="files">services/CalendarService.qml · services/NotificationServer.qml · services/CavaService.qml<br>
+        modules/Clock.qml · modules/Notifications.qml · modules/Cava.qml · windows/NotificationPopups.qml · components/PanelShell.qml</div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="eyebrow">Before</div>
+          <div class="sub">state machine ×3, one-panel rule as an N² mesh</div>
+          <table class="matrix">
+            <thead>
+              <tr><th scope="col"></th><th scope="col">Calendar</th><th scope="col">Notifications</th><th scope="col">Cava</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Clock</th><td class="toggle">toggle</td><td>close</td><td>close</td></tr>
+              <tr><th scope="row">Bell</th><td>close</td><td class="toggle">toggle</td><td>close</td></tr>
+              <tr><th scope="row">Cava</th><td>close</td><td>close</td><td class="toggle">toggle</td></tr>
+              <tr class="leak-row"><th scope="row">NotificationPopups</th><td>reads</td><td>reads</td><td class="leak-cell">misses</td></tr>
+            </tbody>
+          </table>
+          <div class="note red" style="margin-top:0.7rem">Six closing edges duplicated across three triggers; toasts check 2 of 3 panels.</div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">After</div>
+          <div class="sub">composed state, one registry</div>
+          <div class="diagram">
+            <div class="lane">
+              <div class="node">Clock<span class="mono">trigger</span></div>
+              <div class="node">Bell<span class="mono">trigger</span></div>
+              <div class="node">Cava<span class="mono">trigger</span></div>
+            </div>
+            <div class="arrow-v" aria-hidden="true"></div>
+            <div class="node deep wide">
+              <span class="tag">deep module</span>
+              <strong>PanelState registry</strong>
+              <span class="mono">toggleAt(screen, x)<br>closeFromOutside()<br>anyOpen · debounce inside</span>
+            </div>
+            <div class="arrow-v" aria-hidden="true"></div>
+            <div class="lane">
+              <div class="node">CalendarService<span class="mono">composes</span></div>
+              <div class="node">NotificationServer<span class="mono">composes</span></div>
+              <div class="node">CavaService<span class="mono">composes</span></div>
+            </div>
+            <div class="note">Each service owns its state; the registry owns the one-panel rule.</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="prob"><strong>Problem:</strong> six properties and three functions are byte-identical across three singletons (the 300 ms re-click debounce, the anchor-before-visibility branch, the outside-close stamp), and the one-panel rule is an N² mesh of triggers writing each other's state. NotificationPopups knows only two of three panels, so toasts render over an open cava panel.</p>
+      <p class="prob"><strong>Solution:</strong> a shared PanelState composition object instantiated inside each service, plus one registry of openables whose open() closes the others and exposes anyOpen. Composition, not a fourth god-singleton.</p>
+      <ul class="why">
+        <li><span class="k">leverage</span>panel #4 composes, not copies</li>
+        <li><span class="k">locality</span>mesh collapses to one registry</li>
+        <li><span class="k">tests</span>cross toggleAt with injected clock</li>
+        <li><span class="k">fix</span>toasts-over-cava for free</li>
+      </ul>
+      <div class="callout">Consistent with ADR 0001: state stays in the services via composition, as the alternatives section requires. The "triggers hide the other panel first" line would get an amendment note.</div>
+    </article>
+
+    <!-- ============ c2 ============ -->
+    <article class="cand" id="c2">
+      <div class="cand-head">
+        <h2>Make the monitor policy data, not six <code>visible:</code> bindings</h2>
+        <span class="badge strong">Strong</span>
+        <span class="badge">in-process</span>
+      </div>
+      <div class="files">shell.qml · modules/Tray.qml · modules/Media.qml · modules/Workspaces.qml · config/Globals.qml</div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="eyebrow">Before</div>
+          <div class="sub">shell overwrites module-owned visibility</div>
+          <div class="diagram">
+            <div class="node wide"><span class="tag">shell.qml ×6</span><span class="mono" style="color:var(--red)">visible: monitorName === "DP-1"</span></div>
+            <div class="arrow-v" aria-hidden="true"></div>
+            <div class="note">replaces the binding on the same property</div>
+            <div class="lane">
+              <div class="node">Tray<span class="mono dead">visible: count &gt; 0</span><span class="mono" style="color:var(--red)">content rule dead</span></div>
+              <div class="node">Media<span class="mono dead">visible: player ≠ null</span><span class="mono" style="color:var(--red)">content rule dead</span></div>
+            </div>
+            <div class="node wide">Workspaces<span class="mono">firstWorkspaceId: monitorName === "DP-2" ? 6 : 1</span></div>
+            <div class="note">third vocabulary for the same monitor policy</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">After</div>
+          <div class="sub">one policy, composed binding</div>
+          <div class="diagram">
+            <div class="node deep wide">
+              <span class="tag">deep module</span>
+              <strong>monitor policy</strong>
+              <span class="mono">module × monitor → allowed<br>pure, testable without Variants</span>
+            </div>
+            <div class="seam"><span>seam</span></div>
+            <div class="lane">
+              <div class="node">Tray<span class="mono" style="color:var(--green)">screenOk &amp;&amp; count &gt; 0</span></div>
+              <div class="node">Media<span class="mono" style="color:var(--green)">screenOk &amp;&amp; player ≠ null</span></div>
+              <div class="node">×3 more<span class="mono" style="color:var(--green)">screenOk &amp;&amp; own rule</span></div>
+            </div>
+            <div class="note">Modules keep their own rule; the screen constraint composes with it.</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="prob"><strong>Problem:</strong> shell.qml's per-monitor <code>visible:</code> shadows the modules' own content rules on the same property (Tray's empty-count and Media's no-player rules are dead), while the monitor rule is retyped at six call sites and Workspaces states the same policy in a third vocabulary.</p>
+      <p class="prob"><strong>Solution:</strong> modules declare their screen constraint (or a policy map in config/), and shell applies it once so it composes with, instead of overwrites, each module's internal visibility.</p>
+      <ul class="why">
+        <li><span class="k">seam</span>shell stops killing module rules</li>
+        <li><span class="k">locality</span>monitor moves = one edit</li>
+        <li><span class="k">tests</span>policy is a pure lookup</li>
+        <li><span class="k">glossary</span>encodes "DP-1 only"</li>
+      </ul>
+    </article>
+
+    <!-- ============ c3 ============ -->
+    <article class="cand" id="c3">
+      <div class="cand-head">
+        <h2>One module owns Hyprland focus-and-restore</h2>
+        <span class="badge strong">Strong</span>
+        <span class="badge">ports &amp; adapters</span>
+      </div>
+      <div class="files">modules/Tray.qml (focusAppWindow, 25–103) · services/NotificationServer.qml (focusApp, 78–153)</div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="eyebrow">Before</div>
+          <div class="sub">~60 lines copied, one stash, skip-restore patches</div>
+          <div class="diagram">
+            <div class="node wide" style="text-align:left">
+              <span class="tag">Tray.focusAppWindow</span>
+              <span class="mono" style="color:var(--dim)">token split · class match · title ≥3 · 0x prefix ·<br>cursorpos → focus → cursor.move ·</span>
+              <span class="mono" style="color:var(--red)">if (process.running) skip restore</span>
+            </div>
+            <div class="note">verbatim duplicate ↓</div>
+            <div class="node wide" style="text-align:left">
+              <span class="tag">NotificationServer.focusApp</span>
+              <span class="mono" style="color:var(--dim)">token split · class match · title ≥3 · 0x prefix ·<br>cursorpos → focus → cursor.move ·</span>
+              <span class="mono" style="color:var(--red)">if (process.running) skip restore</span>
+            </div>
+            <div class="note red">skip-restore exists because one stash can't hold two in-flight requests</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">After</div>
+          <div class="sub">deep module, dispatch is the seam</div>
+          <div class="diagram">
+            <div class="lane">
+              <div class="node">Tray<span class="mono">focusByTokens([id, title, …])</span></div>
+              <div class="node">NotificationServer<span class="mono">focusByTokens([app, desktop])</span></div>
+            </div>
+            <div class="seam"><span>seam</span></div>
+            <div class="node deep wide">
+              <span class="tag">deep module</span>
+              <strong>HyprlandFocus</strong>
+              <span class="mono">focusByTokens(tokens) → bool<br>request queue inside · ordering invariant inside<br>injectable dispatch → harness records, no IPC</span>
+            </div>
+            <div class="note">queue-or-coalesce, the decision both copies dodged, becomes the module's own problem.</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="prob"><strong>Problem:</strong> ~60 lines of focus-match and cursor-restore logic are copied verbatim; the copies dodge the real hard part (one stash can't hold two in-flight requests) with a skip-restore patch on each side.</p>
+      <p class="prob"><strong>Solution:</strong> a HyprlandFocus module with <code>focusByTokens(tokens): bool</code>, an internal request queue, and dispatch routed through an injectable function so a harness records calls instead of hitting Hyprland IPC.</p>
+      <ul class="why">
+        <li><span class="k">locality</span>ordering invariant fixed once</li>
+        <li><span class="k">leverage</span>two call sites, one module</li>
+        <li><span class="k">tests</span>cross dispatch + time, not matcher</li>
+        <li><span class="k">finding</span>deepens recorded F2</li>
+      </ul>
+      <div class="callout">Extraction trap: pulling out only the pure matcher leaves the real risk (async cursor-restore racing a second click) untested. The interface must include dispatch and time.</div>
+    </article>
+
+    <!-- ============ c4 ============ -->
+    <article class="cand" id="c4">
+      <div class="cand-head">
+        <h2>Move "last good plus stale" fully behind the Calendar seam</h2>
+        <span class="badge strong">Strong</span>
+        <span class="badge">in-process</span>
+      </div>
+      <div class="files">services/CalendarService.qml (eventsStaleAfterMs, eventsLastPollFailed, todayIso) · windows/CalendarCenter.qml (now, eventsStale, idCalendarTimer, syncAgeText)</div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="eyebrow">Before</div>
+          <div class="sub">one rule, split across the seam</div>
+          <div class="diagram">
+            <div class="node wide" style="text-align:left">
+              <span class="tag">CalendarService</span>
+              <span class="mono" style="color:var(--dim)">thresholds · failure flag · fetchedAt</span>
+            </div>
+            <div class="note red">comparison and "Stale · synced %1m ago" live in the view;<br>the view's 1 s timer writes service.todayIso → monthCells</div>
+            <div class="node wide" style="text-align:left; border-color:rgba(255,99,105,0.5)">
+              <span class="tag">CalendarCenter (675 lines)</span>
+              <span class="mono" style="color:var(--red)">now − fetchedAt &gt; staleAfterMs</span>
+              <span class="mono" style="color:var(--red)">CalendarService.todayIso = iso</span>
+            </div>
+            <div class="note">any second consumer of staleness must instantiate the panel</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">After</div>
+          <div class="sub">domain owns the clock</div>
+          <div class="diagram">
+            <div class="node deep wide">
+              <span class="tag">deep module</span>
+              <strong>CalendarService</strong>
+              <span class="mono">now · rollover tick · stale(nowMs, fetchedAtMs, failed)<br>staleLabel() · monthCells · todayIso driven internally</span>
+            </div>
+            <div class="seam"><span>seam</span></div>
+            <div class="node wide">
+              CalendarCenter
+              <span class="mono">binds <code>staleLabel</code>; keeps layout only</span>
+            </div>
+            <div class="note">stale() and monthCells become reachable without booting two pollers.</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="prob"><strong>Problem:</strong> the stale rule lives in two files, and the view owns the 1-second clock the domain's grid binds to, so staleness is untestable without instantiating a 675-line panel whose timers spawn python processes.</p>
+      <p class="prob"><strong>Solution:</strong> the service owns now, the rollover tick, stale, and staleLabel(); CalendarCenter binds and keeps only layout concerns.</p>
+      <ul class="why">
+        <li><span class="k">locality</span>one rule, one file</li>
+        <li><span class="k">glossary</span>"last good plus stale" direct</li>
+        <li><span class="k">tests</span>pure stale() without singletons</li>
+        <li><span class="k">deletion</span>view clock has no other consumer</li>
+      </ul>
+    </article>
+
+    <!-- ============ c5 ============ -->
+    <article class="cand" id="c5">
+      <div class="cand-head">
+        <h2>Collapse the XDG state-file pattern into one module</h2>
+        <span class="badge explore">Worth exploring</span>
+        <span class="badge">local-substitutable</span>
+      </div>
+      <div class="files">services/CavaService.qml (stateBase, applyingSettings, parseSettings) · services/CalendarService.qml (4 FileViews, parseZones, parseHiddenCalendars, saveZones) · docs/quickshell-io-notes.md</div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="eyebrow">Before</div>
+          <div class="sub">cross-section, every site re-layers the trap</div>
+          <div class="bars">
+            <div class="bar red">stateBase() — byte-identical across CavaService:138 and CalendarService:242</div>
+            <div class="bar red">watchChanges + reload + parse echo — ×5 FileViews</div>
+            <div class="bar red">setText() relies on echo — per-site guard flags</div>
+            <div class="bar amber">applyingSettings vs eventsPollQueued vs zonePollQueued</div>
+            <div class="bar amber">F4 own-writes queue polls · F7 dir race, patched per site</div>
+            <div class="bar">trap knowledge lives in a doc, not the module</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">After</div>
+          <div class="sub">one thick band</div>
+          <div class="diagram">
+            <div class="node deep wide" style="text-align:left">
+              <span class="tag">deep module</span>
+              <strong style="font-size:0.95rem">StateFile / JsonStateFile</strong>
+              <span class="mono" style="color:var(--dim)">XDG path resolution (stateBase once)<br>watch · reload · parse hook<br>save(value) — equality guard kills F4 at root<br>loading flag — replaces both ad-hoc guards</span>
+              <span class="mono" style="color:var(--faint)">parsers move to a plain non-singleton file → harness-callable</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="prob"><strong>Problem:</strong> the state-file pattern (path, watch, echo reload, save-via-setText) is implemented four times, and its side-effect patches (guard flags, queued-poll flags, dir race) are then fixed per call site instead of at the root.</p>
+      <p class="prob"><strong>Solution:</strong> a StateFile module owning path, watch/reload, parse hook, save with an equality guard, and a loading flag; pure parsers move to a plain file callable without booting singletons.</p>
+      <ul class="why">
+        <li><span class="k">leverage</span>echo semantics, one module</li>
+        <li><span class="k">locality</span>F4/F7 die at the root</li>
+        <li><span class="k">tests</span>parsers without live processes</li>
+        <li><span class="k">deletion</span>concentrates, not moves</li>
+      </ul>
+      <div class="callout">Scope limit: consolidates the QML half only. The ADR 0002 open question on where <code>calendar-events.json</code> lives (F8) stays untouched.</div>
+    </article>
+
+    <!-- ============ c6 ============ -->
+    <article class="cand" id="c6">
+      <div class="cand-head">
+        <h2>Focus-before-invoke becomes one function, not two comments</h2>
+        <span class="badge explore">Worth exploring</span>
+        <span class="badge">in-process</span>
+      </div>
+      <div class="files">components/NotificationToast.qml (200–207) · components/NotificationCard.qml (99–104) · services/NotificationServer.qml (focusApp)</div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="eyebrow">Before</div>
+          <div class="sub">call-graph collapse, tree repeated at 2 sites</div>
+          <div class="diagram">
+            <div class="node wide" style="text-align:left">
+              <span class="tag">Toast pill</span>
+              <span class="mono" style="color:var(--dim)">if (modelData) … // same 2-line comment<br>focusApp(toast) → modelData.invoke()</span>
+            </div>
+            <div class="node wide" style="text-align:left">
+              <span class="tag">Card pill</span>
+              <span class="mono" style="color:var(--dim)">if (modelData) … // same 2-line comment<br>focusApp(toast) → modelData.invoke()</span>
+            </div>
+            <div class="note red">ordering invariant (invoke deletes the object) exists only as prose ×2</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">After</div>
+          <div class="sub">one collapsed box</div>
+          <div class="diagram">
+            <div class="lane">
+              <div class="node">Toast pill</div>
+              <div class="node">Card pill</div>
+            </div>
+            <div class="seam"><span>seam</span></div>
+            <div class="node deep wide">
+              <span class="tag">deep module</span>
+              <strong class="mono" style="font-size:0.82rem">invokeAction(notification, action)</strong>
+              <span class="mono">null-guard → focus → invoke<br>sequence tested at one seam</span>
+            </div>
+            <div class="note">Pills become one line each.</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="prob"><strong>Problem:</strong> the crash-avoidance ordering (focus, then invoke, because invoke deletes the object mid-handler) is enforced by duplicated comments and null-guards; a third action surface relearns it or reintroduces the TypeError.</p>
+      <p class="prob"><strong>Solution:</strong> <code>NotificationServer.invokeAction(notification, action)</code> owning guard → focus → invoke; the risk is sequencing, so the test seam is the combined operation.</p>
+      <ul class="why">
+        <li><span class="k">locality</span>invariant stops being prose</li>
+        <li><span class="k">leverage</span>Nth action surface is one call</li>
+        <li><span class="k">tests</span>dispatch order at one function</li>
+        <li><span class="k">deletion</span>comment-ware concentrates</li>
+      </ul>
+    </article>
+
+    <!-- ============ c7 ============ -->
+    <article class="cand" id="c7">
+      <div class="cand-head">
+        <h2>One array, one height function for the six Cava styles</h2>
+        <span class="badge explore">Worth exploring</span>
+        <span class="badge">in-process</span>
+      </div>
+      <div class="files">modules/Cava.qml (style ternary 204–213, barLevel/barDrawHeight, six property Components, buildWavePath/buildRibbonPath) · services/CavaService.qml (styleMode, styleNames, cycleStyle) · windows/CavaCenter.qml (Dropdown.currentIndex)</div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="eyebrow">Before</div>
+          <div class="sub">mode in three vocabularies, height math ×4</div>
+          <div class="diagram">
+            <div class="node wide" style="text-align:left">
+              <span class="tag">Cava.qml loader</span>
+              <span class="mono" style="color:var(--red)">styleMode === 0 ? … : styleMode === 1 ? …</span>
+            </div>
+            <div class="node wide" style="text-align:left">
+              <span class="tag">CavaService</span>
+              <span class="mono" style="color:var(--dim)">styleNames · minStyleMode · maxStyleMode · cycleStyle count arithmetic</span>
+            </div>
+            <div class="node wide" style="text-align:left">
+              <span class="tag">CavaCenter</span>
+              <span class="mono" style="color:var(--dim)">Dropdown.currentIndex</span>
+            </div>
+            <div class="note red">height math inlined in 4 delegates while barLevel()/barDrawHeight() exist; half the call sites bypass them, so styles can silently diverge</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">After</div>
+          <div class="sub">mode semantics in one place</div>
+          <div class="diagram">
+            <div class="node deep wide">
+              <span class="tag">deep module surface</span>
+              <span class="mono" style="color:#cfe4ff">styleComponents[styleMode]<br>barHeight(i) — feeds all six styles</span>
+            </div>
+            <div class="seam"><span>seam</span></div>
+            <div class="lane">
+              <div class="node">Bars</div>
+              <div class="node">Mirrored</div>
+              <div class="node">Wave</div>
+              <div class="node">Wave Blocks</div>
+              <div class="node">Ribbon</div>
+              <div class="node">Ribbon Blocks</div>
+            </div>
+            <div class="note">New mode = one array entry; mode constants live only in CavaService.</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="prob"><strong>Problem:</strong> the style mode has three vocabularies and the height math exists twice, with helpers adopted by the Shape paths and bypassed by four delegates, so a height change silently diverges the block styles from the wave styles.</p>
+      <p class="prob"><strong>Solution:</strong> a styleComponents array indexed by styleMode and one barHeight(i) feeding all six styles; mode constants stay in CavaService only.</p>
+      <ul class="why">
+        <li><span class="k">locality</span>six styles, one formula</li>
+        <li><span class="k">leverage</span>new mode = one array entry</li>
+        <li><span class="k">tests</span>parser reachable off ModuleBox root</li>
+        <li><span class="k">glossary</span>"six modes" stays literally true</li>
+      </ul>
+    </article>
+
+    <!-- ============ c8 ============ -->
+    <article class="cand" id="c8">
+      <div class="cand-head">
+        <h2>ModuleBox's empty mode licenses the ad-hoc button it forbids</h2>
+        <span class="badge explore">Worth exploring</span>
+        <span class="badge">in-process</span>
+      </div>
+      <div class="files">components/ModuleBox.qml (enableMouseArea, PressFeedback/PressScale stack, pulse()) · modules/Tray.qml (110–212) · modules/Workspaces.qml (27–112)</div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="eyebrow">Before / after</div>
+          <div class="sub">mass: interface vs implementation</div>
+          <div class="mass">
+            <div class="mass-col">
+              <div class="mass-item iface-shallow">interface: enableMouseArea: false — "provide nothing"</div>
+              <div class="mass-item impl-zero">implementation: 0</div>
+              <div class="mass-cap">ModuleBox escape hatch<br><span class="bad">shallow</span></div>
+              <div class="mass-item triplicate">Tray + Workspaces rebuild all 6 press elements each</div>
+            </div>
+            <div class="mass-col">
+              <div class="mass-item iface-deep">interface: PressablePill — clicked / wheelMoved</div>
+              <div class="mass-item impl-full">implementation: hover tint · underline · squash · pulse · tokens</div>
+              <div class="mass-cap">one composed primitive<br><span class="good">deep</span></div>
+              <div class="mass-item small">Tray / Workspaces: instantiate it</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">Deletion test</div>
+          <div class="bars" style="margin-top:0.9rem">
+            <div class="bar">Delete <code>enableMouseArea: false</code> → <span style="color:var(--green)">complexity concentrates: both delegates currently re-own it</span></div>
+            <div class="bar">Current alternative is the triplicate itself → <span style="color:var(--green)">the escape hatch is pass-through with negative leverage</span></div>
+            <div class="bar">Visual invariants (pill insets, <code>Globals.pressScale*</code>, pulse timing) → <span style="color:var(--green)">one place a review checks, not three</span></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="prob"><strong>Problem:</strong> with <code>enableMouseArea: false</code> ModuleBox contributes nothing, so Tray and Workspaces delegates each rebuild the full six-element press idiom: the ad-hoc Rectangle-plus-MouseArea button that conventions §5 declares off-limits.</p>
+      <p class="prob"><strong>Solution:</strong> a composed PressablePill primitive (hover tint, underline, squash, release pulse, clicked/wheelMoved signals) that ModuleBox itself uses and the delegates instantiate directly.</p>
+      <ul class="why">
+        <li><span class="k">deletion</span>concentrates, not moves</li>
+        <li><span class="k">leverage</span>press idiom, three consumers</li>
+        <li><span class="k">tests</span>one visual invariant surface</li>
+        <li><span class="k">interface</span>shrinks to two signals</li>
+      </ul>
+    </article>
+
+  </section>
+
+  <!-- ============ TOP ============ -->
+  <section id="top">
+    <div class="top-card">
+      <div class="eyebrow">Top recommendation</div>
+      <h2><a href="#c1">Deepen the panel open/close state machine</a></h2>
+      <p>Three singletons copy the same state machine, and the one-panel rule is an N² mesh that already leaks (toasts render over the cava panel).
+        It is the only candidate where a new feature, the next panel, pays the leverage dividend immediately; it deepens recorded finding F9 instead of patching it, and ADR 0001's composition constraint tells us exactly where the seam goes.
+        Candidates 4 and 5 both touch CalendarService and naturally follow.</p>
+    </div>
+  </section>
+
+  <footer id="notes" aria-label="Notes">
+    <p><strong>Provenance.</strong> Part 1 is the 2026-09-16 full review of <code>feat/calendar-panel @ 97093ac</code>. Part 2 is the 2026-09-23 deepening review of <code>main @ 047ff21</code>, verified against the working tree.</p>
+    <p>Both centers follow these rules: <code>centerWidth: 380</code>,
+      <code>centerMaxHeight: 540</code>, <code>centerOpenMs: 140</code>, <code>centerCloseMs: 120</code>,
+      <code>focusable: true</code>, <code>HyprlandFocusGrab</code> outside-close, <code>mask: Region</code> click-through.
+      Never bind window height to animated content. Toast popups use <code>toastWidth</code> with a fixed 720 canvas instead. Glossary terms live in <code>CONTEXT.md</code>; module, seam, and depth vocabulary follows the codebase-design skill.</p>
+  </footer>
+
 </main>
 </body>
 </html>
