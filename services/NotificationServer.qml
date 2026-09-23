@@ -68,6 +68,15 @@ Singleton {
         return HyprlandFocus.focusByTokens([notification.appName, notification.desktopEntry]);
     }
 
+    // Focus first: invoke() dismisses non-resident notifications
+    // server-side, killing the object mid-handler.
+    function invokeAction(notification, action) {
+        if (!notification || !action)
+            return;
+        root.focusApp(notification);
+        action.invoke();
+    }
+
     function announceToast(notification: Notification) {
         if (root.activeToasts.count >= root.maxVisibleToasts)
             root.activeToasts.remove(0);

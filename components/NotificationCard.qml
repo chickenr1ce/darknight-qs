@@ -97,11 +97,7 @@ Card {
                 // The server deletes/recreates actions on update; delegates briefly hold dead modelData (log-observed TypeError).
                 // No baseColor: the default backgroundSecondary is the inset control on this card's background fill.
                 text: modelData ? modelData.text : ""
-                // invoke() dismisses non-resident notifications server-side; focus first while the object is alive.
-                onClicked: {
-                    NotificationServer.focusApp(root.notification);
-                    modelData.invoke();
-                }
+                onClicked: NotificationServer.invokeAction(root.notification, modelData)
             }
         }
 

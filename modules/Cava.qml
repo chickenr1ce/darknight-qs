@@ -26,6 +26,7 @@ ModuleBox {
     readonly property int contentWidth: CavaService.barCount * (root.barWidth + root.barSpacing) - root.barSpacing
     readonly property string wavePath: root.buildWavePath()
     readonly property string ribbonPath: root.buildRibbonPath()
+    property var styleComponents: [root.barsComponent, root.mirroredComponent, root.waveComponent, root.waveBlocksComponent, root.ribbonComponent, root.ribbonBlocksComponent]
 
     property Component barsComponent: Component {
         RowLayout {
@@ -44,7 +45,7 @@ ModuleBox {
 
                     Layout.alignment: Qt.AlignBottom
                     Layout.preferredWidth: root.barWidth
-                    Layout.preferredHeight: root.barMinHeight + ((CavaService.levels[index] ?? 0) * (CavaService.maxHeight - root.barMinHeight))
+                    Layout.preferredHeight: root.barDrawHeight(index)
                     Layout.bottomMargin: root.barBaselineLift
 
                     required property int index
@@ -74,7 +75,7 @@ ModuleBox {
 
                     Layout.alignment: Qt.AlignVCenter
                     Layout.preferredWidth: root.barWidth
-                    Layout.preferredHeight: root.barMinHeight + ((CavaService.levels[index] ?? 0) * (CavaService.maxHeight - root.barMinHeight))
+                    Layout.preferredHeight: root.barDrawHeight(index)
 
                     required property int index
 
@@ -141,7 +142,7 @@ ModuleBox {
                     Layout.alignment: Qt.AlignBottom
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.preferredHeight: root.barMinHeight + ((CavaService.levels[index] ?? 0) * (CavaService.maxHeight - root.barMinHeight))
+                    Layout.preferredHeight: root.barDrawHeight(index)
                     Layout.bottomMargin: root.barBaselineLift
 
                     required property int index
@@ -172,7 +173,7 @@ ModuleBox {
                     Layout.alignment: Qt.AlignVCenter
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.preferredHeight: root.barMinHeight + ((CavaService.levels[index] ?? 0) * (CavaService.maxHeight - root.barMinHeight))
+                    Layout.preferredHeight: root.barDrawHeight(index)
 
                     required property int index
 
@@ -209,7 +210,7 @@ ModuleBox {
         Layout.preferredHeight: root.rowHeight
 
         active: true
-        sourceComponent: CavaService.styleMode === 0 ? root.barsComponent : CavaService.styleMode === 1 ? root.mirroredComponent : CavaService.styleMode === 2 ? root.waveComponent : CavaService.styleMode === 3 ? root.waveBlocksComponent : CavaService.styleMode === 4 ? root.ribbonComponent : root.ribbonBlocksComponent
+        sourceComponent: root.styleComponents[CavaService.styleMode]
     }
 
     function barLevel(i: int): real {

@@ -1,6 +1,18 @@
 # 06 — Single invoke path plus single cava height formula (c6, c7)
 
-Status: ready-for-agent
+Status: done
+
+## Amendments
+
+- 2026-09-23: two Cava triples (`BND-1 property var`, `ORD-1 property
+  declaration after assignment`) accepted into the baseline. The style
+  array needs `var`, and any value-carrying property added to that file
+  trips the declaration/assignment split; placement with the property
+  block is the readable spot.
+- 2026-09-23: `scripts/smoke-toasts.sh` not run. The daily shell holds
+  `org.freedesktop.Notifications`, and repo rules forbid a second
+  instance beside it. The Toast/Card change is a single-line swap to
+  `invokeAction` with identical ordering semantics, covered by lint.
 Blocking: (none)
 Blocked By: #01
 Source: docs/plans/06-architecture-review.html Part 2 c6, c7 (Worth exploring, taken: both are small, local, and low risk).
