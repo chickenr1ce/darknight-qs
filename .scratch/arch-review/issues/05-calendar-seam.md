@@ -15,6 +15,12 @@ Status: done
   bindings or on-load handlers log `should be coerced to void` errors
   (pre-existing class, also present in the daily shell log). A bounded
   live boot confirms zero hits after.
+- 2026-09-23 (discovered live, second round): the memo binding read and
+  wrote its memo properties, which QML tracks as a dependency cycle, so
+  startup logged `Binding loop detected for property "eventsCache"`.
+  Replaced with an explicit flow: writable `eventsCache` plus
+  `refreshEventsCache()` (early return on identical text) driven by the
+  cache FileView's `onLoaded`. Same dirty-check semantics, no cycle.
 Blocking: #07
 Blocked By: #01
 Source: docs/plans/06-architecture-review.html Part 2 c4 (Strong); Part 1 F3 (High), F4/F5/F7 (Medium), F6 (Low), F8 (Medium); open questions Q3.

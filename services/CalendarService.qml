@@ -20,9 +20,8 @@ Singleton {
     readonly property string eventsUrlFile: root.stateFile("calendar-url")
     readonly property string eventsCachePath: root.cacheFile("calendar-events.json")
     readonly property string stateDirPath: root.stateBase() + "/quickshell"
-    readonly property var eventsCache: root.cachedEventsCache(idEventsCache.text())
+    property var eventsCache: root.parseEventsCache("")
     property string lastEventsCacheText: ""
-    property var lastEventsCacheValue: root.parseEventsCache("")
     readonly property var eventDays: root.eventsCache.days
     readonly property string eventsFetchedAt: root.eventsCache.fetchedAt || ""
     readonly property double eventsFetchedAtMs: Date.parse(root.eventsFetchedAt) || 0
@@ -202,6 +201,7 @@ Singleton {
         printErrors: false
         watchChanges: true
         onFileChanged: this.reload()
+        onLoaded: root.refreshEventsCache()
     }
 
     FileView {
@@ -294,12 +294,12 @@ Singleton {
         };
     }
 
-    function cachedEventsCache(jsonText: string): var {
-        if (jsonText === root.lastEventsCacheText)
-            return root.lastEventsCacheValue;
-        root.lastEventsCacheText = jsonText;
-        root.lastEventsCacheValue = root.parseEventsCache(jsonText);
-        return root.lastEventsCacheValue;
+    function refreshEventsCache() {
+        const text = idEventsCache.text();
+        if (text === root.lastEventsCacheText)
+            return;
+        root.lastEventsCacheText = text;
+        root.eventsCache = root.parseEventsCache(text);
     }
 
     function isStale(nowMs: double, fetchedAtMs: double, failed: bool): bool {

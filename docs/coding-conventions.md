@@ -246,6 +246,11 @@ Timer { id: idMediaTimer }
   sibling needs a `qmldir` entry. `qmllint` resolves the sibling anyway, so
   only a live `quickshell -p` boot catches the missing import (`... is not a
   type`, verified 2026-09-23).
+- **A binding that reads and writes the same property loops**: memoizing
+  inside the binding (read the cached text, write it back) registers the
+  memo as a dependency of itself — startup logs `Binding loop detected`.
+  Memoize with an explicit refresh function driven by `onLoaded` instead,
+  early-returning on identical input (verified 2026-09-23).
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 
