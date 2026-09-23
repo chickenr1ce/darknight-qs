@@ -51,6 +51,11 @@ QtObject {
     readonly property int cardRadius: 6
     readonly property int pillRadius: 4
     readonly property int pillHPadding: 8
+    readonly property int pillVPadding: 3
+    readonly property int quietButtonHPadding: 2
+    readonly property int quietButtonVPadding: 1
+    readonly property int appDotSize: 9
+    readonly property int appRailWidth: 3
     readonly property int panelRadius: slabRadius
     readonly property int headerHeight: 34
     readonly property int dayCellGap: 4

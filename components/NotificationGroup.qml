@@ -8,35 +8,54 @@ import qs.components
 import qs.config
 import qs.services
 
-// Collapsible per-app accordion; expansion state lives in the owner because history rebuilds would reset a local flag.
-// Height animates with clip while siblings snap (no displaced-style fix exists for sibling height changes).
-Rectangle {
+Item {
     id: root
 
     required property string appName
-    required property var notifications // Notification[]
+    required property var notifications // history entries
 
     property bool expanded: false
+    property real relativeTimeNow: Date.now()
 
     signal toggleRequested()
 
+    onExpandedChanged: {
+        if (root.expanded)
+            root.relativeTimeNow = Date.now();
+    }
+
     readonly property int headerHeight: Globals.headerHeight
+    readonly property bool hasCritical: {
+        for (let i = 0; i < root.notifications.length; i++) {
+            const notification = root.notifications[i].notification;
+            if (notification !== null && notification.urgency === Notif.NotificationUrgency.Critical)
+                return true;
+        }
+        return false;
+    }
+    readonly property color groupColor: root.hasCritical ? Colors.danger : Colors.appColor(root.appName)
 
     implicitWidth: parent ? parent.width : 0
     implicitHeight: headerHeight
         + (expanded ? idContentColumn.implicitHeight + 8 : 0)
 
-    radius: Globals.cardRadius
-    color: Colors.cardSecondary
-    border.width: 1
-    border.color: Colors.border
     clip: true
 
     Behavior on implicitHeight {
+        enabled: !Globals.reducedMotion
         NumberAnimation {
             duration: Globals.centerOpenMs
             easing.type: Easing.OutCubic
         }
+    }
+
+    Timer {
+        id: idTimeTimer
+
+        interval: 60000
+        repeat: true
+        running: root.expanded
+        onTriggered: root.relativeTimeNow = Date.now()
     }
 
     // Under the header controls so Clear keeps its clicks; toggles expansion only.
@@ -67,6 +86,14 @@ Rectangle {
         }
     }
 
+    TextMetrics {
+        id: idAppCountMetrics
+
+        font.family: Globals.uiFontFamily
+        font.pixelSize: Globals.uiCaptionSize
+        text: "88"
+    }
+
     RowLayout {
         id: idHeaderRow
 
@@ -83,26 +110,21 @@ Rectangle {
             rightMargin: 8
         }
 
-        Text {
-            id: idAppGlyph
+        Rectangle {
+            id: idAppDot
 
-            Layout.preferredWidth: 18
+            Layout.preferredWidth: Globals.appDotSize
+            Layout.preferredHeight: Globals.appDotSize
             Layout.alignment: Qt.AlignVCenter
 
-            textFormat: Text.PlainText
-            verticalAlignment: Text.AlignVCenter
-            text: root.appName !== "" ? root.appName.charAt(0).toUpperCase() : "?"
-            color: Colors.accent
+            radius: Globals.appDotSize / 2
+            color: root.groupColor
 
-            font {
-                family: Globals.uiFontFamily
-                pixelSize: Globals.uiTitleSize
-                weight: Font.DemiBold
-            }
+            Accessible.ignored: true
         }
 
         Text {
-            id: idAppTitle
+            id: idAppName
 
             Layout.fillWidth: true
             Layout.minimumWidth: 0
@@ -112,12 +134,33 @@ Rectangle {
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
 
-            text: qsTr("%1 (%2)").arg(root.appName !== "" ? root.appName : qsTr("Unknown")).arg(root.notifications.length)
-            color: Colors.text
+            text: root.appName !== "" ? root.appName.toUpperCase() : qsTr("Unknown").toUpperCase()
+            color: root.groupColor
 
             font {
                 family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
+                pixelSize: Globals.uiPillSize
+                weight: Font.DemiBold
+                letterSpacing: Globals.uiLetterSpacing
+            }
+        }
+
+        Text {
+            id: idAppCount
+
+            Layout.preferredWidth: Math.max(idAppCountMetrics.advanceWidth, idAppCount.implicitWidth)
+            Layout.alignment: Qt.AlignVCenter
+
+            textFormat: Text.PlainText
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+
+            text: root.notifications.length
+            color: Colors.textSubtle
+
+            font {
+                family: Globals.uiFontFamily
+                pixelSize: Globals.uiCaptionSize
                 weight: Font.Medium
             }
         }
@@ -130,9 +173,8 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter
 
             visible: root.notifications.length > 0
+            quiet: true
             text: qsTr("Clear")
-            baseColor: Colors.card
-            highlightColor: Colors.danger
             onClicked: NotificationServer.dismissGroup(root.appName)
         }
 
@@ -165,16 +207,21 @@ Rectangle {
         anchors.leftMargin: 10
         anchors.rightMargin: 10
 
-        spacing: 6
+        spacing: 0
         visible: root.expanded
 
         Repeater {
+
             model: root.notifications
 
-            delegate: NotificationCard {
-                required property Notif.Notification modelData
+            delegate: NotificationRow {
+                required property var modelData
+                required property int index
 
-                notification: modelData
+                entry: modelData
+                appColor: Colors.appColor(root.appName)
+                relativeTimeNow: root.relativeTimeNow
+                showDivider: index < root.notifications.length - 1
             }
         }
     }

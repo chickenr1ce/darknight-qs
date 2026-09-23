@@ -6,7 +6,7 @@ import qs.config
 // The fill always shows the true state; hover never touches it, so a resting
 // cursor can't mask on/off. probeHovered is the toast's hover routing, where
 // the topmost decay-pause probe captures all hover above the pills.
-Rectangle {
+Item {
     id: root
 
     property string text: ""
@@ -16,19 +16,28 @@ Rectangle {
     property bool probeHovered: false
     // Disabled pills keep their slot but go inert, so the header never reflows.
     property bool disabled: false
+    property bool quiet: false
 
     readonly property bool hovered: idMouseArea.containsMouse || root.probeHovered
     readonly property bool pressed: idMouseArea.containsPress
 
     signal clicked()
 
-    implicitWidth: idLabel.implicitWidth + 16
-    implicitHeight: idLabel.implicitHeight + 6
-    radius: Globals.pillRadius
-    color: !root.disabled && root.highlighted ? root.highlightColor : root.baseColor
-    border.width: !root.disabled && root.hovered ? 1 : 0
-    border.color: root.highlighted ? Colors.onAccent : Colors.accent
+    implicitWidth: idLabel.implicitWidth + (root.quiet ? 2 * Globals.quietButtonHPadding : 2 * Globals.pillHPadding)
+    implicitHeight: idLabel.implicitHeight + (root.quiet ? 2 * Globals.quietButtonVPadding : 2 * Globals.pillVPadding)
     scale: idPressScale.scale
+
+    Rectangle {
+        id: idPillBackground
+
+        anchors.fill: parent
+
+        visible: !root.quiet
+        radius: Globals.pillRadius
+        color: !root.disabled && root.highlighted ? root.highlightColor : root.baseColor
+        border.width: !root.disabled && root.hovered ? 1 : 0
+        border.color: root.highlighted ? Colors.onAccent : Colors.accent
+    }
 
     Text {
         id: idLabel

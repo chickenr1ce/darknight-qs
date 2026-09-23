@@ -28,14 +28,15 @@ PanelShell {
         const byName = {};
         const model = NotificationServer.historyModel;
         for (let i = 0; i < model.count; i++) {
-            const notification = model.get(i).notification;
+            const entry = model.get(i);
+            const notification = entry.notification;
             if (!notification)
                 continue;
             if (!(notification.appName in byName)) {
                 byName[notification.appName] = [];
                 order.push(notification.appName);
             }
-            byName[notification.appName].push(notification);
+            byName[notification.appName].push({ notification: notification, arrivedAt: entry.arrivedAt });
         }
         return order.map(appName => ({ appName: appName, notifications: byName[appName] }));
     }
@@ -52,6 +53,7 @@ PanelShell {
 
             Layout.alignment: Qt.AlignVCenter
 
+            quiet: true
             text: qsTr("DND")
             highlighted: NotificationServer.dndEnabled
             onClicked: NotificationServer.toggleDnd()
@@ -62,6 +64,7 @@ PanelShell {
 
             Layout.alignment: Qt.AlignVCenter
 
+            quiet: true
             disabled: NotificationServer.unreadCount === 0
             text: qsTr("Clear All")
             onClicked: NotificationServer.dismissAll()

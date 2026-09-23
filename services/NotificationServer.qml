@@ -112,7 +112,7 @@ Singleton {
 
         onNotification: notification => {
             notification.tracked = true;
-            root.historyModel.append({ notification: notification });
+            root.historyModel.append({ notification: notification, arrivedAt: Date.now() });
 
             if (!notification.lastGeneration && !root.dndEnabled && !root.centerVisible)
                 root.announceToast(notification);
