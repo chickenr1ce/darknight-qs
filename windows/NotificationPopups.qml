@@ -27,7 +27,6 @@ PanelWindow {
         right: Globals.horizontalBarMargin
     }
 
-    // Hidden while any panel is open (shared corner); suppressed toasts keep decaying and survivors reappear on close.
     visible: NotificationServer.activeToasts.count > 0 && !Panels.anyOpen
 
     // Never bind window height to contentHeight: it tracks animated positions and collapses the viewport mid-transition.
