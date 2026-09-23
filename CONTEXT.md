@@ -12,3 +12,6 @@
 * Cava panel: the `windows/CavaCenter.qml` floating window plus `services/CavaService.qml` state. Trigger is the `modules/Cava.qml` visualizer in the bar right cluster, DP-1 only.
 * Cava styles: six modes (Bars, Mirrored, Wave, Wave Blocks, Ribbon, Ribbon Blocks). Scroll on the bars cycles the mode, the panel dropdown picks it directly.
 * Cava tuning: sensitivity, auto sensitivity, bar count, max height. Persisted to the state file so settings survive restart. Changes that affect the engine restart the cava process. Bars flatten after 600ms without frames.
+* Panels registry: the `services/Panels.qml` singleton owning the one-panel rule. Triggers call its toggle functions instead of writing each other's services; each service keeps its own state by composing `services/PanelState.qml`. `Panels.anyOpen` hides toasts while any panel is open.
+* Hyprland focus: the `services/HyprlandFocus.qml` singleton owning focus-match plus cursor save, focus, and restore. Concurrent clicks queue behind the in-flight read; dispatch routes through an injectable function for testing.
+* Primary monitor: `Globals.primaryMonitor` plus `onPrimaryMonitor()` is the single DP-1 rule. DP-1-only modules declare `monitorName` and compose the check with their own content rule; the shell passes the monitor name instead of setting visibility.

@@ -237,6 +237,10 @@ Timer { id: idMediaTimer }
   (write `!(a === b)`); object-literal keys named like properties fake out the
   imperative-assignment rule (build settings objects with bracket assignment).
   Each is guarded by `scripts/lint-review.sh` — reformatting re-triggers it.
+- **`scripts/lint.sh` lints the git index, not the disk**: it runs qmllint over
+  `git ls-files`, so an unstaged deletion (file gone, index entry kept) fails
+  the gate with `Failed to open file` and exit 255. Stage deletions before
+  running the gate (verified 2026-09-23).
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 
