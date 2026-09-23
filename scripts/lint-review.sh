@@ -15,21 +15,22 @@ command -v python3 >/dev/null || { echo "lint-review: python3 not found" >&2; ex
 
 UPDATE=0
 FILES=()
+EXPLICIT_PATHS=0
 for arg in "$@"; do
     case "$arg" in
         --update-baseline) UPDATE=1 ;;
-        *) FILES+=("$arg") ;;
+        *) FILES+=("$arg"); EXPLICIT_PATHS=1 ;;
     esac
 done
-if [[ ${#FILES[@]} -eq 0 ]]; then
-    mapfile -t FILES < <(cd "$ROOT" && git ls-files '*.qml')
-fi
 
 # A partial regeneration would silently drop every other entry, so refuse
 # scoped updates outright. Stage new files with git add first, then rerun bare.
-if [[ $UPDATE -eq 1 && ${#FILES[@]} -gt 0 ]]; then
+if [[ $UPDATE -eq 1 && $EXPLICIT_PATHS -eq 1 ]]; then
     echo "lint-review: --update-baseline always regenerates the whole baseline; rerun without file paths (stage new files with git add first)" >&2
     exit 2
+fi
+if [[ ${#FILES[@]} -eq 0 ]]; then
+    mapfile -t FILES < <(cd "$ROOT" && git ls-files '*.qml')
 fi
 
 RAW="$(mktemp /tmp/opencode/lint-review-XXXXXX)"

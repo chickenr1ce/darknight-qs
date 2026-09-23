@@ -35,9 +35,6 @@ modules/Audio.qml ORD-1 property assignment appears after attached property -- e
 modules/Cava.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Cava.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Clock.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
-modules/Cpu.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
-modules/Cpu.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
-modules/Cpu.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Media.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 modules/Media.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Notifications.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
@@ -64,11 +61,9 @@ services/NotificationServer.qml JS-2 Loose equality (==/!=) -- use strict equali
 shell.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
-windows/CalendarCenter.qml ORD-1 child object appears after function -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CalendarCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
-windows/CavaCenter.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CavaCenter.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
