@@ -27,8 +27,8 @@ PanelWindow {
         right: Globals.horizontalBarMargin
     }
 
-    // Hidden while either panel is open (shared corner); suppressed toasts keep decaying and survivors reappear on close.
-    visible: NotificationServer.activeToasts.count > 0 && !NotificationServer.centerVisible && !CalendarService.calendarVisible
+    // Hidden while any panel is open (shared corner); suppressed toasts keep decaying and survivors reappear on close.
+    visible: NotificationServer.activeToasts.count > 0 && !Panels.anyOpen
 
     // Never bind window height to contentHeight: it tracks animated positions and collapses the viewport mid-transition.
     // The mask keeps click-through everywhere except the real toast area.

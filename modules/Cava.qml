@@ -195,9 +195,7 @@ ModuleBox {
     onClicked: mouse => {
         if (mouse.button === Qt.LeftButton) {
             const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-            CalendarService.calendarVisible = false;
-            NotificationServer.centerVisible = false;
-            CavaService.toggleCavaAt(root.triggerScreen, centerX);
+            Panels.toggleCavaAt(root.triggerScreen, centerX);
         }
     }
 

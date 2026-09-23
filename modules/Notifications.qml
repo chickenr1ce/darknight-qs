@@ -20,9 +20,7 @@ ModuleBox {
             NotificationServer.toggleDnd();
         else {
             const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-            CalendarService.calendarVisible = false;
-            CavaService.cavaVisible = false;
-            NotificationServer.toggleCenterAt(root.triggerScreen, centerX);
+            Panels.toggleCenterAt(root.triggerScreen, centerX);
         }
     }
 

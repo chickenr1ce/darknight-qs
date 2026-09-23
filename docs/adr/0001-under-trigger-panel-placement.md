@@ -39,6 +39,16 @@ panel on that point and clamps it inside the screen edges:
   existing singletons (`CalendarService`, `NotificationServer`) as the state
   seam.
 
+## Amendments
+
+- 2026-09-23 (arch review #02): the "triggers hide the other panel first"
+  line above now points at `services/Panels.qml`. Triggers call the
+  registry (`toggleCalendarAt` / `toggleCenterAt` / `toggleCavaAt`), which
+  closes the other two before toggling the target; each service keeps its
+  own state by composing `services/PanelState.qml`. The registry also
+  exposes `anyOpen`, which `windows/NotificationPopups.qml` uses so toasts
+  stay hidden while any panel (including cava) is open.
+
 ## Consequences and known limits
 
 - Weather and later panels get placement free by composing `PanelShell` and

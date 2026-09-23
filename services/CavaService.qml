@@ -28,10 +28,10 @@ Singleton {
     property double lastFrameMs: 0
     property bool applyingSettings: false
 
-    property bool cavaVisible: false
-    property double cavaLastOutsideCloseAt: 0
-    property ShellScreen anchorScreen: null
-    property real anchorCenterX: 0
+    property alias cavaVisible: idPanelState.visible
+    property alias cavaLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
+    property alias anchorScreen: idPanelState.anchorScreen
+    property alias anchorCenterX: idPanelState.anchorCenterX
 
     readonly property string stateDirPath: root.stateBase() + "/quickshell"
     readonly property string settingsPath: root.stateFile("cava-settings")
@@ -226,29 +226,20 @@ Singleton {
         root.styleMode = root.minStyleMode + offset;
     }
 
+    PanelState {
+        id: idPanelState
+    }
+
     function toggleCava(): void {
-        if (!root.cavaVisible && Date.now() - root.cavaLastOutsideCloseAt < 300)
-            return;
-        root.cavaVisible = !root.cavaVisible;
+        idPanelState.toggle()
     }
 
     function toggleCavaAt(screen, centerX: real): void {
-        if (screen) {
-            const prevName = root.anchorScreen ? root.anchorScreen.name : "";
-            const moved = root.cavaVisible && prevName !== "" && screen.name !== prevName;
-            root.anchorScreen = screen;
-            root.anchorCenterX = centerX;
-            if (moved)
-                return;
-        }
-        root.toggleCava();
+        idPanelState.toggleAt(screen, centerX)
     }
 
     function closeCavaFromOutside(): void {
-        if (root.cavaVisible) {
-            root.cavaLastOutsideCloseAt = Date.now();
-            root.cavaVisible = false;
-        }
+        idPanelState.closeFromOutside()
     }
 
     function flatLevels(): var {

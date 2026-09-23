@@ -7,12 +7,12 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    property bool calendarVisible: false
+    property alias calendarVisible: idPanelState.visible
 
-    property double calendarLastOutsideCloseAt: 0
+    property alias calendarLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
 
-    property ShellScreen anchorScreen: null
-    property real anchorCenterX: 0
+    property alias anchorScreen: idPanelState.anchorScreen
+    property alias anchorCenterX: idPanelState.anchorCenterX
 
     readonly property int eventsPollMs: 15 * 60 * 1000
     readonly property int eventsStaleAfterMs: 30 * 60 * 1000
@@ -103,6 +103,10 @@ Singleton {
     property bool zonePollQueued: false
 
     onWorldZonesChanged: Qt.callLater(root.repollZoneTimes)
+
+    PanelState {
+        id: idPanelState
+    }
 
     Timer {
         id: idZoneTimer
@@ -215,28 +219,15 @@ Singleton {
     }
 
     function toggleCalendar() {
-        if (!root.calendarVisible && Date.now() - root.calendarLastOutsideCloseAt < 300)
-            return;
-        root.calendarVisible = !root.calendarVisible;
+        idPanelState.toggle()
     }
 
     function toggleCalendarAt(screen, centerX: real) {
-        if (screen) {
-            const prevName = root.anchorScreen ? root.anchorScreen.name : "";
-            const moved = root.calendarVisible && prevName !== "" && screen.name !== prevName;
-            root.anchorScreen = screen;
-            root.anchorCenterX = centerX;
-            if (moved)
-                return;
-        }
-        root.toggleCalendar();
+        idPanelState.toggleAt(screen, centerX)
     }
 
     function closeCalendarFromOutside() {
-        if (root.calendarVisible) {
-            root.calendarLastOutsideCloseAt = Date.now();
-            root.calendarVisible = false;
-        }
+        idPanelState.closeFromOutside()
     }
 
     function stateBase(): string {

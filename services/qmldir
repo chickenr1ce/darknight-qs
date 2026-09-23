@@ -2,3 +2,4 @@ singleton MprisPlayers 1.0 MprisPlayers.qml
 singleton NotificationServer 1.0 NotificationServer.qml
 singleton CavaService 1.0 CavaService.qml
 singleton CalendarService 1.0 CalendarService.qml
+singleton Panels 1.0 Panels.qml

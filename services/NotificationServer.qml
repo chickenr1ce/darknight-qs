@@ -19,43 +19,34 @@ Singleton {
 
     readonly property ListModel historyModel: ListModel {}
 
-    property bool centerVisible: false
+    property alias centerVisible: idPanelState.visible
 
-    property double centerLastOutsideCloseAt: 0
+    property alias centerLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
 
-    property ShellScreen anchorScreen: null
-    property real anchorCenterX: 0
+    property alias anchorScreen: idPanelState.anchorScreen
+    property alias anchorCenterX: idPanelState.anchorCenterX
 
     property string pendingFocusAddress: ""
 
     function toggleCenter() {
-        if (!root.centerVisible && Date.now() - root.centerLastOutsideCloseAt < 300)
-            return;
-        root.centerVisible = !root.centerVisible;
+        idPanelState.toggle()
     }
 
     function toggleCenterAt(screen, centerX: real) {
-        if (screen) {
-            const prevName = root.anchorScreen ? root.anchorScreen.name : "";
-            const moved = root.centerVisible && prevName !== "" && screen.name !== prevName;
-            root.anchorScreen = screen;
-            root.anchorCenterX = centerX;
-            if (moved)
-                return;
-        }
-        root.toggleCenter();
+        idPanelState.toggleAt(screen, centerX)
     }
 
     function closeCenterFromOutside() {
-        if (root.centerVisible) {
-            root.centerLastOutsideCloseAt = Date.now();
-            root.centerVisible = false;
-        }
+        idPanelState.closeFromOutside()
     }
 
     readonly property int unreadCount: idDBusServer.trackedNotifications.values.length
 
     signal toastReceived(Notification notification)
+
+    PanelState {
+        id: idPanelState
+    }
 
     function toggleDnd() {
         root.dndEnabled = !root.dndEnabled;

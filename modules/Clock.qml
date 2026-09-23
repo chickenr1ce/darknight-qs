@@ -13,9 +13,7 @@ ModuleBox {
 
     onClicked: {
         const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-        NotificationServer.centerVisible = false;
-        CavaService.cavaVisible = false;
-        CalendarService.toggleCalendarAt(root.triggerScreen, centerX);
+        Panels.toggleCalendarAt(root.triggerScreen, centerX);
     }
 
     Text {
