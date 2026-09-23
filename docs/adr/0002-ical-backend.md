@@ -33,6 +33,14 @@ reads only the file:
   `scripts/test-calendar-fetch.sh` against a checked-in fixture (single,
   recurring, multi-day, TZID, UTC, folded lines).
 
+## Amendments
+
+- 2026-09-23 (arch review #05, Q3): the last-good events cache stays
+  under `XDG_CACHE_HOME` (`CalendarService.cacheFile`). A cache cleaner
+  can wipe it, and the stale marker covers failed polls but not a wiped
+  cache. Moving the fallback to the state dir plus a startup seed stays
+  out of scope until users ask.
+
 ## Alternatives considered
 
 - `gcalcli` stays the named upgrade path for multi-calendar search or

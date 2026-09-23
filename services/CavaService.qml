@@ -123,6 +123,7 @@ Singleton {
 
         command: ["mkdir", "-p", root.stateDirPath]
         running: true
+        onExited: idCavaSettingsFile.reload()
     }
 
     FileView {

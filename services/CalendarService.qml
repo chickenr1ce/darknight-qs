@@ -19,10 +19,13 @@ Singleton {
     readonly property string eventsUrlFile: root.stateFile("calendar-url")
     readonly property string eventsCachePath: root.cacheFile("calendar-events.json")
     readonly property string stateDirPath: root.stateBase() + "/quickshell"
-    readonly property var eventsCache: root.parseEventsCache(idEventsCache.text())
+    readonly property var eventsCache: root.cachedEventsCache(idEventsCache.text())
+    property string lastEventsCacheText: ""
+    property var lastEventsCacheValue: root.parseEventsCache("")
     readonly property var eventDays: root.eventsCache.days
     readonly property string eventsFetchedAt: root.eventsCache.fetchedAt || ""
     readonly property double eventsFetchedAtMs: Date.parse(root.eventsFetchedAt) || 0
+    readonly property bool eventsStale: root.isStale(root.now.getTime(), root.eventsFetchedAtMs, root.eventsLastPollFailed)
     readonly property var selectedDayEvents: root.eventDays[root.selectedIso] || []
 
     property bool eventsLastPollFailed: false
@@ -40,6 +43,8 @@ Singleton {
 
     property int viewYear: new Date().getFullYear()
     property int viewMonth: new Date().getMonth()
+
+    property date now: new Date()
 
     property string todayIso: root.isoFor(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())
 
@@ -150,17 +155,33 @@ Singleton {
         onTriggered: root.repollEvents()
     }
 
+    Timer {
+        id: idRolloverTimer
+
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: {
+            const now = new Date();
+            root.now = now;
+            const iso = root.isoFor(now.getFullYear(), now.getMonth(), now.getDate());
+            if (!(iso === root.todayIso))
+                root.todayIso = iso;
+        }
+    }
+
     Process {
         id: idEventsProcess
 
         command: ["python3", Quickshell.shellDir + "/scripts/calendar-fetch.py", "--url-file", root.eventsUrlFile, "--cache-file", root.eventsCachePath].concat(root.hiddenCalendarArgs)
-        stdout: idEventsCollector
+        stderr: idEventsErrorCollector
         onExited: code => {
             if (code === 0) {
                 root.eventsLastPollFailed = false;
                 idEventsCache.reload();
             } else {
                 root.eventsLastPollFailed = true;
+                console.warn("calendar-fetch failed with exit " + code + ": " + idEventsErrorCollector.text.trim());
             }
             if (root.eventsPollQueued) {
                 root.eventsPollQueued = false;
@@ -170,7 +191,7 @@ Singleton {
     }
 
     StdioCollector {
-        id: idEventsCollector
+        id: idEventsErrorCollector
     }
 
     FileView {
@@ -189,7 +210,11 @@ Singleton {
         printErrors: false
         watchChanges: true
         onFileChanged: this.reload()
-        onLoaded: root.hiddenCalendars = root.parseHiddenCalendars(idHiddenFile.text())
+        onLoaded: {
+            const next = root.parseHiddenCalendars(idHiddenFile.text());
+            if (!root.sameStringList(root.hiddenCalendars, next))
+                root.hiddenCalendars = next;
+        }
     }
 
     Process {
@@ -197,6 +222,10 @@ Singleton {
 
         command: ["mkdir", "-p", root.stateDirPath]
         running: true
+        onExited: {
+            idZonesFile.reload();
+            idHiddenFile.reload();
+        }
     }
 
     FileView {
@@ -206,7 +235,11 @@ Singleton {
         printErrors: false
         watchChanges: true
         onFileChanged: this.reload()
-        onLoaded: root.worldZones = root.parseZones(idZonesFile.text())
+        onLoaded: {
+            const next = root.parseZones(idZonesFile.text());
+            if (!root.sameStringList(root.worldZones, next))
+                root.worldZones = next;
+        }
     }
 
     FileView {
@@ -258,6 +291,41 @@ Singleton {
             "days": {},
             "calendars": []
         };
+    }
+
+    function cachedEventsCache(jsonText: string) {
+        if (jsonText === root.lastEventsCacheText)
+            return root.lastEventsCacheValue;
+        root.lastEventsCacheText = jsonText;
+        root.lastEventsCacheValue = root.parseEventsCache(jsonText);
+        return root.lastEventsCacheValue;
+    }
+
+    function isStale(nowMs: double, fetchedAtMs: double, failed: bool): bool {
+        if (failed)
+            return true;
+        if (!(fetchedAtMs > 0))
+            return false;
+        return (nowMs - fetchedAtMs) > root.eventsStaleAfterMs;
+    }
+
+    function staleLabel(): string {
+        if (root.eventsFetchedAt.length === 0)
+            return qsTr("Stale · never synced");
+        const mins = Math.max(0, Math.floor((root.now.getTime() - root.eventsFetchedAtMs) / 60000));
+        if (mins < 60)
+            return qsTr("Stale · synced %1m ago").arg(mins);
+        return qsTr("Stale · synced %1h ago").arg(Math.floor(mins / 60));
+    }
+
+    function sameStringList(a, b): bool {
+        if (!(a.length === b.length))
+            return false;
+        for (let i = 0; i < a.length; i++) {
+            if (!(a[i] === b[i]))
+                return false;
+        }
+        return true;
     }
 
     function dateLabel(iso: string): string {
@@ -391,7 +459,7 @@ Singleton {
         else
             return;
         root.saveHiddenCalendars();
-        root.repollEvents();
+        Qt.callLater(root.repollEvents);
     }
 
     function repollEvents() {

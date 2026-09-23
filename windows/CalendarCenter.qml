@@ -9,20 +9,10 @@ import qs.services
 PanelShell {
     id: root
 
-    property date now: new Date()
-
     readonly property string monthLabel: Qt.formatDateTime(new Date(CalendarService.viewYear, CalendarService.viewMonth, 1), "MMMM yyyy")
 
     readonly property var agendaRows: CalendarService.selectedDayEvents
     readonly property bool agendaHasTimes: root.agendaRows.some(row => row.t && row.t.length > 0)
-
-    readonly property bool eventsStale: {
-        if (CalendarService.eventsLastPollFailed)
-            return true;
-        if (CalendarService.eventsFetchedAt.length === 0)
-            return false;
-        return (root.now.getTime() - CalendarService.eventsFetchedAtMs) > CalendarService.eventsStaleAfterMs;
-    }
 
     readonly property int bodyScrollMax: Math.max(Globals.bodyScrollMin, Globals.centerMaxHeight - 2 * Globals.panelPadding - idCalendarHeader.implicitHeight - idWeekdayRow.implicitHeight - idMonthGrid.implicitHeight - 3 * Globals.spacing)
 
@@ -54,21 +44,6 @@ PanelShell {
     anchorCenterX: CalendarService.anchorCenterX
     panelVisible: CalendarService.calendarVisible
     onOutsideClicked: CalendarService.closeCalendarFromOutside()
-
-    Timer {
-        id: idCalendarTimer
-
-        interval: 1000
-        running: CalendarService.calendarVisible
-        repeat: true
-        onTriggered: {
-            root.now = new Date();
-            const now = new Date();
-            const iso = CalendarService.isoFor(now.getFullYear(), now.getMonth(), now.getDate());
-            if (iso !== CalendarService.todayIso)
-                CalendarService.todayIso = iso;
-        }
-    }
 
     PanelHeader {
         id: idCalendarHeader
@@ -340,9 +315,9 @@ PanelShell {
 
                 width: idBodyColumn.width
 
-                visible: root.eventsStale
+                visible: CalendarService.eventsStale
                 textFormat: Text.PlainText
-                text: root.syncAgeText().toUpperCase()
+                text: CalendarService.staleLabel().toUpperCase()
                 color: Colors.warning
 
                 font {
@@ -662,14 +637,5 @@ PanelShell {
             root.addZoneMatch(root.zoneMatches[0]);
         else if (root.canAddDraft)
             root.addZoneMatch(root.zoneDraft);
-    }
-
-    function syncAgeText(): string {
-        if (CalendarService.eventsFetchedAt.length === 0)
-            return qsTr("Stale · never synced");
-        const mins = Math.max(0, Math.floor((root.now.getTime() - CalendarService.eventsFetchedAtMs) / 60000));
-        if (mins < 60)
-            return qsTr("Stale · synced %1m ago").arg(mins);
-        return qsTr("Stale · synced %1h ago").arg(Math.floor(mins / 60));
     }
 }

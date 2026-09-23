@@ -1,6 +1,14 @@
 # 05 — Calendar seam owns staleness plus poll fixes (c4, F3-F7, F8 decision)
 
-Status: ready-for-agent
+Status: done
+
+## Amendments
+
+- 2026-09-23: the 1 s rollover timer runs unconditionally (not gated on
+  panel visibility) so `todayIso` stays correct across midnight even when
+  the panel is closed; cost is one Date allocation per second. The same
+  one-line dir-ordering fix (`onExited` reload) was applied to
+  `CavaService.idCavaDirProcess`, which had the identical silent race.
 Blocking: #07
 Blocked By: #01
 Source: docs/plans/06-architecture-review.html Part 2 c4 (Strong); Part 1 F3 (High), F4/F5/F7 (Medium), F6 (Low), F8 (Medium); open questions Q3.
