@@ -40,6 +40,7 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 ## 4. Docs
 
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
+- For Qt 6 API details (signals, slots, properties, defaults, since-version), verify with the `qt-docs` MCP tools (`qt_documentation_search`, then `qt_documentation_read`) instead of recalling from training; the server carries the 6.11 docs, which match the installed Qt 6.11.2.
 - For current context on the project, refer to `docs/plans/01-master-quickshell-migration.html`
 - Verify QML behavior against a live instance (`quickshell -p <dir>`); the standalone `qml` runtime's logging is broken in this environment. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.
 - Live debugging (log paths, geometry, IPC probing): `docs/debugging-quickshell.md`.
