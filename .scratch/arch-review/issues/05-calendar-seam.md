@@ -9,6 +9,12 @@ Status: done
   the panel is closed; cost is one Date allocation per second. The same
   one-line dir-ordering fix (`onExited` reload) was applied to
   `CavaService.idCavaDirProcess`, which had the identical silent race.
+- 2026-09-23 (discovered live, after commit): annotated
+  `parseEventsCache`, `cachedEventsCache`, `parseZones`, and
+  `parseHiddenCalendars` with `: var`. Unannotated functions called in
+  bindings or on-load handlers log `should be coerced to void` errors
+  (pre-existing class, also present in the daily shell log). A bounded
+  live boot confirms zero hits after.
 Blocking: #07
 Blocked By: #01
 Source: docs/plans/06-architecture-review.html Part 2 c4 (Strong); Part 1 F3 (High), F4/F5/F7 (Medium), F6 (Low), F8 (Medium); open questions Q3.

@@ -1,6 +1,16 @@
 # 02 — One Panels registry owns the one-panel rule (c1, F9)
 
 Status: done
+
+## Amendments
+
+- 2026-09-23 (discovered live, after commit): boot failed with
+  `PanelState is not a type`. Files in a `qmldir` module do not see
+  siblings without importing their own module, and `qmllint` resolves
+  them anyway so the gates stayed green. Fixed with `import
+  qs.services` in CalendarService, NotificationServer, CavaService,
+  and Panels, plus a `PanelState` entry in `qmldir`. Guarded by gate
+  section 3b and a conventions bullet; verified by a bounded live boot.
 Blocking: #07
 Blocked By: #01
 Source: docs/plans/06-architecture-review.html Part 2 c1 (Strong, top recommendation), Part 1 F9 (Low); ADR 0001.

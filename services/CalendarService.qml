@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.services
 
 Singleton {
     id: root
@@ -279,7 +280,7 @@ Singleton {
         return root.cacheBase() + "/quickshell/" + name;
     }
 
-    function parseEventsCache(jsonText: string) {
+    function parseEventsCache(jsonText: string): var {
         try {
             const parsed = JSON.parse(jsonText);
             if (parsed && parsed.days)
@@ -293,7 +294,7 @@ Singleton {
         };
     }
 
-    function cachedEventsCache(jsonText: string) {
+    function cachedEventsCache(jsonText: string): var {
         if (jsonText === root.lastEventsCacheText)
             return root.lastEventsCacheValue;
         root.lastEventsCacheText = jsonText;
@@ -412,7 +413,7 @@ Singleton {
         return /^[A-Za-z0-9_\-+\/]+$/.test(name);
     }
 
-    function parseZones(text: string) {
+    function parseZones(text: string): var {
         const zones = [];
         const lines = text.split("\n");
         for (let i = 0; i < lines.length && zones.length < root.maxZones; i++) {
@@ -436,7 +437,7 @@ Singleton {
         idZonesFile.setText(root.worldZones.length > 0 ? root.worldZones.join("\n") + "\n" : "");
     }
 
-    function parseHiddenCalendars(text: string) {
+    function parseHiddenCalendars(text: string): var {
         const hidden = [];
         const lines = text.split("\n");
         for (let i = 0; i < lines.length; i++) {

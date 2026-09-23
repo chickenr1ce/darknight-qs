@@ -67,6 +67,17 @@ if grep -rn --include='*.qml' 'lastIpcObject' "$ROOT/modules/Tray.qml" "$ROOT/se
     fail "matcher logic leaked back into a call site"
 fi
 
+# --- 3b. module siblings resolve only through a self-import ---
+# qmllint resolves same-directory siblings, the runtime does not when the
+# directory is a qmldir module: every service file that names a sibling
+# type must import qs.services, and every sibling component must be in qmldir.
+for svc in CalendarService NotificationServer CavaService Panels; do
+    grep -q '^import qs.services' "$ROOT/services/$svc.qml" \
+        || fail "$svc.qml is missing its qs.services self-import"
+done
+grep -q '^PanelState 1.0 PanelState.qml' "$ROOT/services/qmldir" \
+    || fail "PanelState is not registered in services/qmldir"
+
 # --- 4. single invoke path for notification actions ---
 for pill in components/NotificationToast.qml components/NotificationCard.qml; do
     grep -q 'invokeAction' "$ROOT/$pill" \

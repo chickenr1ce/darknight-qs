@@ -241,6 +241,11 @@ Timer { id: idMediaTimer }
   `git ls-files`, so an unstaged deletion (file gone, index entry kept) fails
   the gate with `Failed to open file` and exit 255. Stage deletions before
   running the gate (verified 2026-09-23).
+- **Files in a `qmldir` module never see siblings implicitly**: a service file
+  naming a sibling type needs `import qs.services` (its own module) and the
+  sibling needs a `qmldir` entry. `qmllint` resolves the sibling anyway, so
+  only a live `quickshell -p` boot catches the missing import (`... is not a
+  type`, verified 2026-09-23).
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 
