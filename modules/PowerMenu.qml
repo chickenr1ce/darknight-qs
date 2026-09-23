@@ -1,16 +1,22 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Io
+import Quickshell
 import qs.config
 import qs.components
+import qs.services
 
 ModuleBox {
     id: root
 
     property string monitorName: ""
+    property ShellScreen triggerScreen: null
+
     visible: Globals.onPrimaryMonitor(root.monitorName)
 
-    onClicked: openPowerMenu()
+    onClicked: {
+        const centerX = Globals.triggerCenterX(root, root.triggerScreen);
+        Panels.togglePowerAt(root.triggerScreen, centerX);
+    }
 
     Text {
         id: idPowerMenuIcon
@@ -24,14 +30,5 @@ ModuleBox {
             weight: Font.DemiBold
         }
         text: "󰐥"
-    }
-
-    Process {
-        id: idPowerMenuProcess
-    }
-
-    function openPowerMenu(): void {
-        idPowerMenuProcess.command = ["/home/alexiz/.config/rofi/powermenu/type-1/powermenu.sh"];
-        idPowerMenuProcess.running = true;
     }
 }

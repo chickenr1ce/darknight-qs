@@ -53,7 +53,7 @@ Singleton {
         repeat: true
         triggeredOnStart: true
         onTriggered: {
-            if (!idInfoProcess.running)
+            if (!idInfoProcess.running && !idRunProcess.running)
                 idInfoProcess.running = true;
         }
     }
@@ -70,9 +70,9 @@ Singleton {
 
         onStreamFinished: {
             const lines = idInfoCollector.text.split("\n");
-            if (lines.length > 0 && lines[0].trim() !== "")
+            if (lines.length > 0 && !(lines[0].trim() === ""))
                 root.hostName = lines[0].trim();
-            if (lines.length > 1 && lines[1].trim() !== "")
+            if (lines.length > 1 && !(lines[1].trim() === ""))
                 root.uptime = lines[1].trim();
         }
     }
@@ -81,14 +81,21 @@ Singleton {
         id: idRunProcess
     }
 
-    function togglePowerAt(screen, centerX: real) {
+    function togglePower() {
         const was = idPanelState.visible;
-        idPanelState.toggleAt(screen, centerX);
-        if (idPanelState.visible !== was)
+        idPanelState.toggle();
+        if (!(idPanelState.visible === was))
             root.armedAction = "";
     }
 
-    function closeFromOutside() {
+    function togglePowerAt(screen, centerX: real) {
+        const was = idPanelState.visible;
+        idPanelState.toggleAt(screen, centerX);
+        if (!(idPanelState.visible === was))
+            root.armedAction = "";
+    }
+
+    function closePowerFromOutside() {
         idPanelState.closeFromOutside();
         root.armedAction = "";
     }
@@ -98,10 +105,7 @@ Singleton {
             root.executeAction(actionId);
             return;
         }
-        if (root.armedAction === actionId)
-            root.confirmArmed();
-        else
-            root.armedAction = actionId;
+        root.armedAction = actionId;
     }
 
     function cancel() {
@@ -118,7 +122,7 @@ Singleton {
         if (actionId === "lock")
             idRunProcess.command = ["sh", "-c", "command -v hyprlock >/dev/null 2>&1 && exec hyprlock || { command -v betterlockscreen >/dev/null 2>&1 && exec betterlockscreen -l || exec i3lock; }"];
         else if (actionId === "suspend")
-            idRunProcess.command = ["sh", "-c", "mpc -q pause 2>/dev/null; systemctl suspend"];
+            idRunProcess.command = ["sh", "-c", "playerctl pause -a 2>/dev/null; mpc -q pause 2>/dev/null; systemctl suspend"];
         else if (actionId === "logout")
             idRunProcess.command = ["hyprctl", "dispatch", "exit"];
         else if (actionId === "reboot")

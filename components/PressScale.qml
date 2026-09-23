@@ -19,7 +19,7 @@ Item {
 
     Behavior on scale {
         NumberAnimation {
-            duration: Globals.pressMs
+            duration: Globals.reducedMotion ? 0 : Globals.pressMs
             easing.type: root.pressed ? Easing.OutQuad : Easing.OutBack
         }
     }

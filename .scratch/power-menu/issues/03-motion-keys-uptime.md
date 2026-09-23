@@ -18,3 +18,11 @@ makes every state change instant.
 - [ ] Header shows live hostname and uptime without layout shift.
 - [ ] Type gate passes; live boot shows no binding-loop or focus
   warnings tied to this panel.
+
+## Amendments
+
+- 2026-09-23: "Footer buttons warm on hover" reads as the shared
+  `PillButton` hover state (instant text/border swap, no CPU color
+  animation per the GPU-only budget above); the 140ms hover warm
+  applies to the rows via the opacity wash, press squash animates on
+  both rows and footer buttons.

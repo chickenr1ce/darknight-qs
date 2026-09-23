@@ -37,6 +37,9 @@ QtObject {
 
     readonly property real pressScaleModule: 0.94
     readonly property real pressScalePill: 0.86
+    readonly property real pressScaleRow: 0.985
+
+    property bool reducedMotion: false
 
     readonly property int slabInset: horizontalBarMargin + slabEdgePadding
     readonly property int slabEdgePadding: 6
@@ -59,6 +62,7 @@ QtObject {
     readonly property int rowSpacing: 8
     readonly property int fieldPadding: 5
     readonly property int hairlineHeight: 1
+    readonly property int armedEdgeWidth: 2
     readonly property int bodyScrollMin: 160
     readonly property real uiLetterSpacing: 0.6
 

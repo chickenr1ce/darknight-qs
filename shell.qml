@@ -125,6 +125,7 @@ ShellRoot {
 
                 PowerMenu {
                     monitorName: idPanelWindow.monitorName
+                    triggerScreen: idPanelWindow.modelData
                 }
             }
 
@@ -150,4 +151,6 @@ ShellRoot {
     CalendarCenter {}
 
     CavaCenter {}
+
+    PowerCenter {}
 }

@@ -112,3 +112,10 @@ behavior matches the other panels exactly.
 
 - Monochrome is deliberate: no red anywhere, Confirm is lavender.
 - Uptime repolls every 60 seconds and skips while a run is in flight.
+
+## Amendments
+
+- 2026-09-23: Dropped the "Confirm flash on run" (Motion decision
+  above). It would need a mint token outside `config/Colors.qml` and
+  would hold the panel open across a destructive run; the panel now
+  closes at once on run with no accent beyond lavender.

@@ -20,18 +20,18 @@ fail() { echo "panel-logic FAIL: $*" >&2; exit 1; }
 # Direct writes to another panel's visibility outside the registry mean the
 # N-squared mesh is growing back. Alias declarations use a colon, so only
 # match plain assignments.
-WRITERS="$(grep -rn --include='*.qml' -E '(calendarVisible|centerVisible|cavaVisible) = ' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" || true)"
+WRITERS="$(grep -rn --include='*.qml' -E '(calendarVisible|centerVisible|cavaVisible|powerVisible) = ' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" || true)"
 echo "$WRITERS" | grep -v '^$' | grep -v 'services/Panels.qml' | grep -q . \
     && fail "panel visibility written outside services/Panels.qml: $(echo "$WRITERS" | grep -v 'services/Panels.qml')"
 test -z "$(echo "$WRITERS" | grep -v '^$')" \
-    && fail "no panel visibility writes found at all; the registry owns six (2 per toggle)"
+    && fail "no panel visibility writes found at all; the registry owns eight (2 per toggle)"
 
 # Toasts hide while ANY panel is open (toasts-over-cava was the leak).
 grep -q 'Panels.anyOpen' "$ROOT/windows/NotificationPopups.qml" \
     || fail "NotificationPopups does not gate on Panels.anyOpen"
 
 # Triggers call the registry instead of each other's services.
-for trigger in "Clock.qml:Panels.toggleCalendarAt" "Notifications.qml:Panels.toggleCenterAt" "Cava.qml:Panels.toggleCavaAt"; do
+for trigger in "Clock.qml:Panels.toggleCalendarAt" "Notifications.qml:Panels.toggleCenterAt" "Cava.qml:Panels.toggleCavaAt" "PowerMenu.qml:Panels.togglePowerAt"; do
     file="${trigger%%:*}"
     call="${trigger##*:}"
     grep -q "$call" "$ROOT/modules/$file" \
@@ -71,12 +71,16 @@ fi
 # qmllint resolves same-directory siblings, the runtime does not when the
 # directory is a qmldir module: every service file that names a sibling
 # type must import qs.services, and every sibling component must be in qmldir.
-for svc in CalendarService NotificationServer CavaService Panels; do
+for svc in CalendarService NotificationServer CavaService Panels PowerService; do
     grep -q '^import qs.services' "$ROOT/services/$svc.qml" \
         || fail "$svc.qml is missing its qs.services self-import"
 done
 grep -q '^PanelState 1.0 PanelState.qml' "$ROOT/services/qmldir" \
     || fail "PanelState is not registered in services/qmldir"
+grep -q '^singleton PowerService 1.0 PowerService.qml' "$ROOT/services/qmldir" \
+    || fail "PowerService is not registered in services/qmldir"
+grep -q 'PowerService.powerVisible' "$ROOT/services/Panels.qml" \
+    || fail "Panels does not own the power one-panel rule"
 
 # --- 4. single invoke path for notification actions ---
 for pill in components/NotificationToast.qml components/NotificationCard.qml; do
@@ -175,5 +179,58 @@ while queue:
 check("queue/order", dispatched,
       ["focus 0xaaa", "restore cursor", "focus 0xbbb", "restore cursor"])
 EOF
+
+# --- 7. power confirm loop:.argv mapping verified without firing ---
+# Destructive commands never run in CI; assert the mapping statically.
+PSVC="$ROOT/services/PowerService.qml"
+PCENTER="$ROOT/windows/PowerCenter.qml"
+grep -q 'command -v hyprlock' "$PSVC" \
+    || fail "PowerService lock has no hyprlock fallback chain"
+grep -q 'betterlockscreen' "$PSVC" \
+    || fail "PowerService lock misses betterlockscreen fallback"
+grep -q 'i3lock' "$PSVC" \
+    || fail "PowerService lock misses i3lock fallback"
+grep -q 'playerctl pause -a' "$PSVC" \
+    || fail "PowerService suspend does not pause media first"
+grep -q 'systemctl suspend' "$PSVC" \
+    || fail "PowerService suspend misses systemctl suspend"
+grep -q '"hyprctl", "dispatch", "exit"' "$PSVC" \
+    || fail "PowerService logout does not dispatch Hyprland exit"
+grep -q '"systemctl", "reboot"' "$PSVC" \
+    || fail "PowerService reboot misses systemctl reboot"
+grep -q '"systemctl", "poweroff"' "$PSVC" \
+    || fail "PowerService shutdown misses systemctl poweroff"
+# Lock fires at once; the other four only arm.
+grep -q 'if (actionId === "lock")' "$PSVC" \
+    || fail "PowerService.arm has no lock fast path"
+# Confirm is inert with nothing armed.
+grep -q 'if (root.armedAction === "")' "$PSVC" \
+    || fail "PowerService.confirmArmed has no empty guard"
+# Footer never reflows: buttons stay laid out via disabled, never visible toggles.
+if grep -n 'armedAction' "$PCENTER" | grep -q 'visible:'; then
+    fail "PowerCenter footer toggles visibility on armed state (reflows)"
+fi
+grep -q 'disabled: PowerService.armedAction === ""' "$PCENTER" \
+    || fail "PowerCenter footer does not hold Confirm/Cancel slots while disarmed"
+# Keyboard flow without a pointer.
+for key in '"1"' '"2"' '"3"' '"4"' '"5"' '"Return"' '"Enter"'; do
+    grep -q "sequence: $key" "$PCENTER" \
+        || fail "PowerCenter misses keyboard sequence $key"
+done
+# Monochrome is deliberate: no red color anywhere in the panel or its
+# service (the `dangerous` model flag is data for label plus confirm only).
+if grep -qnE 'Colors\.(danger|red)|#ff5252' "$PCENTER" "$PSVC"; then
+    fail "power panel carries red; danger travels by label plus confirm only"
+fi
+# Slow poll skips while a run is in flight.
+grep -q 'idRunProcess.running' "$PSVC" \
+    || fail "PowerService info poll does not skip while a run is in flight"
+# Reduced motion has a project-level switch and the panel honors it.
+grep -q 'reducedMotion' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no reducedMotion switch"
+grep -q 'reducedMotion' "$PCENTER" \
+    || fail "PowerCenter ignores Globals.reducedMotion"
+grep -q 'reducedMotion' "$ROOT/components/PressScale.qml" \
+    || fail "PressScale ignores Globals.reducedMotion"
 
 echo "panel-logic: all ok"

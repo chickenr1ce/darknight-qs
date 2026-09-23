@@ -84,7 +84,7 @@ PanelWindow {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: root.panelVisible ? Globals.centerCloseMs : Globals.centerOpenMs
+                duration: Globals.reducedMotion ? 0 : (root.panelVisible ? Globals.centerCloseMs : Globals.centerOpenMs)
                 easing.type: Easing.OutCubic
             }
         }
