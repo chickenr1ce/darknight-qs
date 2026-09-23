@@ -122,3 +122,7 @@ behavior matches the other panels exactly.
 - 2026-09-23: No locker backend (hyprlock, betterlockscreen, i3lock)
   installed on this machine. Lock verified by argv/static only; live
   lock and rofi-script removal wait on a locker install.
+- 2026-09-23: hyprlock v0.9.6 installed; ~/.config/hypr/hyprlock.conf
+  created from the shipped sample and restyled to the bar palette
+  (solid #141118, lavender input ring, Iosevka). Lock verified live
+  end to end through PowerService lock on both monitors.

@@ -26,3 +26,6 @@ this verifies live.
   is installed on this machine, so the "Lock verified live" half of
   the argv checkbox holds argv/static only. Live lock re-verifies
   once a locker is installed; everything else verified live.
+- 2026-09-23: hyprlock v0.9.6 installed with a bar-matched
+  ~/.config/hypr/hyprlock.conf; Lock verified live end to end through
+  the panel path on both monitors. The argv checkbox now holds fully.
