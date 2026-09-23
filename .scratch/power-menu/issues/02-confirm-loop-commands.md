@@ -10,12 +10,19 @@ this verifies live.
 
 **Blocked by:** 01 (needs the panel, list, and arm state).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Confirm inert with nothing armed; footer never reflows between
+- [x] Confirm inert with nothing armed; footer never reflows between
   states.
-- [ ] Lock runs immediately on click; the other four need one confirm.
-- [ ] Cancel and close paths clear the armed row.
-- [ ] Destructive commands verified by argv without firing; Lock
+- [x] Lock runs immediately on click; the other four need one confirm.
+- [x] Cancel and close paths clear the armed row.
+- [x] Destructive commands verified by argv without firing; Lock
   verified live.
-- [ ] Type gate passes on touched files.
+- [x] Type gate passes on touched files.
+
+## Amendments
+
+- 2026-09-23: No locker backend (hyprlock, betterlockscreen, i3lock)
+  is installed on this machine, so the "Lock verified live" half of
+  the argv checkbox holds argv/static only. Live lock re-verifies
+  once a locker is installed; everything else verified live.

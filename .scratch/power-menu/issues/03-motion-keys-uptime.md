@@ -9,14 +9,14 @@ makes every state change instant.
 
 **Blocked by:** 02 (needs the confirm loop the motion annotates).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Hover, armed, and press states animate on GPU-only properties
+- [x] Hover, armed, and press states animate on GPU-only properties
   within the duration budgets; no height or anchor animation.
-- [ ] Full keyboard flow works without a pointer.
-- [ ] Reduced-motion path verified: state changes with no transition.
-- [ ] Header shows live hostname and uptime without layout shift.
-- [ ] Type gate passes; live boot shows no binding-loop or focus
+- [x] Full keyboard flow works without a pointer.
+- [x] Reduced-motion path verified: state changes with no transition.
+- [x] Header shows live hostname and uptime without layout shift.
+- [x] Type gate passes; live boot shows no binding-loop or focus
   warnings tied to this panel.
 
 ## Amendments

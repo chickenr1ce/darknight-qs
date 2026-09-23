@@ -232,6 +232,11 @@ Timer { id: idMediaTimer }
   live via `grim` plus per-column pixel midpoints, 2026-09-16). Correct with an
   explicit optical nudge (`centerOpticalNudge`); `Shape` paths use float
   coordinates and need none.
+- **Nerd glyphs need a measured optical nudge**: icon-font advances carry
+  extra right bearing, so a `centerIn`-aligned glyph renders ~1px left of its
+  box center (measured live via `grim` pixel reads at scale 1, verified
+  2026-09-23). Correct with a named token (`glyphOpticalNudge`) and re-measure
+  after any font-family change, since fallback resolution can shift bearings.
 - **Three linter false positives to leave alone**: `try {` on one line reads as
   a QML child (keep the braces split); `!==` trips the loose-equality rule
   (write `!(a === b)`); object-literal keys named like properties fake out the

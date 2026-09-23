@@ -10,12 +10,12 @@ also only arms in this slice.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Panel anchors under the power trigger on the trigger monitor and
+- [x] Panel anchors under the power trigger on the trigger monitor and
   matches the other panels entrance.
-- [ ] All five actions render monochrome with dividers and no red.
-- [ ] Arming a row shows visually; only one row arms at a time.
-- [ ] One-panel rule holds in both directions; Esc and outside click
+- [x] All five actions render monochrome with dividers and no red.
+- [x] Arming a row shows visually; only one row arms at a time.
+- [x] One-panel rule holds in both directions; Esc and outside click
   close and clear the armed row.
-- [ ] Type gate passes on touched files.
+- [x] Type gate passes on touched files.
