@@ -11,6 +11,8 @@ ModuleBox {
     property string monitorName: ""
     property ShellScreen triggerScreen: null
 
+    visible: Globals.onPrimaryMonitor(root.monitorName)
+
     readonly property bool hasUnread: NotificationServer.unreadCount > 0 && !NotificationServer.dndEnabled
 
     minWidth: 2 * root.horizontalPadding + Math.max(idNotificationsBellEmptyMetrics.advanceWidth, idNotificationsBellUnreadMetrics.advanceWidth, idNotificationsBellDndMetrics.advanceWidth)

@@ -1,6 +1,6 @@
 # 03 — Monitor policy as data, composed visibility (c2)
 
-Status: ready-for-agent
+Status: done
 Blocking: (none)
 Blocked By: #01
 Source: docs/plans/06-architecture-review.html Part 2 c2 (Strong); shell.qml, modules/Tray.qml, modules/Media.qml, modules/Workspaces.qml, config/Globals.qml.

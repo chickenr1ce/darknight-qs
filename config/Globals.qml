@@ -62,7 +62,13 @@ QtObject {
     readonly property int bodyScrollMin: 160
     readonly property real uiLetterSpacing: 0.6
 
+    readonly property string primaryMonitor: "DP-1"
+
     function triggerCenterX(triggerItem, triggerScreen): real {
         return triggerItem.mapToGlobal(triggerItem.width / 2, 0).x - (triggerScreen ? triggerScreen.x : 0);
+    }
+
+    function onPrimaryMonitor(monitorName: string): bool {
+        return monitorName === "" || monitorName === root.primaryMonitor;
     }
 }

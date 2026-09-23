@@ -100,7 +100,7 @@ ShellRoot {
                     monitorName: idPanelWindow.monitorName
                 }
                 Tray {
-                    visible: idPanelWindow.monitorName === "DP-1"
+                    monitorName: idPanelWindow.monitorName
                 }
 
                 Item {
@@ -111,22 +111,20 @@ ShellRoot {
                 Cava {
                     monitorName: idPanelWindow.monitorName
                     triggerScreen: idPanelWindow.modelData
-                    visible: idPanelWindow.monitorName === "DP-1"
                 }
                 Media {
-                    visible: idPanelWindow.monitorName === "DP-1"
+                    monitorName: idPanelWindow.monitorName
                 }
                 Audio {
-                    visible: idPanelWindow.monitorName === "DP-1"
+                    monitorName: idPanelWindow.monitorName
                 }
                 Notifications {
                     monitorName: idPanelWindow.monitorName
                     triggerScreen: idPanelWindow.modelData
-                    visible: idPanelWindow.monitorName === "DP-1"
                 }
 
                 PowerMenu {
-                    visible: idPanelWindow.monitorName === "DP-1"
+                    monitorName: idPanelWindow.monitorName
                 }
             }
 

@@ -9,11 +9,13 @@ import qs.services
 ModuleBox {
     id: root
 
+    property string monitorName: ""
+
     readonly property MprisPlayer activePlayer: MprisPlayers.activePlayer
     readonly property bool isPlaying: activePlayer?.playbackState === MprisPlaybackState.Playing || Boolean(activePlayer?.isPlaying)
 
     maxWidth: 360
-    visible: activePlayer !== null
+    visible: Globals.onPrimaryMonitor(root.monitorName) && activePlayer !== null
 
     onClicked: mouse => {
         if (!root.activePlayer)

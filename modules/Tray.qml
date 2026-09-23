@@ -15,8 +15,9 @@ import qs.components
 ModuleBox {
     id: root
 
+    property string monitorName: ""
     enableMouseArea: false
-    visible: idTrayRepeater.count > 0
+    visible: Globals.onPrimaryMonitor(root.monitorName) && idTrayRepeater.count > 0
 
     // Stash: the cursorpos reply arrives after this function returns.
     property string pendingFocusAddress: ""

@@ -7,6 +7,9 @@ import qs.components
 ModuleBox {
     id: root
 
+    property string monitorName: ""
+    visible: Globals.onPrimaryMonitor(root.monitorName)
+
     onClicked: openPowerMenu()
 
     Text {

@@ -14,6 +14,8 @@ ModuleBox {
     property string monitorName: ""
     property ShellScreen triggerScreen: null
 
+    visible: Globals.onPrimaryMonitor(root.monitorName)
+
     readonly property int barWidth: 4
     readonly property int barSpacing: 3
     readonly property int barRadius: 1

@@ -8,6 +8,9 @@ import qs.components
 ModuleBox {
     id: root
 
+    property string monitorName: ""
+    visible: Globals.onPrimaryMonitor(root.monitorName)
+
     readonly property PwNode defaultSink: Pipewire.defaultAudioSink
 
     onClicked: mouse => {
