@@ -1,6 +1,14 @@
 # 04 — One HyprlandFocus module owns focus-and-restore (c3, F2)
 
-Status: ready-for-agent
+Status: done
+
+## Amendments
+
+- 2026-09-23: `services/HyprlandFocus.qml` keeps two `property var`
+  (`requestQueue`, `dispatchImpl`), accepted into the lint baseline as one
+  BND-1 triple. The queue needs JS Array ops (`concat`/`slice`) and the
+  injectable dispatch needs a callable holder; no typed QML property covers
+  either without risking unverifiable `list<string>` method support.
 Blocking: (none)
 Blocked By: #01
 Source: docs/plans/06-architecture-review.html Part 2 c3 (Strong), Part 1 F2 (High); modules/Tray.qml focusAppWindow, services/NotificationServer.qml focusApp.

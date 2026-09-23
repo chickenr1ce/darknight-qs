@@ -42,7 +42,6 @@ modules/Notifications.qml STY-3 3 font.* properties using dot notation -- use gr
 modules/PowerMenu.qml ORD-1 property assignment appears after attached property -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Tray.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 modules/Tray.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
-modules/Tray.qml ORD-1 property declaration appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 modules/Tray.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 modules/Tray.qml STY-3 3 anchor.* properties using dot notation -- use group notation: anchor { ... }
 modules/Workspaces.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
@@ -54,10 +53,10 @@ services/CalendarService.qml ORD-1 child object appears after function -- expect
 services/CavaService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CavaService.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 services/CavaService.qml ORD-1 id appears after property assignment -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
+services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/MprisPlayers.qml BND-5 list<> property has no granular change signals -- add/move/remove won't notify; consider a ListModel or notify manually
 services/MprisPlayers.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
-services/NotificationServer.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
 shell.qml ORD-1 property assignment appears after child object -- expected order: id, properties, signals, assignments, attached, states, transitions, handlers, children, functions
 windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml JS-2 Loose equality (==/!=) -- use strict equality (===/!==)
