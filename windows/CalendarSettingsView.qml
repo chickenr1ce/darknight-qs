@@ -6,8 +6,6 @@ import qs.components
 import qs.config
 import qs.services
 
-// Per-calendar Shown/Hidden list. Lives inside CalendarCenter's PanelShell;
-// visibility is owned by the parent (showingSettings).
 Column {
     id: root
 

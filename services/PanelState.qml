@@ -3,9 +3,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 
-// Shared open/close state for one floating panel: re-click debounce, anchor
-// before visibility, and the outside-close stamp. Each service composes one
-// and aliases its own names onto it, so existing bindings keep working.
 QtObject {
     id: root
 

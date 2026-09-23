@@ -5,10 +5,6 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 
-// Focus-and-restore for Hyprland windows: match a window from caller tokens,
-// snapshot the cursor, focus, then restore the cursor. Concurrent clicks
-// queue behind the in-flight cursorpos read instead of skipping the restore.
-// Override dispatchImpl in a harness to record calls instead of hitting IPC.
 Singleton {
     id: root
 

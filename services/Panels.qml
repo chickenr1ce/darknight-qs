@@ -3,9 +3,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 
-// One-panel rule: opening a panel closes the others. Services own their
-// state (composed PanelState each); this registry owns the exclusivity, so
-// triggers call here instead of writing each other's services.
 Singleton {
     id: root
 
