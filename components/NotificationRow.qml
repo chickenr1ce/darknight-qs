@@ -20,7 +20,7 @@ Item {
 
     readonly property Notif.Notification notification: root.entry && root.entry.notification ? root.entry.notification : null
     readonly property real arrivedAt: root.entry && root.entry.arrivedAt > 0 ? root.entry.arrivedAt : 0
-    readonly property bool isCritical: root.notification !== null && root.notification.urgency === Notif.NotificationUrgency.Critical
+    readonly property bool isCritical: !(root.notification === null) && NotificationServer.isCriticalUrgency(root.notification.urgency)
     readonly property bool actionsVisible: root.notification !== null
         && (root.notification.actions.length > 0 || root.notification.hasInlineReply)
     readonly property string relativeTime: {
@@ -58,11 +58,11 @@ Item {
             fill: parent
             topMargin: Globals.listSpacing
             bottomMargin: Globals.listSpacing
-            leftMargin: Globals.cardHPadding
-            rightMargin: Globals.cardHPadding
+            leftMargin: 0
+            rightMargin: 0
         }
 
-        spacing: Globals.spacing
+        spacing: Globals.rowSpacing
 
         Rectangle {
             id: idNotificationRail

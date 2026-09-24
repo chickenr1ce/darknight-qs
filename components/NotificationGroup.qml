@@ -2,8 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-// Aliased: the bare name resolves to the C++ type, shadowing the singleton (conventions §4).
-import Quickshell.Services.Notifications as Notif
 import qs.components
 import qs.config
 import qs.services
@@ -28,16 +26,17 @@ Item {
     readonly property bool hasCritical: {
         for (let i = 0; i < root.notifications.length; i++) {
             const notification = root.notifications[i].notification;
-            if (notification !== null && notification.urgency === Notif.NotificationUrgency.Critical)
+            if (!(notification === null) && NotificationServer.isCriticalUrgency(notification.urgency))
                 return true;
         }
         return false;
     }
     readonly property color groupColor: root.hasCritical ? Colors.danger : Colors.appColor(root.appName)
+    readonly property int expandedTargetHeight: root.headerHeight + idContentColumn.implicitHeight + Globals.rowSpacing
 
     implicitWidth: parent ? parent.width : 0
     implicitHeight: headerHeight
-        + (expanded ? idContentColumn.implicitHeight + 8 : 0)
+        + (expanded ? idContentColumn.implicitHeight + Globals.rowSpacing : 0)
 
     clip: true
 
@@ -97,7 +96,7 @@ Item {
     RowLayout {
         id: idHeaderRow
 
-        spacing: 8
+        spacing: Globals.rowSpacing
 
         // Explicit fractional margin, not a center anchor: (34-23)/2 must land
         // on 5.5, and the anchor rounds it down to 5 (measured live via IPC).
@@ -106,8 +105,8 @@ Item {
             left: parent.left
             right: parent.right
             topMargin: (root.headerHeight - idHeaderRow.implicitHeight) / 2
-            leftMargin: 8
-            rightMargin: 8
+            leftMargin: 0
+            rightMargin: 0
         }
 
         Rectangle {
@@ -204,8 +203,6 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.topMargin: root.headerHeight + 2
-        anchors.leftMargin: 10
-        anchors.rightMargin: 10
 
         spacing: 0
         visible: root.expanded

@@ -32,12 +32,8 @@ QtObject {
     readonly property color warning: yellow
     readonly property color accentSecondary: purple
 
-    readonly property var appColorOverrides: ({})
-
     function appColor(appName: string): color {
         const key = (appName || "").trim().toLowerCase();
-        if (key in root.appColorOverrides)
-            return root.appColorOverrides[key];
         if (key === "")
             return root.accent;
         let hash = 5381;

@@ -22,6 +22,11 @@ Singleton {
 
     property alias centerLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
 
+    onCenterVisibleChanged: {
+        if (root.centerVisible)
+            root.activeToasts.clear();
+    }
+
     property alias anchorScreen: idPanelState.anchorScreen
     property alias anchorCenterX: idPanelState.anchorCenterX
 
@@ -67,6 +72,10 @@ Singleton {
         if (!notification)
             return false;
         return HyprlandFocus.focusByTokens([notification.appName, notification.desktopEntry]);
+    }
+
+    function isCriticalUrgency(urgency) {
+        return urgency === NotificationUrgency.Critical;
     }
 
     function invokeAction(notification, action) {

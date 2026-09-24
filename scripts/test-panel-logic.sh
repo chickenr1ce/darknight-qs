@@ -59,6 +59,18 @@ grep -q 'requestQueue' "$ROOT/services/HyprlandFocus.qml" \
     || fail "HyprlandFocus has no request queue"
 grep -q 'dispatchImpl' "$ROOT/services/HyprlandFocus.qml" \
     || fail "HyprlandFocus dispatch is not injectable"
+grep -q 'idFocusWatchdog' "$ROOT/services/HyprlandFocus.qml" \
+    || fail "HyprlandFocus has no snapshot watchdog"
+grep -q 'snapshotPending' "$ROOT/services/HyprlandFocus.qml" \
+    || fail "HyprlandFocus does not guard stale snapshots"
+grep -q 'focusWatchdogMs' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no focusWatchdogMs"
+grep -q 'idFocusRetryTimer' "$ROOT/services/HyprlandFocus.qml" \
+    || fail "HyprlandFocus does not wait for toplevel data"
+grep -q 'focusRetryMs' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no focusRetryMs"
+grep -q 'focusRetryTicks' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no focusRetryTicks"
 for site in "modules/Tray.qml" "services/NotificationServer.qml"; do
     grep -q 'HyprlandFocus.focusByTokens' "$ROOT/$site" \
         || fail "$site does not delegate to HyprlandFocus"

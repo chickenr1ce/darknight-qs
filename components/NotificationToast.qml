@@ -14,10 +14,10 @@ Rectangle {
 
     required property Notif.Notification toast
 
-    readonly property bool isCritical: toast !== null && toast.urgency === Notif.NotificationUrgency.Critical
-    // expireTimeout arrives in milliseconds despite the docs claiming seconds; 0 = never expire, -1 falls back to 5s.
-    readonly property int timeoutMs: Math.round(toast !== null && toast.expireTimeout > 0 ? toast.expireTimeout : 5000)
-    readonly property bool sticky: root.isCritical || (toast !== null && toast.expireTimeout === 0)
+    readonly property bool isCritical: !(toast === null) && NotificationServer.isCriticalUrgency(toast.urgency)
+    // expireTimeout arrives in milliseconds despite the docs claiming seconds; 0 clamps instead of sticking, -1 falls back to 5s.
+    readonly property int timeoutMs: toast !== null && toast.expireTimeout === 0 ? Globals.toastStickyClampMs : (toast !== null && toast.expireTimeout > 0 ? Math.round(toast.expireTimeout) : 5000)
+    readonly property bool sticky: root.isCritical
     readonly property bool hovered: idToastHoverArea.containsMouse
 
     property real decayProgress: 1.0
@@ -64,7 +64,7 @@ Rectangle {
         from: 1.0
         to: 0.0
         easing.type: Easing.Linear
-        // Requesting paused on a stopped animator warns, so gate on running (sticky toasts never run).
+        // Requesting paused on a stopped animator warns, so gate on running (critical toasts never run).
         running: !root.sticky
         paused: running && root.hovered
         // Timeout hides the popup only; history persists until dismissed, so retire instead of expiring.

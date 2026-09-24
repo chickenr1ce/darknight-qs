@@ -13,14 +13,46 @@ PanelShell {
     anchorCenterX: NotificationServer.anchorCenterX
 
     panelVisible: NotificationServer.centerVisible
-    onOutsideClicked: NotificationServer.closeCenterFromOutside()
 
     property var expandedGroups: ({})
+    property string pendingScrollApp: ""
+
+    onOutsideClicked: NotificationServer.closeCenterFromOutside()
 
     function toggleGroup(appName: string) {
+        const expanding = root.expandedGroups[appName] !== true;
         const next = Object.assign({}, root.expandedGroups);
         next[appName] = next[appName] !== true;
         root.expandedGroups = next;
+        if (expanding) {
+            root.pendingScrollApp = appName;
+            idExpandScrollTimer.restart();
+        }
+    }
+
+    function ensureGroupVisible(appName: string) {
+        root.pendingScrollApp = "";
+        if (appName === "" || root.expandedGroups[appName] !== true)
+            return;
+        const index = root.groups.findIndex(group => group.appName === appName);
+        if (index < 0)
+            return;
+        const delegate = idGroupsRepeater.itemAt(index);
+        const viewHeight = idGroupsFlickable.height;
+        if (!delegate || !(viewHeight > 0))
+            return;
+        // qmllint disable missing-property
+        const finalHeight = delegate.expandedTargetHeight;
+        const bottom = delegate.y + finalHeight;
+        const finalContent = idGroupsFlickable.contentHeight - delegate.height + finalHeight;
+        const maxY = Math.max(0, finalContent - viewHeight);
+        let destination = idGroupsFlickable.contentY;
+        if (bottom > destination + viewHeight)
+            destination = bottom - viewHeight;
+        if (delegate.y < destination)
+            destination = delegate.y;
+        idScrollAnimator.to = Math.max(0, Math.min(destination, maxY));
+        idScrollAnimator.restart();
     }
 
     readonly property var groups: {
@@ -40,6 +72,9 @@ PanelShell {
         }
         return order.map(appName => ({ appName: appName, notifications: byName[appName] }));
     }
+
+    readonly property int groupsScrollMax: Math.max(Globals.bodyScrollMin,
+        Globals.centerMaxHeight - 2 * Globals.panelPadding - idCenterHeader.implicitHeight - Globals.spacing)
 
     PanelHeader {
         id: idCenterHeader
@@ -91,12 +126,30 @@ PanelShell {
         }
     }
 
+    Timer {
+        id: idExpandScrollTimer
+
+        interval: 0
+        repeat: false
+        onTriggered: root.ensureGroupVisible(root.pendingScrollApp)
+    }
+
+    NumberAnimation {
+        id: idScrollAnimator
+
+        target: idGroupsFlickable
+        property: "contentY"
+        duration: Globals.reducedMotion ? 0 : Globals.centerOpenMs
+        easing.type: Easing.OutCubic
+    }
+
     Flickable {
         id: idGroupsFlickable
 
         Layout.fillWidth: true
-        Layout.preferredHeight: idGroupsColumn.implicitHeight
-        Layout.maximumHeight: Globals.centerMaxHeight
+        Layout.fillHeight: true
+        Layout.preferredHeight: Math.min(idGroupsColumn.implicitHeight, root.groupsScrollMax)
+        Layout.maximumHeight: root.groupsScrollMax
 
         visible: NotificationServer.historyModel.count > 0
         contentWidth: width
@@ -110,9 +163,11 @@ PanelShell {
 
             width: idGroupsFlickable.width
 
-            spacing: 8
+            spacing: Globals.rowSpacing
 
             Repeater {
+                id: idGroupsRepeater
+
                 model: root.groups
 
                 delegate: NotificationGroup {

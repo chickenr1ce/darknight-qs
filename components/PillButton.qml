@@ -46,7 +46,7 @@ Item {
 
         textFormat: Text.PlainText
         text: root.text
-        color: !root.disabled && root.highlighted ? Colors.onAccent : (!root.disabled && root.hovered ? Colors.text : Colors.textSubtle)
+        color: !root.disabled && root.highlighted ? (root.quiet ? Colors.accent : Colors.onAccent) : (!root.disabled && root.hovered ? Colors.text : Colors.textSubtle)
 
         font {
             family: Globals.uiFontFamily
