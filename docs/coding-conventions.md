@@ -173,8 +173,11 @@ Timer { id: idMediaTimer }
   (verified 2026-09-12). Any window hosting text input needs `focusable: true`
   (on-demand: focus on click only, never stolen unprompted).
 - **`expireTimeout` arrives in milliseconds**: Quickshell 0.3.1 delivers ms
-  despite the docs claiming seconds (verified empirically 2026-09-12). Treat
-  `0` as never-expire; fall back to 5s for `-1` and other non-positive values.
+  despite the docs claiming seconds (verified empirically 2026-09-12). A `0`
+  timeout clamps to `Globals.toastStickyClampMs`, currently 30s; fall back
+  to 5s for `-1` and other non-positive values.
+  Only critical urgency sticks, checked through
+  `NotificationServer.isCriticalUrgency`.
 - **Hover probes must sit above StyledText**: text items rendering StyledText
   accept hover themselves and shadow a probe placed underneath. Put the probe
   topmost with `Qt.NoButton` so clicks pass through, and route the covered
