@@ -45,7 +45,9 @@ OAuth token (usually ~/.local/share/gcalcli/oauth) is a password: keep
 it owner-only, never commit it. If a Workspace admin disables the secret
 address, use this tier instead. If the gcalcli poll starts failing after
 auth expires, either re-authenticate or force the URL path with
---backend ical; deleting the stale token lets auto fall back.
+--backend ical; deleting the stale token lets auto fall back. When
+diagnosing, trust the poll error, not `gcalcli list`: list can print
+from its local cache with no usable credentials.
 
 Visibility: the gcalcli path polls each discovered calendar separately
 and records every discovered name in the cache beside the days map, so a
