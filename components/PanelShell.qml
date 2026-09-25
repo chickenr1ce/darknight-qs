@@ -16,11 +16,13 @@ PanelWindow {
 
     property ShellScreen anchorScreen: null
     property real anchorCenterX: 0
+    property real panelWidth: Globals.centerWidth
+    property real panelMaxHeight: Globals.centerMaxHeight
 
     signal outsideClicked()
 
-    readonly property int anchorScreenWidth: root.anchorScreen ? root.anchorScreen.width : Globals.centerWidth + 2 * Globals.panelEdgeMargin
-    readonly property real anchorPanelWidth: Math.min(Globals.centerWidth, root.anchorScreenWidth - 2 * Globals.panelEdgeMargin)
+    readonly property int anchorScreenWidth: root.anchorScreen ? root.anchorScreen.width : root.panelWidth + 2 * Globals.panelEdgeMargin
+    readonly property real anchorPanelWidth: Math.min(root.panelWidth, root.anchorScreenWidth - 2 * Globals.panelEdgeMargin)
 
     readonly property real anchorLeft: {
         const raw = root.anchorCenterX - root.anchorPanelWidth / 2;
@@ -46,7 +48,7 @@ PanelWindow {
     }
 
     implicitWidth: root.anchorPanelWidth
-    implicitHeight: Globals.centerMaxHeight
+    implicitHeight: root.panelMaxHeight
 
     Shortcut {
         id: idEscapeShortcut
@@ -89,7 +91,7 @@ PanelWindow {
             }
         }
 
-        height: Math.min(Globals.centerMaxHeight, idShellLayout.implicitHeight + 2 * Globals.panelPadding)
+        height: Math.min(root.panelMaxHeight, idShellLayout.implicitHeight + 2 * Globals.panelPadding)
 
         radius: Globals.panelRadius
         color: Colors.panel

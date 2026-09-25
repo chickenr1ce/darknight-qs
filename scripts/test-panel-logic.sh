@@ -245,4 +245,66 @@ grep -q 'reducedMotion' "$PCENTER" \
 grep -q 'reducedMotion' "$ROOT/components/PressScale.qml" \
     || fail "PressScale ignores Globals.reducedMotion"
 
+# --- 8. dashboard shell: standalone visibility outside the exclusive registry ---
+DSVC="$ROOT/services/DashboardService.qml"
+test -f "$DSVC" \
+    || fail "services/DashboardService.qml is missing"
+grep -q 'property alias dashboardVisible' "$DSVC" \
+    || fail "DashboardService has no dashboardVisible alias"
+grep -q 'function toggleDashboardAt' "$DSVC" \
+    || fail "DashboardService has no toggleDashboardAt"
+grep -q 'function closeDashboardFromOutside' "$DSVC" \
+    || fail "DashboardService has no closeDashboardFromOutside"
+grep -q '^import qs.services' "$DSVC" \
+    || fail "DashboardService.qml is missing its qs.services self-import"
+grep -q '^PanelState 1.0 PanelState.qml' "$ROOT/services/qmldir" \
+    || fail "PanelState is not registered in services/qmldir"
+grep -q '^singleton DashboardService 1.0 DashboardService.qml' "$ROOT/services/qmldir" \
+    || fail "DashboardService is not registered in services/qmldir"
+if grep -q 'DashboardService' "$ROOT/services/Panels.qml"; then
+    fail "Panels owns DashboardService; the dashboard stays open beside quick panels"
+fi
+
+# Dashboard trigger lives on the bar center title, outside the registry.
+if grep -q 'Panels\.' "$ROOT/modules/ActiveWindow.qml"; then
+    fail "ActiveWindow calls the exclusive registry; the dashboard stays beside quick panels"
+fi
+grep -q 'DashboardService.toggleDashboardAt' "$ROOT/modules/ActiveWindow.qml" \
+    || fail "ActiveWindow.qml does not call DashboardService.toggleDashboardAt"
+if grep -q 'enableHover: *false' "$ROOT/modules/ActiveWindow.qml" || grep -q 'enableMouseArea: *false' "$ROOT/modules/ActiveWindow.qml"; then
+    fail "ActiveWindow.qml disables hover or mouse input; the title is the dashboard toggle"
+fi
+grep -q 'property ShellScreen triggerScreen' "$ROOT/modules/ActiveWindow.qml" \
+    || fail "ActiveWindow.qml declares no triggerScreen"
+grep -q 'triggerScreen: idPanelWindow.modelData' "$ROOT/shell.qml" \
+    || fail "shell.qml does not pass the clicked screen to ActiveWindow"
+
+# Dashboard card is a centered PanelShell on the clicked screen, wider than
+# the standard panel, palette tokens only.
+DCENTER="$ROOT/windows/DashboardCenter.qml"
+test -f "$DCENTER" \
+    || fail "windows/DashboardCenter.qml is missing"
+grep -q 'DashboardService.dashboardVisible' "$DCENTER" \
+    || fail "DashboardCenter does not bind DashboardService.dashboardVisible"
+grep -q 'DashboardService.anchorScreen' "$DCENTER" \
+    || fail "DashboardCenter does not anchor to DashboardService.anchorScreen"
+grep -q 'DashboardService.closeDashboardFromOutside' "$DCENTER" \
+    || fail "DashboardCenter does not close from outside via DashboardService"
+grep -q 'PanelShell' "$DCENTER" \
+    || fail "DashboardCenter does not reuse PanelShell behavior"
+grep -q 'Globals.dashboardWidth' "$DCENTER" \
+    || fail "DashboardCenter does not size from Globals.dashboardWidth"
+grep -q 'property int dashboardWidth' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no dashboardWidth token"
+grep -q 'property int dashboardMaxHeight' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no dashboardMaxHeight token"
+grep -q 'DashboardCenter' "$ROOT/shell.qml" \
+    || fail "shell.qml does not instantiate DashboardCenter"
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$DCENTER"; then
+    fail "DashboardCenter carries raw hex; palette tokens only"
+fi
+if grep -qiE 'cream|peach' "$DCENTER" "$ROOT/config/Globals.qml" "$ROOT/config/Colors.qml"; then
+    fail "dashboard carries reference cream/peach; palette tokens only"
+fi
+
 echo "panel-logic: all ok"

@@ -132,8 +132,7 @@ ShellRoot {
             ActiveWindow {
                 id: idActiveWindow
 
-                enableHover: false
-                enableMouseArea: false
+                triggerScreen: idPanelWindow.modelData
 
                 anchors {
                     horizontalCenter: parent.horizontalCenter
@@ -145,6 +144,8 @@ ShellRoot {
     }
 
     NotificationPopups {}
+
+    DashboardCenter {}
 
     NotificationCenter {}
 
