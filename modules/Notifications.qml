@@ -32,7 +32,7 @@ ModuleBox {
         font.family: Globals.fontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
-        text: ""
+        text: "󰂜"
     }
 
     TextMetrics {
@@ -41,7 +41,7 @@ ModuleBox {
         font.family: Globals.fontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
-        text: ""
+        text: "󰂚"
     }
 
     TextMetrics {
@@ -50,7 +50,7 @@ ModuleBox {
         font.family: Globals.fontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
-        text: ""
+        text: "󰪑"
     }
 
     Text {
@@ -58,7 +58,7 @@ ModuleBox {
 
         Layout.alignment: Qt.AlignCenter
 
-        text: NotificationServer.dndEnabled ? "" : (root.hasUnread ? "" : "")
+        text: NotificationServer.dndEnabled ? "󰪑" : (root.hasUnread ? "󰂚" : "󰂜")
         color: NotificationServer.dndEnabled ? Colors.textSecondary : Colors.lavender
         font {
             family: Globals.fontFamily
