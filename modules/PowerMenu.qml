@@ -29,6 +29,6 @@ ModuleBox {
             pixelSize: Globals.fontPixelSize
             weight: Font.DemiBold
         }
-        text: "󰐥"
+        text: ""
     }
 }
