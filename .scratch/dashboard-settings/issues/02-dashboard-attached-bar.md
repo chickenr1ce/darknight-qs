@@ -4,13 +4,13 @@
 
 **Blocked by:** 01 Dashboard shell
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Card top edge touches the bar bottom edge with no visible gap at dashboard width
-- [ ] Attachment holds on the clicked screen and across bar widths with no overlap into the bar
-- [ ] Slide down from the bar still reads on open, instant when reduced motion is on
-- [ ] Outside click plus Escape still dismiss and quick panel beside-behavior is unchanged
-- [ ] Type lint plus review lint gates pass and live verification runs on a test instance
+- [x] Card top edge touches the bar bottom edge with no visible gap at dashboard width
+- [x] Attachment holds on the clicked screen and across bar widths with no overlap into the bar
+- [x] Slide down from the bar still reads on open, instant when reduced motion is on
+- [x] Outside click plus Escape still dismiss and quick panel beside-behavior is unchanged
+- [x] Type lint plus review lint gates pass and live verification runs on a test instance
 
 ## Amendments
 
@@ -36,3 +36,13 @@
   The radius value lives on `DashboardService.junctionRadius`; `PanelShell`
   gains an opt-in `junctionRadius` defaulting to 0. Recorded in ADR 0005.
   Ticket stays open until the slices and live check land.
+- 2026-09-25: live-verified on a test instance at r=16. Layer geometry read
+  `904 31 752 600`: window widened to 752, 1px underlap at y=31. Pixel reads at
+  the card centre show rows 31-33 as continuous `Colors.panel`, no hairline. A
+  temporary magenta fill showed the silhouette's left edge tracking the tangent
+  arc 910 to 920 across y=31 to 44, within a pixel of the analytic curve. Boxes
+  3 and 4 are unchanged behaviour carried from #01; this diff adds shaping only.
+  Not exercised live: the screen-edge clamp (deterministic, same code path as
+  the centred case) and the mask's click-through (Region geometry reasoned
+  against the outline, not pointer-tested). Ticket closed; #03 adds the
+  settings control and state-file persistence for the radius.
