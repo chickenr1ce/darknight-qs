@@ -2,6 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import qs.config
 import qs.services
 
 Singleton {
@@ -11,6 +12,8 @@ Singleton {
     property alias dashboardLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
     property alias anchorScreen: idPanelState.anchorScreen
     property alias anchorCenterX: idPanelState.anchorCenterX
+
+    property int junctionRadius: Globals.junctionRadiusDefault
 
     PanelState {
         id: idPanelState

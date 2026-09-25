@@ -312,8 +312,33 @@ grep -q 'property bool attachedToBar: false' "$ROOT/components/PanelShell.qml" \
     || fail "PanelShell attachedToBar switch is missing or defaults wrong; quick panels keep their gap"
 grep -q 'attachedToBar: true' "$DCENTER" \
     || fail "DashboardCenter does not attach to the bar"
-grep -q 'attachedToBar ? 0 : Globals.panelTopGap' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell top margin does not branch on attachedToBar"
+grep -q 'attachedToBar ? -Globals.panelSeamOverlap : Globals.panelTopGap' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell top margin does not branch on attachedToBar; attached underlaps the bar to hide the seam"
+
+# Dashboard junction is a concave fillet: opt-in radius, shaped chrome,
+# shaped mask, and a service-owned value the settings window can adjust.
+grep -q 'property int junctionRadius: 0' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell junctionRadius switch is missing or defaults wrong; quick panels keep the plain rectangle"
+grep -q 'Shape.CurveRenderer' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell does not render the concave junction chrome"
+grep -q 'junctionBorderPath' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell junction stroke is missing; the border must drop the top segment"
+grep -q 'RegionShape.Ellipse' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell mask does not shape the junction notches"
+grep -q 'property int junctionRadius: Globals.junctionRadiusDefault' "$DSVC" \
+    || fail "DashboardService junctionRadius is missing or does not default to the token"
+grep -q 'property int junctionRadiusDefault' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no junctionRadiusDefault token"
+grep -q 'property int junctionRadiusMax' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no junctionRadiusMax; the settings range is unbounded"
+grep -q 'junctionRadiusDefault: 16' "$ROOT/config/Globals.qml" \
+    || fail "Globals junctionRadiusDefault is not the agreed 16"
+grep -q 'junctionRadiusMax: 32' "$ROOT/config/Globals.qml" \
+    || fail "Globals junctionRadiusMax is not the agreed 32"
+grep -q 'property int panelSeamOverlap' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no panelSeamOverlap token"
+grep -q 'junctionRadius: DashboardService.junctionRadius' "$DCENTER" \
+    || fail "DashboardCenter does not bind the junction radius to DashboardService"
 
 # Dashboard card layout follows the reference card: tab row plus block grid
 # with stub content in palette tokens. Live data arrives in later tickets.

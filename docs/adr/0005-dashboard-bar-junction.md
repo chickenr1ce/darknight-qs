@@ -28,9 +28,11 @@ and to the card's side, so bar and card read as one surface.
   surfaces are `Colors.panel`. The border stroke runs left-arc → side →
   bottom → side → right-arc, omitting the top straight segment, so no line
   crosses the join.
-- The input mask is a nested `Region` matching the outline: body rect, top
-  strip, and a small staircase per corner. The widened window keeps its empty
-  side strips from swallowing clicks meant for the desktop.
+- The input mask is a nested `Region` matching the outline: the window rect,
+  minus one strip per side below the fillet, minus one ellipse per top corner
+  whose quadrant is exactly the fillet's notch (the ellipse's lower half lies
+  outside the body, where the desktop shows). That keeps the widened window's
+  empty side strips from swallowing clicks meant for the desktop.
 - The widened window is clamped to `panelEdgeMargin`; the card body shifts
   inward by up to `r` only when the screen runs out.
 

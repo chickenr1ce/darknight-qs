@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
 import qs.config
@@ -19,16 +20,45 @@ PanelWindow {
     property real panelWidth: Globals.centerWidth
     property real panelMaxHeight: Globals.centerMaxHeight
     property bool attachedToBar: false
+    property int junctionRadius: 0
 
     signal outsideClicked()
 
+    readonly property int effectiveJunctionRadius: {
+        if (!root.attachedToBar)
+            return 0;
+        return Math.max(0, Math.min(root.junctionRadius, Globals.junctionRadiusMax));
+    }
+
     readonly property int anchorScreenWidth: root.anchorScreen ? root.anchorScreen.width : root.panelWidth + 2 * Globals.panelEdgeMargin
     readonly property real anchorPanelWidth: Math.min(root.panelWidth, root.anchorScreenWidth - 2 * Globals.panelEdgeMargin)
+    readonly property int windowWidth: root.anchorPanelWidth + 2 * root.effectiveJunctionRadius
 
-    readonly property real anchorLeft: {
-        const raw = root.anchorCenterX - root.anchorPanelWidth / 2;
-        const maxLeft = root.anchorScreenWidth - root.anchorPanelWidth - Globals.panelEdgeMargin;
-        return Math.min(Math.max(raw, Globals.panelEdgeMargin), Math.max(maxLeft, Globals.panelEdgeMargin));
+    readonly property real anchorLeft: root.clampLeft(root.anchorCenterX - root.anchorPanelWidth / 2, root.anchorPanelWidth)
+
+    readonly property int windowLeft: Math.round(root.clampLeft(root.anchorLeft - root.effectiveJunctionRadius, root.windowWidth))
+
+    readonly property string junctionPath: {
+        const w = idPanel.width;
+        const h = idPanel.height;
+        const r = root.effectiveJunctionRadius;
+        const b = Globals.panelRadius;
+        return `M0,0 L${w},0`
+            + ` A${r},${r} 0 0 0 ${w - r},${r}`
+            + ` L${w - r},${h - b} A${b},${b} 0 0 1 ${w - r - b},${h}`
+            + ` L${r + b},${h} A${b},${b} 0 0 1 ${r},${h - b}`
+            + ` L${r},${r} A${r},${r} 0 0 0 0,0 Z`;
+    }
+
+    readonly property string junctionBorderPath: {
+        const w = idPanel.width;
+        const h = idPanel.height;
+        const r = root.effectiveJunctionRadius;
+        const b = Globals.panelRadius;
+        return `M${w},0 A${r},${r} 0 0 0 ${w - r},${r}`
+            + ` L${w - r},${h - b} A${b},${b} 0 0 1 ${w - r - b},${h}`
+            + ` L${r + b},${h} A${b},${b} 0 0 1 ${r},${h - b}`
+            + ` L${r},${r} A${r},${r} 0 0 0 0,0`;
     }
 
     color: "transparent"
@@ -44,11 +74,11 @@ PanelWindow {
     }
 
     margins {
-        top: Globals.barHeight + Globals.moduleMargin + (root.attachedToBar ? 0 : Globals.panelTopGap)
-        left: Math.round(root.anchorLeft)
+        top: Globals.barHeight + Globals.moduleMargin + (root.attachedToBar ? -Globals.panelSeamOverlap : Globals.panelTopGap)
+        left: root.windowLeft
     }
 
-    implicitWidth: root.anchorPanelWidth
+    implicitWidth: root.windowWidth
     implicitHeight: root.panelMaxHeight
 
     Shortcut {
@@ -66,6 +96,40 @@ PanelWindow {
         y: 0
         width: root.visible ? idPanel.width : 0
         height: root.visible ? idPanel.height : 0
+
+        Region {
+            x: 0
+            y: root.effectiveJunctionRadius
+            width: root.effectiveJunctionRadius
+            height: Math.max(0, idPanel.height - root.effectiveJunctionRadius)
+            intersection: Intersection.Subtract
+        }
+
+        Region {
+            x: idPanel.width - root.effectiveJunctionRadius
+            y: root.effectiveJunctionRadius
+            width: root.effectiveJunctionRadius
+            height: Math.max(0, idPanel.height - root.effectiveJunctionRadius)
+            intersection: Intersection.Subtract
+        }
+
+        Region {
+            x: -root.effectiveJunctionRadius
+            y: 0
+            width: 2 * root.effectiveJunctionRadius
+            height: 2 * root.effectiveJunctionRadius
+            shape: RegionShape.Ellipse
+            intersection: Intersection.Subtract
+        }
+
+        Region {
+            x: idPanel.width - root.effectiveJunctionRadius
+            y: 0
+            width: 2 * root.effectiveJunctionRadius
+            height: 2 * root.effectiveJunctionRadius
+            shape: RegionShape.Ellipse
+            intersection: Intersection.Subtract
+        }
     }
 
     HyprlandFocusGrab {
@@ -76,7 +140,7 @@ PanelWindow {
         onCleared: root.outsideClicked()
     }
 
-    Rectangle {
+    Item {
         id: idPanel
 
         anchors.left: parent.left
@@ -94,18 +158,61 @@ PanelWindow {
 
         height: Math.min(root.panelMaxHeight, idShellLayout.implicitHeight + 2 * Globals.panelPadding)
 
-        radius: Globals.panelRadius
-        color: Colors.panel
-        border.width: Globals.hairlineHeight
-        border.color: Colors.panelBorder
+        Rectangle {
+            id: idPanelChrome
+
+            anchors.fill: parent
+
+            visible: root.effectiveJunctionRadius === 0
+            radius: Globals.panelRadius
+            color: Colors.panel
+            border.width: Globals.hairlineHeight
+            border.color: Colors.panelBorder
+        }
+
+        Shape {
+            id: idJunctionChrome
+
+            anchors.fill: parent
+
+            visible: root.effectiveJunctionRadius > 0
+            preferredRendererType: Shape.CurveRenderer
+
+            ShapePath {
+                fillColor: Colors.panel
+                strokeWidth: 0
+                PathSvg {
+                    path: root.junctionPath
+                }
+            }
+
+            ShapePath {
+                fillColor: "transparent"
+                strokeColor: Colors.panelBorder
+                strokeWidth: Globals.hairlineHeight
+                PathSvg {
+                    path: root.junctionBorderPath
+                }
+            }
+        }
 
         ColumnLayout {
             id: idShellLayout
 
-            anchors.fill: parent
-            anchors.margins: Globals.panelPadding
+            anchors {
+                fill: parent
+                leftMargin: Globals.panelPadding + root.effectiveJunctionRadius
+                rightMargin: Globals.panelPadding + root.effectiveJunctionRadius
+                topMargin: Globals.panelPadding
+                bottomMargin: Globals.panelPadding
+            }
 
             spacing: Globals.spacing
         }
+    }
+
+    function clampLeft(raw: real, width: real): real {
+        const maxLeft = root.anchorScreenWidth - width - Globals.panelEdgeMargin;
+        return Math.min(Math.max(raw, Globals.panelEdgeMargin), Math.max(maxLeft, Globals.panelEdgeMargin));
     }
 }

@@ -15,6 +15,7 @@ PanelShell {
     panelWidth: Globals.dashboardWidth
     panelMaxHeight: Globals.dashboardMaxHeight
     attachedToBar: true
+    junctionRadius: DashboardService.junctionRadius
     onOutsideClicked: DashboardService.closeDashboardFromOutside()
 
     readonly property real halfBlockWidth: (Globals.dashboardWidth - 2 * Globals.panelPadding - Math.round(Globals.dashboardWidth * 0.27) - 2 * Globals.rowSpacing) / 2

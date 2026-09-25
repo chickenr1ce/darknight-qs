@@ -31,6 +31,9 @@ QtObject {
 
     readonly property int panelTopGap: 8
     readonly property int panelEdgeMargin: horizontalBarMargin
+    readonly property int panelSeamOverlap: 1
+    readonly property int junctionRadiusDefault: 16
+    readonly property int junctionRadiusMax: 32
 
     readonly property int hoverMs: 140
     readonly property int pressMs: 120
