@@ -47,6 +47,19 @@ How to observe the running daily instance without disrupting it.
   probe in one pass afterward. Every save reloads and closes popups, so batch
   probe edits together.
 
+## Visual iteration loop
+
+Taste questions converge only side by side: render variants as A/B captures
+before asking, never sequential single passes. Drive the loop without the
+pointer: add one temporary `IpcHandler` (open plus close plus a state
+reader), save once so the instance reloads a single time, open surfaces
+through `quickshell ipc --pid <pid> call`, capture with `grim -g` to
+`/tmp/opencode/`, and compare captures with pixel reads. Remove the probe in
+one pass afterward and confirm a clean reload. No synthetic input tools exist
+on this box, so the probe is the only hands-free trigger; every save closes
+popups, so batch probe edits together and reopen through IPC after each
+reload.
+
 ## Second instance rule
 
 Never run a second instance while the daily shell holds the bus: test

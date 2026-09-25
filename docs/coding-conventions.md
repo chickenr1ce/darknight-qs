@@ -254,6 +254,12 @@ Timer { id: idMediaTimer }
   sibling needs a `qmldir` entry. `qmllint` resolves the sibling anyway, so
   only a live `quickshell -p` boot catches the missing import (`... is not a
   type`, verified 2026-09-23).
+- **`qmllint` cannot resolve `qs.*`-rooted sibling types**: a file whose root
+  type comes from an import path qmllint lacks (e.g. a `Card` from
+  `qs.components`) fails as a type everywhere it is used, cascading
+  `unresolved-type` noise across importers while the gate still exits 0.
+  Existing files warn the same way, so a live `quickshell -p` boot is the
+  authority on whether a type resolves (verified 2026-09-25).
 - **A binding that reads and writes the same property loops**: memoizing
   inside the binding (read the cached text, write it back) registers the
   memo as a dependency of itself — startup logs `Binding loop detected`.
