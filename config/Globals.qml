@@ -32,6 +32,7 @@ QtObject {
 
     readonly property int hoverMs: 140
     readonly property int pressMs: 120
+    readonly property int tooltipDelayMs: 1000
 
     readonly property int toastMs: 180
     readonly property int toastStickyClampMs: 30000
