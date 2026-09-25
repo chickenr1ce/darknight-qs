@@ -22,7 +22,8 @@ Singleton {
         { actionId: "suspend", label: qsTr("Suspend"), glyph: "󰤄", hint: "2", dangerous: false },
         { actionId: "logout", label: qsTr("Logout"), glyph: "󰍃", hint: "3", dangerous: false },
         { actionId: "reboot", label: qsTr("Reboot"), glyph: "󰜉", hint: "4", dangerous: true },
-        { actionId: "shutdown", label: qsTr("Shutdown"), glyph: "󰐥", hint: "5", dangerous: true }
+        { actionId: "shutdown", label: qsTr("Shutdown"), glyph: "󰐥", hint: "5", dangerous: true },
+        { actionId: "winboot", label: qsTr("Reboot to Windows"), glyph: "󰍲", hint: "6", dangerous: true }
     ]
 
     readonly property string armedLabel: {
@@ -129,6 +130,8 @@ Singleton {
             idRunProcess.command = ["systemctl", "reboot"];
         else if (actionId === "shutdown")
             idRunProcess.command = ["systemctl", "poweroff"];
+        else if (actionId === "winboot")
+            idRunProcess.command = ["sh", "-c", "pkexec efibootmgr -n 0000 && systemctl reboot"];
         else
             return;
         idRunProcess.running = true;

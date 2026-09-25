@@ -69,6 +69,14 @@ PanelShell {
     }
 
     Shortcut {
+        id: idPowerKey6
+
+        enabled: root.panelVisible
+        sequence: "6"
+        onActivated: PowerService.arm("winboot")
+    }
+
+    Shortcut {
         id: idPowerKeyReturn
 
         enabled: root.panelVisible

@@ -212,7 +212,11 @@ grep -q '"systemctl", "reboot"' "$PSVC" \
     || fail "PowerService reboot misses systemctl reboot"
 grep -q '"systemctl", "poweroff"' "$PSVC" \
     || fail "PowerService shutdown misses systemctl poweroff"
-# Lock fires at once; the other four only arm.
+grep -q 'pkexec efibootmgr -n 0000' "$PSVC" \
+    || fail "PowerService winboot misses pkexec efibootmgr one-shot"
+grep -q 'actionId === "winboot"' "$PSVC" \
+    || fail "PowerService has no winboot branch"
+# Lock fires at once; the other five only arm.
 grep -q 'if (actionId === "lock")' "$PSVC" \
     || fail "PowerService.arm has no lock fast path"
 # Confirm is inert with nothing armed.
@@ -225,7 +229,7 @@ fi
 grep -q 'disabled: PowerService.armedAction === ""' "$PCENTER" \
     || fail "PowerCenter footer does not hold Confirm/Cancel slots while disarmed"
 # Keyboard flow without a pointer.
-for key in '"1"' '"2"' '"3"' '"4"' '"5"' '"Return"' '"Enter"'; do
+for key in '"1"' '"2"' '"3"' '"4"' '"5"' '"6"' '"Return"' '"Enter"'; do
     grep -q "sequence: $key" "$PCENTER" \
         || fail "PowerCenter misses keyboard sequence $key"
 done
