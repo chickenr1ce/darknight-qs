@@ -1,11 +1,11 @@
-# 08: Dashboard plus panel visual coexistence
+# 09: Dashboard plus panel visual coexistence
 
 **What to build:** The dashboard plus one open quick panel stay visible at
 the same time, sharing a single focus grab that whitelists both windows, so
 outside click plus Escape still dismiss and the registry exclusion from #01
 gains a visible counterpart.
 
-**Blocked by:** 01 Dashboard shell
+**Blocked by:** 02 Dashboard attached to bar
 
 **Status:** ready-for-agent
 

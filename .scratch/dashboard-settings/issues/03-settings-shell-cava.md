@@ -1,8 +1,8 @@
-# 02: Settings shell plus Cava section
+# 03: Settings shell plus Cava section
 
 **What to build:** A gear in the dashboard header opens a standalone settings window above the dashboard while the dashboard stays open underneath. The window has a sidebar with sections plus a search bar that filters sections and options. The first real section is the full Cava editor, mirrored both ways with the Cava quick panel.
 
-**Blocked by:** 01 Dashboard shell
+**Blocked by:** 02 Dashboard attached to bar
 
 **Status:** ready-for-agent
 

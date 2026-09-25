@@ -1,8 +1,8 @@
-# 06: Dashboard placeholders plus final layout
+# 07: Dashboard placeholders plus final layout
 
 **What to build:** The dashboard gains its remaining blocks as fixed placeholders with no network calls and no secrets. Weather stub, GPU stub, Spotify Connect device list inside the player block with phone plus PC entries, and theme picker stub. Final block order follows the reference picture stored beside the spec with volume stretching into freed calendar space and palette tokens throughout.
 
-**Blocked by:** 05 Dashboard live blocks
+**Blocked by:** 06 Dashboard live blocks
 
 **Status:** ready-for-agent
 

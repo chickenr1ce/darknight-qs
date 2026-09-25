@@ -1,8 +1,8 @@
-# 03: Calendar plus DND plus reduced motion sections
+# 04: Calendar plus DND plus reduced motion sections
 
 **What to build:** Settings gains Calendar, notification, and motion sections. World clock zones add plus remove, per feed show hide toggles, a DND switch mirrored with the notification center, and a reduced motion switch that gates dashboard plus panel animation.
 
-**Blocked by:** 02 Settings shell plus Cava section
+**Blocked by:** 03 Settings shell plus Cava section
 
 **Status:** ready-for-agent
 

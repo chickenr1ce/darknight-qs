@@ -19,4 +19,4 @@
   visible beside-behavior conflict under one grab per surface. Landed: Panels
   never touches dashboard visibility, guarded by scripts/test-panel-logic.sh
   section 8. True visual coexistence needs one grab covering both windows and
-  moves to #08.
+  moves to #09.

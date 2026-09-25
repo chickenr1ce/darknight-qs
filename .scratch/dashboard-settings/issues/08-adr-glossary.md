@@ -1,8 +1,8 @@
-# 07: Dashboard ADR plus glossary
+# 08: Dashboard ADR plus glossary
 
 **What to build:** A decision record explains why the dashboard departs from the under trigger placement rule with a centered card instead, and the project glossary gains dashboard plus settings window plus quick panel mirror terms.
 
-**Blocked by:** 01 Dashboard shell
+**Blocked by:** 02 Dashboard attached to bar
 
 **Status:** ready-for-agent
 

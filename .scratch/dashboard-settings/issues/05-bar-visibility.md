@@ -1,8 +1,8 @@
-# 04: Bar visibility plus persistence
+# 05: Bar visibility plus persistence
 
 **What to build:** Settings gains a layout section with one checkbox per bar module. Choices persist in a new state file and the bar honors them on all screens after restart.
 
-**Blocked by:** 02 Settings shell plus Cava section
+**Blocked by:** 03 Settings shell plus Cava section
 
 **Status:** ready-for-agent
 
