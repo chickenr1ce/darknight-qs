@@ -18,6 +18,7 @@ PanelWindow {
     property real anchorCenterX: 0
     property real panelWidth: Globals.centerWidth
     property real panelMaxHeight: Globals.centerMaxHeight
+    property bool attachedToBar: false
 
     signal outsideClicked()
 
@@ -43,7 +44,7 @@ PanelWindow {
     }
 
     margins {
-        top: Globals.barHeight + Globals.moduleMargin + Globals.panelTopGap
+        top: Globals.barHeight + Globals.moduleMargin + (root.attachedToBar ? 0 : Globals.panelTopGap)
         left: Math.round(root.anchorLeft)
     }
 

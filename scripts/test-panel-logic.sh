@@ -307,4 +307,34 @@ if grep -qiE 'cream|peach' "$DCENTER" "$ROOT/config/Globals.qml" "$ROOT/config/C
     fail "dashboard carries reference cream/peach; palette tokens only"
 fi
 
+# Dashboard card attaches to the bar: top edge on the bar bottom edge.
+grep -q 'property bool attachedToBar: false' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell attachedToBar switch is missing or defaults wrong; quick panels keep their gap"
+grep -q 'attachedToBar: true' "$DCENTER" \
+    || fail "DashboardCenter does not attach to the bar"
+grep -q 'attachedToBar ? 0 : Globals.panelTopGap' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell top margin does not branch on attachedToBar"
+
+# Dashboard card layout follows the reference card: tab row plus block grid
+# with stub content in palette tokens. Live data arrives in later tickets.
+for block in DashboardTabs DashboardWeatherBlock DashboardSystemBlock DashboardCpuBlock DashboardVolumeBlock DashboardPlayerBlock DashboardCalendarBlock; do
+    test -f "$ROOT/windows/$block.qml" \
+        || fail "windows/$block.qml is missing"
+    grep -q 'qsTr(' "$ROOT/windows/$block.qml" \
+        || fail "$block.qml has no qsTr user-visible strings"
+    if grep -qnE '#[0-9a-fA-F]{3,8}' "$ROOT/windows/$block.qml"; then
+        fail "$block.qml carries raw hex; palette tokens only"
+    fi
+    if grep -q 'Process\|XmlHttpRequest\|fetch(' "$ROOT/windows/$block.qml"; then
+        fail "$block.qml reaches the network; stubs stay fixed with no traffic"
+    fi
+done
+grep -q 'DashboardTabs' "$DCENTER" \
+    || fail "DashboardCenter does not compose the tab row"
+grep -q 'DashboardPlayerBlock' "$DCENTER" \
+    || fail "DashboardCenter does not compose the player block"
+if grep -qiE 'cream|peach' "$ROOT"/windows/Dashboard*.qml; then
+    fail "dashboard blocks carry reference cream/peach; palette tokens only"
+fi
+
 echo "panel-logic: all ok"
