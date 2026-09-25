@@ -28,3 +28,11 @@
   unapproved, so no box is checked. This commit is a checkpoint of attachment
   plus layout skeleton only. Ticket stays open until the junction verdict
   lands.
+- 2026-09-25: junction verdict landed by prototype (`.scratch/dashboard-settings/prototype-junction.html`):
+  concave fillet, default radius 16, user adjustable 0 to 32. The window
+  widens to `dashboardWidth + 2r` and shifts left by `r`; top margin 31 for a
+  1px underlap under the bar; the border stroke drops the top segment; the
+  mask follows the outline; the widened window clamps to `PanelEdgeMargin`.
+  The radius value lives on `DashboardService.junctionRadius`; `PanelShell`
+  gains an opt-in `junctionRadius` defaulting to 0. Recorded in ADR 0005.
+  Ticket stays open until the slices and live check land.

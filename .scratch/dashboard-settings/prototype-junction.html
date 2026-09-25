@@ -1,0 +1,375 @@
+<!doctype html>
+<!--
+  PROTOTYPE - throwaway, not production. Answer question: which dashboard/bar
+  junction shape, and at what radius? Variants switchable via ?variant=.
+
+  A  concave fillet, r=9   (card widens at the bar, window widened by 2r)
+  B  concave fillet, r=16
+  C  convex rounded, r=9   (today's look, the "before")
+  D  convex rounded, r=16
+  E  square top, r=0       (hard right-angle join)
+
+  Geometry mirrors the shell: bar slab at y=4 h=28, radius 9, side margins 10,
+  card attached at y=32, body 720 wide, panel padding 12, bottom radius 9.
+  Palette tokens come from config/Colors.qml, not the light reference image.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype: dashboard/bar junction</title>
+<style>
+  :root {
+    --bg: #141118;
+    --surface: #282936;
+    --bg-secondary: #27222f;
+    --text: #cac4d4;
+    --subtle: #9d93ad;
+    --accent: #b4befe;
+    --desk: #0d0c11;
+    --stage-w: 1280px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #08070b;
+    color: var(--text);
+    font-family: Geist, system-ui, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    max-width: var(--stage-w);
+    margin: 20px auto 0;
+    padding: 0 8px;
+  }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--subtle); font-size: 12px; }
+  #viewport {
+    max-width: var(--stage-w);
+    margin: 12px auto 96px;
+    overflow: auto;
+    border-radius: 8px;
+  }
+  #scale { transform-origin: 0 0; }
+
+  /* --- simulated screen: backdrop visible through every gap and notch --- */
+  #stage {
+    position: relative;
+    width: var(--stage-w);
+    height: 760px;
+    background-color: var(--desk);
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 24px 24px;
+    overflow: hidden;
+  }
+  .bar {
+    position: absolute;
+    top: 4px;
+    left: 10px;
+    right: 10px;
+    height: 28px;
+    border-radius: 9px;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    color: var(--subtle);
+    font-size: 11px;
+    letter-spacing: .4px;
+  }
+  .bar .pill {
+    height: 16px;
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+  }
+  .bar .spacer { flex: 1; }
+  .bar .title { color: var(--text); font-weight: 500; letter-spacing: .2px; }
+  .bar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--subtle); }
+
+  .card {
+    position: absolute;
+    top: 32px;
+  }
+  .card svg { display: block; }
+  .card .body {
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+  }
+  .tabs {
+    display: flex;
+    gap: 18px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--surface);
+    margin-bottom: 10px;
+    color: var(--subtle);
+    font-size: 12px;
+  }
+  .tabs .on {
+    color: var(--text);
+    position: relative;
+  }
+  .tabs .on::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -9px;
+    height: 2px;
+    background: var(--accent);
+  }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .block {
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: var(--subtle);
+    font-size: 12px;
+  }
+  .grow { flex: 1; }
+  .tall { height: 150px; }
+  .seam, .bodyline { display: none; }
+  #stage.debug .seam {
+    display: block;
+    position: absolute;
+    left: 0; right: 0; top: 32px;
+    height: 1px;
+    background: #ff5252;
+    opacity: .8;
+    z-index: 5;
+  }
+  #stage.debug .bodyline {
+    display: block;
+    position: absolute;
+    border: 1px dashed rgba(180,190,254,.5);
+    top: 32px;
+    z-index: 4;
+  }
+
+  /* --- floating switcher, deliberately not part of the design --- */
+  #switcher {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #05040a;
+    border: 1px solid #35313f;
+    border-radius: 999px;
+    padding: 8px 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.55);
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 50;
+  }
+  #switcher button {
+    background: #1c1926;
+    color: var(--text);
+    border: 1px solid #35313f;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font: inherit;
+    cursor: pointer;
+  }
+  #switcher button:hover { border-color: var(--accent); }
+  #switcher .label { min-width: 210px; text-align: center; color: var(--accent); }
+  #switcher .sep { width: 1px; height: 20px; background: #35313f; }
+  #state { color: var(--subtle); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Dashboard / bar junction — prototype</h1>
+  <p>Solid dark = bar and card (same token). The grid is the desktop showing through every gap.
+     Flip variants with the arrows or ← / →. Zoom and the seam line exist to inspect the join.</p>
+</header>
+
+<div id="viewport">
+  <div id="scale">
+    <div id="stage">
+      <div class="seam"></div>
+      <div class="bodyline"></div>
+      <div class="bar">
+        <span class="pill">Fri 25 Sep</span>
+        <span class="pill">1 2 3</span>
+        <span class="dot"></span>
+        <span class="spacer"></span>
+        <span class="title">quickshell · dashboard</span>
+        <span class="spacer"></span>
+        <span class="pill">wave</span>
+        <span class="pill">Arch</span>
+        <span class="dot"></span>
+      </div>
+      <div class="card" id="card"></div>
+    </div>
+  </div>
+</div>
+
+<div id="switcher">
+  <button id="prev" title="previous variant">←</button>
+  <span class="label" id="label"></span>
+  <button id="next" title="next variant">→</button>
+  <span class="sep"></span>
+  <button id="zoom">zoom 1x</button>
+  <button id="debug">seam</button>
+  <button id="border">border</button>
+  <span class="sep"></span>
+  <span id="state"></span>
+</div>
+
+<script>
+const BODY_W = 720;
+const CARD_H = 430;
+const TOP = 32;
+const RB = 9;          // bottom corner radius (panelRadius)
+const PAD = 12;        // panelPadding
+const CENTER = 640;    // stage centre; card body is centred on this
+const STAGE_W = 1280;
+
+const VARIANTS = {
+  A: { name: "concave fillet", mode: "concave", r: 9  },
+  B: { name: "concave fillet", mode: "concave", r: 16 },
+  C: { name: "convex rounded", mode: "convex",  r: 9  },
+  D: { name: "convex rounded", mode: "convex",  r: 16 },
+  E: { name: "square top",     mode: "square",  r: 0  },
+};
+const ORDER = ["A", "B", "C", "D", "E"];
+
+const params = new URLSearchParams(location.search);
+let key = ORDER.includes(params.get("variant")) ? params.get("variant") : "A";
+let zoom = [1, 2, 4].includes(Number(params.get("zoom"))) ? Number(params.get("zoom")) : 1;
+let debug = params.get("debug") === "1";
+let border = params.get("border") !== "0";
+
+// Local geometry for a variant. Path coordinates are relative to the card window.
+function geom(v) {
+  if (v.mode === "concave") {
+    return { winW: BODY_W + 2 * v.r, bodyL: v.r, bodyR: BODY_W + v.r };
+  }
+  return { winW: BODY_W, bodyL: 0, bodyR: BODY_W };
+}
+
+function path(v, g) {
+  const { winW, bodyL, bodyR } = g;
+  const H = CARD_H, r = v.r, rb = RB;
+  if (v.mode === "square") {
+    return `M0,0 L${winW},0 L${winW},${H - rb} A${rb},${rb} 0 0 1 ${winW - rb},${H}`
+      + ` L${rb},${H} A${rb},${rb} 0 0 1 0,${H - rb} Z`;
+  }
+  if (v.mode === "convex") {
+    // material removed at the top corners: arcs centre inside the body (r, r)
+    return `M${r},0 L${winW - r},0 A${r},${r} 0 0 1 ${winW},${r}`
+      + ` L${winW},${H - rb} A${rb},${rb} 0 0 1 ${winW - rb},${H}`
+      + ` L${rb},${H} A${rb},${rb} 0 0 1 0,${H - rb}`
+      + ` L0,${r} A${r},${r} 0 0 1 ${r},0 Z`;
+  }
+  // concave: material added in the reflex corner. Arcs centre outside the body
+  // (bodyL - r) and (bodyR + r), tangent to the bar bottom and the body side.
+  return `M0,0 L${winW},0 A${r},${r} 0 0 0 ${bodyR},${r}`
+    + ` L${bodyR},${H - rb} A${rb},${rb} 0 0 1 ${bodyR - rb},${H}`
+    + ` L${bodyL + rb},${H} A${rb},${rb} 0 0 1 ${bodyL},${H - rb}`
+    + ` L${bodyL},${r} A${r},${r} 0 0 0 0,0 Z`;
+}
+
+function contentHTML() {
+  return `
+    <div class="tabs">
+      <span class="on">Dashboard</span><span>Media</span>
+      <span>Performance</span><span>Workspaces</span>
+    </div>
+    <div class="row">
+      <div class="block grow">15°C &nbsp; Clear</div>
+      <div class="block grow">Arch · Hyprland · up 1h 23m</div>
+    </div>
+    <div class="block tall">calendar</div>
+    <div class="row">
+      <div class="block grow">CPU</div>
+      <div class="block grow">volume</div>
+    </div>`;
+}
+
+function render() {
+  const v = VARIANTS[key];
+  const g = geom(v);
+  const cardLeft = CENTER - g.winW / 2;
+  const stroke = border
+    ? `stroke="var(--surface)" stroke-width="1"`
+    : "";
+
+  const svg = v.mode === "convex" && !border
+    ? `<div style="width:${g.winW}px;height:${CARD_H}px;border-radius:${v.r}px;background:var(--bg)"></div>`
+    : `<svg width="${g.winW}" height="${CARD_H}" viewBox="0 0 ${g.winW} ${CARD_H}">
+         <path d="${path(v, g)}" fill="var(--bg)" ${stroke}/>
+       </svg>`;
+
+  const bodyLeft = g.bodyL + PAD;
+  const bodyRight = g.winW - g.bodyR + PAD;
+  const bodyW = g.winW - bodyLeft - bodyRight;
+
+  const card = document.getElementById("card");
+  card.style.left = cardLeft + "px";
+  card.style.width = g.winW + "px";
+  card.innerHTML = svg
+    + `<div class="body" style="left:${bodyLeft}px;width:${bodyW}px">${contentHTML()}</div>`;
+
+  // trace the body rect for the dashed debug outline
+  const line = document.querySelector(".bodyline");
+  line.style.left = (cardLeft + g.bodyL) + "px";
+  line.style.width = (g.bodyR - g.bodyL) + "px";
+  line.style.height = CARD_H + "px";
+
+  document.getElementById("label").textContent =
+    `${key} (${v.name}${v.r ? ", r=" + v.r : ""})`;
+
+  const topSpan = v.mode === "concave" ? g.winW : g.winW - 2 * v.r;
+  document.getElementById("state").textContent =
+    `body ${BODY_W} · window ${g.winW} · top-edge ${topSpan} · fillet ${v.r}`;
+
+  document.getElementById("scale").style.transform = `scale(${zoom})`;
+  document.getElementById("scale").style.transformOrigin =
+    `${cardLeft + (v.mode === "concave" ? 8 : v.r)}px ${TOP + 8}px`;
+  document.getElementById("zoom").textContent = `zoom ${zoom}x`;
+  document.getElementById("debug").style.borderColor = debug ? "var(--accent)" : "";
+  document.getElementById("border").style.borderColor = border ? "var(--accent)" : "";
+  document.getElementById("stage").classList.toggle("debug", debug);
+  document.title = `${key} - junction prototype`;
+  syncURL();
+}
+
+function syncURL() {
+  const p = new URLSearchParams();
+  p.set("variant", key);
+  if (zoom !== 1) p.set("zoom", zoom);
+  if (debug) p.set("debug", "1");
+  if (!border) p.set("border", "0");
+  history.replaceState(null, "", "?" + p.toString());
+}
+
+function cycle(step) {
+  key = ORDER[(ORDER.indexOf(key) + step + ORDER.length) % ORDER.length];
+  render();
+}
+
+document.getElementById("prev").onclick = () => cycle(-1);
+document.getElementById("next").onclick = () => cycle(1);
+document.getElementById("zoom").onclick = () => { zoom = zoom === 1 ? 2 : zoom === 2 ? 4 : 1; render(); };
+document.getElementById("debug").onclick = () => { debug = !debug; render(); };
+document.getElementById("border").onclick = () => { border = !border; render(); };
+
+addEventListener("keydown", (e) => {
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  if (e.key === "ArrowLeft") { e.preventDefault(); cycle(-1); }
+  if (e.key === "ArrowRight") { e.preventDefault(); cycle(1); }
+});
+
+render();
+</script>
+</body>
+</html>
