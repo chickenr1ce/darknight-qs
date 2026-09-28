@@ -18,7 +18,10 @@ PanelShell {
     attachedToBar: true
     junctionRadius: DashboardService.junctionRadius
     onOutsideClicked: DashboardService.closeDashboardFromOutside()
-    onPanelVisibleChanged: if (root.panelVisible) SystemInfo.refresh()
+    onPanelVisibleChanged: if (root.panelVisible) {
+        SystemInfo.refresh();
+        WeatherService.refresh();
+    }
 
     Component.onCompleted: {
         DevGeometry.register("dashboard.weather", idDashboardWeather);

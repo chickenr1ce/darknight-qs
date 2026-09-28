@@ -1,0 +1,14 @@
+{
+  "latitude": 52.52,
+  "longitude": 13.41,
+  "timezone": "Europe/Berlin",
+  "current": {
+    "temperature_2m": 15.2,
+    "weather_code": 2
+  },
+  "daily": {
+    "temperature_2m_max": [19.1],
+    "temperature_2m_min": [11.3],
+    "precipitation_probability_max": [10]
+  }
+}

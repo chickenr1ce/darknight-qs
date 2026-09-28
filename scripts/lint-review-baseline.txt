@@ -26,6 +26,7 @@ services/PanelGrab.qml BND-1 property var -- use a typed property (int, string, 
 services/SpotifyService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/SpotifyService.qml BND-2 Imperative '=' on 'idDevicesProcess.running' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/SpotifyService.qml BND-2 Imperative '=' on 'idTransferProcess.running' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/WeatherService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
@@ -40,4 +41,6 @@ windows/PowerCenter.qml BND-1 property var -- use a typed property (int, string,
 windows/PowerCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/SettingsCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/SettingsCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+windows/WeatherSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/WeatherSettingsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/WorldClockEditor.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)

@@ -4,13 +4,15 @@
 # A full QML boot needs a compositor, so this gate does not boot one. It
 # checks two things that run anywhere:
 #   1. structural assertions over the QML: the fastfetch summary, the CPU
-#      plus RAM poll, the per-sink volume list, and the player transport
-#      each live in one service the dashboard composes;
+#      plus RAM poll, the per-sink volume list, the player transport, and
+#      the Open-Meteo weather fetch each live in one service the dashboard
+#      composes;
 #   2. python oracles mirroring the pure parsing plus mapping helpers
 #      (fastfetch JSON, uptime format, /proc samples, MPRIS repeat cycle,
-#      sink volume percent) at their boundary values. Each oracle cites
-#      its QML source; change the source and update the mirror in the same
-#      commit.
+#      sink volume percent, Open-Meteo JSON, temperature plus rain format,
+#      WMO code mapping, weather staleness) at their boundary values. Each
+#      oracle cites its QML source; change the source and update the mirror
+#      in the same commit.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -18,7 +20,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fail() { echo "dashboard-data FAIL: $*" >&2; exit 1; }
 
 # --- 1. new services are registered and self-contained ---
-for singleton in SystemInfo SystemMonitor AudioService SpotifyService; do
+for singleton in SystemInfo SystemMonitor AudioService SpotifyService WeatherService; do
     test -f "$ROOT/services/$singleton.qml" \
         || fail "services/$singleton.qml is missing"
     grep -q "^singleton $singleton 1.0 $singleton.qml" "$ROOT/services/qmldir" \
@@ -227,15 +229,145 @@ for glyph in skipNext skipPrevious repeat repeatOnce shuffle; do
         || fail "Icons.qml misses the $glyph glyph"
 done
 
+# --- 6. weather fetch rides Open-Meteo with a last-good cache plus stale ---
+WSVC="$ROOT/services/WeatherService.qml"
+grep -q 'api.open-meteo.com' "$WSVC" \
+    || fail "WeatherService does not fetch Open-Meteo"
+grep -q '"curl"' "$WSVC" \
+    || fail "WeatherService does not poll through curl"
+grep -q 'property real latitude' "$WSVC" \
+    || fail "WeatherService has no latitude"
+grep -q 'property real longitude' "$WSVC" \
+    || fail "WeatherService has no longitude"
+grep -q '52.52' "$WSVC" \
+    || fail "WeatherService is not pinned to the Berlin latitude"
+grep -q '13.41' "$WSVC" \
+    || fail "WeatherService is not pinned to the Berlin longitude"
+grep -q 'pollMs: 30 \* 60 \* 1000' "$WSVC" \
+    || fail "WeatherService does not poll every 30 minutes"
+grep -q 'staleAfterMs: 60 \* 60 \* 1000' "$WSVC" \
+    || fail "WeatherService does not mark stale after 60 minutes"
+grep -q 'property real temperatureC' "$WSVC" \
+    || fail "WeatherService has no temperatureC"
+grep -q 'property int weatherCode' "$WSVC" \
+    || fail "WeatherService has no weatherCode"
+grep -q 'property real precipProb' "$WSVC" \
+    || fail "WeatherService has no precipProb"
+grep -q 'property double fetchedAtMs' "$WSVC" \
+    || fail "WeatherService has no fetchedAtMs"
+grep -q 'property bool lastPollFailed' "$WSVC" \
+    || fail "WeatherService has no lastPollFailed"
+grep -q 'function parseWeather' "$WSVC" \
+    || fail "WeatherService has no parseWeather"
+grep -q 'function formatTemp' "$WSVC" \
+    || fail "WeatherService has no formatTemp"
+grep -q 'function formatPrecip' "$WSVC" \
+    || fail "WeatherService has no formatPrecip"
+grep -q 'function glyphFor' "$WSVC" \
+    || fail "WeatherService has no glyphFor"
+grep -q 'function isStale' "$WSVC" \
+    || fail "WeatherService has no isStale"
+grep -q 'function refresh' "$WSVC" \
+    || fail "WeatherService has no refresh"
+grep -q 'function repoll' "$WSVC" \
+    || fail "WeatherService has no repoll"
+grep -q 'function requestUrl' "$WSVC" \
+    || fail "WeatherService has no requestUrl"
+grep -q 'function applyPayload' "$WSVC" \
+    || fail "WeatherService has no applyPayload"
+grep -q 'function applyCache' "$WSVC" \
+    || fail "WeatherService has no applyCache"
+grep -q 'function saveCache' "$WSVC" \
+    || fail "WeatherService has no saveCache"
+grep -q 'name: "weather.json"' "$WSVC" \
+    || fail "WeatherService does not persist a weather.json cache"
+grep -q 'current.temperature_2m' "$WSVC" \
+    || fail "WeatherService does not map the current temperature"
+grep -q 'current.weather_code' "$WSVC" \
+    || fail "WeatherService does not map the weather code"
+grep -q 'precipitation_probability_max' "$WSVC" \
+    || fail "WeatherService does not map the rain probability"
+grep -q 'temperature_2m_max' "$WSVC" \
+    || fail "WeatherService does not map the daily high"
+grep -q 'temperature_2m_min' "$WSVC" \
+    || fail "WeatherService does not map the daily low"
+grep -q 'Icons.weatherCloudy' "$WSVC" \
+    || fail "WeatherService does not map cloudy codes"
+grep -q 'Icons.weatherRainy' "$WSVC" \
+    || fail "WeatherService does not map rainy codes"
+grep -q 'Icons.weatherSnowy' "$WSVC" \
+    || fail "WeatherService does not map snowy codes"
+grep -q 'Icons.weatherStorm' "$WSVC" \
+    || fail "WeatherService does not map storm codes"
+grep -q 'Icons.weatherFog' "$WSVC" \
+    || fail "WeatherService does not map fog codes"
+grep -q '^import qs.services' "$WSVC" \
+    || fail "WeatherService.qml is missing its qs.services self-import"
+grep -q 'geocoding-api.open-meteo.com' "$WSVC" \
+    || fail "WeatherService does not search the Open-Meteo geocoding API"
+grep -q 'count=5' "$WSVC" \
+    || fail "WeatherService does not cap geocoding results"
+grep -q 'property string locationName' "$WSVC" \
+    || fail "WeatherService has no locationName"
+grep -q 'property var locationResults' "$WSVC" \
+    || fail "WeatherService has no locationResults"
+grep -q 'function geocodeUrl' "$WSVC" \
+    || fail "WeatherService has no geocodeUrl"
+grep -q 'function searchLocations' "$WSVC" \
+    || fail "WeatherService has no searchLocations"
+grep -q 'function repollGeocode' "$WSVC" \
+    || fail "WeatherService has no repollGeocode"
+grep -q 'function parseLocations' "$WSVC" \
+    || fail "WeatherService has no parseLocations"
+grep -q 'function selectLocation' "$WSVC" \
+    || fail "WeatherService has no selectLocation"
+grep -q 'function applyLocation' "$WSVC" \
+    || fail "WeatherService has no applyLocation"
+grep -q 'function saveLocation' "$WSVC" \
+    || fail "WeatherService has no saveLocation"
+grep -q 'name: "weather-location"' "$WSVC" \
+    || fail "WeatherService does not persist the city"
+grep -q 'payload\["latitude"\]' "$WSVC" \
+    || fail "WeatherService cache does not record the city coordinates"
+grep -q 'parsed.latitude' "$WSVC" \
+    || fail "WeatherService does not reject a cache from another city"
+if grep -q 'Process' "$ROOT/windows/DashboardWeatherBlock.qml"; then
+    fail "DashboardWeatherBlock spawns a process; the service owns the fetch"
+fi
+
+WBLOCK="$ROOT/windows/DashboardWeatherBlock.qml"
+grep -q 'WeatherService.tempText' "$WBLOCK" \
+    || fail "DashboardWeatherBlock does not read the live temperature"
+grep -q 'WeatherService.precipText' "$WBLOCK" \
+    || fail "DashboardWeatherBlock does not read the live rain probability"
+grep -q 'WeatherService.highText' "$WBLOCK" \
+    || fail "DashboardWeatherBlock does not read the live daily high"
+grep -q 'WeatherService.lowText' "$WBLOCK" \
+    || fail "DashboardWeatherBlock does not read the live daily low"
+grep -q 'WeatherService.glyph' "$WBLOCK" \
+    || fail "DashboardWeatherBlock does not read the live condition glyph"
+grep -q 'WeatherService.city' "$WBLOCK" \
+    || fail "DashboardWeatherBlock does not read the live city"
+grep -q 'WeatherService.stale' "$WBLOCK" \
+    || fail "DashboardWeatherBlock does not show the stale marker"
+grep -q 'WeatherService.refresh()' "$DCENTER" \
+    || fail "DashboardCenter does not refresh the weather on open"
+
+# The weather glyphs exist in the one icon registry.
+for glyph in weatherSunny weatherCloudy weatherFog weatherRainy weatherSnowy weatherStorm; do
+    grep -q "property string $glyph" "$ROOT/config/Icons.qml" \
+        || fail "Icons.qml misses the $glyph glyph"
+done
+
 # Reading surfaces carry palette tokens only.
-for surface in "$SINFO" "$SMON" "$ASVC" "$SBLOCK" "$CBLOCK" "$VBLOCK" "$PBLOCK"; do
+for surface in "$SINFO" "$SMON" "$ASVC" "$WSVC" "$SBLOCK" "$CBLOCK" "$VBLOCK" "$PBLOCK" "$WBLOCK"; do
     if grep -qnE '#[0-9a-fA-F]{3,8}' "$surface"; then
         fail "$(basename "$surface") carries raw hex; palette tokens only"
     fi
 done
 
-# --- 6. python oracles for the pure parsing plus mapping helpers ---
-python3 - "$ROOT/tests/fixtures/fastfetch-summary.json" <<'EOF'
+# --- 7. python oracles for the pure parsing plus mapping helpers ---
+python3 - "$ROOT/tests/fixtures/fastfetch-summary.json" "$ROOT/tests/fixtures/open-meteo-forecast.json" <<'EOF'
 import json
 import math
 import sys
@@ -658,6 +790,153 @@ check("spotify/auth-missing", parse_response('{"ok": false, "error": "auth_missi
 check("spotify/garbage", parse_response("{nope")["ok"], False)
 check("spotify/devices-not-list", parse_response('{"ok": true, "devices": "x"}')["devices"], [])
 check("spotify/null", parse_response("null")["ok"], False)
+# Mirror of WeatherService.parseWeather (services/WeatherService.qml): the
+# Open-Meteo current block is required, the daily high/low plus rain
+# probability fall back to the current temperature and unknown.
+def parse_weather(text):
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    current = parsed.get("current")
+    if not isinstance(current, dict):
+        return None
+    try:
+        temperature = float(current.get("temperature_2m"))
+        code = round(float(current.get("weather_code")))
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(temperature) or math.isnan(code):
+        return None
+    high = temperature
+    low = temperature
+    precip = -1
+    daily = parsed.get("daily")
+    if isinstance(daily, dict):
+        maxima = daily.get("temperature_2m_max")
+        if isinstance(maxima, list) and len(maxima) > 0:
+            try:
+                value = float(maxima[0])
+                if not math.isnan(value):
+                    high = value
+            except (TypeError, ValueError):
+                pass
+        minima = daily.get("temperature_2m_min")
+        if isinstance(minima, list) and len(minima) > 0:
+            try:
+                value = float(minima[0])
+                if not math.isnan(value):
+                    low = value
+            except (TypeError, ValueError):
+                pass
+        probs = daily.get("precipitation_probability_max")
+        if isinstance(probs, list) and len(probs) > 0:
+            try:
+                value = float(probs[0])
+                if not math.isnan(value):
+                    precip = value
+            except (TypeError, ValueError):
+                pass
+    return {"temperatureC": temperature, "weatherCode": code, "precipProb": precip, "highC": high, "lowC": low}
+
+weather_fixture = open(sys.argv[2]).read()
+check("weather/fixture", parse_weather(weather_fixture), {"temperatureC": 15.2, "weatherCode": 2, "precipProb": 10.0, "highC": 19.1, "lowC": 11.3})
+check("weather/malformed", parse_weather("{nope"), None)
+check("weather/not-object", parse_weather("[1, 2]"), None)
+check("weather/missing-current", parse_weather('{"daily": {}}'), None)
+check("weather/bad-temp", parse_weather('{"current": {"temperature_2m": "warm", "weather_code": 2}}'), None)
+check("weather/bad-code", parse_weather('{"current": {"temperature_2m": 15.2}}'), None)
+check("weather/no-daily", parse_weather('{"current": {"temperature_2m": 15.2, "weather_code": 0}}'), {"temperatureC": 15.2, "weatherCode": 0, "precipProb": -1, "highC": 15.2, "lowC": 15.2})
+
+# Mirror of WeatherService.formatTemp (services/WeatherService.qml): whole
+# degrees plus a degree sign, empty when the reading is missing.
+def format_temp(celsius):
+    try:
+        value = float(celsius)
+    except (TypeError, ValueError):
+        return ""
+    if math.isnan(value):
+        return ""
+    return f"{js_round(value)}°"
+
+check("temp/fixture", format_temp(15.2), "15°")
+check("temp/rounds", format_temp(-2.6), "-3°")
+check("temp/zero", format_temp(0), "0°")
+check("temp/missing", format_temp(float("nan")), "")
+
+# Mirror of WeatherService.formatPrecip (services/WeatherService.qml):
+# percent clamped to 0..100, empty while unknown (negative).
+def format_precip(percent):
+    try:
+        value = float(percent)
+    except (TypeError, ValueError):
+        return ""
+    if math.isnan(value) or value < 0:
+        return ""
+    return f"{js_round(max(0.0, min(100.0, value)))}%"
+
+check("precip/fixture", format_precip(10), "10%")
+check("precip/zero", format_precip(0), "0%")
+check("precip/clamp", format_precip(140), "100%")
+check("precip/unknown", format_precip(-1), "")
+check("precip/bad", format_precip("damp"), "")
+
+# Mirror of WeatherService.glyphFor (services/WeatherService.qml): WMO
+# weather codes bucketed onto the six Icons.qml weather glyphs.
+def glyph_for(code):
+    try:
+        c = round(float(code))
+    except (TypeError, ValueError):
+        return "cloudy"
+    if c in (0, 1):
+        return "sunny"
+    if c in (2, 3):
+        return "cloudy"
+    if c in (45, 48):
+        return "fog"
+    if (51 <= c <= 57) or (61 <= c <= 67) or (80 <= c <= 82):
+        return "rainy"
+    if (71 <= c <= 77) or c in (85, 86):
+        return "snowy"
+    if 95 <= c <= 99:
+        return "storm"
+    if c < 0:
+        return "sunny"
+    return "cloudy"
+
+check("glyph/clear", glyph_for(0), "sunny")
+check("glyph/mainly-clear", glyph_for(1), "sunny")
+check("glyph/partly-cloudy", glyph_for(2), "cloudy")
+check("glyph/overcast", glyph_for(3), "cloudy")
+check("glyph/fog", glyph_for(45), "fog")
+check("glyph/rime-fog", glyph_for(48), "fog")
+check("glyph/drizzle", glyph_for(53), "rainy")
+check("glyph/rain", glyph_for(63), "rainy")
+check("glyph/showers", glyph_for(81), "rainy")
+check("glyph/snow", glyph_for(73), "snowy")
+check("glyph/snow-showers", glyph_for(85), "snowy")
+check("glyph/storm", glyph_for(95), "storm")
+check("glyph/hail-storm", glyph_for(99), "storm")
+check("glyph/missing", glyph_for(-1), "sunny")
+
+# Mirror of WeatherService.isStale (services/WeatherService.qml): a failed
+# poll reads stale at once, otherwise the cache lapses after 60 minutes.
+STALE_AFTER_MS = 60 * 60 * 1000
+
+def is_stale(now_ms, fetched_at_ms, failed):
+    if failed:
+        return True
+    if not (fetched_at_ms > 0):
+        return False
+    return (now_ms - fetched_at_ms) > STALE_AFTER_MS
+
+NOW = 1800000000000
+check("stale/failed", is_stale(NOW, NOW, True), True)
+check("stale/never", is_stale(NOW, 0, False), False)
+check("stale/fresh", is_stale(NOW, NOW - 30 * 60 * 1000, False), False)
+check("stale/old", is_stale(NOW, NOW - 61 * 60 * 1000, False), True)
 EOF
 
 echo "dashboard-data: all ok"

@@ -34,6 +34,11 @@ QtObject {
     readonly property string bellBadge: "󱅫"  // md-bell_badge U+F116B
     readonly property string bellOffOutline: "󰪑"  // md-bell_off_outline U+F0A91
     readonly property string weatherSunny: "󰖙"  // md-weather_sunny U+F0599
+    readonly property string weatherCloudy: "󰖕"  // md-weather_cloudy U+F0595
+    readonly property string weatherFog: "󰖑"  // md-weather_fog U+F0591
+    readonly property string weatherRainy: "󰖗"  // md-weather_rainy U+F0597
+    readonly property string weatherSnowy: "󰖘"  // md-weather_snowy U+F0598
+    readonly property string weatherStorm: "󰖓"  // md-weather_lightning U+F0593
     readonly property string location: "󰍎"  // md-map_marker U+F034E
     readonly property string power: "󰐥"  // md-power U+F0425
     readonly property string powerSleep: "󰤄"  // md-power_sleep U+F0904

@@ -577,6 +577,25 @@ grep -q 'Globals.reducedMotion' "$ROOT/components/Dropdown.qml" \
 grep -q 'MotionSettingsView' "$SCENTER" \
     || fail "SettingsCenter does not compose the Motion section"
 
+# Weather city search writes the same WeatherService location the block reads.
+WV="$ROOT/windows/WeatherSettingsView.qml"
+test -f "$WV" \
+    || fail "windows/WeatherSettingsView.qml is missing"
+grep -q 'property string filter' "$WV" \
+    || fail "WeatherSettingsView has no filter property"
+grep -q 'WeatherService.locationName' "$WV" \
+    || fail "WeatherSettingsView does not show the current city"
+grep -q 'WeatherService.searchLocations' "$WV" \
+    || fail "WeatherSettingsView cannot search cities"
+grep -q 'WeatherService.selectLocation' "$WV" \
+    || fail "WeatherSettingsView cannot select a city"
+grep -q 'WeatherService.locationResults' "$WV" \
+    || fail "WeatherSettingsView does not list search results"
+grep -q 'WeatherSettingsView' "$SCENTER" \
+    || fail "SettingsCenter does not compose the Weather section"
+grep -q 'weather-location' "$ROOT/services/WeatherService.qml" \
+    || fail "WeatherService does not persist the city"
+
 # Both toggle sections share one row component, so On/Off plus hint cannot drift.
 test -f "$ROOT/components/SettingsToggleRow.qml" \
     || fail "components/SettingsToggleRow.qml is missing"
@@ -594,10 +613,16 @@ grep -qF 'qsTr("Do not disturb")' "$SSVC" \
     || fail "SettingsService Notifications options do not list Do not disturb"
 grep -qF 'qsTr("Reduced motion")' "$SSVC" \
     || fail "SettingsService Motion options do not list Reduced motion"
+grep -qF 'qsTr("City")' "$SSVC" \
+    || fail "SettingsService Weather options do not list City"
+grep -qF 'qsTr("Location")' "$SSVC" \
+    || fail "SettingsService Weather options do not list Location"
 
 # Zones plus feeds persist through the CalendarService state files; the parse
 # validation is unchanged. Oracle mirrors CalendarService.parseZones.
 python3 - <<'EOF'
+import json
+import math
 import re
 import sys
 
@@ -623,6 +648,66 @@ check("zones/trim-dedupe", parse_zones(" UTC \nUTC\nEurope/Berlin\n"), ["UTC", "
 check("zones/reject-invalid", parse_zones("UTC\nbad name\nAsia/Tokyo\n"), ["UTC", "Asia/Tokyo"])
 check("zones/cap", parse_zones("\n".join(f"Z{i}" for i in range(10))), ["Z0", "Z1", "Z2", "Z3", "Z4", "Z5"])
 check("zones/empty", parse_zones(""), [])
+
+# Mirror of WeatherService.parseLocations (services/WeatherService.qml):
+# the geocoding results map to name plus label plus coordinates, capped at
+# 5, with blank names and out-of-range coordinates dropped.
+def parse_locations(text, cap=5):
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return []
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("results"), list):
+        return []
+    out = []
+    for entry in parsed["results"]:
+        if len(out) >= cap:
+            break
+        if not isinstance(entry, dict):
+            continue
+        name = str(entry.get("name") or "").strip()
+        try:
+            latitude = float(entry.get("latitude"))
+            longitude = float(entry.get("longitude"))
+        except (TypeError, ValueError):
+            continue
+        if name == "" or math.isnan(latitude) or math.isnan(longitude):
+            continue
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            continue
+        region = str(entry.get("admin1") or "").strip()
+        country = str(entry.get("country") or "").strip()
+        label = name + (", " + region if region != "" else "") + (f" ({country})" if country != "" else "")
+        out.append({"name": name, "label": label, "latitude": latitude, "longitude": longitude})
+    return out
+
+GEOCODE = '{"results": [{"name": "Berlin", "admin1": "Berlin", "country": "Germany", "latitude": 52.52, "longitude": 13.41}, {"name": "", "latitude": 0, "longitude": 0}, {"name": "Nowhere", "latitude": 91, "longitude": 0}]}'
+
+check("locations/fixture", parse_locations(GEOCODE), [{"name": "Berlin", "label": "Berlin, Berlin (Germany)", "latitude": 52.52, "longitude": 13.41}])
+check("locations/malformed", parse_locations("{nope"), [])
+check("locations/no-results", parse_locations('{"results": []}'), [])
+check("locations/missing-results", parse_locations('{}'), [])
+
+# Mirror of WeatherService.applyLocation validation: a saved city needs a
+# name plus in-range coordinates, otherwise the live location is untouched.
+def apply_location_valid(payload):
+    if not isinstance(payload, dict):
+        return False
+    name = str(payload.get("name") or "").strip()
+    try:
+        latitude = float(payload.get("latitude"))
+        longitude = float(payload.get("longitude"))
+    except (TypeError, ValueError):
+        return False
+    if name == "" or math.isnan(latitude) or math.isnan(longitude):
+        return False
+    return -90 <= latitude <= 90 and -180 <= longitude <= 180
+
+check("location/valid", apply_location_valid({"name": "Paris", "latitude": 48.85, "longitude": 2.35}), True)
+check("location/blank-name", apply_location_valid({"name": "  ", "latitude": 48.85, "longitude": 2.35}), False)
+check("location/bad-lat", apply_location_valid({"name": "Paris", "latitude": 91, "longitude": 2.35}), False)
+check("location/bad-lon", apply_location_valid({"name": "Paris", "latitude": 48.85, "longitude": 200}), False)
+check("location/malformed", apply_location_valid({"name": "Paris"}), False)
 EOF
 
 # --- 11. bar module visibility: one switch per module, persisted ---

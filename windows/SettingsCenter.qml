@@ -276,6 +276,15 @@ Loader {
                                     filter: idSettingsWindow.bodyFilter
                                 }
 
+                                WeatherSettingsView {
+                                    id: idWeatherSection
+
+                                    Layout.fillWidth: true
+
+                                    visible: idSettingsWindow.hasSection && idSettingsWindow.currentSection.key === "weather"
+                                    filter: idSettingsWindow.bodyFilter
+                                }
+
                                 Text {
                                     id: idComingSoonNote
 

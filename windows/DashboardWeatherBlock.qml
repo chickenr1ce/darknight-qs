@@ -4,11 +4,12 @@ import QtQuick
 import QtQuick.Layouts
 import qs.components
 import qs.config
+import qs.services
 
 Card {
     id: root
 
-    readonly property real heroIconSlot: Math.max(idWeatherPinMetrics.advanceWidth, idWeatherGlyphMetrics.advanceWidth)
+    readonly property real heroIconSlot: Math.max(idWeatherPinMetrics.advanceWidth, idWeatherGlyphMetrics.advanceWidth, idWeatherCloudyMetrics.advanceWidth, idWeatherFogMetrics.advanceWidth, idWeatherRainyMetrics.advanceWidth, idWeatherSnowyMetrics.advanceWidth, idWeatherStormMetrics.advanceWidth)
 
     TextMetrics {
         id: idWeatherPinMetrics
@@ -24,6 +25,46 @@ Card {
         font.family: Globals.iconFontFamily
         font.pixelSize: Globals.uiDisplaySize
         text: Icons.weatherSunny
+    }
+
+    TextMetrics {
+        id: idWeatherCloudyMetrics
+
+        font.family: Globals.iconFontFamily
+        font.pixelSize: Globals.uiDisplaySize
+        text: Icons.weatherCloudy
+    }
+
+    TextMetrics {
+        id: idWeatherFogMetrics
+
+        font.family: Globals.iconFontFamily
+        font.pixelSize: Globals.uiDisplaySize
+        text: Icons.weatherFog
+    }
+
+    TextMetrics {
+        id: idWeatherRainyMetrics
+
+        font.family: Globals.iconFontFamily
+        font.pixelSize: Globals.uiDisplaySize
+        text: Icons.weatherRainy
+    }
+
+    TextMetrics {
+        id: idWeatherSnowyMetrics
+
+        font.family: Globals.iconFontFamily
+        font.pixelSize: Globals.uiDisplaySize
+        text: Icons.weatherSnowy
+    }
+
+    TextMetrics {
+        id: idWeatherStormMetrics
+
+        font.family: Globals.iconFontFamily
+        font.pixelSize: Globals.uiDisplaySize
+        text: Icons.weatherStorm
     }
 
     component WeatherMetric: RowLayout {
@@ -128,6 +169,9 @@ Card {
         ColumnLayout {
             id: idWeatherHero
 
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            Layout.maximumWidth: Math.max(0, idWeatherRow.width - idWeatherMetrics.implicitWidth - Globals.hairlineHeight - 2 * Globals.rowSpacing)
             Layout.alignment: Qt.AlignVCenter
 
             spacing: Globals.fieldPadding
@@ -165,7 +209,7 @@ Card {
                     textFormat: Text.PlainText
                     elide: Text.ElideRight
                     maximumLineCount: 1
-                    text: qsTr("Berlin")
+                    text: WeatherService.stale ? qsTr("%1 · Stale").arg(WeatherService.city) : WeatherService.city
                     color: Colors.textSubtle
 
                     font {
@@ -193,7 +237,7 @@ Card {
                         x: root.heroInkShift(idWeatherGlyphMetrics)
                     }
 
-                    text: Icons.weatherSunny
+                    text: WeatherService.glyph
                     size: Globals.uiDisplaySize
                     color: Colors.accent
                 }
@@ -207,8 +251,9 @@ Card {
 
                     leftPadding: Globals.fieldPadding
                     textFormat: Text.PlainText
+                    horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
-                    text: qsTr("15°")
+                    text: !(WeatherService.tempText === "") ? WeatherService.tempText : qsTr("—")
                     color: Colors.text
 
                     font {
@@ -244,7 +289,7 @@ Card {
                 Layout.fillWidth: true
 
                 label: qsTr("RAIN")
-                value: qsTr("10%")
+                value: !(WeatherService.precipText === "") ? WeatherService.precipText : qsTr("—")
             }
 
             Rectangle {
@@ -262,8 +307,8 @@ Card {
                 Layout.fillWidth: true
 
                 label: qsTr("RANGE")
-                value: qsTr("19°")
-                rangeLo: qsTr("11°")
+                value: !(WeatherService.highText === "") ? WeatherService.highText : qsTr("—")
+                rangeLo: !(WeatherService.lowText === "") ? WeatherService.lowText : qsTr("—")
             }
         }
     }

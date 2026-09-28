@@ -25,7 +25,8 @@ Singleton {
             title: qsTr("Layout"),
             options: [qsTr("Bar visibility")].concat(BarVisibilityService.modules.map(module => module.title)),
             comingSoon: false
-        }
+        },
+        { key: "weather", title: qsTr("Weather"), options: [qsTr("City"), qsTr("Location")], comingSoon: false }
     ]
 
     function open(screen): void {
