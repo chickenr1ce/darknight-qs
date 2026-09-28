@@ -24,13 +24,19 @@ for arg in "$@"; do
 done
 
 # A partial regeneration would silently drop every other entry, so refuse
-# scoped updates outright. Stage new files with git add first, then rerun bare.
+# scoped updates outright. Untracked QML files are included below, so new
+# files are linted (and baselined) without staging first.
 if [[ $UPDATE -eq 1 && $EXPLICIT_PATHS -eq 1 ]]; then
-    echo "lint-review: --update-baseline always regenerates the whole baseline; rerun without file paths (stage new files with git add first)" >&2
+    echo "lint-review: --update-baseline always regenerates the whole baseline; rerun without file paths" >&2
     exit 2
 fi
 if [[ ${#FILES[@]} -eq 0 ]]; then
-    mapfile -t FILES < <(cd "$ROOT" && git ls-files '*.qml')
+    UNTRACKED="$(cd "$ROOT" && git ls-files --others --exclude-standard '*.qml' || true)"
+    if [[ -n "$UNTRACKED" ]]; then
+        echo "lint-review: including untracked QML file(s):" >&2
+        echo "$UNTRACKED" | sed 's/^/lint-review:   /' >&2
+    fi
+    mapfile -t FILES < <(cd "$ROOT" && { git ls-files '*.qml'; git ls-files --others --exclude-standard '*.qml'; } | sort -u)
 fi
 
 RAW="$(mktemp /tmp/opencode/lint-review-XXXXXX)"

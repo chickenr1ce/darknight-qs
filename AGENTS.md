@@ -31,7 +31,8 @@ stability, layout best practices, attribute ordering — live in:
 
 QML/Quickshell agent skills live in `.agents/skills/`:
 - `quickshell-patterns` / `qt-qml` — load when writing or editing any QML in this repo
-- `qt-qml-review` — part of the standard verification pass (with qmllint) after QML changes; runnable entry points are `scripts/lint.sh` (types) and `scripts/lint-review.sh` (style, baseline-filtered)
+- `qt-qml-review`: part of the standard verification pass after QML changes. Run `scripts/check.sh`, which runs type lint (`scripts/lint.sh`), style lint (`scripts/lint-review.sh`), the headless `scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no instance is running). `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own instance.
+- Review fanout: default to one spec pass plus one QML pass over the final diff, each starting from `git diff` and the ticket rather than re-reading the codebase. Add a round only when a review reports a High finding.
 - `qt-qml-profiler` — performance/lag investigations
 - `qt-qml-docs` / `qt-qml-test` / `qt-qml-test-run` / `qt-ui-design` — docs generation, test writing/running, UI design audits
 
@@ -42,9 +43,12 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
 - For Qt 6 API details (signals, slots, properties, defaults, since-version), verify with the `qt-docs` MCP tools (`qt_documentation_search`, then `qt_documentation_read`) instead of recalling from training; the server carries the 6.11 docs, which match the installed Qt 6.11.2.
 - For current context on the project, refer to `docs/plans/01-master-quickshell-migration.html`
-- Verify QML behavior against a live instance (`quickshell -p <dir>`); the standalone `qml` runtime's logging is broken in this environment. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.
-- Live debugging (log paths, geometry, IPC probing): `docs/debugging-quickshell.md`.
+- Domain glossary for dashboard, junction, panels registry, and the rest: `CONTEXT.md`
+- Decision records for why a design is the way it is: `docs/adr/`. Read the ADRs that touch an area before changing it.
+- Verify QML behavior against a live instance; the standalone `qml` runtime's logging is broken in this environment. When the daily shell already runs this worktree, use it and drive it with `quickshell ipc --pid <pid>` — never boot a second instance. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.
+- Live debugging (log paths, geometry, IPC probing, the opt-in `dev/DevProbe.qml` surface): `docs/debugging-quickshell.md`.
 - Io polling and file-cache behavior that upstream docs leave implicit (stale-command trap, FileView echo, probe recipe): `docs/quickshell-io-notes.md`.
+- Adding a settings section (state seam, view filter, search registration): `docs/settings-sections.md`.
 - Test instances claim `org.freedesktop.Notifications` at startup: stop/mask the current holder first, and never run a second instance while the daily shell holds the bus (it passes vacuously and spams the live screen).
 - Launch persistent daemons with `setsid` so they outlive the invoking shell; capture regions with `grim -g "x,y WxH"` instead of full-screen grabs.
 - Screenshots pasted into chat are not measurable: never call alignment from them. A visual verdict needs the capture saved to disk (`grim` to `/tmp`) plus a pixel or geometry reading; see `docs/debugging-quickshell.md`.
@@ -56,7 +60,7 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 - Active feature implementation tickets live in `.scratch/<feature>/issues/` (e.g. `.scratch/notifications/issues/`).
 - Tickets are tracer bullets declaring explicit blocking relationships (`Blocking` / `Blocked By`) and acceptance criteria.
 - When implementing a feature in a worktree, check `.scratch/<feature>/issues/` for pending tickets and work them blockers-first.
-- `.scratch/<feature>/issues/` is the configured issue tracker and `Status: ready-for-agent` is the triage label; engineering skills needing a tracker use these directly with no setup step.
+- `.scratch/<feature>/issues/` is the configured issue tracker and `Status: ready-for-agent` is the triage label. The engineering skills read this through `docs/agents/issue-tracker.md` and `docs/agents/triage-labels.md`, with no setup step.
 
 ### 5.1 Ticket conventions
 
@@ -64,7 +68,7 @@ These exist so history rewrites (squashes are routine here) never strand a refer
 
 - **Reference direction**: commit messages cite their ticket (`#NN`, e.g. `feat(notifications): toasts (#02)`); tickets describe commits in words only ("the ticket-02 feature commit"), resolvable via `git log --grep "#NN"`. Raw SHAs go stale under squash; ticket numbers don't.
 - **Stable anchors are tags**: any long-lived commit anchor (review fixed point, milestone) gets a lightweight git tag at creation time (e.g. `git tag review-base/<feature> <sha>`); documents and review invocations cite the tag.
-- **Updates**: flip `Status` and dependency headers freely. Scope changes append an `## Amendments` section (each entry dated) instead of editing the objective or acceptance criteria in place — the ticket file is what code-review's Spec axis judges against. Work discovered mid-ticket becomes a new ticket noting its origin ("Discovered during #NN").
+- **Updates**: flip `Status` and dependency headers freely. Scope changes append an `## Amendments` section (each entry dated) instead of editing the objective or acceptance criteria in place — the ticket file is what code-review's Spec axis judges against. A follow-up change to a done ticket gets a dated amendment under the original; do not reopen it for a UI tweak. Work discovered mid-ticket becomes a new ticket noting its origin ("Discovered during #NN").
 - **Ownership**: a feature's tickets are edited only from that feature's worktree branch; cross-cutting docs change on the branch that owns them.
 - **Lifecycle**: `.scratch/<feature>/issues/` lives only as long as the feature. When all tickets are done, review is complete, and the branch merges: promote lasting lessons to `docs/` (coding conventions, spec, retro output), then delete the folder in the same merge/squash commit. Git history is the archive — deletion loses nothing. Session handoffs (`~/.config/opencode/handoff-*.md`) die the same way: delete once the feature merges and its cutover verifies.
 

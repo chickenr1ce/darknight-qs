@@ -9,13 +9,13 @@ import qs.services
 PanelShell {
     id: root
 
+    property var expandedGroups: ({})
+    property string pendingScrollApp: ""
+
     anchorScreen: NotificationServer.anchorScreen
     anchorCenterX: NotificationServer.anchorCenterX
 
     panelVisible: NotificationServer.centerVisible
-
-    property var expandedGroups: ({})
-    property string pendingScrollApp: ""
 
     onOutsideClicked: NotificationServer.closeCenterFromOutside()
 

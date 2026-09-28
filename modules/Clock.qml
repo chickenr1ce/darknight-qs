@@ -11,6 +11,8 @@ ModuleBox {
     property string monitorName: ""
     property ShellScreen triggerScreen: null
 
+    visible: BarVisibilityService.isVisible("clock")
+
     onClicked: {
         const centerX = Globals.triggerCenterX(root, root.triggerScreen);
         Panels.toggleCalendarAt(root.triggerScreen, centerX);

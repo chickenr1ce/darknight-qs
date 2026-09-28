@@ -186,11 +186,11 @@ Item {
             textFormat: Text.PlainText
             verticalAlignment: Text.AlignVCenter
 
-            text: root.expanded ? "▾" : "▸"
+            text: root.expanded ? Icons.chevronDown : Icons.chevronRight
             color: Colors.textSubtle
 
             font {
-                family: Globals.uiFontFamily
+                family: Globals.iconFontFamily
                 pixelSize: Globals.uiCaptionSize
             }
         }

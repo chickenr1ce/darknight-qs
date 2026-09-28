@@ -98,16 +98,19 @@ class Rule:
 
 # Line classification categories, in expected order.
 # ORD rules check that lines appear in non-decreasing category order.
+# Layout.* sits directly under id per project style, ahead of property
+# declarations and plain assignments.
 CAT_ID = 0
-CAT_PROP_DECL = 1       # property type name / required property
-CAT_SIGNAL_DECL = 2     # signal name()
-CAT_PROP_ASSIGN = 3     # name: value
-CAT_ATTACHED = 4        # Name.prop: value (Layout.*, Drag.*, etc.)
-CAT_STATES = 5          # states: [...]
-CAT_TRANSITIONS = 6     # transitions: [...]
-CAT_HANDLER = 7         # onFoo: / Component.onCompleted:
-CAT_CHILD = 8           # Type { (starts a new block)
-CAT_FUNCTION = 9        # function name()
+CAT_LAYOUT = 1        # Layout.* attached lines
+CAT_PROP_DECL = 2     # property type name / required property
+CAT_SIGNAL_DECL = 3   # signal name()
+CAT_PROP_ASSIGN = 4   # name: value
+CAT_ATTACHED = 5      # Name.prop: value (Drag.*, Accessible.*, etc.)
+CAT_STATES = 6          # states: [...]
+CAT_TRANSITIONS = 7     # transitions: [...]
+CAT_HANDLER = 8         # onFoo: / Component.onCompleted:
+CAT_CHILD = 9           # Type { (starts a new block)
+CAT_FUNCTION = 10       # function name()
 CAT_UNKNOWN = 99
 
 
@@ -233,8 +236,12 @@ class BlockTracker:
         # the PARENT block before pushing the new child block.
         # Exception: State{} and Transition{} inside states:/transitions:
         # arrays are part of those properties, not standalone children.
+        # Group-property blocks (anchors {}, font {}) and JavaScript
+        # braces (try {}, return {}) are scopes, not child objects.
         if line_opens_block and self.block_stack:
-            if type_name not in SKIP_CHILD_TYPES:
+            if (type_name not in SKIP_CHILD_TYPES
+                    and type_name not in GROUP_PROPERTY_BLOCKS
+                    and type_name not in JS_BLOCK_STARTERS):
                 self.block_stack[-1].categories.append(
                     (CAT_CHILD, lineno)
                 )
@@ -274,8 +281,11 @@ class BlockTracker:
 
         # Classify line for current block (if inside one).
         # Skip classification if this line opened the block (already
-        # handled as CAT_CHILD in parent above).
-        if self.block_stack and not line_opens_block:
+        # handled as CAT_CHILD in parent above). Also skip any other
+        # line that opens a brace scope (component Name: Type {,
+        # delegate: Type {): the opener belongs to the parent scope,
+        # never to the block it opens.
+        if self.block_stack and not line_opens_block and open_braces == 0:
             current = self.block_stack[-1]
             cat = classify_line(stripped)
 
@@ -401,6 +411,11 @@ def classify_line(line: str) -> int:
     if re.match(r'^id\s*:', s):
         return CAT_ID
 
+    # Layout.* attached lines sit directly under id per project style,
+    # ahead of property declarations and plain assignments.
+    if re.match(r'^Layout\.\w+\s*:', s):
+        return CAT_LAYOUT
+
     # required property / property declarations
     if re.match(r'^(required\s+)?(default\s+)?property\s+', s):
         return CAT_PROP_DECL
@@ -423,7 +438,8 @@ def classify_line(line: str) -> int:
     if re.match(r'^(on[A-Z]\w*|\w+\.on[A-Z]\w*)\s*:', s):
         return CAT_HANDLER
 
-    # Attached properties: Name.prop: (capital letter start, has dot)
+    # Attached properties: Name.prop: (capital letter start, has dot).
+    # Layout.* is classified earlier as CAT_LAYOUT.
     if re.match(r'^[A-Z]\w*\.\w+\s*:', s):
         return CAT_ATTACHED
 
@@ -461,6 +477,16 @@ SKIP_CHILD_TYPES = {
 # types have their own conventions.
 SKIP_ORD_TYPES = SKIP_CHILD_TYPES | {
     "Connections", "Behavior", "Binding",
+}
+
+# Lowercase brace groups that are not child objects: value-type group
+# properties (anchors {}, font {}, border {}) and JavaScript control or
+# literal braces (try {}, return {}). These open a scope for depth
+# tracking but must not count as CAT_CHILD in the parent block.
+GROUP_PROPERTY_BLOCKS = {"anchors", "font", "border", "margins"}
+JS_BLOCK_STARTERS = {
+    "return", "if", "else", "for", "while", "do",
+    "switch", "catch", "try", "function",
 }
 
 
@@ -747,7 +773,8 @@ RE_JS_VAR_EXCLUDE = re.compile(
 # Research: QML's JS engine follows ECMAScript; loose equality
 # performs type coercion which is almost never desired in QML
 # property comparisons. qmllint has equality-type-coercion warning.
-RE_JS_LOOSE_EQ = re.compile(r'(?<!=)\s*[!=]=(?!=)\s*(?!=)')
+# The lookarounds keep the strict forms (=== / !==) out of the match.
+RE_JS_LOOSE_EQ = re.compile(r'(?<![=!])==(?!=)|!=(?!=)')
 RE_JS_LOOSE_EXCLUDE = re.compile(
     r'(^\s*//|^\s*/?\*|^\s*\*|import |property |signal )'
 )
@@ -1276,6 +1303,7 @@ def _check_ordering(block: Block, emit) -> None:
         if cat < prev_cat:
             cat_names = {
                 CAT_ID: "id",
+                CAT_LAYOUT: "layout",
                 CAT_PROP_DECL: "property declaration",
                 CAT_SIGNAL_DECL: "signal declaration",
                 CAT_PROP_ASSIGN: "property assignment",
@@ -1290,7 +1318,7 @@ def _check_ordering(block: Block, emit) -> None:
             actual = cat_names.get(cat, "this attribute")
             emit(lineno, "ORD-1",
                  f"{actual} appears after {expected} -- "
-                 "expected order: id, properties, signals, "
+                 "expected order: id, layout, properties, signals, "
                  "assignments, attached, states, transitions, "
                  "handlers, children, functions")
             return  # Only report first ordering violation per block

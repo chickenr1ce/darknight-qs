@@ -29,6 +29,14 @@ QtObject {
         root.toggle();
     }
 
+    function openAt(screen, centerX) {
+        if (screen) {
+            root.anchorScreen = screen;
+            root.anchorCenterX = centerX;
+        }
+        root.visible = true;
+    }
+
     function closeFromOutside() {
         if (root.visible) {
             root.lastOutsideCloseAt = Date.now();

@@ -27,6 +27,8 @@ QtObject {
     readonly property color cardSecondary: backgroundSecondary
     readonly property color border: surface
     readonly property color accent: lavender
+    // Dim accent for active-but-quiet states (ghost pills, device chips).
+    readonly property color accentDim: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
     readonly property color onAccent: background
     readonly property color danger: red
     readonly property color warning: yellow

@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell.Hyprland
 import qs.config
 import qs.components
+import qs.services
 
 // Persistent 5 per monitor: DP-1 holds 1–5, DP-2 holds 6–10.
 ModuleBox {
@@ -11,6 +12,8 @@ ModuleBox {
 
     property string monitorName: ""
     readonly property int firstWorkspaceId: root.monitorName === "DP-2" ? 6 : 1
+
+    visible: BarVisibilityService.isVisible("workspaces")
 
     // Own buttons handle clicks, so disable the parent glass pane.
     enableMouseArea: false

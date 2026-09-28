@@ -38,14 +38,73 @@ How to observe the running daily instance without disrupting it.
   `quickshell ipc show` and `quickshell ipc call <target> <fn>` drives
   the live instance in an agent-runnable way: open/close a panel,
   read back state. Delete the handler before finishing.
-- For exact widget geometry, expose a plain-numbers object from the component
-  (positions and sizes only, never QML objects), return it as
-  `JSON.stringify(...)` from a `: string` handler, and read it with
-  `quickshell ipc call <target> <fn> <i>`. Handler args need concrete types
-  (`QVariant` is rejected at registration) and untyped returns come back
-  void. Open the surface through IPC first so layout has run, and remove the
-  probe in one pass afterward. Every save reloads and closes popups, so batch
-  probe edits together.
+- For exact widget geometry, register the item once with
+  `DevGeometry.register("<area>.<name>", <id>)` (import `qs.dev`) and read it
+  with `quickshell ipc --pid <pid> call devprobe geom <name>` — plain numbers
+  (`x`, `y`, `width`, `height`, implicit sizes, `visible`), never QML objects.
+  `devprobe geomNames` lists every registered target. Registrations are
+  permanent one-liners in the component, so geometry reads never need a
+  temporary handler. Open the surface through IPC first so layout has run.
+  Handler args need concrete types (`QVariant` is rejected at registration)
+  and untyped returns come back void. Every save reloads and closes popups,
+  so batch probe edits together.
+- A `PanelShell` opened through IPC needs an anchor screen before it maps:
+  setting `visible` alone reads back as open in QML while `hyprctl layers`
+  shows no surface. Set `anchorScreen` and `anchorCenterX` the way the bar
+  trigger does.
+
+## Dev probe
+
+`dev/DevProbe.qml` is the opt-in IPC surface for live work; prefer it over a
+one-off handler. Enable it with `QUICKSHELL_DEV_PROBE=1` at launch, or by
+creating `$XDG_RUNTIME_DIR/quickshell-dev-probe` and reloading the shell (a
+save does it). It registers target `devprobe`:
+
+- `state` — JSON of every surface's visibility plus DND, reduced motion, world
+  zones, and hidden feeds.
+- `toggle <name>` — `dashboard`, `settings`, `calendar`, `cava`, `center`,
+  `power` on the first screen.
+- `closeAll`, `toggleDnd`, `setReducedMotion <bool>`, `addZone <id>`,
+  `removeZone <id>`, `setFeedHidden <feed> <bool>`.
+- `geom <name>` — the `DevGeometry` snapshot for one registered target;
+  `geomNames` lists the registry. Prefer these over a one-off handler for
+  any widget geometry question.
+
+```
+quickshell ipc --pid <pid> call devprobe toggle calendar
+quickshell ipc --pid <pid> call devprobe state
+```
+
+It reaches service state and surfaces only. Widget geometry inside a
+window comes from the `DevGeometry` registry (see `geom` above), never a
+one-off handler.
+
+## Reloads
+
+- The shell watches file content, so `touch` never reloads. Run
+  `scripts/reload.sh` instead: it appends a newline to `shell.qml`,
+  waits for that generation, truncates the file back (preserving uncommitted
+  edits), waits again, and fails if either generation logged an error
+  signature. Never `git checkout -- shell.qml` to force a reload — the
+  revert races the reload reader and fails intermittently on module
+  resolution.
+
+## Visual iteration loop
+
+Taste questions converge only side by side: render variants as A/B captures
+before asking, never sequential single passes. Drive the loop without the
+pointer: open surfaces through `quickshell ipc --pid <pid> call`
+(devprobe `toggle` plus `geom` for numbers), capture with `grim -g` to
+`/tmp/opencode/`, and compare captures with pixel reads. Read the surface's
+`at:` and `size:` from `hyprctl clients` immediately before `grim`; a
+`FloatingWindow` can land on a different monitor across opens, so a remembered
+position captures whatever sits underneath. Confirm a clean reload afterward
+with `scripts/reload.sh`. No packaged Wayland input injector is installed:
+`wtype`, `ydotool`, `dotool`, and `wlrctl` are absent, and `xdotool` is
+X11-only. The probe is the reliable hands-free trigger. `/dev/uinput` is
+writable by this user, so a small helper can inject a real pointer or key
+event when one is needed. Every save closes popups, so batch probe edits
+together and reopen through IPC after each reload.
 
 ## Second instance rule
 
@@ -59,6 +118,23 @@ The active config is the Lua tree at `~/.config/hypr/` (`hyprland.lua`
 plus `modules/`, autostart in `modules/autostart.lua`).
 `hyprland-old.conf` is retired legacy: grepping `*.conf` for exec or bind
 entries looks authoritative while being wrong.
+
+The settings window depends on a rule in `modules/windowrules.lua`:
+
+```lua
+hl.window_rule({
+    name = "quickshell-settings",
+    match = { class = "^org[.]quickshell$", title = "^Settings$" },
+    float = true,
+    center = true
+})
+```
+
+That rule is the only thing making the settings toplevel float. It is not in
+this repository, so a fresh checkout or another machine shows a tiled settings
+window until someone adds it. `title` must equal the `settingsWindowTitle`
+constant in `windows/SettingsCenter.qml`; that constant is deliberately not
+translated because Hyprland matches the title literally.
 
 ## Lint entry points
 

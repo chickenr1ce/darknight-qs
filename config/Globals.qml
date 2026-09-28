@@ -15,10 +15,16 @@ QtObject {
     readonly property string fontFamily: "Iosevka"
 
     readonly property string uiFontFamily: "Geist"
+    // Single icon family for the whole shell: every glyph comes from
+    // qs.config Icons and is drawn here, never through fontconfig fallback.
+    readonly property string iconFontFamily: "GeistMono Nerd Font"
     readonly property int uiCaptionSize: 12
     readonly property int uiTitleSize: 15
+    readonly property int uiDisplaySize: 28
     readonly property int uiBodySize: 14
     readonly property int uiPillSize: 13
+    readonly property int uiIconSize: 20
+    readonly property int iconButtonPadding: 2
 
     readonly property int toastWidth: 320
 
@@ -26,9 +32,21 @@ QtObject {
     readonly property int centerMaxHeight: 540
     readonly property int centerOpenMs: 140
     readonly property int centerCloseMs: 140
+    readonly property int dashboardWidth: 720
+    readonly property int dashboardMaxHeight: 600
+    readonly property int dashboardUsageWidth: 320
+    readonly property int playerArtSize: 86
+    readonly property int wallpaperTileHeight: 48
+
+    readonly property int settingsWidth: 900
+    readonly property int settingsHeight: 600
+    readonly property int settingsSidebarWidth: 148
 
     readonly property int panelTopGap: 8
     readonly property int panelEdgeMargin: horizontalBarMargin
+    readonly property int panelSeamOverlap: 1
+    readonly property int junctionRadiusDefault: 16
+    readonly property int junctionRadiusMax: 32
 
     readonly property int hoverMs: 140
     readonly property int pressMs: 120
@@ -68,6 +86,9 @@ QtObject {
 
     readonly property int eventDotSize: 4
     readonly property int agendaTimeWidth: 44
+    readonly property int volumeLabelWidth: 84
+    readonly property int volumeValueWidth: 40
+    readonly property int usageDetailWidth: 68
     readonly property int listSpacing: 6
     readonly property int rowSpacing: 8
     readonly property int fieldPadding: 5

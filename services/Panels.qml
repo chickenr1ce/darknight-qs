@@ -40,4 +40,36 @@ Singleton {
         PowerService.cancel();
         PowerService.togglePowerAt(screen, centerX);
     }
+
+    function openCalendarAt(screen, centerX: real) {
+        NotificationServer.centerVisible = false;
+        CavaService.cavaVisible = false;
+        PowerService.powerVisible = false;
+        PowerService.cancel();
+        CalendarService.openCalendarAt(screen, centerX);
+    }
+
+    function openCenterAt(screen, centerX: real) {
+        CalendarService.calendarVisible = false;
+        CavaService.cavaVisible = false;
+        PowerService.powerVisible = false;
+        PowerService.cancel();
+        NotificationServer.openCenterAt(screen, centerX);
+    }
+
+    function openCavaAt(screen, centerX: real) {
+        CalendarService.calendarVisible = false;
+        NotificationServer.centerVisible = false;
+        PowerService.powerVisible = false;
+        PowerService.cancel();
+        CavaService.openCavaAt(screen, centerX);
+    }
+
+    function openPowerAt(screen, centerX: real) {
+        CalendarService.calendarVisible = false;
+        NotificationServer.centerVisible = false;
+        CavaService.cavaVisible = false;
+        PowerService.cancel();
+        PowerService.openPowerAt(screen, centerX);
+    }
 }

@@ -259,7 +259,7 @@ PanelShell {
                             color: Colors.lavender
 
                             font {
-                                family: Globals.uiFontFamily
+                                family: Globals.iconFontFamily
                                 pixelSize: Globals.fontPixelSize
                                 weight: Font.DemiBold
                             }

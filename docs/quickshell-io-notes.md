@@ -35,6 +35,21 @@ change, and file load).
   rebuilds array models and refires change handlers. A deferred
   (`Qt.callLater`) poll start coalesces the pair into one run.
 
+## State files
+
+- The persistence shape is three parts: a JSON or line-based file under
+  the quickshell state dir, a `mkdir -p` `Process`, and a `FileView`.
+  Copied, not shared, across `CalendarService` (zones), `CavaService`
+  (cava tuning), and `BarVisibilityService` (module visibility). Extract
+  it to one shared helper before a fourth copy appears.
+- The echo guard needs a `ready` flag, not just an `applyingSettings`
+  flag. A `property var` map's initializer fires `onChanged` at
+  construction, before the async `FileView` load completes, so guarding
+  the save on `applyingSettings` alone still writes defaults and wipes
+  the file on every reload. Set `ready` in the first
+  `onLoaded`/`onLoadFailed`; the `onChanged` handler refuses to save
+  until then. Found live: a set-then-reload reverted to all-visible.
+
 ## Probe recipe
 
 To settle a binding or ordering theory without touching the live shell,

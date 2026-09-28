@@ -41,6 +41,9 @@ panel on that point and clamps it inside the screen edges:
 
 ## Amendments
 
+- 2026-09-28 (dashboard-settings `#08`): the dashboard is a deliberate
+  exception to the under-trigger rule. It is a centered attached card that
+  lives outside the panels registry; see ADR 0008.
 - 2026-09-23 (arch review #02): the "triggers hide the other panel first"
   line above now points at `services/Panels.qml`. Triggers call the
   registry (`toggleCalendarAt` / `toggleCenterAt` / `toggleCavaAt`), which

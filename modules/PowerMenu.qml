@@ -11,7 +11,7 @@ ModuleBox {
     property string monitorName: ""
     property ShellScreen triggerScreen: null
 
-    visible: Globals.onPrimaryMonitor(root.monitorName)
+    visible: BarVisibilityService.isVisible("power") && Globals.onPrimaryMonitor(root.monitorName)
 
     onClicked: {
         const centerX = Globals.triggerCenterX(root, root.triggerScreen);
@@ -25,10 +25,10 @@ ModuleBox {
 
         color: Colors.lavender
         font {
-            family: Globals.fontFamily
+            family: Globals.iconFontFamily
             pixelSize: Globals.fontPixelSize
             weight: Font.DemiBold
         }
-        text: ""
+        text: Icons.distro
     }
 }

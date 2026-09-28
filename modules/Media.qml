@@ -15,7 +15,7 @@ ModuleBox {
     readonly property bool isPlaying: activePlayer?.playbackState === MprisPlaybackState.Playing || Boolean(activePlayer?.isPlaying)
 
     maxWidth: 360
-    visible: Globals.onPrimaryMonitor(root.monitorName) && activePlayer !== null
+    visible: BarVisibilityService.isVisible("media") && Globals.onPrimaryMonitor(root.monitorName) && activePlayer !== null
 
     onClicked: mouse => {
         if (!root.activePlayer)
@@ -44,37 +44,64 @@ ModuleBox {
         }
     }
 
-    Text {
-        id: idMediaLabel
+    readonly property string statusGlyph: {
+        if (!root.activePlayer)
+            return Icons.stop;
+        if (root.isPlaying)
+            return Icons.play;
+        if (root.activePlayer.playbackState === MprisPlaybackState.Paused)
+            return Icons.pause;
+        return Icons.stop;
+    }
+
+    readonly property string trackText: {
+        if (!root.activePlayer)
+            return "";
+        const title = root.activePlayer.trackTitle ?? "";
+        const artist = root.activePlayer.trackArtist ?? "";
+        return artist ? (title ? `${title} - ${artist}` : artist) : title;
+    }
+
+    RowLayout {
+        id: idMediaRow
 
         Layout.fillWidth: true
+        Layout.minimumWidth: 0
 
-        textFormat: Text.PlainText
-        elide: Text.ElideRight
+        spacing: 4
 
-        color: root.isPlaying ? Colors.lavender : Colors.textSecondary
-
-        font {
-            family: Globals.fontFamily
-            pixelSize: Globals.fontPixelSize
-            weight: Font.DemiBold
+        Icon {
+            Layout.alignment: Qt.AlignVCenter
+            text: Icons.music
+            size: Globals.fontPixelSize
+            color: root.isPlaying ? Colors.lavender : Colors.textSecondary
         }
 
-        text: {
-            if (!root.activePlayer)
-                return "";
+        Icon {
+            Layout.alignment: Qt.AlignVCenter
+            text: root.statusGlyph
+            size: Globals.fontPixelSize
+            color: root.isPlaying ? Colors.lavender : Colors.textSecondary
+        }
 
-            let statusIcon = "⏹";
-            if (root.isPlaying) {
-                statusIcon = "▶";
-            } else if (root.activePlayer.playbackState === MprisPlaybackState.Paused) {
-                statusIcon = "⏸";
+        Text {
+            id: idMediaLabel
+
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+            Layout.alignment: Qt.AlignVCenter
+
+            visible: root.trackText !== ""
+            textFormat: Text.PlainText
+            elide: Text.ElideRight
+            text: root.trackText
+            color: root.isPlaying ? Colors.lavender : Colors.textSecondary
+
+            font {
+                family: Globals.fontFamily
+                pixelSize: Globals.fontPixelSize
+                weight: Font.DemiBold
             }
-
-            const title = root.activePlayer.trackTitle ?? "";
-            const artist = root.activePlayer.trackArtist ?? "";
-            const trackInfo = artist ? (title ? `${title} - ${artist}` : artist) : title;
-            return trackInfo ? ` ${statusIcon} ${trackInfo}` : ` ${statusIcon}`;
         }
     }
 }

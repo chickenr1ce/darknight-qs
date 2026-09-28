@@ -260,6 +260,10 @@ Singleton {
         idPanelState.toggleAt(screen, centerX)
     }
 
+    function openCalendarAt(screen, centerX: real) {
+        idPanelState.openAt(screen, centerX)
+    }
+
     function closeCalendarFromOutside() {
         idPanelState.closeFromOutside()
     }

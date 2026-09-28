@@ -16,7 +16,7 @@ ModuleBox {
 
     property string monitorName: ""
     enableMouseArea: false
-    visible: Globals.onPrimaryMonitor(root.monitorName) && idTrayRepeater.count > 0
+    visible: BarVisibilityService.isVisible("tray") && Globals.onPrimaryMonitor(root.monitorName) && idTrayRepeater.count > 0
 
     // Activate alone never raises Ayatana windows, so focus too; harmless where Activate already did.
     function focusAppWindow(item): bool {

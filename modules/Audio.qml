@@ -5,20 +5,17 @@ import Quickshell.Io
 import Quickshell.Services.Pipewire
 import qs.config
 import qs.components
+import qs.services
 
 ModuleBox {
     id: root
 
     property string monitorName: ""
     property bool tooltipArmed: false
-    visible: Globals.onPrimaryMonitor(root.monitorName)
+    visible: BarVisibilityService.isVisible("audio") && Globals.onPrimaryMonitor(root.monitorName)
 
     readonly property PwNode defaultSink: Pipewire.defaultAudioSink
-    readonly property var sinks: [
-        { match: "JadeAudio", label: "JadeAudio JIEZI" },
-        { match: "AB13X", label: "AB13X Dongle" },
-        { match: "Pebble", label: "Creative Pebble V3" }
-    ]
+    readonly property var sinks: AudioService.catalog
     readonly property bool tooltipShown: root.isHovered && root.tooltipArmed
     readonly property int tooltipAnimMs: Globals.reducedMotion ? 0 : Globals.hoverMs
     readonly property string currentOutputName: {
@@ -28,6 +25,10 @@ ModuleBox {
         const index = root.sinkIndexFor(raw);
         return index === -1 ? raw : root.sinks[index].label;
     }
+
+    readonly property var audioNode: root.defaultSink ? (root.defaultSink.audio ?? null) : null
+    readonly property string volumeGlyph: root.audioNode === null ? Icons.volumeOff : (root.audioNode.muted ? Icons.volumeMute : Icons.volumeHigh)
+    readonly property string volumeText: root.audioNode === null ? "" : `${isNaN(root.audioNode.volume) ? 0 : Math.round(root.audioNode.volume * 100)}%`
 
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton)
@@ -60,6 +61,7 @@ ModuleBox {
     }
 
     onCurrentOutputNameChanged: idTipSwapAnimation.restart()
+    onVolumeTextChanged: idAudioLabelSwapAnimation.restart()
 
     // Cycle order matches waybar toggle_audio.sh; disconnected sinks are skipped so a click never lands on nothing.
     function sinkIndexFor(raw: string): int {
@@ -102,27 +104,34 @@ ModuleBox {
         idAudioMixerProcess.running = true;
     }
 
-    Text {
+    Row {
         id: idAudioLabel
 
         Layout.alignment: Qt.AlignCenter
+        spacing: 4
 
-        color: Colors.lavender
-        text: {
-            if (!root.defaultSink || !root.defaultSink.audio)
-                return "";
-            const audio = root.defaultSink.audio;
-            const volumePercent = isNaN(audio.volume) ? 0 : Math.round(audio.volume * 100);
-            const icon = audio.muted ? " " : " ";
-            return `${icon}${volumePercent}%`;
-        }
-        font {
-            family: Globals.fontFamily
-            pixelSize: Globals.fontPixelSize
-            weight: Font.DemiBold
+        Icon {
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.volumeGlyph
+            size: Globals.fontPixelSize
+            color: Colors.lavender
         }
 
-        onTextChanged: idAudioLabelSwapAnimation.restart()
+        Text {
+            id: idAudioLabelText
+
+            anchors.verticalCenter: parent.verticalCenter
+
+            textFormat: Text.PlainText
+            text: root.volumeText
+            color: Colors.lavender
+
+            font {
+                family: Globals.fontFamily
+                pixelSize: Globals.fontPixelSize
+                weight: Font.DemiBold
+            }
+        }
     }
 
     PwObjectTracker {

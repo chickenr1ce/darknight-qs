@@ -11,7 +11,7 @@ ModuleBox {
     property string monitorName: ""
     property ShellScreen triggerScreen: null
 
-    visible: Globals.onPrimaryMonitor(root.monitorName)
+    visible: BarVisibilityService.isVisible("notifications") && Globals.onPrimaryMonitor(root.monitorName)
 
     readonly property bool hasUnread: NotificationServer.unreadCount > 0 && !NotificationServer.dndEnabled
 
@@ -29,28 +29,28 @@ ModuleBox {
     TextMetrics {
         id: idNotificationsBellEmptyMetrics
 
-        font.family: Globals.fontFamily
+        font.family: Globals.iconFontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
-        text: "󰂜"
+        text: Icons.bell
     }
 
     TextMetrics {
         id: idNotificationsBellUnreadMetrics
 
-        font.family: Globals.fontFamily
+        font.family: Globals.iconFontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
-        text: "󰂚"
+        text: Icons.bellBadge
     }
 
     TextMetrics {
         id: idNotificationsBellDndMetrics
 
-        font.family: Globals.fontFamily
+        font.family: Globals.iconFontFamily
         font.pixelSize: Globals.fontPixelSize
         font.weight: Font.DemiBold
-        text: "󰪑"
+        text: Icons.bellOffOutline
     }
 
     Text {
@@ -58,10 +58,10 @@ ModuleBox {
 
         Layout.alignment: Qt.AlignCenter
 
-        text: NotificationServer.dndEnabled ? "󰪑" : (root.hasUnread ? "󰂚" : "󰂜")
+        text: NotificationServer.dndEnabled ? Icons.bellOffOutline : (root.hasUnread ? Icons.bellBadge : Icons.bell)
         color: NotificationServer.dndEnabled ? Colors.textSecondary : Colors.lavender
         font {
-            family: Globals.fontFamily
+            family: Globals.iconFontFamily
             pixelSize: Globals.fontPixelSize
             weight: Font.DemiBold
         }

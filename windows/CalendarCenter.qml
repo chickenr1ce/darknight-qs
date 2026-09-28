@@ -19,27 +19,6 @@ PanelShell {
     property bool editingZones: false
     property bool showingSettings: false
 
-    readonly property string zoneDraft: idZoneInput.text.trim()
-    readonly property var zoneMatches: {
-        const query = root.zoneDraft.toLowerCase().replace(/_/g, " ");
-        const owned = CalendarService.worldZones;
-        const all = CalendarService.ianaZones;
-        const matches = [];
-        for (let i = 0; i < all.length && matches.length < CalendarService.maxZones; i++) {
-            const zone = all[i];
-            if (owned.includes(zone))
-                continue;
-            if (query === "") {
-                if (CalendarService.commonZones.includes(zone))
-                    matches.push(zone);
-            } else if (zone.toLowerCase().replace(/_/g, " ").includes(query)) {
-                matches.push(zone);
-            }
-        }
-        return matches;
-    }
-    readonly property bool canAddDraft: root.zoneDraft !== "" && root.zoneMatches.length === 0 && !CalendarService.worldZones.includes(root.zoneDraft) && CalendarService.worldZones.length < CalendarService.maxZones && CalendarService.isValidZoneName(root.zoneDraft)
-
     anchorScreen: CalendarService.anchorScreen
     anchorCenterX: CalendarService.anchorCenterX
     panelVisible: CalendarService.calendarVisible
@@ -57,7 +36,7 @@ PanelShell {
             Layout.alignment: Qt.AlignVCenter
 
             visible: !root.showingSettings
-            glyph: "‹"
+            glyph: Icons.chevronLeft
             accessibleName: qsTr("Previous month")
             onClicked: CalendarService.shiftMonth(-1)
         }
@@ -78,7 +57,7 @@ PanelShell {
             Layout.alignment: Qt.AlignVCenter
 
             visible: !root.showingSettings
-            glyph: "›"
+            glyph: Icons.chevronRight
             accessibleName: qsTr("Next month")
             onClicked: CalendarService.shiftMonth(1)
         }
@@ -106,9 +85,9 @@ PanelShell {
             model: [qsTr("Mon"), qsTr("Tue"), qsTr("Wed"), qsTr("Thu"), qsTr("Fri"), qsTr("Sat"), qsTr("Sun")]
 
             Text {
-                required property string modelData
-
                 Layout.fillWidth: true
+
+                required property string modelData
 
                 horizontalAlignment: Text.AlignHCenter
                 textFormat: Text.PlainText
@@ -138,10 +117,10 @@ PanelShell {
             model: CalendarService.monthCells
 
             Rectangle {
-                required property var modelData
-
                 Layout.fillWidth: true
                 Layout.preferredHeight: Globals.dayCellHeight
+
+                required property var modelData
 
                 radius: Globals.pillRadius
                 color: modelData.isSelected ? Colors.accent : (idDayMouseArea.containsMouse ? Colors.cardSecondary : "transparent")
@@ -195,6 +174,7 @@ PanelShell {
 
         Layout.fillWidth: true
 
+        showZones: false
         visible: root.showingSettings
     }
 
@@ -362,208 +342,48 @@ PanelShell {
                     text: root.editingZones ? qsTr("Done") : qsTr("Edit")
                     onClicked: {
                         root.editingZones = !root.editingZones;
-                        if (root.editingZones && idZoneInput.visible)
-                            Qt.callLater(() => idZoneInput.forceActiveFocus());
+                        if (root.editingZones)
+                            idZoneEditor.focusInput();
                     }
                 }
             }
 
-            Column {
-                id: idWorldColumn
+            WorldClockEditor {
+                id: idZoneEditor
 
                 width: idBodyColumn.width
-
-                spacing: Globals.listSpacing
-
-                Repeater {
-                    model: CalendarService.worldZones
-
-                    RowLayout {
-                        required property string modelData
-
-                        width: idWorldColumn.width
-
-                        spacing: Globals.rowSpacing
-
-                        Text {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-
-                            textFormat: Text.PlainText
-                            elide: Text.ElideRight
-                            text: CalendarService.zoneTitle(modelData)
-                            color: Colors.text
-
-                            font {
-                                family: Globals.uiFontFamily
-                                pixelSize: Globals.uiBodySize
-                            }
-                        }
-
-                        Text {
-                            Layout.alignment: Qt.AlignVCenter
-
-                            textFormat: Text.PlainText
-                            text: CalendarService.zoneTime(modelData)
-                            color: Colors.textSubtle
-
-                            font {
-                                family: Globals.uiFontFamily
-                                pixelSize: Globals.uiBodySize
-                                weight: Font.Medium
-                            }
-                        }
-
-                        IconButton {
-                            id: idZoneRemoveButton
-
-                            Layout.alignment: Qt.AlignVCenter
-
-                            visible: root.editingZones
-                            accessibleName: qsTr("Remove zone")
-                            onClicked: CalendarService.removeZone(modelData)
-                        }
-                    }
-                }
-            }
-
-            RowLayout {
-                id: idZoneSearchRow
-
-                width: idBodyColumn.width
-
-                visible: root.editingZones && CalendarService.worldZones.length < CalendarService.maxZones
-                spacing: Globals.rowSpacing
-
-                Rectangle {
-                    id: idZoneField
-
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: idZoneInput.implicitHeight + 2 * Globals.fieldPadding
-
-                    radius: Globals.pillRadius
-                    color: Colors.cardSecondary
-                    border.width: Globals.hairlineHeight
-                    border.color: idZoneInput.activeFocus ? Colors.accent : Colors.border
-
-                    TextInput {
-                        id: idZoneInput
-
-                        anchors.fill: parent
-                        anchors.margins: Globals.fieldPadding
-
-                        clip: true
-                        color: Colors.text
-                        selectByMouse: true
-
-                        Keys.onReturnPressed: root.addFirstZoneMatch()
-                        Keys.onEnterPressed: root.addFirstZoneMatch()
-
-                        font {
-                            family: Globals.uiFontFamily
-                            pixelSize: Globals.uiBodySize
-                        }
-
-                        Text {
-                            anchors.fill: parent
-
-                            verticalAlignment: Text.AlignVCenter
-                            visible: idZoneInput.text === "" && !idZoneInput.activeFocus
-
-                            textFormat: Text.PlainText
-                            elide: Text.ElideRight
-                            text: qsTr("Search zones…")
-                            color: Colors.textSubtle
-
-                            font {
-                                family: Globals.uiFontFamily
-                                pixelSize: Globals.uiBodySize
-                            }
-                        }
-                    }
-                }
-
-                PillButton {
-                    id: idZoneBestMatch
-
-                    Layout.alignment: Qt.AlignVCenter
-
-                    visible: root.zoneMatches.length > 0
-                    text: root.zoneMatches.length > 0 ? CalendarService.zoneLabel(root.zoneMatches[0]) : ""
-                    onClicked: root.addFirstZoneMatch()
-                }
-
-                PillButton {
-                    id: idZoneManualAdd
-
-                    Layout.alignment: Qt.AlignVCenter
-
-                    visible: root.canAddDraft
-                    text: qsTr("Add %1").arg(CalendarService.zoneLabel(root.zoneDraft))
-                    onClicked: root.addZoneMatch(root.zoneDraft)
-                }
-
-                Text {
-                    id: idZoneNoMatch
-
-                    Layout.alignment: Qt.AlignVCenter
-
-                    visible: root.zoneDraft !== "" && root.zoneMatches.length === 0 && !root.canAddDraft
-                    textFormat: Text.PlainText
-                    text: qsTr("No match")
-                    color: Colors.textSubtle
-
-                    font {
-                        family: Globals.uiFontFamily
-                        pixelSize: Globals.uiCaptionSize
-                    }
-                }
-            }
-
-            Text {
-                id: idZoneFullNote
-
-                width: idBodyColumn.width
-
-                visible: root.editingZones && CalendarService.worldZones.length >= CalendarService.maxZones
-                textFormat: Text.PlainText
-                text: qsTr("Zone list full (%1)").arg(CalendarService.maxZones)
-                color: Colors.textSubtle
-
-                font {
-                    family: Globals.uiFontFamily
-                    pixelSize: Globals.uiCaptionSize
-                }
+                editing: root.editingZones
             }
         }
     }
 
-    Text {
+    RowLayout {
         id: idBodyScrollHint
 
-        Layout.fillWidth: true
+        Layout.alignment: Qt.AlignHCenter
 
         visible: !root.showingSettings && idBodyColumn.implicitHeight > root.bodyScrollMax + Globals.hairlineHeight
-        horizontalAlignment: Text.AlignHCenter
-        textFormat: Text.PlainText
-        text: qsTr("Scroll for more ▾")
-        color: Colors.textSubtle
+        spacing: 4
 
-        font {
-            family: Globals.uiFontFamily
-            pixelSize: Globals.uiCaptionSize
+        Text {
+            id: idBodyScrollHintLabel
+
+            textFormat: Text.PlainText
+            text: qsTr("Scroll for more")
+            color: Colors.textSubtle
+
+            font {
+                family: Globals.uiFontFamily
+                pixelSize: Globals.uiCaptionSize
+            }
         }
-    }
 
-    function addZoneMatch(iana: string) {
-        CalendarService.addZone(iana);
-        idZoneInput.clear();
-    }
+        Icon {
+            Layout.alignment: Qt.AlignVCenter
 
-    function addFirstZoneMatch() {
-        if (root.zoneMatches.length > 0)
-            root.addZoneMatch(root.zoneMatches[0]);
-        else if (root.canAddDraft)
-            root.addZoneMatch(root.zoneDraft);
+            text: Icons.chevronDown
+            size: Globals.uiCaptionSize
+            color: Colors.textSubtle
+        }
     }
 }

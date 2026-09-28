@@ -5,8 +5,10 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import qs.config
+import qs.dev
 import qs.modules
 import qs.windows
+import qs.services
 
 
 ShellRoot {
@@ -27,6 +29,9 @@ ShellRoot {
 
             implicitHeight: Globals.barHeight + Globals.moduleMargin
             color: "transparent"
+
+            Component.onCompleted: PanelGrab.registerBar(idPanelWindow)
+            Component.onDestruction: PanelGrab.unregisterBar(idPanelWindow)
 
             anchors {
                 top: true
@@ -63,7 +68,7 @@ ShellRoot {
                     height: parent.height - 2 * Globals.hairlineVerticalInset
                     color: Colors.textSecondary
                     opacity: 0.5
-                    visible: idActiveWindow.visible && x >= idSlab.leftClusterEdge
+                    visible: idActiveWindow.hasTitle && x >= idSlab.leftClusterEdge
                 }
 
                 Rectangle {
@@ -76,7 +81,7 @@ ShellRoot {
                     height: parent.height - 2 * Globals.hairlineVerticalInset
                     color: Colors.textSecondary
                     opacity: 0.5
-                    visible: idActiveWindow.visible && x + width <= idSlab.rightClusterEdge
+                    visible: idActiveWindow.hasTitle && x + width <= idSlab.rightClusterEdge
                 }
             }
 
@@ -132,8 +137,7 @@ ShellRoot {
             ActiveWindow {
                 id: idActiveWindow
 
-                enableHover: false
-                enableMouseArea: false
+                triggerScreen: idPanelWindow.modelData
 
                 anchors {
                     horizontalCenter: parent.horizontalCenter
@@ -146,6 +150,10 @@ ShellRoot {
 
     NotificationPopups {}
 
+    DashboardCenter {}
+
+    SettingsCenter {}
+
     NotificationCenter {}
 
     CalendarCenter {}
@@ -153,4 +161,6 @@ ShellRoot {
     CavaCenter {}
 
     PowerCenter {}
+
+    DevProbe {}
 }

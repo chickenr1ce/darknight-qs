@@ -78,11 +78,11 @@ Item {
             }
 
             textFormat: Text.PlainText
-            text: root.open ? "▴" : "▾"
+            text: root.open ? Icons.chevronUp : Icons.chevronDown
             color: Colors.textSubtle
 
             font {
-                family: Globals.uiFontFamily
+                family: Globals.iconFontFamily
                 pixelSize: Globals.uiBodySize
             }
         }
@@ -122,11 +122,11 @@ Item {
             delegate: Item {
                 id: idDropdownOption
 
-                width: idDropdownList.width
-                height: root.triggerHeight
-
                 required property string modelData
                 required property int index
+
+                width: idDropdownList.width
+                height: root.triggerHeight
 
                 Rectangle {
                     id: idDropdownOptionBg
@@ -139,7 +139,7 @@ Item {
 
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: Globals.hoverMs
+                            duration: Globals.reducedMotion ? 0 : Globals.hoverMs
                         }
                     }
                 }
@@ -155,11 +155,11 @@ Item {
 
                     width: 12
                     textFormat: Text.PlainText
-                    text: root.currentIndex === index ? "✓" : ""
+                    text: root.currentIndex === index ? Icons.check : ""
                     color: Colors.accent
 
                     font {
-                        family: Globals.uiFontFamily
+                        family: Globals.iconFontFamily
                         pixelSize: Globals.uiBodySize
                     }
                 }

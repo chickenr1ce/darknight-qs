@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.config
 import qs.services
 
 Singleton {
@@ -18,12 +19,12 @@ Singleton {
     property string uptime: ""
 
     readonly property var actions: [
-        { actionId: "lock", label: qsTr("Lock"), glyph: "󰌾", hint: "1", dangerous: false },
-        { actionId: "suspend", label: qsTr("Suspend"), glyph: "󰤄", hint: "2", dangerous: false },
-        { actionId: "logout", label: qsTr("Logout"), glyph: "󰍃", hint: "3", dangerous: false },
-        { actionId: "reboot", label: qsTr("Reboot"), glyph: "󰜉", hint: "4", dangerous: true },
-        { actionId: "shutdown", label: qsTr("Shutdown"), glyph: "󰐥", hint: "5", dangerous: true },
-        { actionId: "winboot", label: qsTr("Reboot to Windows"), glyph: "󰍲", hint: "6", dangerous: true }
+        { actionId: "lock", label: qsTr("Lock"), glyph: Icons.lock, hint: "1", dangerous: false },
+        { actionId: "suspend", label: qsTr("Suspend"), glyph: Icons.powerSleep, hint: "2", dangerous: false },
+        { actionId: "logout", label: qsTr("Logout"), glyph: Icons.logout, hint: "3", dangerous: false },
+        { actionId: "reboot", label: qsTr("Reboot"), glyph: Icons.restart, hint: "4", dangerous: true },
+        { actionId: "shutdown", label: qsTr("Shutdown"), glyph: Icons.power, hint: "5", dangerous: true },
+        { actionId: "winboot", label: qsTr("Reboot to Windows"), glyph: Icons.windows, hint: "6", dangerous: true }
     ]
 
     readonly property string armedLabel: {
@@ -92,6 +93,13 @@ Singleton {
     function togglePowerAt(screen, centerX: real) {
         const was = idPanelState.visible;
         idPanelState.toggleAt(screen, centerX);
+        if (!(idPanelState.visible === was))
+            root.armedAction = "";
+    }
+
+    function openPowerAt(screen, centerX: real) {
+        const was = idPanelState.visible;
+        idPanelState.openAt(screen, centerX);
         if (!(idPanelState.visible === was))
             root.armedAction = "";
     }

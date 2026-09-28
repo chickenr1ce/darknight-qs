@@ -45,6 +45,35 @@ Singleton {
         activeIndex = (activeIndex + x + playerList.length) % playerList.length;
     }
 
+    function nextLoopState(current: int): int {
+        if (current === MprisLoopState.Track)
+            return MprisLoopState.Playlist;
+        if (current === MprisLoopState.Playlist)
+            return MprisLoopState.None;
+        return MprisLoopState.Track;
+    }
+
+    function cycleRepeat(): void {
+        const player = root.activePlayer;
+        if (!player || !player.loopSupported)
+            return;
+        player.loopState = root.nextLoopState(player.loopState);
+    }
+
+    function toggleShuffle(): void {
+        const player = root.activePlayer;
+        if (!player || !player.shuffleSupported)
+            return;
+        player.shuffle = !player.shuffle;
+    }
+
+    function formatTime(seconds: real): string {
+        const total = Math.max(0, Math.floor(Number(seconds) || 0));
+        const minutes = Math.floor(total / 60);
+        const secs = total % 60;
+        return minutes + ":" + (secs < 10 ? "0" : "") + secs;
+    }
+
     FrameAnimation {
         id: idMprisFrameAnimation
 

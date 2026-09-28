@@ -263,6 +263,10 @@ Item {
                             pixelSize: Globals.uiBodySize
                         }
 
+                        Keys.onReturnPressed: root.sendReply()
+                        Keys.onEnterPressed: root.sendReply()
+                        Keys.onEscapePressed: root.collapseReply()
+
                         Text {
                             anchors.fill: parent
                             verticalAlignment: Text.AlignVCenter
@@ -279,10 +283,6 @@ Item {
                                 pixelSize: Globals.uiBodySize
                             }
                         }
-
-                        Keys.onReturnPressed: root.sendReply()
-                        Keys.onEnterPressed: root.sendReply()
-                        Keys.onEscapePressed: root.collapseReply()
                     }
                 }
 

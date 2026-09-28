@@ -240,6 +240,10 @@ Singleton {
         idPanelState.toggleAt(screen, centerX)
     }
 
+    function openCavaAt(screen, centerX: real): void {
+        idPanelState.openAt(screen, centerX)
+    }
+
     function closeCavaFromOutside(): void {
         idPanelState.closeFromOutside()
     }

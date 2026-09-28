@@ -8,7 +8,7 @@ import qs.components
 import qs.config
 import qs.services
 
-// History card: toast styling without the decay countdown; inline reply via the "↩ Reply" pill.
+// History card: toast styling without the decay countdown; inline reply via the reply pill.
 Card {
     id: root
 
@@ -106,7 +106,8 @@ Card {
             id: idReplyButton
 
             visible: root.notification !== null && root.notification.hasInlineReply
-            text: "↩ Reply"
+            text: qsTr("Reply")
+            icon: Icons.reply
             highlighted: root.replyExpanded
 
             onClicked: {
@@ -151,6 +152,10 @@ Card {
                     pixelSize: Globals.uiBodySize
                 }
 
+                Keys.onReturnPressed: root.sendReply()
+                Keys.onEnterPressed: root.sendReply()
+                Keys.onEscapePressed: root.collapseReply()
+
                 Text {
                     anchors.fill: parent
                     verticalAlignment: Text.AlignVCenter
@@ -167,10 +172,6 @@ Card {
                         pixelSize: Globals.uiBodySize
                     }
                 }
-
-                Keys.onReturnPressed: root.sendReply()
-                Keys.onEnterPressed: root.sendReply()
-                Keys.onEscapePressed: root.collapseReply()
             }
         }
 

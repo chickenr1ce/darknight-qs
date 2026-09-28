@@ -1,0 +1,50 @@
+[
+  {
+    "type": "OS",
+    "result": {
+      "buildID": "rolling",
+      "codename": "",
+      "id": "arch",
+      "idLike": "arch",
+      "name": "Arch Linux",
+      "prettyName": "Arch Linux",
+      "variant": "",
+      "variantID": "",
+      "version": "rolling",
+      "versionID": ""
+    }
+  },
+  {
+    "type": "WM",
+    "result": {
+      "processName": "Hyprland",
+      "prettyName": "Hyprland",
+      "protocolName": "Wayland",
+      "pluginName": "",
+      "version": "0.56.2"
+    }
+  },
+  {
+    "type": "Kernel",
+    "result": {
+      "architecture": "x86_64",
+      "name": "Linux",
+      "release": "6.13.4-arch1-1",
+      "version": "#1 SMP PREEMPT_DYNAMIC Fri, 21 Feb 2025 00:00:00 +0000"
+    }
+  },
+  {
+    "type": "Packages",
+    "result": {
+      "all": 942,
+      "pacman": 942
+    }
+  },
+  {
+    "type": "Uptime",
+    "result": {
+      "uptime": 4980000,
+      "bootTime": "2026-09-16T10:37:00.000+00:00"
+    }
+  }
+]

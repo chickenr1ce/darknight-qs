@@ -6,16 +6,50 @@ import qs.components
 import qs.config
 import qs.services
 
-Column {
+ColumnLayout {
     id: root
 
+    property string filter: ""
+    property bool showZones: true
+
+    readonly property bool filtering: root.filter !== ""
+    readonly property string query: root.filter.toLowerCase()
+
+    readonly property bool zonesRelevant: !root.filtering
+        || root.matches(qsTr("World clock"))
+        || root.matches(qsTr("Zones"))
+    readonly property bool feedsRelevant: !root.filtering || root.matches(qsTr("Feeds"))
+
     spacing: Globals.spacing
+
+    function matches(label: string): bool {
+        return !root.filtering || label.toLowerCase().includes(root.query);
+    }
+
+    WorldClockEditor {
+        id: idZoneEditor
+
+        Layout.fillWidth: true
+
+        visible: root.showZones && root.zonesRelevant
+    }
+
+    Rectangle {
+        id: idSectionDivider
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: Globals.hairlineHeight
+
+        visible: root.showZones && root.zonesRelevant && root.feedsRelevant
+        color: Colors.border
+    }
 
     Text {
         id: idSettingsHint
 
-        width: root.width
+        Layout.fillWidth: true
 
+        visible: root.feedsRelevant
         textFormat: Text.PlainText
         text: qsTr("Unticking a calendar repolls without it.")
         color: Colors.textSubtle
@@ -29,8 +63,9 @@ Column {
     Column {
         id: idSettingsList
 
-        width: root.width
+        Layout.fillWidth: true
 
+        visible: root.feedsRelevant
         spacing: Globals.listSpacing
 
         Repeater {

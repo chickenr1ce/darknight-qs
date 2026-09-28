@@ -2,3 +2,4 @@
 .directory
 .codegraph
 __pycache__/
+.openchamber/

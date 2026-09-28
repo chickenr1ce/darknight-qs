@@ -1,22 +1,30 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import qs.config
 import qs.components
+import qs.services
 
 // ActiveWindow — focused client title from Hyprland, shown on every bar.
 ModuleBox {
     id: root
+
+    property ShellScreen triggerScreen: null
 
     // activeToplevel goes stale and the socket never replays focus, so track it from the event stream seeded once via hyprctl.
     property string focusedTitle
     property int maxChars: 100
 
     readonly property string title: root.focusedTitle
+    readonly property bool hasTitle: root.title !== ""
 
-    visible: root.title !== ""
+    onClicked: {
+        const centerX = Globals.triggerCenterX(root, root.triggerScreen);
+        DashboardService.toggleDashboardAt(root.triggerScreen, centerX);
+    }
 
     // Monospace means one measured glyph caps the label at maxChars; also clamped
     // to the bar interior, past which the compositor clips raw instead of eliding.
@@ -35,14 +43,16 @@ ModuleBox {
         text: "M"
     }
 
+    // Keeps the dashboard trigger mounted with a placeholder when no window is
+    // focused, so an empty workspace still has a hit target.
     Text {
         id: idWindowLabel
 
         Layout.fillWidth: true
         Layout.minimumWidth: 0
 
-        text: root.title
-        color: Colors.lavender
+        text: root.hasTitle ? root.title : qsTr("Desktop")
+        color: root.hasTitle ? Colors.lavender : Colors.textSecondary
         textFormat: Text.PlainText
         elide: Text.ElideRight
         font.family: Globals.fontFamily

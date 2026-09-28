@@ -207,6 +207,20 @@ Timer { id: idMediaTimer }
   spans top to bottom of the slot (measured 8..30 in a 34 bar, verified live
   2026-09-14). Size rows to fit their tallest child instead of fixing height
   below content.
+- **A `Card` in a horizontal row must set `Layout.fillHeight: true`**: without
+  it the shorter card floats centered against its taller sibling instead of
+  sharing the row height (measured live 2026-09-27: a 40px weather card
+  floating in an 89px row beside an 89px system card). The card's implicit
+  height follows its content, so a one-line card stays short even when the row
+  grows to fit a taller neighbour.
+- **A `Card` in a top-level `RowLayout` trips a recursive-rearrange warning**:
+  `Card.implicitWidth` binds to `parent.width`, so a row sized from its parent
+  reads a child that reads the row back; Qt logs `Detected recursive rearrange.
+  Aborting after two iterations` and abandons the pass (verified live
+  2026-09-27: the dashboard meters row at the shell layout root). Pin the
+  flexible card's `Layout.preferredWidth` (e.g. `0`) so the layout stops
+  reading its implicit width. A row nested inside another layout does not
+  trigger it.
 - **`anchors.verticalCenter` rounds fractional centers down**: a 23 row in a
   34 zone must sit at 5.5 but the anchor lands on 5 (measured live via IPC,
   verified 2026-09-14). Pin with an explicit fractional margin
@@ -240,20 +254,31 @@ Timer { id: idMediaTimer }
   box center (measured live via `grim` pixel reads at scale 1, verified
   2026-09-23). Correct with a named token (`glyphOpticalNudge`) and re-measure
   after any font-family change, since fallback resolution can shift bearings.
-- **Three linter false positives to leave alone**: `try {` on one line reads as
-  a QML child (keep the braces split); `!==` trips the loose-equality rule
-  (write `!(a === b)`); object-literal keys named like properties fake out the
-  imperative-assignment rule (build settings objects with bracket assignment).
-  Each is guarded by `scripts/lint-review.sh` — reformatting re-triggers it.
-- **`scripts/lint.sh` lints the git index, not the disk**: it runs qmllint over
-  `git ls-files`, so an unstaged deletion (file gone, index entry kept) fails
-  the gate with `Failed to open file` and exit 255. Stage deletions before
-  running the gate (verified 2026-09-23).
+- **ORD-1 now encodes the project order**: `id, layout, properties, signals,
+  assignments, attached, states, transitions, handlers, children, functions`.
+  `Layout.*` sits directly under `id`; group blocks (`anchors {}`, `font {}`,
+  `border {}`, `margins {}`) and JavaScript braces (`try {}`, `return {}`)
+  are scopes, not child objects. Remaining ORD-1 findings are genuine —
+  fix the code, do not re-baseline them.
+- **Remaining linter tripwire**: object-literal keys named like properties
+  fake out the imperative-assignment rule (build settings objects with
+  bracket assignment).
+- **`scripts/lint.sh` and `scripts/lint-review.sh` lint tracked plus untracked
+  QML** (`git ls-files` plus `--others --exclude-standard`), warning on
+  stderr when untracked files are included. Stage deletions before running
+  the gate: an unstaged deletion (file gone, index entry kept) fails
+  `lint.sh` with `Failed to open file` and exit 255 (verified 2026-09-23).
 - **Files in a `qmldir` module never see siblings implicitly**: a service file
   naming a sibling type needs `import qs.services` (its own module) and the
   sibling needs a `qmldir` entry. `qmllint` resolves the sibling anyway, so
   only a live `quickshell -p` boot catches the missing import (`... is not a
   type`, verified 2026-09-23).
+- **`qmllint` cannot resolve `qs.*`-rooted sibling types**: a file whose root
+  type comes from an import path qmllint lacks (e.g. a `Card` from
+  `qs.components`) fails as a type everywhere it is used, cascading
+  `unresolved-type` noise across importers while the gate still exits 0.
+  Existing files warn the same way, so a live `quickshell -p` boot is the
+  authority on whether a type resolves (verified 2026-09-25).
 - **A binding that reads and writes the same property loops**: memoizing
   inside the binding (read the cached text, write it back) registers the
   memo as a dependency of itself — startup logs `Binding loop detected`.
@@ -314,10 +339,16 @@ All panels and plugins share tokens and primitives; never invent a parallel visu
 - If a panel needs a button, card, header, or shell, extend the shared component in `components/` (`PanelShell`, `PanelHeader`, `Card`, `IconButton`, `PillButton`, `PressFeedback`, `PressScale`).
 - New panels compose `PanelShell` plus `PanelHeader`; new rows and cards compose `Card`. Ad-hoc `Rectangle` plus `MouseArea` buttons are off-limits.
 
+### No copied rows
+
+- Two settings rows or sections that share a shape compose one shared component (`SettingsToggleRow`, `CavaSettingsView`) rather than a copy. A control's label and hint live in the shared component once, never per section.
+- A value row counts as a row: two label/value rows that share a shape (label, value, their own `TextMetrics`) compose one component, not a copy. `windows/CavaSettingsView.qml` carries the same label/value/metrics shape for Sensitivity, Max height, and Bars.
+
 ### No raw values
 
 - Colors, type sizes, radii, spacing, and durations come from `config/Colors.qml` or `config/Globals.qml` by role name (`Colors.panel`, `Colors.accent`, `Globals.panelPadding`, `Globals.cardRadius`), never hardcoded hex or pixel literals.
 - Bar identity stays Iosevka (`Globals.fontFamily`); reading surfaces use the named Geist scale (`Globals.ui*Size`). Text sizes on reading surfaces never hardcode pixels.
+- Glyphs come from `config/Icons.qml` through `components/Icon.qml`; never write a nerd-font glyph literal in a module. The registry is the single source of truth for icon codepoints, so no glyph depends on fontconfig fallback picking a foreign family.
 
 ### No layout reflow on state change
 

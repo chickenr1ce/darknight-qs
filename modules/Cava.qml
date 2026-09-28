@@ -14,8 +14,6 @@ ModuleBox {
     property string monitorName: ""
     property ShellScreen triggerScreen: null
 
-    visible: Globals.onPrimaryMonitor(root.monitorName)
-
     readonly property int barWidth: 4
     readonly property int barSpacing: 3
     readonly property int barRadius: 1
@@ -27,6 +25,8 @@ ModuleBox {
     readonly property string wavePath: root.buildWavePath()
     readonly property string ribbonPath: root.buildRibbonPath()
     property var styleComponents: [root.barsComponent, root.mirroredComponent, root.waveComponent, root.waveBlocksComponent, root.ribbonComponent, root.ribbonBlocksComponent]
+
+    visible: BarVisibilityService.isVisible("cava") && Globals.onPrimaryMonitor(root.monitorName)
 
     property Component barsComponent: Component {
         RowLayout {

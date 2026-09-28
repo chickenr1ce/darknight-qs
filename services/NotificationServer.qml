@@ -38,6 +38,10 @@ Singleton {
         idPanelState.toggleAt(screen, centerX)
     }
 
+    function openCenterAt(screen, centerX: real) {
+        idPanelState.openAt(screen, centerX)
+    }
+
     function closeCenterFromOutside() {
         idPanelState.closeFromOutside()
     }
