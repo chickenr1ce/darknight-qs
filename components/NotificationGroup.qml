@@ -25,8 +25,8 @@ Item {
     readonly property int headerHeight: Globals.headerHeight
     readonly property bool hasCritical: {
         for (let i = 0; i < root.notifications.length; i++) {
-            const notification = root.notifications[i].notification;
-            if (!(notification === null) && NotificationServer.isCriticalUrgency(notification.urgency))
+            const entry = root.notifications[i];
+            if (entry && NotificationServer.isCritical(entry.notification))
                 return true;
         }
         return false;

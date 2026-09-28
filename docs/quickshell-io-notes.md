@@ -34,21 +34,34 @@ change, and file load).
   parsed list — a new array identity even for equal content — which
   rebuilds array models and refires change handlers. A deferred
   (`Qt.callLater`) poll start coalesces the pair into one run.
+- The whole pattern — XDG path resolution, the `watchChanges` plus
+  `reload()` echo, the parse hook, `save()` with an equality guard, and
+  the loading and loaded flags — lives in `services/StateFile.qml` (`StateFile`).
+  Pure parsers live in `services/StateParsers.js` so a harness can call
+  them without booting a QML singleton. A service declares
+  `StateFile { name; inCache; createDir; onParsed: ... }` and calls
+  `save(text)` / `reload()`; `loading` is true while `parsed` dispatches
+  and `loaded` turns true on the first load or load failure, so change
+  handlers guard on `idSomeState.loading || !idSomeState.loaded` instead
+  of carrying a per-file flag.
+- `StateFile.save(value)` compares against the last loaded or saved text
+  and skips an identical write, so an unchanged value produces no echo,
+  no reparse, and no extra queued poll or engine restart.
 
 ## State files
 
-- The persistence shape is three parts: a JSON or line-based file under
-  the quickshell state dir, a `mkdir -p` `Process`, and a `FileView`.
-  Copied, not shared, across `CalendarService` (zones), `CavaService`
-  (cava tuning), and `BarVisibilityService` (module visibility). Extract
-  it to one shared helper before a fourth copy appears.
-- The echo guard needs a `ready` flag, not just an `applyingSettings`
-  flag. A `property var` map's initializer fires `onChanged` at
-  construction, before the async `FileView` load completes, so guarding
-  the save on `applyingSettings` alone still writes defaults and wipes
-  the file on every reload. Set `ready` in the first
-  `onLoaded`/`onLoadFailed`; the `onChanged` handler refuses to save
-  until then. Found live: a set-then-reload reverted to all-visible.
+- Every persistence site composes `services/StateFile.qml`: `CalendarService`
+  (zones, hidden calendars, events cache), `CavaService` (cava tuning), and
+  `BarVisibilityService` (module visibility). The module owns the `mkdir -p`
+  ordering, the `FileView` watch, the parse hook, the equality guard, and the
+  loading and loaded flags, so no caller carries its own `ready` or
+  `applyingSettings`.
+- A `property var` map's initializer fires `onChanged` at construction, before
+  the async load completes and before `loading` is set, so guarding the save on
+  `loading` alone still writes defaults and wipes the file on every reload.
+  `StateFile.loaded` becomes true after the first load or load failure; guard
+  the save on `idSomeState.loading || !idSomeState.loaded`. Found live: a
+  set-then-reload reverted to all-visible.
 
 ## Probe recipe
 

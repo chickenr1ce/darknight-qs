@@ -10,29 +10,41 @@ Singleton {
 
     property bool dndEnabled: false
 
-    readonly property ListModel activeToasts: ListModel {}
-
     readonly property int maxVisibleToasts: 6
 
-    readonly property alias trackedNotifications: idDBusServer.trackedNotifications
+    readonly property ListModel notifications: ListModel {}
 
-    readonly property ListModel historyModel: ListModel {}
+    readonly property ListModel toasts: ListModel {}
+
+    readonly property int unreadCount: root.notifications.count
+
+    readonly property var groups: {
+        const order = [];
+        const byName = {};
+        for (let i = 0; i < root.notifications.count; i++) {
+            const entry = root.notifications.get(i);
+            const notification = entry.notification;
+            if (!notification)
+                continue;
+            if (!(notification.appName in byName)) {
+                byName[notification.appName] = [];
+                order.push(notification.appName);
+            }
+            byName[notification.appName].push({ notification: notification, arrivedAt: entry.arrivedAt });
+        }
+        return order.map(appName => ({ appName: appName, notifications: byName[appName] }));
+    }
 
     property alias centerVisible: idPanelState.visible
 
-    property alias centerLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
-
     onCenterVisibleChanged: {
         if (root.centerVisible)
-            root.activeToasts.clear();
+            root.toasts.clear();
     }
 
     property alias anchorScreen: idPanelState.anchorScreen
     property alias anchorCenterX: idPanelState.anchorCenterX
-
-    function toggleCenter() {
-        idPanelState.toggle()
-    }
+    readonly property PanelState panelState: idPanelState
 
     function toggleCenterAt(screen, centerX: real) {
         idPanelState.toggleAt(screen, centerX)
@@ -46,8 +58,6 @@ Singleton {
         idPanelState.closeFromOutside()
     }
 
-    readonly property int unreadCount: idDBusServer.trackedNotifications.values.length
-
     signal toastReceived(Notification notification)
 
     PanelState {
@@ -59,17 +69,24 @@ Singleton {
     }
 
     function dismissAll() {
-        const tracked = idDBusServer.trackedNotifications.values;
-        for (let i = tracked.length - 1; i >= 0; i--)
-            tracked[i].dismiss();
+        const list = [];
+        for (let i = 0; i < root.notifications.count; i++)
+            list.push(root.notifications.get(i).notification);
+        for (let i = list.length - 1; i >= 0; i--) {
+            if (list[i])
+                list[i].dismiss();
+        }
     }
 
     function dismissGroup(appName: string) {
-        const tracked = idDBusServer.trackedNotifications.values;
-        for (let i = tracked.length - 1; i >= 0; i--) {
-            if (tracked[i].appName === appName)
-                tracked[i].dismiss();
+        const list = [];
+        for (let i = 0; i < root.notifications.count; i++) {
+            const notification = root.notifications.get(i).notification;
+            if (notification && notification.appName === appName)
+                list.push(notification);
         }
+        for (let i = list.length - 1; i >= 0; i--)
+            list[i].dismiss();
     }
 
     function focusApp(notification: Notification) {
@@ -78,8 +95,10 @@ Singleton {
         return HyprlandFocus.focusByTokens([notification.appName, notification.desktopEntry]);
     }
 
-    function isCriticalUrgency(urgency) {
-        return urgency === NotificationUrgency.Critical;
+    function isCritical(notification) {
+        if (!notification)
+            return false;
+        return notification.urgency === NotificationUrgency.Critical;
     }
 
     function invokeAction(notification, action) {
@@ -89,10 +108,21 @@ Singleton {
         action.invoke();
     }
 
+    function sendReply(notification, text) {
+        const reply = text.trim();
+        if (reply === "" || !notification)
+            return false;
+        const resident = notification.resident;
+        notification.sendInlineReply(reply);
+        if (resident)
+            notification.dismiss();
+        return true;
+    }
+
     function announceToast(notification: Notification) {
-        if (root.activeToasts.count >= root.maxVisibleToasts)
-            root.activeToasts.remove(0);
-        root.activeToasts.append({ toast: notification });
+        if (root.toasts.count >= root.maxVisibleToasts)
+            root.toasts.remove(0);
+        root.toasts.append({ toast: notification });
         root.toastReceived(notification);
     }
 
@@ -106,11 +136,11 @@ Singleton {
     }
 
     function retireToast(notification: Notification) {
-        root.retireFrom(root.activeToasts, "toast", notification);
+        root.retireFrom(root.toasts, "toast", notification);
     }
 
     function retireHistory(notification: Notification) {
-        root.retireFrom(root.historyModel, "notification", notification);
+        root.retireFrom(root.notifications, "notification", notification);
     }
 
     NotificationServer {
@@ -125,7 +155,7 @@ Singleton {
 
         onNotification: notification => {
             notification.tracked = true;
-            root.historyModel.append({ notification: notification, arrivedAt: Date.now() });
+            root.notifications.append({ notification: notification, arrivedAt: Date.now() });
 
             if (!notification.lastGeneration && !root.dndEnabled && !root.centerVisible)
                 root.announceToast(notification);

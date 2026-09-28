@@ -10,9 +10,9 @@ Singleton {
     id: root
 
     property alias powerVisible: idPanelState.visible
-    property alias powerLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
     property alias anchorScreen: idPanelState.anchorScreen
     property alias anchorCenterX: idPanelState.anchorCenterX
+    readonly property PanelState panelState: idPanelState
 
     property string armedAction: ""
     property string hostName: ""
@@ -81,13 +81,6 @@ Singleton {
 
     Process {
         id: idRunProcess
-    }
-
-    function togglePower() {
-        const was = idPanelState.visible;
-        idPanelState.toggle();
-        if (!(idPanelState.visible === was))
-            root.armedAction = "";
     }
 
     function togglePowerAt(screen, centerX: real) {

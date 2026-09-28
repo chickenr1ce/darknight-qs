@@ -4,24 +4,21 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.services
+import "StateParsers.js" as StateParsers
 
 Singleton {
     id: root
 
     property alias calendarVisible: idPanelState.visible
-
-    property alias calendarLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
-
     property alias anchorScreen: idPanelState.anchorScreen
     property alias anchorCenterX: idPanelState.anchorCenterX
+    readonly property PanelState panelState: idPanelState
 
     readonly property int eventsPollMs: 15 * 60 * 1000
     readonly property int eventsStaleAfterMs: 30 * 60 * 1000
-    readonly property string eventsUrlFile: root.stateFile("calendar-url")
-    readonly property string eventsCachePath: root.cacheFile("calendar-events.json")
-    readonly property string stateDirPath: root.stateBase() + "/quickshell"
-    property var eventsCache: root.parseEventsCache("")
-    property string lastEventsCacheText: ""
+    readonly property string eventsUrlFile: idEventsState.stateFile("calendar-url")
+    readonly property string eventsCachePath: idEventsState.path
+    property var eventsCache: StateParsers.parseEventsCache("")
     readonly property var eventDays: root.eventsCache.days
     readonly property string eventsFetchedAt: root.eventsCache.fetchedAt || ""
     readonly property double eventsFetchedAtMs: Date.parse(root.eventsFetchedAt) || 0
@@ -32,7 +29,6 @@ Singleton {
     property bool eventsPollQueued: false
 
     property var hiddenCalendars: []
-    readonly property string hiddenCalendarsPath: root.stateFile("calendar-hidden")
     readonly property var eventCalendars: Array.isArray(root.eventsCache.calendars) ? root.eventsCache.calendars : []
     readonly property var hiddenCalendarArgs: {
         const args = [];
@@ -53,9 +49,8 @@ Singleton {
     property var worldZones: ["UTC", "America/New_York", "Europe/Berlin", "Asia/Tokyo"]
     readonly property var commonZones: ["UTC", "America/New_York", "America/Chicago", "America/Los_Angeles", "Europe/London", "Europe/Berlin", "Asia/Tokyo", "Australia/Sydney"]
     readonly property int maxZones: 6
-    readonly property string zonesPath: root.stateFile("calendar-zones")
     readonly property string zonesListPath: Quickshell.shellDir + "/assets/iana-zones.json"
-    readonly property var ianaZones: root.parseZoneList(idZoneListFile.text())
+    readonly property var ianaZones: StateParsers.parseZoneList(idZoneListState.text)
 
     readonly property var monthCells: {
         root.todayIso;
@@ -137,7 +132,7 @@ Singleton {
         id: idZoneCollector
 
         onStreamFinished: {
-            root.zoneTimes = root.parseZoneTimes(idZoneCollector.text);
+            root.zoneTimes = StateParsers.parseZoneTimes(idZoneCollector.text);
             if (root.zonePollQueued) {
                 root.zonePollQueued = false;
                 idZoneProcess.running = true;
@@ -178,7 +173,7 @@ Singleton {
         onExited: code => {
             if (code === 0) {
                 root.eventsLastPollFailed = false;
-                idEventsCache.reload();
+                idEventsState.reload();
             } else {
                 root.eventsLastPollFailed = true;
                 console.warn("calendar-fetch failed with exit " + code + ": " + idEventsErrorCollector.text.trim());
@@ -194,66 +189,42 @@ Singleton {
         id: idEventsErrorCollector
     }
 
-    FileView {
-        id: idEventsCache
+    StateFile {
+        id: idEventsState
 
-        path: "file://" + root.eventsCachePath
-        printErrors: false
-        watchChanges: true
-        onFileChanged: this.reload()
-        onLoaded: root.refreshEventsCache()
+        name: "calendar-events.json"
+        inCache: true
+        onParsed: text => root.eventsCache = StateParsers.parseEventsCache(text)
     }
 
-    FileView {
-        id: idHiddenFile
+    StateFile {
+        id: idHiddenState
 
-        path: "file://" + root.hiddenCalendarsPath
-        printErrors: false
-        watchChanges: true
-        onFileChanged: this.reload()
-        onLoaded: {
-            const next = root.parseHiddenCalendars(idHiddenFile.text());
-            if (!root.sameStringList(root.hiddenCalendars, next))
+        name: "calendar-hidden"
+        createDir: true
+        onParsed: text => {
+            const next = StateParsers.parseHiddenCalendars(text);
+            if (!StateParsers.sameStringList(root.hiddenCalendars, next))
                 root.hiddenCalendars = next;
         }
     }
 
-    Process {
-        id: idZonesDirProcess
+    StateFile {
+        id: idZonesState
 
-        command: ["mkdir", "-p", root.stateDirPath]
-        running: true
-        onExited: {
-            idZonesFile.reload();
-            idHiddenFile.reload();
-        }
-    }
-
-    FileView {
-        id: idZonesFile
-
-        path: "file://" + root.zonesPath
-        printErrors: false
-        watchChanges: true
-        onFileChanged: this.reload()
-        onLoaded: {
-            const next = root.parseZones(idZonesFile.text());
-            if (!root.sameStringList(root.worldZones, next))
+        name: "calendar-zones"
+        createDir: true
+        onParsed: text => {
+            const next = StateParsers.parseZones(text, root.maxZones);
+            if (!StateParsers.sameStringList(root.worldZones, next))
                 root.worldZones = next;
         }
     }
 
-    FileView {
-        id: idZoneListFile
+    StateFile {
+        id: idZoneListState
 
-        path: "file://" + root.zonesListPath
-        printErrors: false
-        watchChanges: true
-        onFileChanged: this.reload()
-    }
-
-    function toggleCalendar() {
-        idPanelState.toggle()
+        path: root.zonesListPath
     }
 
     function toggleCalendarAt(screen, centerX: real) {
@@ -266,44 +237,6 @@ Singleton {
 
     function closeCalendarFromOutside() {
         idPanelState.closeFromOutside()
-    }
-
-    function stateBase(): string {
-        return Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state");
-    }
-
-    function cacheBase(): string {
-        return Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache");
-    }
-
-    function stateFile(name: string): string {
-        return root.stateDirPath + "/" + name;
-    }
-
-    function cacheFile(name: string): string {
-        return root.cacheBase() + "/quickshell/" + name;
-    }
-
-    function parseEventsCache(jsonText: string): var {
-        try {
-            const parsed = JSON.parse(jsonText);
-            if (parsed && parsed.days)
-                return parsed;
-        } catch (e) {
-        }
-        return {
-            "fetchedAt": "",
-            "days": {},
-            "calendars": []
-        };
-    }
-
-    function refreshEventsCache() {
-        const text = idEventsCache.text();
-        if (text === root.lastEventsCacheText)
-            return;
-        root.lastEventsCacheText = text;
-        root.eventsCache = root.parseEventsCache(text);
     }
 
     function isStale(nowMs: double, fetchedAtMs: double, failed: bool): bool {
@@ -321,16 +254,6 @@ Singleton {
         if (mins < 60)
             return qsTr("Stale · synced %1m ago").arg(mins);
         return qsTr("Stale · synced %1h ago").arg(Math.floor(mins / 60));
-    }
-
-    function sameStringList(a, b): bool {
-        if (!(a.length === b.length))
-            return false;
-        for (let i = 0; i < a.length; i++) {
-            if (!(a[i] === b[i]))
-                return false;
-        }
-        return true;
     }
 
     function dateLabel(iso: string): string {
@@ -373,23 +296,6 @@ Singleton {
         return parts[parts.length - 1].replace("_", " ");
     }
 
-    function parseZoneTimes(output) {
-        const times = {};
-        const lines = output.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-            const eq = lines[i].indexOf("=");
-            if (eq <= 0)
-                continue;
-            const rest = lines[i].slice(eq + 1);
-            const sp = rest.indexOf(" ");
-            times[lines[i].slice(0, eq)] = {
-                t: sp < 0 ? rest : rest.slice(0, sp),
-                d: sp < 0 ? null : rest.slice(sp + 1)
-            };
-        }
-        return times;
-    }
-
     function zoneTime(iana: string): string {
         const e = root.zoneTimes[iana];
         return e && e.t ? e.t : "";
@@ -413,47 +319,12 @@ Singleton {
         return diff === "" ? root.zoneLabel(iana) : root.zoneLabel(iana) + " " + diff;
     }
 
-    function isValidZoneName(name: string): bool {
-        return /^[A-Za-z0-9_\-+\/]+$/.test(name);
-    }
-
-    function parseZones(text: string): var {
-        const zones = [];
-        const lines = text.split("\n");
-        for (let i = 0; i < lines.length && zones.length < root.maxZones; i++) {
-            const name = lines[i].trim();
-            if (name !== "" && root.isValidZoneName(name) && !zones.includes(name))
-                zones.push(name);
-        }
-        return zones;
-    }
-
-    function parseZoneList(text) {
-        try {
-            const parsed = JSON.parse(text);
-            if (Array.isArray(parsed))
-                return parsed;
-        } catch (e) {
-        }
-        return [];
-    }
     function saveZones() {
-        idZonesFile.setText(root.worldZones.length > 0 ? root.worldZones.join("\n") + "\n" : "");
-    }
-
-    function parseHiddenCalendars(text: string): var {
-        const hidden = [];
-        const lines = text.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-            const name = lines[i].trim();
-            if (name !== "" && !hidden.includes(name))
-                hidden.push(name);
-        }
-        return hidden;
+        idZonesState.save(root.worldZones.length > 0 ? root.worldZones.join("\n") + "\n" : "");
     }
 
     function saveHiddenCalendars() {
-        idHiddenFile.setText(root.hiddenCalendars.length > 0 ? root.hiddenCalendars.join("\n") + "\n" : "");
+        idHiddenState.save(root.hiddenCalendars.length > 0 ? root.hiddenCalendars.join("\n") + "\n" : "");
     }
 
     function setCalendarHidden(name: string, hide: bool) {
@@ -479,6 +350,10 @@ Singleton {
             root.zonePollQueued = true;
         else
             idZoneProcess.running = true;
+    }
+
+    function isValidZoneName(name: string): bool {
+        return StateParsers.isValidZoneName(name);
     }
 
     function addZone(iana: string) {

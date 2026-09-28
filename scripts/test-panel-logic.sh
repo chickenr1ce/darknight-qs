@@ -17,14 +17,54 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fail() { echo "panel-logic FAIL: $*" >&2; exit 1; }
 
 # --- 1. one-panel rule lives in services/Panels.qml only ---
-# Direct writes to another panel's visibility outside the registry mean the
-# N-squared mesh is growing back. Alias declarations use a colon, so only
-# match plain assignments.
-WRITERS="$(grep -rn --include='*.qml' -E '(calendarVisible|centerVisible|cavaVisible|powerVisible) = ' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" || true)"
-echo "$WRITERS" | grep -v '^$' | grep -v 'services/Panels.qml' | grep -q . \
-    && fail "panel visibility written outside services/Panels.qml: $(echo "$WRITERS" | grep -v 'services/Panels.qml')"
-test -z "$(echo "$WRITERS" | grep -v '^$')" \
-    && fail "no panel visibility writes found at all; the registry owns eight (2 per toggle)"
+# The registry holds the four services' PanelState instances and iterates
+# that list: it closes every non-target entry and derives anyOpen from the
+# list. A return to pairwise visibility toggles, or any module or window
+# writing a panel's visibility, means the mesh is growing back.
+PANELS="$ROOT/services/Panels.qml"
+for entry in CalendarService NotificationServer CavaService PowerService; do
+    grep -q "$entry.panelState" "$PANELS" \
+        || fail "Panels does not hold $entry.panelState in its list"
+done
+grep -q 'readonly property var panels' "$PANELS" \
+    || fail "Panels has no panels list"
+grep -q 'for (let i = 0; i < root.panels.length; i++)' "$PANELS" \
+    || fail "Panels does not iterate its panel list"
+grep -q 'root.panels\[i\]\.visible = false' "$PANELS" \
+    || fail "Panels does not close non-target entries via its list"
+test "$(grep -c 'root.panels\[i\]' "$PANELS")" -ge 2 \
+    || fail "Panels does not read and write its list entries"
+grep -q 'readonly property bool anyOpen' "$PANELS" \
+    || fail "Panels exposes no anyOpen"
+if ! grep -A8 'readonly property bool anyOpen' "$PANELS" | grep -q 'root\.panels'; then
+    fail "anyOpen does not derive from the panel list"
+fi
+if grep -qE 'anyOpen:.*(calendarVisible|centerVisible|cavaVisible|powerVisible)' "$PANELS"; then
+    fail "anyOpen is hand-wired to the four visibility aliases, not the list"
+fi
+# The registry closes through its list only: any per-panel alias write means
+# the pairwise mesh is coming back inside the file.
+if grep -nE '(calendarVisible|centerVisible|cavaVisible|powerVisible)[[:space:]]*=[^=]' "$PANELS" | grep -q .; then
+    fail "Panels writes a service visibility alias instead of its list"
+fi
+# No module, window, or sibling service assigns a panel visibility alias.
+CROSS_WRITES="$(grep -rn --include='*.qml' -E '(calendarVisible|centerVisible|cavaVisible|powerVisible)[[:space:]]*=[^=]' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" | grep -v 'services/Panels.qml' || true)"
+test -z "$CROSS_WRITES" \
+    || fail "panel visibility written outside services/Panels.qml: $CROSS_WRITES"
+if grep -rn --include='*.qml' -E 'panelState\.visible[[:space:]]*=' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" | grep -v 'services/Panels.qml' | grep -q .; then
+    fail "a module, window, or sibling service writes a panel's PanelState visibility directly"
+fi
+# The per-service debounce alias and the uncalled plain toggles stay dead.
+for dead in calendarLastOutsideCloseAt centerLastOutsideCloseAt cavaLastOutsideCloseAt powerLastOutsideCloseAt; do
+    if grep -rn --include='*.qml' "$dead" "$ROOT/services" | grep -q .; then
+        fail "$dead is back; PanelState owns the debounce stamp"
+    fi
+done
+for dead in 'function toggleCalendar(' 'function toggleCenter(' 'function toggleCava(' 'function togglePower('; do
+    if grep -rn --include='*.qml' "$dead" "$ROOT/services" | grep -q .; then
+        fail "dead wrapper ${dead} is back"
+    fi
+done
 
 # Toasts hide while ANY panel is open (toasts-over-cava was the leak).
 grep -q 'Panels.anyOpen' "$ROOT/windows/NotificationPopups.qml" \
@@ -83,7 +123,7 @@ fi
 # qmllint resolves same-directory siblings, the runtime does not when the
 # directory is a qmldir module: every service file that names a sibling
 # type must import qs.services, and every sibling component must be in qmldir.
-for svc in CalendarService NotificationServer CavaService Panels PowerService SettingsService; do
+for svc in CalendarService NotificationServer CavaService Panels PowerService SettingsService BarVisibilityService; do
     grep -q '^import qs.services' "$ROOT/services/$svc.qml" \
         || fail "$svc.qml is missing its qs.services self-import"
 done
@@ -91,11 +131,11 @@ grep -q '^PanelState 1.0 PanelState.qml' "$ROOT/services/qmldir" \
     || fail "PanelState is not registered in services/qmldir"
 grep -q '^singleton PowerService 1.0 PowerService.qml' "$ROOT/services/qmldir" \
     || fail "PowerService is not registered in services/qmldir"
-grep -q 'PowerService.powerVisible' "$ROOT/services/Panels.qml" \
-    || fail "Panels does not own the power one-panel rule"
+grep -q 'PowerService.panelState' "$ROOT/services/Panels.qml" \
+    || fail "Panels does not hold the power PanelState"
 
 # --- 4. single invoke path for notification actions ---
-for pill in components/NotificationToast.qml components/NotificationCard.qml; do
+for pill in components/NotificationToast.qml components/NotificationRow.qml; do
     grep -q 'invokeAction' "$ROOT/$pill" \
         || fail "$pill does not use invokeAction"
     if grep -q 'focusApp(' "$ROOT/$pill"; then
@@ -566,7 +606,7 @@ def check(name, got, want):
         print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
         sys.exit(1)
 
-# Mirror of CalendarService.parseZones (services/CalendarService.qml): trim,
+# Mirror of StateParsers.parseZones (services/StateParsers.js): trim,
 # reject names failing the regex, drop duplicates, cap at maxZones = 6.
 def parse_zones(text, max_zones=6):
     zones = []
@@ -601,8 +641,10 @@ grep -q 'function setVisible' "$BSVC" \
     || fail "BarVisibilityService has no setVisible"
 grep -q 'function parseVisibility' "$BSVC" \
     || fail "BarVisibilityService has no parseVisibility"
-grep -q 'applyingSettings' "$BSVC" \
-    || fail "BarVisibilityService has no echo guard"
+grep -q 'StateFile {' "$BSVC" \
+    || fail "BarVisibilityService does not compose StateFile"
+grep -q 'idVisibilityState.loading || !idVisibilityState.loaded' "$BSVC" \
+    || fail "BarVisibilityService does not guard saves on the StateFile loading/loaded flags"
 grep -q 'bar-visibility' "$BSVC" \
     || fail "BarVisibilityService does not persist to the bar-visibility state file"
 for pair in "clock:Clock" "workspaces:Workspaces" "tray:Tray" "cava:Cava" "media:Media" "audio:Audio" "notifications:Notifications" "power:Power"; do

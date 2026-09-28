@@ -13,3 +13,4 @@ singleton SystemInfo 1.0 SystemInfo.qml
 singleton SystemMonitor 1.0 SystemMonitor.qml
 singleton AudioService 1.0 AudioService.qml
 PanelState 1.0 PanelState.qml
+StateFile 1.0 StateFile.qml

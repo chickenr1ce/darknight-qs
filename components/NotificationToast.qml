@@ -14,7 +14,7 @@ Rectangle {
 
     required property Notif.Notification toast
 
-    readonly property bool isCritical: !(toast === null) && NotificationServer.isCriticalUrgency(toast.urgency)
+    readonly property bool isCritical: NotificationServer.isCritical(toast)
     // expireTimeout arrives in milliseconds despite the docs claiming seconds; 0 clamps instead of sticking, -1 falls back to 5s.
     readonly property int timeoutMs: toast !== null && toast.expireTimeout === 0 ? Globals.toastStickyClampMs : (toast !== null && toast.expireTimeout > 0 ? Math.round(toast.expireTimeout) : 5000)
     readonly property bool sticky: root.isCritical

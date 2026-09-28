@@ -27,7 +27,7 @@ PanelWindow {
         right: Globals.horizontalBarMargin
     }
 
-    visible: NotificationServer.activeToasts.count > 0 && !Panels.anyOpen
+    visible: NotificationServer.toasts.count > 0 && !Panels.anyOpen
 
     // Never bind window height to contentHeight: it tracks animated positions and collapses the viewport mid-transition.
     // The mask keeps click-through everywhere except the real toast area.
@@ -51,7 +51,7 @@ PanelWindow {
         spacing: 10
         clip: true
 
-        model: NotificationServer.activeToasts
+        model: NotificationServer.toasts
 
         displaced: Transition {
             NumberAnimation {

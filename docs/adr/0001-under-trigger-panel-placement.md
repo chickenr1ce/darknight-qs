@@ -51,6 +51,14 @@ panel on that point and clamps it inside the screen edges:
   own state by composing `services/PanelState.qml`. The registry also
   exposes `anyOpen`, which `windows/NotificationPopups.qml` uses so toasts
   stay hidden while any panel (including cava) is open.
+- 2026-09-28 (deepening plan #02): the registry no longer names panels
+  pairwise. `services/Panels.qml` holds a `panels` list of the four
+  services' `PanelState` instances, closes every non-target entry, and
+  derives `anyOpen` from that list. Each service exposes its instance as
+  `panelState`; the four `toggle*At` entry points stay because triggers
+  call them, while the per-service plain `toggleX` wrappers and
+  `*LastOutsideCloseAt` aliases were removed. Power arming still resets
+  when its panel closes, via `PowerService.cancel()` from the registry.
 
 ## Consequences and known limits
 

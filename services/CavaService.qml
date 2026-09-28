@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.services
+import "StateParsers.js" as StateParsers
 
 Singleton {
     id: root
@@ -27,42 +28,38 @@ Singleton {
 
     property var levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     property double lastFrameMs: 0
-    property bool applyingSettings: false
 
     property alias cavaVisible: idPanelState.visible
-    property alias cavaLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
     property alias anchorScreen: idPanelState.anchorScreen
     property alias anchorCenterX: idPanelState.anchorCenterX
-
-    readonly property string stateDirPath: root.stateBase() + "/quickshell"
-    readonly property string settingsPath: root.stateFile("cava-settings")
+    readonly property PanelState panelState: idPanelState
 
     onSensitivityChanged: {
-        if (root.applyingSettings)
+        if (idSettingsState.loading)
             return;
         root.saveSettings();
         root.requestEngineRestart();
     }
     onAutoSensitivityChanged: {
-        if (root.applyingSettings)
+        if (idSettingsState.loading)
             return;
         root.saveSettings();
         root.requestEngineRestart();
     }
     onBarCountChanged: {
         root.levels = root.flatLevels();
-        if (root.applyingSettings)
+        if (idSettingsState.loading)
             return;
         root.saveSettings();
         root.requestEngineRestart();
     }
     onStyleModeChanged: {
-        if (root.applyingSettings)
+        if (idSettingsState.loading)
             return;
         root.saveSettings();
     }
     onMaxHeightChanged: {
-        if (root.applyingSettings)
+        if (idSettingsState.loading)
             return;
         root.saveSettings();
     }
@@ -119,30 +116,12 @@ Singleton {
         }
     }
 
-    Process {
-        id: idCavaDirProcess
+    StateFile {
+        id: idSettingsState
 
-        command: ["mkdir", "-p", root.stateDirPath]
-        running: true
-        onExited: idCavaSettingsFile.reload()
-    }
-
-    FileView {
-        id: idCavaSettingsFile
-
-        path: "file://" + root.settingsPath
-        printErrors: false
-        watchChanges: true
-        onFileChanged: this.reload()
-        onLoaded: root.applySettings(this.text())
-    }
-
-    function stateBase(): string {
-        return Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state");
-    }
-
-    function stateFile(name: string): string {
-        return root.stateDirPath + "/" + name;
+        name: "cava-settings"
+        createDir: true
+        onParsed: text => root.applySettings(text)
     }
 
     function requestEngineRestart(): void {
@@ -158,45 +137,21 @@ Singleton {
         });
     }
 
-    function parseSettings(jsonText: string): var {
-        let parsed = null;
-        try
-        {
-            parsed = JSON.parse(jsonText);
-        }
-        catch (e)
-        {
-            return null;
-        }
-        if (!parsed || typeof parsed !== "object")
-            return null;
-        const clampInt = (value, lo, hi, fallback) => {
-            const n = Math.round(Number(value));
-            if (isNaN(n))
-                return fallback;
-            return Math.max(lo, Math.min(hi, n));
-        };
-        const out = {};
-        out["sensitivity"] = clampInt(parsed.sensitivity, root.minSensitivity, root.maxSensitivity, root.sensitivity);
-        out["autoSensitivity"] = parsed.autoSensitivity === true || parsed.autoSensitivity === 1;
-        out["barCount"] = clampInt(parsed.barCount, root.minBarCount, root.maxBarCount, root.barCount);
-        out["styleMode"] = clampInt(parsed.styleMode, root.minStyleMode, root.maxStyleMode, root.styleMode);
-        out["maxHeight"] = clampInt(parsed.maxHeight, root.minMaxHeight, root.maxMaxHeight, root.maxHeight);
-        return out;
-    }
-
     function applySettings(jsonText: string): void {
-        const next = root.parseSettings(jsonText);
+        const limits = {};
+        limits["sensitivity"] = [root.minSensitivity, root.maxSensitivity, root.sensitivity];
+        limits["barCount"] = [root.minBarCount, root.maxBarCount, root.barCount];
+        limits["styleMode"] = [root.minStyleMode, root.maxStyleMode, root.styleMode];
+        limits["maxHeight"] = [root.minMaxHeight, root.maxMaxHeight, root.maxHeight];
+        const next = StateParsers.parseCavaSettings(jsonText, limits);
         if (next === null)
             return;
         const engineBefore = root.sensitivity !== next.sensitivity || root.autoSensitivity !== next.autoSensitivity || root.barCount !== next.barCount;
-        root.applyingSettings = true;
         root.sensitivity = next.sensitivity;
         root.autoSensitivity = next.autoSensitivity;
         root.barCount = next.barCount;
         root.styleMode = next.styleMode;
         root.maxHeight = next.maxHeight;
-        root.applyingSettings = false;
         if (root.levels.length !== root.barCount)
             root.levels = root.flatLevels();
         if (engineBefore)
@@ -210,7 +165,7 @@ Singleton {
         payload["barCount"] = root.barCount;
         payload["styleMode"] = root.styleMode;
         payload["maxHeight"] = root.maxHeight;
-        idCavaSettingsFile.setText(JSON.stringify(payload) + "\n");
+        idSettingsState.save(JSON.stringify(payload) + "\n");
     }
 
     function setStyleMode(mode: int): void {
@@ -230,10 +185,6 @@ Singleton {
 
     PanelState {
         id: idPanelState
-    }
-
-    function toggleCava(): void {
-        idPanelState.toggle()
     }
 
     function toggleCavaAt(screen, centerX: real): void {

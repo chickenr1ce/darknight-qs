@@ -2,7 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
+import qs.services
 
 Singleton {
     id: root
@@ -19,46 +19,19 @@ Singleton {
     ]
 
     property var moduleVisible: ({})
-    property bool applyingSettings: false
-    property bool ready: false
-
-    readonly property string stateDirPath: root.stateBase() + "/quickshell"
-    readonly property string visibilityPath: root.stateFile("bar-visibility")
 
     onModuleVisibleChanged: {
-        if (!root.ready || root.applyingSettings)
+        if (idVisibilityState.loading || !idVisibilityState.loaded)
             return;
         root.saveVisibility();
     }
 
-    Process {
-        id: idBarVisibilityDirProcess
+    StateFile {
+        id: idVisibilityState
 
-        command: ["mkdir", "-p", root.stateDirPath]
-        running: true
-        onExited: idBarVisibilityFile.reload()
-    }
-
-    FileView {
-        id: idBarVisibilityFile
-
-        path: "file://" + root.visibilityPath
-        printErrors: false
-        watchChanges: true
-        onFileChanged: this.reload()
-        onLoaded: {
-            root.ready = true;
-            root.applyVisibility(this.text());
-        }
-        onLoadFailed: root.ready = true
-    }
-
-    function stateBase(): string {
-        return Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state");
-    }
-
-    function stateFile(name: string): string {
-        return root.stateDirPath + "/" + name;
+        name: "bar-visibility"
+        createDir: true
+        onParsed: text => root.applyVisibility(text)
     }
 
     function hasModule(key: string): bool {
@@ -114,9 +87,7 @@ Singleton {
         const next = root.parseVisibility(jsonText);
         if (root.sameVisibility(root.moduleVisible, next))
             return;
-        root.applyingSettings = true;
         root.moduleVisible = next;
-        root.applyingSettings = false;
     }
 
     function saveVisibility(): void {
@@ -125,7 +96,7 @@ Singleton {
             const key = root.modules[i].key;
             payload[key] = !(root.moduleVisible[key] === false);
         }
-        idBarVisibilityFile.setText(JSON.stringify(payload) + "\n");
+        idVisibilityState.save(JSON.stringify(payload) + "\n");
     }
 
     function setVisible(key: string, visible: bool): void {

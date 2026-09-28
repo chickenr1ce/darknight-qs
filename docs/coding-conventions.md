@@ -177,7 +177,7 @@ Timer { id: idMediaTimer }
   timeout clamps to `Globals.toastStickyClampMs`, currently 30s; fall back
   to 5s for `-1` and other non-positive values.
   Only critical urgency sticks, checked through
-  `NotificationServer.isCriticalUrgency`.
+  `NotificationServer.isCritical(notification)`.
 - **Hover probes must sit above StyledText**: text items rendering StyledText
   accept hover themselves and shadow a probe placed underneath. Put the probe
   topmost with `Qt.NoButton` so clicks pass through, and route the covered

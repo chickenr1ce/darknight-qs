@@ -20,7 +20,7 @@ Item {
 
     readonly property Notif.Notification notification: root.entry && root.entry.notification ? root.entry.notification : null
     readonly property real arrivedAt: root.entry && root.entry.arrivedAt > 0 ? root.entry.arrivedAt : 0
-    readonly property bool isCritical: !(root.notification === null) && NotificationServer.isCriticalUrgency(root.notification.urgency)
+    readonly property bool isCritical: NotificationServer.isCritical(root.notification)
     readonly property bool actionsVisible: root.notification !== null
         && (root.notification.actions.length > 0 || root.notification.hasInlineReply)
     readonly property string relativeTime: {
@@ -316,16 +316,8 @@ Item {
     }
 
     function sendReply() {
-        const text = idReplyInput.text.trim();
-        if (text === "")
-            return;
-        if (root.notification === null)
-            return;
-        const resident = root.notification.resident;
-        root.collapseReply();
-        root.notification.sendInlineReply(text);
-        if (resident)
-            root.notification.dismiss();
+        if (NotificationServer.sendReply(root.notification, idReplyInput.text))
+            root.collapseReply();
     }
 
     function collapseReply() {
