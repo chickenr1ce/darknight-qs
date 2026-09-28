@@ -12,5 +12,6 @@ singleton BarVisibilityService 1.0 BarVisibilityService.qml
 singleton SystemInfo 1.0 SystemInfo.qml
 singleton SystemMonitor 1.0 SystemMonitor.qml
 singleton AudioService 1.0 AudioService.qml
+singleton SpotifyService 1.0 SpotifyService.qml
 PanelState 1.0 PanelState.qml
 StateFile 1.0 StateFile.qml

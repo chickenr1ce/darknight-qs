@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Mpris
+import Quickshell.Widgets
 import qs.components
 import qs.config
 import qs.services
@@ -19,6 +20,7 @@ Card {
     readonly property real length: root.hasPlayer ? root.player.length : 0
     readonly property real progress: root.length > 0 ? Math.max(0, Math.min(1, root.position / root.length)) : 0
     readonly property real timeLabelWidth: idPlayerTimeMetrics.advanceWidth
+    readonly property string artUrl: root.hasPlayer ? (root.player.trackArtUrl || "") : ""
 
     RowLayout {
         id: idPlayerRow
@@ -27,7 +29,7 @@ Card {
 
         spacing: Globals.rowSpacing
 
-        Rectangle {
+        ClippingRectangle {
             id: idPlayerArt
 
             Layout.preferredWidth: Globals.playerArtSize
@@ -38,6 +40,28 @@ Card {
             color: Colors.cardSecondary
             border.width: Globals.hairlineHeight
             border.color: Colors.border
+
+            Image {
+                id: idPlayerArtImage
+
+                anchors.fill: parent
+                source: root.artUrl
+                sourceSize.width: Globals.playerArtSize * 2
+                sourceSize.height: Globals.playerArtSize * 2
+                asynchronous: true
+                fillMode: Image.PreserveAspectCrop
+                visible: status === Image.Ready
+            }
+
+            Icon {
+                id: idPlayerArtPlaceholder
+
+                anchors.centerIn: parent
+                visible: idPlayerArtImage.status !== Image.Ready
+                text: Icons.music
+                size: Globals.uiDisplaySize
+                color: Colors.textSecondary
+            }
         }
 
         ColumnLayout {
@@ -107,21 +131,27 @@ Card {
 
                     Layout.alignment: Qt.AlignVCenter
 
+                    visible: SpotifyService.hasDevices
+
                     spacing: Globals.listSpacing
 
                     Repeater {
                         id: idPlayerDevicesRepeater
 
-                        model: [qsTr("Phone"), qsTr("PC")]
+                        model: SpotifyService.devices
 
                         delegate: PillButton {
-                            required property string modelData
-                            required property int index
+                            id: idPlayerDeviceChip
 
+                            required property var modelData
+
+                            disabled: modelData.isRestricted
                             subtle: true
-                            highlighted: index === 0
-                            text: modelData
-                            accessibleName: modelData
+                            highlighted: modelData.isActive || modelData.id === SpotifyService.pendingDeviceId
+                            maxLabelWidth: Globals.playerDeviceLabelWidth
+                            text: modelData.name
+                            accessibleName: modelData.name
+                            onClicked: SpotifyService.transferTo(modelData.id)
                         }
                     }
                 }

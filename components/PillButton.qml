@@ -28,6 +28,8 @@ Item {
     property int iconSize: Globals.uiPillSize
     // Measured optical nudge for a glyph whose ink sits off its advance centre.
     property int iconNudge: 0
+    // Optional cap on the label width; 0 keeps the label at its natural width.
+    property int maxLabelWidth: 0
 
     readonly property bool hovered: idMouseArea.containsMouse || root.probeHovered
     readonly property bool pressed: idMouseArea.containsPress
@@ -76,6 +78,8 @@ Item {
 
             anchors.verticalCenter: parent.verticalCenter
 
+            width: root.maxLabelWidth > 0 ? Math.min(implicitWidth, root.maxLabelWidth) : implicitWidth
+            elide: root.maxLabelWidth > 0 ? Text.ElideRight : Text.ElideNone
             textFormat: Text.PlainText
             text: root.text
             color: !root.disabled && root.highlighted ? ((root.quiet || root.subtle) ? Colors.accent : Colors.onAccent) : (!root.disabled && root.hovered ? Colors.text : Colors.textSubtle)

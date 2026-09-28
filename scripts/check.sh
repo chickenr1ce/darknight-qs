@@ -28,6 +28,7 @@ run "type lint" ./scripts/lint.sh
 run "review lint" ./scripts/lint-review.sh
 run "panel logic" ./scripts/test-panel-logic.sh
 run "dashboard data" ./scripts/test-dashboard-data.sh
+run "spotify connect" ./scripts/test-spotify-connect.sh
 run "calendar clock" ./scripts/test-calendar-clock.sh
 run "calendar fetch" ./scripts/test-calendar-fetch.sh
 run "live log" ./scripts/check-live-log.sh

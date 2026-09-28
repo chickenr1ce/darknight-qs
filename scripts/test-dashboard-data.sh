@@ -18,7 +18,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fail() { echo "dashboard-data FAIL: $*" >&2; exit 1; }
 
 # --- 1. new services are registered and self-contained ---
-for singleton in SystemInfo SystemMonitor AudioService; do
+for singleton in SystemInfo SystemMonitor AudioService SpotifyService; do
     test -f "$ROOT/services/$singleton.qml" \
         || fail "services/$singleton.qml is missing"
     grep -q "^singleton $singleton 1.0 $singleton.qml" "$ROOT/services/qmldir" \
@@ -191,6 +191,35 @@ grep -q 'MprisPlayers.cycleRepeat()' "$PBLOCK" \
     || fail "DashboardPlayerBlock repeat is not wired"
 grep -q 'MprisPlayers.toggleShuffle()' "$PBLOCK" \
     || fail "DashboardPlayerBlock shuffle is not wired"
+grep -q 'trackArtUrl' "$PBLOCK" \
+    || fail "DashboardPlayerBlock does not bind the track art"
+grep -q 'ClippingRectangle' "$PBLOCK" \
+    || fail "DashboardPlayerBlock does not clip the art to the card radius"
+grep -q 'SpotifyService.devices' "$PBLOCK" \
+    || fail "DashboardPlayerBlock does not list the Connect devices"
+grep -q 'SpotifyService.transferTo' "$PBLOCK" \
+    || fail "DashboardPlayerBlock cannot transfer Spotify playback"
+grep -q 'modelData.isActive' "$PBLOCK" \
+    || fail "DashboardPlayerBlock does not mark the active device"
+grep -q 'modelData.isRestricted' "$PBLOCK" \
+    || fail "DashboardPlayerBlock does not gate restricted devices"
+
+SSVC="$ROOT/services/SpotifyService.qml"
+grep -q 'spotify-connect.py' "$SSVC" \
+    || fail "SpotifyService does not call the Connect backend"
+grep -q 'function refreshDevices' "$SSVC" \
+    || fail "SpotifyService has no refreshDevices"
+grep -q 'function transferTo' "$SSVC" \
+    || fail "SpotifyService has no transferTo"
+grep -q 'function parseResponse' "$SSVC" \
+    || fail "SpotifyService has no parseResponse"
+grep -q '"--play"' "$SSVC" \
+    || fail "SpotifyService transfer must ask for playback so the switch takes effect"
+grep -q 'DashboardService.dashboardVisible' "$SSVC" \
+    || fail "SpotifyService does not gate its poll on the dashboard"
+if grep -q 'access_token' "$SSVC"; then
+    fail "SpotifyService must not read the token; the backend owns it"
+fi
 
 # The transport glyphs exist in the one icon registry.
 for glyph in skipNext skipPrevious repeat repeatOnce shuffle; do
@@ -601,6 +630,34 @@ check("time/seconds", format_time(74), "1:14")
 check("time/pad", format_time(65), "1:05")
 check("time/negative", format_time(-5), "0:00")
 check("time/long", format_time(3725), "62:05")
+
+# Mirror of SpotifyService.parseResponse (services/SpotifyService.qml): the
+# backend prints one JSON object per call; ok gates the payload and a bad
+# stream falls back to an empty state instead of throwing.
+def parse_response(text):
+    out = {"ok": False, "error": "", "message": "", "devices": [], "activeId": ""}
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return out
+    if parsed is None or not isinstance(parsed, (dict, list)):
+        return out
+    if isinstance(parsed, dict):
+        out["ok"] = parsed.get("ok") is True
+        out["error"] = parsed.get("error") or ""
+        out["activeId"] = parsed.get("activeId") or ""
+        devices = parsed.get("devices")
+        out["devices"] = devices if isinstance(devices, list) else []
+    return out
+
+ok = parse_response('{"ok": true, "activeId": "d1", "devices": [{"id": "d1", "name": "PC"}]}')
+check("spotify/ok", ok["ok"], True)
+check("spotify/devices", ok["devices"], [{"id": "d1", "name": "PC"}])
+check("spotify/active", ok["activeId"], "d1")
+check("spotify/auth-missing", parse_response('{"ok": false, "error": "auth_missing"}')["error"], "auth_missing")
+check("spotify/garbage", parse_response("{nope")["ok"], False)
+check("spotify/devices-not-list", parse_response('{"ok": true, "devices": "x"}')["devices"], [])
+check("spotify/null", parse_response("null")["ok"], False)
 EOF
 
 echo "dashboard-data: all ok"
