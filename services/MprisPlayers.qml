@@ -46,11 +46,11 @@ Singleton {
     }
 
     function nextLoopState(current: int): int {
-        if (current === MprisLoopState.Track)
-            return MprisLoopState.Playlist;
         if (current === MprisLoopState.Playlist)
+            return MprisLoopState.Track;
+        if (current === MprisLoopState.Track)
             return MprisLoopState.None;
-        return MprisLoopState.Track;
+        return MprisLoopState.Playlist;
     }
 
     function cycleRepeat(): void {

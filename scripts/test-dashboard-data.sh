@@ -195,8 +195,12 @@ grep -q 'MprisPlayers.toggleShuffle()' "$PBLOCK" \
     || fail "DashboardPlayerBlock shuffle is not wired"
 grep -q 'trackArtUrl' "$PBLOCK" \
     || fail "DashboardPlayerBlock does not bind the track art"
-grep -q 'ClippingRectangle' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not clip the art to the card radius"
+grep -q 'CoverArtButton' "$PBLOCK" \
+    || fail "DashboardPlayerBlock does not compose the shared CoverArtButton"
+test -f "$ROOT/components/CoverArtButton.qml" \
+    || fail "components/CoverArtButton.qml is missing"
+grep -q 'ClippingRectangle' "$ROOT/components/CoverArtButton.qml" \
+    || fail "CoverArtButton does not clip the art to the card radius"
 grep -q 'SpotifyService.devices' "$PBLOCK" \
     || fail "DashboardPlayerBlock does not list the Connect devices"
 grep -q 'SpotifyService.transferTo' "$PBLOCK" \
@@ -729,18 +733,18 @@ check("volume/percent-low", volume_for_percent(-10), 0.0)
 check("volume/round-trip", percent_for_volume(volume_for_percent(55)), 55)
 
 # Mirror of MprisPlayers.nextLoopState (services/MprisPlayers.qml):
-# None(0) -> Track(1) -> Playlist(2) -> None.
+# None(0) -> Playlist(2) -> Track(1) -> None.
 def next_loop_state(current):
-    if current == 1:
-        return 2
     if current == 2:
+        return 1
+    if current == 1:
         return 0
-    return 1
+    return 2
 
-check("repeat/none", next_loop_state(0), 1)
-check("repeat/track", next_loop_state(1), 2)
-check("repeat/playlist", next_loop_state(2), 0)
-check("repeat/cycle", [next_loop_state(v) for v in (0, 1, 2)], [1, 2, 0])
+check("repeat/none", next_loop_state(0), 2)
+check("repeat/playlist", next_loop_state(2), 1)
+check("repeat/track", next_loop_state(1), 0)
+check("repeat/cycle", [next_loop_state(v) for v in (0, 2, 1)], [2, 1, 0])
 
 # Mirror of MprisPlayers.toggleShuffle (services/MprisPlayers.qml): flip the
 # shuffle flag only while the player advertises shuffle support.

@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Mpris
-import Quickshell.Widgets
 import qs.components
 import qs.config
 import qs.services
@@ -29,38 +28,17 @@ Card {
 
         spacing: Globals.rowSpacing
 
-        ClippingRectangle {
+        CoverArtButton {
             id: idPlayerArt
 
-            Layout.preferredWidth: Globals.playerArtSize
-            Layout.preferredHeight: Globals.playerArtSize
             Layout.alignment: Qt.AlignVCenter
 
-            radius: Globals.cardRadius
-            color: Colors.cardSecondary
-            border.width: Globals.hairlineHeight
-            border.color: Colors.border
-
-            Image {
-                id: idPlayerArtImage
-
-                anchors.fill: parent
-                source: root.artUrl
-                sourceSize.width: Globals.playerArtSize * 2
-                sourceSize.height: Globals.playerArtSize * 2
-                asynchronous: true
-                fillMode: Image.PreserveAspectCrop
-                visible: status === Image.Ready
-            }
-
-            Icon {
-                id: idPlayerArtPlaceholder
-
-                anchors.centerIn: parent
-                visible: idPlayerArtImage.status !== Image.Ready
-                text: Icons.music
-                size: Globals.uiDisplaySize
-                color: Colors.textSecondary
+            source: root.artUrl
+            accessibleName: qsTr("Focus Spotify")
+            enabled: root.hasPlayer
+            onClicked: {
+                DashboardService.close();
+                HyprlandFocus.focusByTokens(["spotify"]);
             }
         }
 

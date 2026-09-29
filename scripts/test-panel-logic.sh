@@ -111,13 +111,17 @@ grep -q 'focusRetryMs' "$ROOT/config/Globals.qml" \
     || fail "Globals has no focusRetryMs"
 grep -q 'focusRetryTicks' "$ROOT/config/Globals.qml" \
     || fail "Globals has no focusRetryTicks"
-for site in "modules/Tray.qml" "services/NotificationServer.qml"; do
+for site in "modules/Tray.qml" "services/NotificationServer.qml" "windows/DashboardPlayerBlock.qml"; do
     grep -q 'HyprlandFocus.focusByTokens' "$ROOT/$site" \
         || fail "$site does not delegate to HyprlandFocus"
 done
-if grep -rn --include='*.qml' 'lastIpcObject' "$ROOT/modules/Tray.qml" "$ROOT/services/NotificationServer.qml" | grep -q .; then
+if grep -rn --include='*.qml' 'lastIpcObject' "$ROOT/modules/Tray.qml" "$ROOT/services/NotificationServer.qml" "$ROOT/windows/DashboardPlayerBlock.qml" | grep -q .; then
     fail "matcher logic leaked back into a call site"
 fi
+# Focusing another window needs the dashboard's focus grab released first,
+# so the cover-art click closes the dashboard before it dispatches focus.
+grep -q 'DashboardService.close()' "$ROOT/windows/DashboardPlayerBlock.qml" \
+    || fail "DashboardPlayerBlock does not close the dashboard before focusing"
 
 # --- 3b. module siblings resolve only through a self-import ---
 # qmllint resolves same-directory siblings, the runtime does not when the
