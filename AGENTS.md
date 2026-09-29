@@ -1,6 +1,6 @@
 # AGENTS.md — Quickshell
 
-A Quickshell-based Wayland status bar and desktop shell (QML) replacing waybar: a multi-monitor panel with workspaces, system tray, media/audio/CPU modules, notifications and power menu, styled as a unified slab. Migration from waybar is in progress per `docs/plans/01-master-quickshell-migration.html`.
+A Quickshell-based Wayland status bar and desktop shell (QML) replacing waybar: a multi-monitor panel with workspaces, system tray, media/audio/CPU modules, notifications and power menu, styled as a unified slab. Migrated from waybar; the completed migration plan is archived at `docs/plans/archive/01-master-quickshell-migration.html`.
 
 Workflow and repo conventions for AI agents and contributors working in `~/.config/quickshell`.
 
@@ -42,7 +42,7 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
 - For Qt 6 API details (signals, slots, properties, defaults, since-version), verify with the `qt-docs` MCP tools (`qt_documentation_search`, then `qt_documentation_read`) instead of recalling from training; the server carries the 6.11 docs, which match the installed Qt 6.11.2.
-- For current context on the project, refer to `docs/plans/01-master-quickshell-migration.html`
+- For current context on the project, refer to `docs/roadmap.md`, `CONTEXT.md`, and `docs/plans/README.md`
 - Domain glossary for dashboard, junction, panels registry, and the rest: `CONTEXT.md`
 - Decision records for why a design is the way it is: `docs/adr/`. Read the ADRs that touch an area before changing it.
 - Verify QML behavior against a live instance; the standalone `qml` runtime's logging is broken in this environment. When the daily shell already runs this worktree, use it and drive it with `quickshell ipc --pid <pid>` — never boot a second instance. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.

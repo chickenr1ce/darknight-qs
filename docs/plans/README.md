@@ -1,25 +1,39 @@
-# Quickshell Desktop Shell — Architectural & Migration Plans
+# Quickshell Desktop Shell — Plan Artifacts
 
-This directory contains the architectural blueprints, migration roadmaps, design proposals, and interactive specifications for the Quickshell Wayland shell (`chickenr1ce/darknight-qs`).
+Frozen records of the Waybar → Quickshell migration and the design work that
+followed it, for `chickenr1ce/darknight-qs`.
+
+Active work lives in [`docs/roadmap.md`](../roadmap.md). The domain glossary is
+[`CONTEXT.md`](../../CONTEXT.md); the "why" decisions are in
+[`docs/adr/`](../adr/).
 
 ---
 
-## Plan Directory & Index
+## Archived plans
 
-| # | Document | Phase / Code | Status | Description |
-|---|---|---|---|---|
-| **01** | [`01-master-quickshell-migration.html`](01-master-quickshell-migration.html) | **ECO-HY3** (Master) | ⚪ Archived (Completed 2026-09-14) | Waybar → Quickshell migration roadmap (Phases 0–7), module checklist, and architectural decisions. Leftovers carry to 05. |
-| **02** | [`02-phase-6a-unified-slab.html`](02-phase-6a-unified-slab.html) | **ECO-HY3a** (Phase 6a) | 🟢 Implemented | Unified Slab restyle specification, motion tokens (140ms hover / 120ms press), hairlines, and ModuleBox chassis. |
-| **03** | [`03-phase-6b-notifications-exploration.html`](03-phase-6b-notifications-exploration.html) | **ECO-HY3b** (Phase 6b) | 🟢 Archived | Initial exploratory designs (Concepts A, B, C), live sandbox, and comparative matrix for the native notification daemon. |
-| **04** | [`04-phase-6b-notifications-spec.html`](04-phase-6b-notifications-spec.html) | **ECO-HY3b** (Phase 6b) | 🟢 Implemented (spec frozen) | Concrete specification for **Design B** (Power User Action Center: `1A + 2A + 3A + 4A`), collapsible app accordions, inline reply, and floating drop panel. |
-| **05** | [`05-post-migration-roadmap.html`](05-post-migration-roadmap.html) | **ECO-HY4** (Roadmap) | 🟡 Active | Post-migration roadmap: hotplug and slot carryover, calendar and weather panels, theme switching through matugen, maintenance gates. |
-| **06** | [`06-architecture-review.html`](06-architecture-review.html) | **Review** | 🟢 Closed (all items resolved/deferred) | Full codebase review plus eight deepening candidates. Done: panel state, monitor policy, Hyprland focus, calendar seam, state-file module, invoke ordering, cava styles. F11 fixed (count-aware baseline); F8/Q3 resolved by ADR 0002's documented tradeoff; c8 PressablePill deferred after evaluation. Status block inside the doc records per-item state as of 2026-09-29. |
-| **07** | [`07-deepening-plan.md`](07-deepening-plan.md) | **Deepening** | 🟢 Implemented | Plan for the four Strong candidates from the review: dead notification card removal, one notification collection, state-file module, panel registry as a list. Merged in `8eac72f`. |
+Completed phases, specs, and reviews, frozen under `archive/`. Paths written
+inside these files still name their original `docs/plans/` locations.
+
+| # | Document | Status | Description |
+|---|---|---|---|
+| **01** | [`archive/01-master-quickshell-migration.html`](archive/01-master-quickshell-migration.html) | ⚪ Archived (2026-09-14) | Waybar → Quickshell migration roadmap (Phases 0–7), module checklist, and architectural decisions. |
+| **02** | [`archive/02-phase-6a-unified-slab.html`](archive/02-phase-6a-unified-slab.html) | 🟢 Implemented | Unified slab restyle, motion tokens (140ms hover / 120ms press), hairlines, and the ModuleBox chassis. |
+| **03** | [`archive/03-phase-6b-notifications-exploration.html`](archive/03-phase-6b-notifications-exploration.html) | ⚪ Archived | Exploratory notification designs (Concepts A, B, C), live sandbox, and comparative matrix. |
+| **04** | [`archive/04-phase-6b-notifications-spec.html`](archive/04-phase-6b-notifications-spec.html) | 🟢 Implemented (spec frozen) | Design B spec: Power User Action Center, collapsible app accordions, inline reply, floating drop panel. |
+| **05** | [`archive/05-post-migration-roadmap.html`](archive/05-post-migration-roadmap.html) | ⚪ Archived (superseded by `docs/roadmap.md`) | Post-migration roadmap: hotplug, weather, matugen themes, gates. Live items moved to `docs/roadmap.md`. |
+| **06** | [`archive/06-architecture-review.html`](archive/06-architecture-review.html) | 🟢 Closed (2026-09-29) | Full codebase review plus eight deepening candidates. All items resolved or deferred; the status block records the per-item state. |
+| **07** | [`archive/07-deepening-plan.md`](archive/07-deepening-plan.md) | 🟢 Implemented | The four Strong deepening candidates: dead notification card, one notification collection, state-file module, panel registry as a list. Shipped in `8eac72f`. |
 
 ---
 
 ## Conventions for Plan Files
 
-- **Interactive HTML Format**: Plan files are interactive single-page HTML documents providing live previews, interactive state simulation, design tokens, and QML mapping.
-- **Naming Pattern**: `NN-<phase-tag>-<descriptive-topic>.html` where `NN` is a sequential two-digit ordering index.
-- **Frozen Records**: When a design session concludes, settled decisions are appended to the document under a dedicated `Frozen Decisions` section before feature implementation commences.
+- **Format**: plan artifacts are single-page HTML documents with live previews,
+  state simulation, design tokens, and QML mapping. Roadmaps and shorter plans
+  use Markdown (`07-deepening-plan.md`, `docs/roadmap.md`).
+- **Naming**: `NN-<phase-tag>-<descriptive-topic>.html`, sequential two-digit
+  ordering.
+- **Frozen records**: once a design session concludes and its work ships,
+  settled decisions are promoted to `docs/adr/`, `CONTEXT.md`, or
+  `docs/coding-conventions.md`, then the artifact is moved to `archive/`. Git
+  history keeps anything dropped; deletion loses nothing that has been promoted.
