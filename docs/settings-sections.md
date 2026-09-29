@@ -13,6 +13,8 @@ one property and panels read it — never keep a second copy in the view.
 - `CavaService.qml` — cava tuning.
 - `CalendarService.qml` — zones and hidden feeds.
 - `NotificationServer.qml` — `dndEnabled`.
+- `WeatherService.qml` — city, coordinates, and weather reading.
+- `BarVisibilityService.qml` — per-module bar visibility.
 - `Globals.qml` — `reducedMotion`.
 
 ## 2. View: a component in `windows/`

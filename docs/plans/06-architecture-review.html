@@ -402,6 +402,13 @@
     Each candidate names the duplicated logic, the module that should own it, and what a test can reach once it does.
     Vocabulary follows the <code>CONTEXT.md</code> glossary and the codebase-design terms (module, seam, depth).</p>
 
+  <div class="panel" id="status" role="region" aria-label="Implementation status">
+    <div class="eyebrow">Status · 2026-09-29 · verified against working tree</div>
+    <p class="prob" style="margin:0.5rem 0 0"><strong>Closed findings:</strong> F1 dead Cpu module deleted; F2 focus moved to <code>services/HyprlandFocus.qml</code>; F3 hidden-calendar repoll deferred with <code>Qt.callLater</code>; F4 and F5 StateFile equality guard stops own-write polls and grid rebuilds; F6 stderr collectors wired with warnings; F7 dir creation ordered before first read; F9 Panels registry owns the one-panel rule; F10 CalendarCenter split to 389 lines plus <code>windows/CalendarSettingsView.qml</code>; F12 headless gates <code>scripts/test-panel-logic.sh</code> and <code>scripts/test-dashboard-data.sh</code> added.</p>
+    <p class="prob" style="margin:0.5rem 0 0"><strong>Done candidates:</strong> c1 panel state (<code>services/Panels.qml</code>, <code>services/PanelState.qml</code>); c2 monitor policy (<code>Globals.primaryMonitor</code>, <code>onPrimaryMonitor()</code>); c3 Hyprland focus module; c4 calendar stale seam (<code>CalendarService.staleLabel()</code>); c5 StateFile module plus <code>services/StateParsers.js</code>; c6 invoke ordering (<code>NotificationServer.invokeAction</code>, <code>sendReply</code>, dead card deleted); c7 cava <code>styleComponents</code> array. Merged via <code>8eac72f</code> and the 07 deepening plan.</p>
+    <p class="prob" style="margin:0.5rem 0 0"><strong>Open:</strong> c8 PressablePill (no component yet; <code>ModuleBox.enableMouseArea</code> hatch plus ad-hoc press code in <code>modules/Tray.qml</code> and <code>modules/Workspaces.qml</code> remain); F8 and Q3 cache location (<code>calendar-events.json</code> still <code>inCache: true</code>); F11 baseline strips line numbers by design, so touched files need a manual check. Answers recorded: Q1 split done, Q2 helper lives in <code>services/HyprlandFocus.qml</code>, Q4 covered by the two headless gates.</p>
+  </div>
+
   <nav class="index" aria-label="Contents">
     <span class="nav-label">Part 1</span>
     <a href="#map">Map</a><a href="#inventory">Inventory</a><a href="#findings">Findings</a><a href="#risks">Risks</a><a href="#questions">Questions</a><a href="#notes">Notes</a>
@@ -633,7 +640,7 @@
       <div class="cand-head">
         <h2>Deepen the panel open/close state machine</h2>
         <span class="badge strong">Strong</span>
-        <span class="badge">in-process</span>
+        <span class="badge">done</span>
       </div>
       <div class="files">services/CalendarService.qml · services/NotificationServer.qml · services/CavaService.qml<br>
         modules/Clock.qml · modules/Notifications.qml · modules/Cava.qml · windows/NotificationPopups.qml · components/PanelShell.qml</div>
@@ -697,7 +704,7 @@
       <div class="cand-head">
         <h2>Make the monitor policy data, not six <code>visible:</code> bindings</h2>
         <span class="badge strong">Strong</span>
-        <span class="badge">in-process</span>
+        <span class="badge">done</span>
       </div>
       <div class="files">shell.qml · modules/Tray.qml · modules/Media.qml · modules/Workspaces.qml · config/Globals.qml</div>
 
@@ -752,7 +759,7 @@
       <div class="cand-head">
         <h2>One module owns Hyprland focus-and-restore</h2>
         <span class="badge strong">Strong</span>
-        <span class="badge">ports &amp; adapters</span>
+        <span class="badge">done</span>
       </div>
       <div class="files">modules/Tray.qml (focusAppWindow, 25–103) · services/NotificationServer.qml (focusApp, 78–153)</div>
 
@@ -810,7 +817,7 @@
       <div class="cand-head">
         <h2>Move "last good plus stale" fully behind the Calendar seam</h2>
         <span class="badge strong">Strong</span>
-        <span class="badge">in-process</span>
+        <span class="badge">done</span>
       </div>
       <div class="files">services/CalendarService.qml (eventsStaleAfterMs, eventsLastPollFailed, todayIso) · windows/CalendarCenter.qml (now, eventsStale, idCalendarTimer, syncAgeText)</div>
 
@@ -866,7 +873,7 @@
       <div class="cand-head">
         <h2>Collapse the XDG state-file pattern into one module</h2>
         <span class="badge explore">Worth exploring</span>
-        <span class="badge">local-substitutable</span>
+        <span class="badge">done</span>
       </div>
       <div class="files">services/CavaService.qml (stateBase, applyingSettings, parseSettings) · services/CalendarService.qml (4 FileViews, parseZones, parseHiddenCalendars, saveZones) · docs/quickshell-io-notes.md</div>
 
@@ -913,7 +920,7 @@
       <div class="cand-head">
         <h2>Focus-before-invoke becomes one function, not two comments</h2>
         <span class="badge explore">Worth exploring</span>
-        <span class="badge">in-process</span>
+        <span class="badge">done</span>
       </div>
       <div class="files">components/NotificationToast.qml (200–207) · components/NotificationCard.qml (99–104) · services/NotificationServer.qml (focusApp)</div>
 
@@ -967,7 +974,7 @@
       <div class="cand-head">
         <h2>One array, one height function for the six Cava styles</h2>
         <span class="badge explore">Worth exploring</span>
-        <span class="badge">in-process</span>
+        <span class="badge">done</span>
       </div>
       <div class="files">modules/Cava.qml (style ternary 204–213, barLevel/barDrawHeight, six property Components, buildWavePath/buildRibbonPath) · services/CavaService.qml (styleMode, styleNames, cycleStyle) · windows/CavaCenter.qml (Dropdown.currentIndex)</div>
 
@@ -1028,7 +1035,7 @@
       <div class="cand-head">
         <h2>ModuleBox's empty mode licenses the ad-hoc button it forbids</h2>
         <span class="badge explore">Worth exploring</span>
-        <span class="badge">in-process</span>
+        <span class="badge">open</span>
       </div>
       <div class="files">components/ModuleBox.qml (enableMouseArea, PressFeedback/PressScale stack, pulse()) · modules/Tray.qml (110–212) · modules/Workspaces.qml (27–112)</div>
 
