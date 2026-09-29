@@ -1,32 +1,48 @@
 # Baseline of accepted style-linter findings (scripts/lint-review.sh).
 # Per line: FILE RULE-ID MESSAGE (line numbers stripped).
+# Repeated lines record repeated findings; keep them.
 # Regenerate with: scripts/lint-review.sh --update-baseline
 components/Dropdown.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 components/ModuleBox.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 components/NotificationGroup.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+components/NotificationGroup.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 components/NotificationGroup.qml BND-2 Imperative '=' on 'root.relativeTimeNow' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 components/NotificationGroup.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+components/NotificationGroup.qml STY-3 4 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationGroup.qml STY-3 4 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationRow.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 components/NotificationRow.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 dev/DevGeometry.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 modules/Cava.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 modules/Notifications.qml STY-3 3 font.* properties using dot notation -- use group notation: font { ... }
+modules/Notifications.qml STY-3 3 font.* properties using dot notation -- use group notation: font { ... }
+modules/Notifications.qml STY-3 3 font.* properties using dot notation -- use group notation: font { ... }
 modules/Tray.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 modules/Tray.qml STY-3 3 anchor.* properties using dot notation -- use group notation: anchor { ... }
 modules/Workspaces.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 services/BarVisibilityService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/CalendarService.qml BND-2 Imperative '=' on 'inMonth' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/CalendarService.qml BND-2 Imperative '=' on 'inMonth' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/CavaService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/MprisPlayers.qml BND-5 list<> property has no granular change signals -- add/move/remove won't notify; consider a ListModel or notify manually
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
+services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
+services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
+services/PanelGrab.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/PanelGrab.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/SpotifyService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/SpotifyService.qml BND-2 Imperative '=' on 'idDevicesProcess.running' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/SpotifyService.qml BND-2 Imperative '=' on 'idDevicesProcess.running' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/SpotifyService.qml BND-2 Imperative '=' on 'idTransferProcess.running' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/WeatherService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
@@ -34,12 +50,14 @@ windows/DashboardPlayerBlock.qml BND-1 property var -- use a typed property (int
 windows/DashboardVolumeBlock.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/LayoutSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationPopups.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationPopups.qml STA-2 Transition without from/to -- catch-all fires on every state change; specify explicit from/to pairs
 windows/PowerCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/PowerCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/SettingsCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/SettingsCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/SettingsCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/WeatherSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/WeatherSettingsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)

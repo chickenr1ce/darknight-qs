@@ -2,7 +2,9 @@
 # Style lint with baseline: python review linter over tracked QML files (or
 # paths given as args), reporting only findings absent from
 # scripts/lint-review-baseline.txt. Line numbers are stripped before
-# comparison so shifting code does not re-report old findings.
+# comparison so shifting code does not re-report old findings. Repeated
+# findings are counted: a second occurrence of an already-baselined
+# FILE RULE-ID MESSAGE is reported as new.
 # Regenerate the baseline after intentional style changes:
 #   scripts/lint-review.sh --update-baseline
 set -euo pipefail
@@ -45,12 +47,15 @@ trap 'rm -f "$RAW" "$CURRENT"' EXIT
 
 # Exit 1 means findings, not failure; an empty file means clean.
 python3 "$LINTER" "${FILES[@]}" >"$RAW" 2>/dev/null || true
-sed 's/^\([^:]*\):[0-9]* /\1 /' "$RAW" | sort -u >"$CURRENT"
+# Keep duplicate lines: the comparison below is multiset-aware, so an increased
+# count of an already-baselined FILE RULE-ID MESSAGE is a new finding.
+sed 's/^\([^:]*\):[0-9]* /\1 /' "$RAW" | sort >"$CURRENT"
 
 if [[ $UPDATE -eq 1 ]]; then
     {
         echo "# Baseline of accepted style-linter findings (scripts/lint-review.sh)."
         echo "# Per line: FILE RULE-ID MESSAGE (line numbers stripped)."
+        echo "# Repeated lines record repeated findings; keep them."
         echo "# Regenerate with: scripts/lint-review.sh --update-baseline"
         cat "$CURRENT"
     } >"$BASELINE"
@@ -65,7 +70,31 @@ fi
 
 NEW="$(mktemp /tmp/opencode/lint-review-XXXXXX)"
 trap 'rm -f "$RAW" "$CURRENT" "$NEW"' EXIT
-comm -13 <(grep -v '^#' "$BASELINE" | sort -u) "$CURRENT" >"$NEW" || true
+# Multiset difference: report each current occurrence beyond the count the
+# baseline accepted. grep/comm can't express this (sort -u erased counts).
+python3 - "$BASELINE" "$CURRENT" >"$NEW" <<'PY'
+import collections
+import sys
+
+baseline_path, current_path = sys.argv[1], sys.argv[2]
+
+
+def counts(path, skip_comments):
+    tally = collections.Counter()
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.rstrip("\n")
+            if skip_comments and line.startswith("#"):
+                continue
+            tally[line] += 1
+    return tally
+
+
+accepted = counts(baseline_path, skip_comments=True)
+seen = counts(current_path, skip_comments=False)
+for line in sorted((seen - accepted).elements()):
+    print(line)
+PY
 
 if [[ -s "$NEW" ]]; then
     echo "lint-review: new findings vs baseline:"

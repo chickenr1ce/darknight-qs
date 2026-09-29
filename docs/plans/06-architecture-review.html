@@ -406,7 +406,7 @@
     <div class="eyebrow">Status · 2026-09-29 · verified against working tree</div>
     <p class="prob" style="margin:0.5rem 0 0"><strong>Closed findings:</strong> F1 dead Cpu module deleted; F2 focus moved to <code>services/HyprlandFocus.qml</code>; F3 hidden-calendar repoll deferred with <code>Qt.callLater</code>; F4 and F5 StateFile equality guard stops own-write polls and grid rebuilds; F6 stderr collectors wired with warnings; F7 dir creation ordered before first read; F9 Panels registry owns the one-panel rule; F10 CalendarCenter split to 389 lines plus <code>windows/CalendarSettingsView.qml</code>; F12 headless gates <code>scripts/test-panel-logic.sh</code> and <code>scripts/test-dashboard-data.sh</code> added.</p>
     <p class="prob" style="margin:0.5rem 0 0"><strong>Done candidates:</strong> c1 panel state (<code>services/Panels.qml</code>, <code>services/PanelState.qml</code>); c2 monitor policy (<code>Globals.primaryMonitor</code>, <code>onPrimaryMonitor()</code>); c3 Hyprland focus module; c4 calendar stale seam (<code>CalendarService.staleLabel()</code>); c5 StateFile module plus <code>services/StateParsers.js</code>; c6 invoke ordering (<code>NotificationServer.invokeAction</code>, <code>sendReply</code>, dead card deleted); c7 cava <code>styleComponents</code> array. Merged via <code>8eac72f</code> and the 07 deepening plan.</p>
-    <p class="prob" style="margin:0.5rem 0 0"><strong>Open:</strong> c8 PressablePill (no component yet; <code>ModuleBox.enableMouseArea</code> hatch plus ad-hoc press code in <code>modules/Tray.qml</code> and <code>modules/Workspaces.qml</code> remain); F8 and Q3 cache location (<code>calendar-events.json</code> still <code>inCache: true</code>); F11 baseline strips line numbers by design, so touched files need a manual check. Answers recorded: Q1 split done, Q2 helper lives in <code>services/HyprlandFocus.qml</code>, Q4 covered by the two headless gates.</p>
+    <p class="prob" style="margin:0.5rem 0 0"><strong>Closed on evaluation (2026-09-29):</strong> F11 fixed — <code>scripts/lint-review.sh</code> now compares findings as a multiset, so a repeated FILE RULE-ID MESSAGE is reported; the baseline records occurrences (60, up from 43 distinct) and regenerates clean (offsetting same-triple changes in one run still net to zero). F8 / Q3 resolved by documentation: ADR 0002's 2026-09-23 amendment keeps the last-good events cache under <code>XDG_CACHE_HOME</code> and records the tradeoff, so no code change. <strong>Deferred:</strong> c8 PressablePill — the primitive cannot fold in ModuleBox without tint, inset, and scale escapes; <code>enableMouseArea</code> stays because both call sites are container modules; the shared boilerplate is about 11 lines per delegate, and no bar-visual gate exists to catch a regression. Answers recorded: Q1 split done, Q2 helper lives in <code>services/HyprlandFocus.qml</code>, Q3 the cache-dir tradeoff stands per ADR 0002, Q4 covered by the two headless gates.</p>
   </div>
 
   <nav class="index" aria-label="Contents">
@@ -1035,7 +1035,7 @@
       <div class="cand-head">
         <h2>ModuleBox's empty mode licenses the ad-hoc button it forbids</h2>
         <span class="badge explore">Worth exploring</span>
-        <span class="badge">open</span>
+        <span class="badge">deferred</span>
       </div>
       <div class="files">components/ModuleBox.qml (enableMouseArea, PressFeedback/PressScale stack, pulse()) · modules/Tray.qml (110–212) · modules/Workspaces.qml (27–112)</div>
 
