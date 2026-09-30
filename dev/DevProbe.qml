@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import qs.config
 import qs.dev
@@ -97,6 +98,19 @@ Item {
 
         function geom(name: string): string {
             return DevGeometry.snapshot(name);
+        }
+
+        function toplevels(): string {
+            return JSON.stringify((Hyprland.toplevels?.values ?? []).map(toplevel => ({
+                address: toplevel.address,
+                title: toplevel.title,
+                appId: toplevel.wayland ? toplevel.wayland.appId : "",
+                ipc: toplevel.lastIpcObject
+            })));
+        }
+
+        function focusMatch(token: string): string {
+            return HyprlandFocus.addressFor(HyprlandFocus.keysFor([token]));
         }
     }
 }

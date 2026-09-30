@@ -106,6 +106,26 @@ writable by this user, so a small helper can inject a real pointer or key
 event when one is needed. Every save closes popups, so batch probe edits
 together and reopen through IPC after each reload.
 
+## Focus changes
+
+A focus dispatch moves the user's pointer and keyboard, and the user is often
+working on the same machine. Their window switches during a test loop look
+exactly like a flaky fix, so a focus experiment needs the user's cooperation.
+
+Verify focus in this order:
+
+1. Read-only: `quickshell ipc --pid <pid> call devprobe focusMatch <token>`
+   resolves the target address and dispatches nothing. An empty or wrong
+   address is the whole bug when a match fails.
+2. One end-to-end dispatch. Announce it, run it once, and compare
+   `hyprctl activewindow -j` before and after.
+3. Ask the user to pause before a loop, and keep the loop short.
+
+Closing a grabbed panel makes the compositor restore the previously focused
+window, which overrides a focus request that follows too soon. `HyprlandFocus`
+waits for `PanelGrab.closing` before dispatching, so a request issued by a
+panel's own click lands after the restore.
+
 ## Second instance rule
 
 Never run a second instance while the daily shell holds the bus: test
@@ -135,6 +155,14 @@ this repository, so a fresh checkout or another machine shows a tiled settings
 window until someone adds it. `title` must equal the `settingsWindowTitle`
 constant in `windows/SettingsCenter.qml`; that constant is deliberately not
 translated because Hyprland matches the title literally.
+
+### Toplevel class
+
+`HyprlandToplevel` has no `class` property. Class matching reads
+`lastIpcObject`, which is empty on this machine under Hyprland's Lua IPC, so a
+matcher keyed on it never matches anything. Read `toplevel.wayland.appId`
+instead. `quickshell ipc --pid <pid> call devprobe toplevels` dumps the
+address, title, appId, and IPC object for every toplevel.
 
 ## Lint entry points
 
