@@ -9,6 +9,7 @@ Singleton {
 
     readonly property var visiblePanels: root.members.filter(member => member.panelVisible)
     readonly property bool active: root.visiblePanels.length > 0
+    readonly property bool closing: root.members.some(member => member.visible && !member.panelVisible)
     readonly property var windows: root.active ? root.barWindows.concat(root.visiblePanels) : []
 
     property var barWindows: []

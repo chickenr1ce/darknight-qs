@@ -58,6 +58,7 @@ QtObject {
     readonly property int focusWatchdogMs: 1000
     readonly property int focusRetryMs: 250
     readonly property int focusRetryTicks: 12
+    readonly property int panelSettleMs: 20
 
     readonly property real pressScaleModule: 0.94
     readonly property real pressScalePill: 0.86

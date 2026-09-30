@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import qs.config
+import qs.services
 
 Singleton {
     id: root
@@ -55,30 +56,47 @@ Singleton {
         root.pumpQueue();
     }
 
-    function keysFor(rawTokens) {
-        const keys = [];
-        for (let i = 0; i < rawTokens.length; i++) {
-            const token = String(rawTokens[i] ?? "").toLowerCase().trim();
-            if (!token)
-                continue;
-            const base = token.split(/[^a-z0-9]+/)[0];
-            if (base && !(keys.includes(base)))
-                keys.push(base);
+    function normalizeUnique(rawValues) {
+        const values = [];
+        for (let i = 0; i < rawValues.length; i++) {
+            const value = String(rawValues[i] ?? "").toLowerCase().trim();
+            if (value !== "" && !(values.includes(value)))
+                values.push(value);
         }
-        return keys;
+        return values;
+    }
+
+    function keysFor(rawTokens) {
+        return root.normalizeUnique(rawTokens);
+    }
+
+    function classSources(toplevel) {
+        const ipc = toplevel.lastIpcObject ?? {};
+        const appId = toplevel.wayland ? toplevel.wayland.appId : "";
+        return root.normalizeUnique([ipc["class"], ipc["initialClass"], appId]);
+    }
+
+    function classMatches(source, key) {
+        const sourceParts = source.split(/[^a-z0-9]+/).filter(part => part !== "");
+        const keyParts = key.split(/[^a-z0-9]+/).filter(part => part !== "");
+        if (sourceParts.length === 0 || keyParts.length === 0)
+            return false;
+        if (keyParts.length === 1)
+            return sourceParts.includes(keyParts[0]);
+        return sourceParts[sourceParts.length - 1] === keyParts[keyParts.length - 1];
     }
 
     function addressFor(keys) {
         const toplevels = Hyprland.toplevels?.values ?? [];
         const candidates = [];
         for (let i = 0; i < toplevels.length; i++) {
-            const toplevel = toplevels[i];
-            const ipc = toplevel.lastIpcObject ?? {};
-            const classSegments = String(ipc["class"] ?? "").toLowerCase().split(/[^a-z0-9]+/);
-            const initialSegments = String(ipc["initialClass"] ?? "").toLowerCase().split(/[^a-z0-9]+/);
+            const sources = root.classSources(toplevels[i]);
             for (let k = 0; k < keys.length; k++) {
-                if (classSegments.includes(keys[k]) || initialSegments.includes(keys[k])) {
-                    candidates.push(toplevel);
+                let matched = false;
+                for (let s = 0; s < sources.length && !matched; s++)
+                    matched = root.classMatches(sources[s], keys[k]);
+                if (matched) {
+                    candidates.push(toplevels[i]);
                     break;
                 }
             }
@@ -88,8 +106,9 @@ Singleton {
         let target = candidates[0];
         let foundTitleMatch = false;
         for (let i = 0; i < candidates.length && !foundTitleMatch; i++) {
-            const titleIpc = candidates[i].lastIpcObject ?? {};
-            const windowTitle = String(titleIpc["title"] ?? "").toLowerCase();
+            const ipc = candidates[i].lastIpcObject ?? {};
+            const ipcTitle = String(ipc["title"] ?? "");
+            const windowTitle = (ipcTitle !== "" ? ipcTitle : String(candidates[i].title ?? "")).toLowerCase();
             for (let k = 0; k < keys.length; k++) {
                 if (keys[k].length >= 3 && windowTitle.includes(keys[k])) {
                     target = candidates[i];
@@ -108,8 +127,15 @@ Singleton {
     }
 
     function pumpQueue() {
-        if (idCursorPosProcess.running || root.requestQueue.length === 0)
+        if (idCursorPosProcess.running || root.requestQueue.length === 0) {
+            idPanelSettleTimer.stop();
             return;
+        }
+        if (PanelGrab.closing) {
+            idPanelSettleTimer.restart();
+            return;
+        }
+        idPanelSettleTimer.stop();
         root.activeAddress = root.requestQueue[0];
         root.requestQueue = root.requestQueue.slice(1);
         root.snapshotPending = true;
@@ -144,6 +170,14 @@ Singleton {
             idFocusRetryTimer.stop();
             root.flushPending();
         }
+    }
+
+    Timer {
+        id: idPanelSettleTimer
+
+        interval: Globals.panelSettleMs
+        repeat: true
+        onTriggered: root.pumpQueue()
     }
 
     // If the cursor snapshot never completes, focus anyway without the

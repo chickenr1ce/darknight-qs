@@ -111,6 +111,18 @@ grep -q 'focusRetryMs' "$ROOT/config/Globals.qml" \
     || fail "Globals has no focusRetryMs"
 grep -q 'focusRetryTicks' "$ROOT/config/Globals.qml" \
     || fail "Globals has no focusRetryTicks"
+grep -q 'panelSettleMs' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no panelSettleMs"
+# Hyprland's Lua IPC leaves lastIpcObject empty, so class matching must also
+# read the Wayland appId or nothing ever matches.
+grep -q 'toplevel.wayland.appId' "$ROOT/services/HyprlandFocus.qml" \
+    || fail "HyprlandFocus class matching does not read the Wayland appId"
+# A panel closing restores the previously focused window, so a focus request
+# must wait for the close to finish or the restore overrides it.
+grep -q 'PanelGrab.closing' "$ROOT/services/HyprlandFocus.qml" \
+    || fail "HyprlandFocus does not wait for a closing panel before focusing"
+grep -q 'readonly property bool closing' "$ROOT/services/PanelGrab.qml" \
+    || fail "PanelGrab does not expose the closing state"
 for site in "modules/Tray.qml" "services/NotificationServer.qml" "windows/DashboardPlayerBlock.qml"; do
     grep -q 'HyprlandFocus.focusByTokens' "$ROOT/$site" \
         || fail "$site does not delegate to HyprlandFocus"
@@ -127,7 +139,7 @@ grep -q 'DashboardService.close()' "$ROOT/windows/DashboardPlayerBlock.qml" \
 # qmllint resolves same-directory siblings, the runtime does not when the
 # directory is a qmldir module: every service file that names a sibling
 # type must import qs.services, and every sibling component must be in qmldir.
-for svc in CalendarService NotificationServer CavaService Panels PowerService SettingsService BarVisibilityService; do
+for svc in CalendarService NotificationServer CavaService Panels PowerService SettingsService BarVisibilityService HyprlandFocus; do
     grep -q '^import qs.services' "$ROOT/services/$svc.qml" \
         || fail "$svc.qml is missing its qs.services self-import"
 done
@@ -164,6 +176,7 @@ fi
 
 # --- 6. python oracles for the pure helpers ---
 python3 - <<'EOF'
+import re
 import sys
 
 def check(name, got, want):
@@ -234,6 +247,35 @@ while queue:
     dispatched.append("restore cursor")
 check("queue/order", dispatched,
       ["focus 0xaaa", "restore cursor", "focus 0xbbb", "restore cursor"])
+
+# Mirror of HyprlandFocus.keysFor/classMatches (services/HyprlandFocus.qml): the
+# token is kept whole (never collapsed to its first segment), a single-segment
+# token matches any class segment, and a reverse-DNS token matches the class's
+# last segment so it cannot collapse to a generic prefix.
+def keys_for(tokens):
+    keys = []
+    for token in tokens:
+        norm = str(token or "").lower().strip()
+        if norm and norm not in keys:
+            keys.append(norm)
+    return keys
+
+def class_matches(source, key):
+    source_parts = [part for part in re.split(r"[^a-z0-9]+", source.lower()) if part]
+    key_parts = [part for part in re.split(r"[^a-z0-9]+", key.lower()) if part]
+    if not source_parts or not key_parts:
+        return False
+    if len(key_parts) == 1:
+        return key_parts[0] in source_parts
+    return source_parts[-1] == key_parts[-1]
+
+check("focus/keys-whole", keys_for(["org.kde.spectacle", "Spectacle"]), ["org.kde.spectacle", "spectacle"])
+check("focus/single-segment", class_matches("spotify", "spotify"), True)
+check("focus/single-in-reverse-dns", class_matches("com.spotify.client", "spotify"), True)
+check("focus/reverse-dns", class_matches("org.kde.spectacle", "org.kde.spectacle"), True)
+check("focus/reverse-dns-last", class_matches("spectacle", "org.kde.spectacle"), True)
+check("focus/reverse-dns-prefix-guard", class_matches("org.kde.okular", "org.kde.spectacle"), False)
+check("focus/no-match", class_matches("firefox", "spotify"), False)
 EOF
 
 # --- 7. power confirm loop:.argv mapping verified without firing ---
