@@ -30,6 +30,7 @@ Card {
                 family: Globals.uiFontFamily
                 pixelSize: Globals.uiCaptionSize
                 weight: Font.Medium
+                letterSpacing: Globals.uiLetterSpacing
             }
         }
 
@@ -75,6 +76,7 @@ Card {
                 family: Globals.uiFontFamily
                 pixelSize: Globals.uiCaptionSize
                 weight: Font.Medium
+                letterSpacing: Globals.uiLetterSpacing
             }
         }
 

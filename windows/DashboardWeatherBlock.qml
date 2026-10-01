@@ -118,8 +118,9 @@ Card {
 
                 font {
                     family: Globals.uiFontFamily
-                    pixelSize: Globals.uiPillSize
-                    weight: Font.DemiBold
+                    pixelSize: Globals.uiCaptionSize
+                    weight: Font.Medium
+                    features: ({ "tnum": 1 })
                 }
             }
 
@@ -153,6 +154,7 @@ Card {
                 font {
                     family: Globals.uiFontFamily
                     pixelSize: Globals.uiCaptionSize
+                    features: ({ "tnum": 1 })
                 }
             }
         }
@@ -260,6 +262,7 @@ Card {
                         family: Globals.uiFontFamily
                         pixelSize: Globals.uiDisplaySize
                         weight: Font.DemiBold
+                        features: ({ "tnum": 1 })
                     }
                 }
             }

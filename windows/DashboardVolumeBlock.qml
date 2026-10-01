@@ -93,6 +93,7 @@ Card {
                         family: Globals.uiFontFamily
                         pixelSize: Globals.uiCaptionSize
                         weight: Font.Medium
+                        features: ({ "tnum": 1 })
                     }
                 }
             }

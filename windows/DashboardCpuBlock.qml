@@ -94,6 +94,7 @@ Card {
                     font {
                         family: Globals.uiFontFamily
                         pixelSize: Globals.uiCaptionSize
+                        features: ({ "tnum": 1 })
                     }
                 }
 
@@ -112,6 +113,7 @@ Card {
                         family: Globals.uiFontFamily
                         pixelSize: Globals.uiCaptionSize
                         weight: Font.Medium
+                        features: ({ "tnum": 1 })
                     }
                 }
             }
@@ -178,6 +180,7 @@ Card {
                     family: Globals.uiFontFamily
                     pixelSize: Globals.uiCaptionSize
                     weight: Font.Medium
+                    features: ({ "tnum": 1 })
                 }
             }
 
@@ -194,6 +197,7 @@ Card {
                     family: Globals.uiFontFamily
                     pixelSize: Globals.uiCaptionSize
                     weight: Font.Medium
+                    features: ({ "tnum": 1 })
                 }
             }
         }

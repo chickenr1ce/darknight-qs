@@ -151,9 +151,10 @@ Timer { id: idMediaTimer }
   Use a fixed-size canvas plus an input `mask` Region tracking real content.
 - **Font family roles**: Iosevka (`Globals.fontFamily`) is the bar/module
   identity; `Globals.uiFontFamily` (Geist) is the reading-surface family for
-  notification toasts, the notification center, and future prose UI. Text
-  sizes on reading surfaces come from the named `Globals.ui*Size` scale —
-  never hardcode pixel sizes there.
+  notification toasts, the notification center, the dashboard, and future prose
+  UI. Text sizes on reading surfaces come from the named `Globals.ui*Size`
+  scale; never hardcode pixel sizes there. The dashboard's type roles are in
+  "Dashboard type roles" below.
 - **A bare singleton name can resolve to a C++ type**: if a file imports both
   a Quickshell service module (for a delegate's role type) and the matching
   `qs.*` module, e.g. `NotificationServer` from `Quickshell.Services.Notifications`
@@ -284,6 +285,41 @@ Timer { id: idMediaTimer }
   memo as a dependency of itself — startup logs `Binding loop detected`.
   Memoize with an explicit refresh function driven by `onLoaded` instead,
   early-returning on identical input (verified 2026-09-23).
+
+### Dashboard type roles
+
+Every `Text` in the dashboard fills one role. The Control row is the shell's
+shared control scale for pill and button labels, not a dashboard-only style; its
+example names the control whose label takes the role. Family is
+`Globals.uiFontFamily` (Geist) throughout. The role sets size, weight, and
+tracking. `tnum` is not a role: set `features: ({ "tnum": 1 })` on any readout
+whose digits change while it is visible, so they do not jitter in place.
+
+| Role | Size | Weight | Tracking | Example id |
+| --- | --- | --- | --- | --- |
+| Hero | `Globals.uiDisplaySize` 28 | `Font.DemiBold` | none | `idWeatherTemp` |
+| Primary | `Globals.uiBodySize` 14 | `Font.DemiBold` | none | `idPlayerTrack` |
+| Row label | `Globals.uiBodySize` 14 | `Font.Normal` | none | `idUsageLabel` |
+| Value | `Globals.uiCaptionSize` 12 | `Font.Medium` | none | `idUsageValue` |
+| Field label | `Globals.uiCaptionSize` 12 | `Font.Medium` | `Globals.uiLetterSpacing` | `idSystemSpecLabel` |
+| Section caption | `Globals.uiCaptionSize` 12 | `Font.Medium` | `Globals.uiLetterSpacing` | `idThemeCaption` |
+| Hero caption | `Globals.uiCaptionSize` 12 | `Font.Medium` | none | `idWeatherCity` |
+| Secondary | `Globals.uiCaptionSize` 12 | `Font.Normal` | none | `idPlayerArtist` |
+| Control | `Globals.uiPillSize` 13 | `Font.Medium` | none | `idPlayerDeviceChip` |
+
+- Field labels and section captions track; values do not. All three are
+  `uiCaptionSize` `Font.Medium`, so the tracking is what separates a metadata
+  label (RAIN, KRNL, Theme) from a data value (usage percent, sink percent).
+  Hero caption is a static context line, the weather city name, so it stays
+  untracked as well.
+- Two control scales, chosen by level. Navigation tabs (Dashboard, Media,
+  Performance, Workspaces) are page-level and use the 14 Primary or Row scale;
+  inline buttons and chips use the `uiPillSize` 13 Control scale. The selected
+  treatment differs with the scale: an active tab turns DemiBold and gains an
+  underline, while a highlighted pill stays Medium and gains a fill.
+- `NET` is a row label, not a field label. It labels a data row the way CPU, GPU,
+  and RAM do, and it sits in the network footer, not in a label and value
+  metadata list. Keep it at `uiBodySize` `Font.Normal` with no tracking.
 
 ### Attribute Ordering: `Layout.*` directly under `id`
 
