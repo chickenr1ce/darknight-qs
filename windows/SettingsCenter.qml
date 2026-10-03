@@ -42,7 +42,7 @@ Loader {
         FloatingWindow {
             id: idSettingsWindow
 
-            property string activeKey: SettingsService.sections.length > 0 ? SettingsService.sections[0].key : ""
+            property string activeKey: SettingsService.targetSection !== "" ? SettingsService.targetSection : (SettingsService.sections.length > 0 ? SettingsService.sections[0].key : "")
 
             readonly property string query: idSettingsSearch.text.trim()
             readonly property var visibleSections: SettingsService.sections.filter(section => idSettingsWindow.sectionMatches(section))
@@ -59,6 +59,18 @@ Loader {
             implicitHeight: Globals.settingsHeight
 
             onClosed: Qt.callLater(() => SettingsService.close())
+
+            Connections {
+                id: idSettingsTarget
+
+                target: SettingsService
+
+                function onTargetSectionChanged(): void {
+                    idSettingsWindow.activeKey = SettingsService.targetSection !== ""
+                        ? SettingsService.targetSection
+                        : (SettingsService.sections.length > 0 ? SettingsService.sections[0].key : "");
+                }
+            }
 
             function sectionMatches(section): bool {
                 if (idSettingsWindow.query === "")
@@ -282,6 +294,15 @@ Loader {
                                     Layout.fillWidth: true
 
                                     visible: idSettingsWindow.hasSection && idSettingsWindow.currentSection.key === "weather"
+                                    filter: idSettingsWindow.bodyFilter
+                                }
+
+                                ThemeSettingsView {
+                                    id: idThemeSection
+
+                                    Layout.fillWidth: true
+
+                                    visible: idSettingsWindow.hasSection && idSettingsWindow.currentSection.key === "theme"
                                     filter: idSettingsWindow.bodyFilter
                                 }
 

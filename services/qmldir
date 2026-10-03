@@ -8,11 +8,13 @@ singleton HyprlandFocus 1.0 HyprlandFocus.qml
 singleton PowerService 1.0 PowerService.qml
 singleton DashboardService 1.0 DashboardService.qml
 singleton SettingsService 1.0 SettingsService.qml
+singleton SettingsFilter 1.0 SettingsFilter.qml
 singleton BarVisibilityService 1.0 BarVisibilityService.qml
 singleton SystemInfo 1.0 SystemInfo.qml
 singleton SystemMonitor 1.0 SystemMonitor.qml
 singleton AudioService 1.0 AudioService.qml
 singleton SpotifyService 1.0 SpotifyService.qml
 singleton WeatherService 1.0 WeatherService.qml
+singleton ThemeService 1.0 ThemeService.qml
 PanelState 1.0 PanelState.qml
 StateFile 1.0 StateFile.qml

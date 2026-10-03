@@ -11,18 +11,11 @@ ColumnLayout {
 
     property string filter: ""
 
-    readonly property bool filtering: root.filter !== ""
-
     spacing: Globals.spacing
 
-    function matches(label: string): bool {
-        if (!root.filtering)
-            return true;
-        return label.toLowerCase().includes(root.filter.toLowerCase());
-    }
-
     function matchesLocation(): bool {
-        return root.matches(qsTr("City")) || root.matches(qsTr("Location"));
+        return SettingsFilter.matches(root.filter, qsTr("City"))
+            || SettingsFilter.matches(root.filter, qsTr("Location"));
     }
 
     RowLayout {
@@ -30,7 +23,7 @@ ColumnLayout {
 
         Layout.fillWidth: true
 
-        visible: root.matches(qsTr("City"))
+        visible: SettingsFilter.matches(root.filter, qsTr("City"))
         spacing: Globals.rowSpacing
 
         Text {

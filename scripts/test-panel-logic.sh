@@ -472,8 +472,8 @@ test -f "$SSVC" \
     || fail "services/SettingsService.qml is missing"
 grep -q 'property bool visible: false' "$SSVC" \
     || fail "SettingsService has no visible flag"
-grep -qF 'function open(screen)' "$SSVC" \
-    || fail "SettingsService has no open(screen)"
+grep -qF 'function open(screen, sectionKey)' "$SSVC" \
+    || fail "SettingsService has no open(screen, sectionKey)"
 grep -qF 'function close' "$SSVC" \
     || fail "SettingsService has no close"
 grep -q '^import qs.services' "$SSVC" \
@@ -517,6 +517,10 @@ grep -q 'NavItem' "$SCENTER" \
     || fail "SettingsCenter does not compose the sidebar NavItem"
 grep -q 'SettingsCenter' "$ROOT/shell.qml" \
     || fail "shell.qml does not instantiate SettingsCenter"
+grep -q 'onTargetSectionChanged' "$SCENTER" \
+    || fail "SettingsCenter does not re-apply a later targetSection (M5)"
+grep -A4 'function onTargetSectionChanged' "$SCENTER" | grep -q 'SettingsService.sections\[0\].key' \
+    || fail "SettingsCenter does not reset to the first section when targetSection clears"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$SCENTER" "$CSV" "$SSVC" "$ROOT/components/NavItem.qml"; then
     fail "settings surface carries raw hex; palette tokens only"
 fi
@@ -543,10 +547,10 @@ grep -q 'CavaSettingsView' "$SCENTER" \
     || fail "SettingsCenter does not compose the shared CavaSettingsView"
 grep -q 'property string filter' "$CSV" \
     || fail "CavaSettingsView has no filter property"
-grep -qF 'matches(qsTr("Style"))' "$CSV" \
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Style"))' "$CSV" \
     || fail "CavaSettingsView does not filter the Style option"
 for label in "Sensitivity" "Auto sensitivity" "Bars" "Max height"; do
-    grep -qF "matches(qsTr(\"$label\"))" "$CSV" \
+    grep -qF "SettingsFilter.matches(root.filter, qsTr(\"$label\"))" "$CSV" \
         || fail "CavaSettingsView does not filter the $label option"
     grep -qF "qsTr(\"$label\")" "$SSVC" \
         || fail "SettingsService sections do not list $label for search"
@@ -663,6 +667,60 @@ grep -qF 'qsTr("City")' "$SSVC" \
     || fail "SettingsService Weather options do not list City"
 grep -qF 'qsTr("Location")' "$SSVC" \
     || fail "SettingsService Weather options do not list Location"
+
+# Theme section: the catalog renders as one repeated selectable row per theme,
+# the active theme is marked, and selection writes the shared ThemeService the
+# bar repaints from with no restart.
+THEMEVIEW="$ROOT/windows/ThemeSettingsView.qml"
+test -f "$THEMEVIEW" \
+    || fail "windows/ThemeSettingsView.qml is missing"
+grep -q 'property string filter' "$THEMEVIEW" \
+    || fail "ThemeSettingsView has no filter property"
+grep -q 'Repeater' "$THEMEVIEW" \
+    || fail "ThemeSettingsView does not render the catalog through a repeater"
+grep -q 'NavItem' "$THEMEVIEW" \
+    || fail "ThemeSettingsView does not compose the shared row component"
+grep -q 'ThemeService.catalog' "$THEMEVIEW" \
+    || fail "ThemeSettingsView does not list the catalog"
+grep -q 'ThemeService.activeTheme' "$THEMEVIEW" \
+    || fail "ThemeSettingsView does not mark the active theme"
+grep -q 'ThemeService.selectTheme' "$THEMEVIEW" \
+    || fail "ThemeSettingsView cannot switch themes"
+grep -q 'SettingsFilter.matches' "$THEMEVIEW" \
+    || fail "ThemeSettingsView does not filter through the shared SettingsFilter"
+grep -q 'ThemeService' "$ROOT/config/Colors.qml" \
+    || fail "Colors no longer mirrors ThemeService; a section switch cannot repaint the bar"
+grep -q 'ThemeSettingsView' "$SCENTER" \
+    || fail "SettingsCenter does not compose the Theme section"
+grep -qF 'key: "theme"' "$SSVC" \
+    || fail "SettingsService has no theme section"
+grep -qF 'ThemeService.catalog' "$SSVC" \
+    || fail "SettingsService theme options do not derive from the catalog"
+grep -qF 'ThemeService.catalog.map(theme => theme.name)' "$SSVC" \
+    || fail "SettingsService theme options do not list the catalog slugs"
+grep -qF 'ThemeService.catalog.map(theme => theme.displayName)' "$SSVC" \
+    || fail "SettingsService theme options do not list the catalog display names"
+grep -qF 'options: [qsTr("Theme")]' "$SSVC" \
+    || fail "SettingsService theme options do not list Theme"
+
+# Settings filtering lives once: every view delegates to the shared
+# SettingsFilter rather than copying the predicate into its own matches().
+FILTER="$ROOT/services/SettingsFilter.qml"
+test -f "$FILTER" \
+    || fail "services/SettingsFilter.qml is missing"
+grep -q '^singleton SettingsFilter 1.0 SettingsFilter.qml' "$ROOT/services/qmldir" \
+    || fail "SettingsFilter is not registered in services/qmldir"
+grep -q 'function matches' "$FILTER" \
+    || fail "SettingsFilter has no matches()"
+grep -q 'function filtering' "$FILTER" \
+    || fail "SettingsFilter has no filtering()"
+for view in "$CSV" "$CAL" "$WV" "$ROOT/windows/LayoutSettingsView.qml" "$NOTIF" "$MOTION" "$THEMEVIEW"; do
+    grep -q 'SettingsFilter' "$view" \
+        || fail "$(basename "$view") does not filter through the shared SettingsFilter"
+done
+if grep -rn --include='*.qml' 'includes(root.filter' "$ROOT/windows" "$ROOT/services" | grep -q .; then
+    fail "a settings view copies the filter predicate instead of using SettingsFilter"
+fi
 
 # Zones plus feeds persist through the CalendarService state files; the parse
 # validation is unchanged. Oracle mirrors CalendarService.parseZones.
@@ -823,7 +881,7 @@ grep -q 'BarVisibilityService.isVisible' "$BVIEW" \
     || fail "LayoutSettingsView does not read module visibility"
 grep -q 'BarVisibilityService.setVisible' "$BVIEW" \
     || fail "LayoutSettingsView does not write module visibility"
-grep -qF 'matches(qsTr("Bar visibility"))' "$BVIEW" \
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Bar visibility"))' "$BVIEW" \
     || fail "LayoutSettingsView does not match its Bar visibility search label, so searching it shows an empty body"
 grep -q 'LayoutSettingsView' "$SCENTER" \
     || fail "SettingsCenter does not compose the Layout section"
@@ -937,5 +995,905 @@ grep -q 'PanelGrab.unregisterBar(idPanelWindow)' "$ROOT/shell.qml" \
     || fail "shell.qml does not unregister the bar from the shared grab"
 grep -q 'barWindows.concat' "$PGRAB" \
     || fail "PanelGrab does not fold the always-visible bar into the grab"
+
+# --- 14. theme service: palette model plus guarded colors.toml read ---
+# ThemeService answers "what is the palette right now" only. The palette is
+# read from a quickshell-owned theme root through one guarded door (regular
+# file, not a symlink, size capped) and normalized by pure functions in
+# ThemeParsers.js. Catalog listing is ticket 03, the desktop renderer is
+# ticket 05; neither belongs here.
+TSVC="$ROOT/services/ThemeService.qml"
+TPARSE="$ROOT/services/ThemeParsers.js"
+test -f "$TSVC" \
+    || fail "services/ThemeService.qml is missing"
+test -f "$TPARSE" \
+    || fail "services/ThemeParsers.js is missing"
+grep -q '^singleton ThemeService 1.0 ThemeService.qml' "$ROOT/services/qmldir" \
+    || fail "ThemeService is not registered in services/qmldir"
+grep -q '^import qs.services' "$TSVC" \
+    || fail "ThemeService.qml is missing its qs.services self-import"
+grep -qF 'quickshell/themes' "$TSVC" \
+    || fail "ThemeService does not resolve the quickshell theme root"
+if grep -q 'omarchy' "$TSVC"; then
+    fail "ThemeService names an omarchy path; the theme root is quickshell-owned"
+fi
+grep -q 'name: "theme"' "$TSVC" \
+    || fail "ThemeService does not persist the selection to the theme state file"
+grep -qF '"colors.toml"' "$TSVC" \
+    || fail "ThemeService does not read colors.toml"
+grep -q '"stat"' "$TSVC" \
+    || fail "ThemeService does not stat colors.toml before reading it"
+grep -q 'ThemeParsers.parseColors' "$TSVC" \
+    || fail "ThemeService does not parse the palette through ThemeParsers"
+grep -q 'ThemeParsers.isTrustedStat' "$TSVC" \
+    || fail "ThemeService does not gate the read through ThemeParsers.isTrustedStat"
+grep -q 'ThemeParsers.parseSelection' "$TSVC" \
+    || fail "ThemeService does not parse the selection through ThemeParsers"
+grep -qF '"%f|%s"' "$TSVC" \
+    || fail "ThemeService trust check must use stat's raw mode (%f), not the locale-dependent %F"
+grep -q 'hasPalette' "$TSVC" \
+    || fail "ThemeService exposes no hasPalette"
+# Roles stay writable so a palette swap re-binds consumers, per the repaint
+# rule; a readonly role would freeze the bar at the first palette.
+for role in background dark_background lighter_background foreground muted dark_foreground light_foreground accent magenta red yellow; do
+    grep -qE "^[[:space:]]*property color $role: " "$TSVC" \
+        || fail "ThemeService does not expose writable role $role"
+done
+# B1: the restored state name is validated with the same predicate the catalog
+# scan uses, and a ready catalog gates the path so only a listed theme is read.
+grep -q 'function isValidThemeName' "$TPARSE" \
+    || fail "ThemeParsers has no shared theme-name predicate"
+grep -q 'isValidThemeName(parsed.theme)' "$TPARSE" \
+    || fail "parseSelection does not validate the restored theme name"
+grep -q 'isValidThemeName(name)' "$TPARSE" \
+    || fail "parseCatalog does not use the shared theme-name predicate"
+grep -q 'function themePathAllowed' "$TSVC" \
+    || fail "ThemeService does not gate a path on catalog membership"
+grep -q 'root.themePathAllowed(root.activeTheme)' "$TSVC" \
+    || fail "colorsPath is not gated on catalog membership"
+# L7: required roles are opaque; only the border roles keep the eight-digit form.
+grep -q 'function isOpaqueColorValue' "$TPARSE" \
+    || fail "ThemeParsers does not distinguish opaque roles from border roles"
+grep -q 'isOpaqueColorValue(value)' "$TPARSE" \
+    || fail "parseColors does not restrict a required role to an opaque value"
+grep -qF '[0-9a-fA-F]+' "$TPARSE" \
+    || fail "isTrustedStat does not require a hex mode field (L15)"
+# M3, L1, L2, L4: the refresh, background and renderer follow-ups.
+grep -A6 'function refresh(): string' "$TSVC" | grep -q 'reloadPalette' \
+    || fail "the IPC refresh does not reload the active palette (M3)"
+grep -q 'no background named' "$TSVC" \
+    || fail "selectBackground does not refuse an unknown background (L1)"
+grep -q 'backgroundQueuedPath' "$TSVC" \
+    || fail "a second background pick is not queued (L2)"
+grep -q 'render-theme.sh exited non-zero' "$TSVC" \
+    || fail "a non-zero renderer exit is not logged (L4)"
+
+python3 - <<'EOF'
+import json
+import re
+import sys
+
+def check(name, got, want):
+    if got != want:
+        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
+        sys.exit(1)
+
+# Mirror of ThemeParsers.parseColors and its tables (services/ThemeParsers.js).
+# The guaranteed color keys are the spec's v4 set; mode is a string, and the
+# four optional keys are the only extras carried through.
+REQUIRED_KEYS = [
+    "accent", "selection", "muted",
+    "background", "dark_background", "darker_background", "lighter_background",
+    "foreground", "dark_foreground", "light_foreground", "bright_foreground",
+    "red", "yellow", "green", "cyan", "blue", "magenta",
+    "bright_red", "bright_yellow", "bright_green", "bright_cyan",
+    "bright_blue", "bright_magenta",
+]
+OPTIONAL_KEYS = ["orange", "brown", "hyprland_active_border", "hyprland_inactive_border"]
+BORDER_KEYS = ["hyprland_active_border", "hyprland_inactive_border"]
+MAX_BYTES = 262144
+
+def is_color(value):
+    return isinstance(value, str) and re.fullmatch(
+        r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})",
+        value,
+    ) is not None
+
+# Required roles (and the orange and brown aliases) reach QML, where an
+# eight-digit value is #aarrggbb, while a theme value is #rrggbbaa. They are
+# restricted to opaque forms so QML cannot read the wrong channel order; only
+# the two border roles, consumed by render-theme.sh, keep the eight-digit form.
+def is_opaque_color(value):
+    return isinstance(value, str) and re.fullmatch(
+        r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})",
+        value,
+    ) is not None
+
+def parse_toml_string(raw):
+    text = raw.strip()
+    if len(text) >= 2 and text[0] in "\"'":
+        end = text.find(text[0], 1)
+        if end > 0:
+            return text[1:end]
+    parts = text.split(None, 1)
+    return parts[0] if parts else ""
+
+def parse_colors(toml_text):
+    if not isinstance(toml_text, str):
+        return None
+    values = {}
+    for line in toml_text.split("\n"):
+        line = line.strip()
+        if line == "" or line[0] in "#[":
+            continue
+        eq = line.find("=")
+        if eq <= 0:
+            continue
+        key = line[:eq].strip()
+        if key not in REQUIRED_KEYS and key not in OPTIONAL_KEYS and key != "mode":
+            continue
+        values[key] = parse_toml_string(line[eq + 1:])
+    mode = values.get("mode")
+    if mode not in ("dark", "light"):
+        return None
+    palette = {}
+    for key in REQUIRED_KEYS:
+        value = values.get(key)
+        if not is_opaque_color(value):
+            return None
+        palette[key] = value.lower()
+    for key in OPTIONAL_KEYS:
+        value = values.get(key)
+        valid = is_color(value) if key in BORDER_KEYS else is_opaque_color(value)
+        if valid:
+            palette[key] = value.lower()
+    palette["mode"] = mode
+    return palette
+
+VALID = """
+mode = "dark"
+
+accent = "#7aa2f7"
+selection = "#292e42"
+muted = "#414868"
+
+background = "#1a1b26"
+dark_background = "#13141c"
+darker_background = "#0e0e14"
+lighter_background = "#24283b"
+
+foreground = "#a9b1d6"
+dark_foreground = "#565f89"
+light_foreground = "#b4bee6"
+bright_foreground = "#c0caf5"
+
+red = "#f7768e"
+yellow = "#e0af68"
+orange = "#eb927b"
+green = "#9ece6a"
+cyan = "#449dab"
+blue = "#7aa2f7"
+magenta = "#ad8ee6"
+brown = "#75493d"
+
+bright_red = "#ff7a93"
+bright_yellow = "#ff9e64"
+bright_green = "#b9f27c"
+bright_cyan = "#0db9d7"
+bright_blue = "#7da6ff"
+bright_magenta = "#bb9af7"
+"""
+
+palette = parse_colors(VALID)
+check("colors/mode", palette["mode"], "dark")
+check("colors/background", palette["background"], "#1a1b26")
+check("colors/red", palette["red"], "#f7768e")
+check("colors/optional-orange", palette["orange"], "#eb927b")
+check("colors/no-urgent-role", "urgent" in palette, False)
+check("colors/uppercase-lowered", parse_colors(VALID.replace("#1A1B26", "#1A1B26"))["background"], "#1a1b26")
+
+# red is the urgent role; an explicit `urgent` key is ignored, not carried.
+urgent = parse_colors(VALID + '\nurgent = "#ff0000"\n')
+check("colors/urgent-ignored", "urgent" in urgent, False)
+check("colors/red-kept", urgent["red"], "#f7768e")
+
+# Eight digits are #rrggbbaa for the border roles only; a required role with
+# eight digits is rejected rather than handed to QML, which reads #aarrggbb.
+check("colors/required-8-digit-rejected", parse_colors(
+    VALID.replace('accent = "#7aa2f7"', 'accent = "#7aa2f7aa"')), None)
+check("colors/border-8-digit-kept", parse_colors(
+    VALID + '\nhyprland_inactive_border = "#00ff0080"\n')["hyprland_inactive_border"], "#00ff0080")
+check("colors/alias-8-digit-dropped", "orange" in parse_colors(
+    VALID.replace('orange = "#eb927b"', 'orange = "#eb927baa"')), False)
+
+# A light theme flips mode.
+check("colors/light", parse_colors(VALID.replace('mode = "dark"', 'mode = "light"'))["mode"], "light")
+
+# A missing guaranteed key rejects the whole palette.
+check("colors/missing-key", parse_colors("\n".join(
+    line for line in VALID.split("\n") if not line.startswith("red = "))), None)
+check("colors/missing-mode", parse_colors("\n".join(
+    line for line in VALID.split("\n") if not line.startswith("mode = "))), None)
+
+# An empty file has no palette.
+check("colors/empty", parse_colors(""), None)
+check("colors/comments-only", parse_colors("# just a comment\n"), None)
+
+# Mirror of ThemeParsers.isTrustedStat (services/ThemeParsers.js): the stat
+# output is the raw mode in hex plus the byte size, so the check never reads a
+# localized file-type string. Only a regular file (mode type 0x8000) at or
+# below the 256 KB cap is readable; a symlink, a directory, and a missing path
+# are all refused.
+def is_trusted_stat(output):
+    if not isinstance(output, str):
+        return False
+    parts = output.strip().split("|")
+    if len(parts) != 2:
+        return False
+    mode_text, size_text = parts[0].strip(), parts[1].strip()
+    # An empty field must fail rather than coerce: Number("") is 0, which would
+    # trust a truncated stat line.
+    if re.fullmatch(r"[0-9a-fA-F]+", mode_text) is None:
+        return False
+    if re.fullmatch(r"[0-9]+", size_text) is None:
+        return False
+    mode = int(mode_text, 16)
+    size = int(size_text)
+    return (mode & 0xF000) == 0x8000 and size <= MAX_BYTES
+
+check("stat/regular", is_trusted_stat("81a4|512"), True)
+check("stat/at-cap", is_trusted_stat(f"81a4|{MAX_BYTES}"), True)
+check("stat/oversized", is_trusted_stat(f"81a4|{MAX_BYTES + 1}"), False)
+check("stat/symlink", is_trusted_stat("a1ff|9"), False)
+check("stat/directory", is_trusted_stat("41ed|4096"), False)
+check("stat/missing", is_trusted_stat(""), False)
+check("stat/executable", is_trusted_stat("81ed|14"), True)
+check("stat/truncated-size", is_trusted_stat("81a4|"), False)
+check("stat/missing-mode", is_trusted_stat("|512"), False)
+
+# Mirror of ThemeParsers.parseSelection / serializeSelection
+# (services/ThemeParsers.js): the theme name is validated as one plain path
+# segment before it can become a path, a malformed or non-object file falls back
+# to no active theme with an empty background map, and a round trip preserves
+# both.
+CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+
+def valid_theme_name(name):
+    if not isinstance(name, str):
+        return False
+    if name in ("", ".", ".."):
+        return False
+    if any(sep in name for sep in "/\\|#?"):
+        return False
+    return CONTROL.search(name) is None
+
+def parse_selection(json_text):
+    try:
+        parsed = json.loads(json_text)
+    except Exception:
+        return {"theme": "", "backgrounds": {}}
+    if not isinstance(parsed, dict):
+        return {"theme": "", "backgrounds": {}}
+    theme = parsed.get("theme") if valid_theme_name(parsed.get("theme")) else ""
+    backgrounds = parsed.get("backgrounds")
+    if not isinstance(backgrounds, dict):
+        backgrounds = {}
+    return {"theme": theme, "backgrounds": backgrounds}
+
+def serialize_selection(theme, backgrounds_json):
+    try:
+        backgrounds = json.loads(backgrounds_json)
+    except Exception:
+        backgrounds = {}
+    if not isinstance(backgrounds, dict):
+        backgrounds = {}
+    return json.dumps({"theme": theme, "backgrounds": backgrounds}) + "\n"
+
+check("selection/round-trip",
+      parse_selection(serialize_selection("tokyo-night", '{"tokyo-night": "2-swirl-buck.webp"}')),
+      {"theme": "tokyo-night", "backgrounds": {"tokyo-night": "2-swirl-buck.webp"}})
+check("selection/default-empty", parse_selection(""), {"theme": "", "backgrounds": {}})
+check("selection/malformed", parse_selection("{nope"), {"theme": "", "backgrounds": {}})
+check("selection/list", parse_selection("[1, 2]"), {"theme": "", "backgrounds": {}})
+check("selection/keeps-backgrounds", parse_selection('{"backgrounds": {"a": "b.jpg"}}'),
+      {"theme": "", "backgrounds": {"a": "b.jpg"}})
+check("selection/select-rewrites-theme-keeps-backgrounds",
+      parse_selection(serialize_selection("daylight", '{"tokyo-night": "2-swirl-buck.webp"}')),
+      {"theme": "daylight", "backgrounds": {"tokyo-night": "2-swirl-buck.webp"}})
+check("selection/traversal", parse_selection('{"theme": "../../etc"}'), {"theme": "", "backgrounds": {}})
+check("selection/slash", parse_selection('{"theme": "a/b"}'), {"theme": "", "backgrounds": {}})
+check("selection/backslash", parse_selection(json.dumps({"theme": "a\\b"})), {"theme": "", "backgrounds": {}})
+check("selection/dot", parse_selection('{"theme": "."}'), {"theme": "", "backgrounds": {}})
+check("selection/dotdot", parse_selection('{"theme": ".."}'), {"theme": "", "backgrounds": {}})
+check("selection/fragment", parse_selection('{"theme": "a#b"}'), {"theme": "", "backgrounds": {}})
+check("selection/query", parse_selection('{"theme": "a?b"}'), {"theme": "", "backgrounds": {}})
+check("selection/control", parse_selection(json.dumps({"theme": "evil\nname"})), {"theme": "", "backgrounds": {}})
+check("selection/valid", parse_selection('{"theme": "tokyo-night"}'), {"theme": "tokyo-night", "backgrounds": {}})
+EOF
+
+# B1 regression: run the shipped parser under node and feed it the state values
+# a tampered state file could hold. The Python mirror above states the intent;
+# this checks the real file, which is where B1 shipped unvalidated.
+node - "$TPARSE" <<'NODEEOF'
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync(process.argv[2], 'utf8').replace(/^\.pragma .*$/m, '');
+const ctx = { console };
+vm.createContext(ctx);
+vm.runInContext(src, ctx);
+function fail(message) {
+    console.error('panel-logic FAIL: ' + message);
+    process.exit(1);
+}
+function selection(theme) {
+    return ctx.parseSelection(JSON.stringify({ theme: theme })).theme;
+}
+for (const name of ['../../../etc', 'a/b', 'a\\b', 'a|b', 'a#b', 'a?b', '.', '..', '', 'evil\nname']) {
+    const got = selection(name);
+    if (got !== '')
+        fail('parseSelection kept a rejected theme name ' + JSON.stringify(name) + ': ' + JSON.stringify(got));
+}
+if (selection('tokyo-night') !== 'tokyo-night')
+    fail('parseSelection dropped a valid theme name');
+if (ctx.isValidThemeName === undefined)
+    fail('ThemeParsers.js did not expose isValidThemeName under node');
+const bg = ctx.parseBackgrounds('{"__proto__": "a.png"}');
+if (bg["__proto__"] !== "a.png")
+    fail('parseBackgrounds lost a __proto__ key');
+if (Object.getPrototypeOf(bg) !== null)
+    fail('parseBackgrounds kept a prototype, so a __proto__ key can shadow the map');
+NODEEOF
+
+# --- 15. colors mapping: every mapped token binds to ThemeService ---
+# config/Colors.qml keeps its token names and gains a binding onto
+# ThemeService per the frozen mapping table. When no
+# theme is active each token falls back to the pre-theme hex, so the no-theme
+# look is unchanged. Aliases (panel, card, danger, ...) resolve to their source
+# token; appColor stays palette-independent.
+COLORS="$ROOT/config/Colors.qml"
+test -f "$COLORS" \
+    || fail "config/Colors.qml is missing"
+grep -q '^import qs.services' "$COLORS" \
+    || fail "Colors.qml is missing its qs.services import"
+
+python3 - "$COLORS" <<'EOF'
+import re
+import sys
+
+def check(name, got, want):
+    if got != want:
+        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
+        sys.exit(1)
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as handle:
+    text = handle.read()
+
+# name -> expression for every `readonly property color <name>: <expr>`.
+exprs = {}
+for match in re.finditer(r"^\s*readonly property color (\w+):\s*(.+?)\s*$", text, re.M):
+    exprs[match.group(1)] = match.group(2)
+
+# Frozen mapping: every Colors token -> the pre-theme hex the binding keeps in
+# the no-theme branch. Aliases resolve to their source token's expression.
+MAPPED = {
+    "background": "#141118", "panel": "#141118", "card": "#141118",
+    "onAccent": "#141118",
+    "backgroundSecondary": "#27222f", "cardSecondary": "#27222f",
+    "surface": "#282936", "border": "#282936", "panelBorder": "#282936",
+    "text": "#cac4d4",
+    "textSubtle": "#9d93ad",
+    "textSecondary": "#4f455f",
+    "accent": "#b4befe", "lavender": "#b4befe", "accentDim": "#b4befe",
+    "accentSecondary": "#a980db", "purple": "#a980db",
+    "danger": "#ff5252", "red": "#ff5252",
+    "warning": "#d7d370", "yellow": "#d7d370",
+    "criticalCard": "#2a161c",
+    "criticalCardBorder": "#40222b",
+}
+
+for token in MAPPED:
+    check(f"colors/{token}/defined", token in exprs, True)
+
+def terminal(name, seen=None):
+    # Follow bare aliases (`other`, `root.other`) until an expression naming
+    # ThemeService. A token that never reaches it has no palette binding.
+    seen = seen or set()
+    expr = exprs[name]
+    if "ThemeService" in expr:
+        return expr
+    for ref in re.findall(r"(?:root\.)?(\w+)", expr):
+        if ref in exprs and ref != name and ref not in seen:
+            found = terminal(ref, seen | {name})
+            if found is not None:
+                return found
+    return None
+
+for token, fallback in MAPPED.items():
+    resolved = terminal(token)
+    check(f"colors/{token}/binds-theme", resolved is not None, True)
+    check(f"colors/{token}/fallback", fallback in resolved, True)
+
+check("colors/textSecondary/mode", "ThemeService.mode" in exprs["textSecondary"], True)
+check("colors/textSecondary/dark", "dark_foreground" in exprs["textSecondary"], True)
+check("colors/textSecondary/light", "light_foreground" in exprs["textSecondary"], True)
+
+# accentDim is accent at 14 percent alpha, not a literal.
+check("colors/accentDim/alpha", "0.14" in exprs["accentDim"], True)
+check("colors/accentDim/accent", "accent" in exprs["accentDim"], True)
+
+# criticalCard and criticalCardBorder mix red into background, not a literal.
+for token in ("criticalCard", "criticalCardBorder"):
+    check(f"colors/{token}/red", "red" in exprs[token], True)
+    check(f"colors/{token}/background", "background" in exprs[token], True)
+
+# appColor keeps its hash and never reads the palette.
+appmatch = re.search(r"function appColor\([^)]*\)[^{]*\{(.*?)\n    \}", text, re.S)
+check("colors/appColor/defined", appmatch is not None, True)
+body = appmatch.group(1) if appmatch else ""
+check("colors/appColor/hash", "5381" in body, True)
+check("colors/appColor/hsla", "Qt.hsla((((hash % 11) + 1) * 30) / 360, 0.65, 0.72, 1.0)" in body, True)
+check("colors/appColor/palette-free", "ThemeService" in body, False)
+EOF
+
+# --- 16. theme catalog: discovery and selection ---
+# ThemeService discovers themes through scripts/theme-catalog-scan.sh, which
+# lists a candidate only when it is a real directory holding a readable,
+# regular-file colors.toml with a v4 mode. The scan is a real artifact, so this
+# gate runs it against a fixture root. ThemeParsers.parseCatalog then names,
+# orders, and locates the entries; selectTheme writes the selection through the
+# ticket-01 state seam.
+TSCRIPT="$ROOT/scripts/theme-catalog-scan.sh"
+test -f "$TSCRIPT" \
+    || fail "scripts/theme-catalog-scan.sh is missing"
+grep -q 'ThemeParsers.parseCatalog' "$TSVC" \
+    || fail "ThemeService does not build the catalog through ThemeParsers.parseCatalog"
+grep -q 'function refresh' "$TSVC" \
+    || fail "ThemeService exposes no refresh()"
+grep -q 'function selectTheme' "$TSVC" \
+    || fail "ThemeService exposes no selectTheme()"
+grep -qE 'readonly property var catalog' "$TSVC" \
+    || fail "ThemeService exposes no catalog list"
+grep -q 'theme-catalog-scan.sh' "$TSVC" \
+    || fail "ThemeService does not run the catalog scan script"
+grep -q 'ThemeParsers.themeMaxBytes' "$TSVC" \
+    || fail "ThemeService does not pass the palette byte cap to the scan"
+
+CATDIR="$(mktemp -d /tmp/opencode/theme-catalog-XXXXXX)"
+# The scan lists a theme only when colors.toml carries the full v4 palette, not
+# merely a mode line, so the catalog cannot offer a switch that yields no
+# palette (M4). The palette text mirrors the JS/Python oracle above.
+write_palette_theme() {
+    mkdir -p "$1"
+    sed "s/^mode = \"dark\"/mode = \"$2\"/" "$ROOT/tests/fixtures/theme-palette.toml" > "$1/colors.toml"
+}
+mkdir -p "$CATDIR/tokyo-night" "$CATDIR/daylight" "$CATDIR/quoted" "$CATDIR/twice" \
+    "$CATDIR/modeonly" "$CATDIR/missingkey" "$CATDIR/dupmode" "$CATDIR/oversized" \
+    "$CATDIR/hash#name" "$CATDIR/quest?name" "$CATDIR/pipe|name" "$CATDIR/back\\slash" \
+    "$CATDIR/linktheme" "$CATDIR/linkcolors"
+write_palette_theme "$CATDIR/tokyo-night" dark
+write_palette_theme "$CATDIR/daylight" light
+write_palette_theme "$CATDIR/quoted" light
+sed -i "s/^mode = \"light\"/mode = 'light'/" "$CATDIR/quoted/colors.toml"
+write_palette_theme "$CATDIR/twice" dark
+printf 'mode = "light"\n' >> "$CATDIR/twice/colors.toml"
+# A mode-only file, and a palette missing a required key, are both dropped.
+printf 'mode = "dark"\n' > "$CATDIR/modeonly/colors.toml"
+grep -v '^red = ' "$CATDIR/tokyo-night/colors.toml" > "$CATDIR/missingkey/colors.toml"
+# The last value of a key wins, so a valid value followed by an invalid one is
+# dropped, matching parseColors.
+write_palette_theme "$CATDIR/dupmode" dark
+printf 'accent = "#7aa2f7aa"\n' >> "$CATDIR/dupmode/colors.toml"
+write_palette_theme "$CATDIR/oversized" dark
+head -c 262145 /dev/zero | tr '\0' '#' >> "$CATDIR/oversized/colors.toml"
+write_palette_theme "$CATDIR/hash#name" dark
+write_palette_theme "$CATDIR/quest?name" dark
+write_palette_theme "$CATDIR/pipe|name" dark
+write_palette_theme "$CATDIR/back\\slash" dark
+ln -s "$CATDIR/tokyo-night" "$CATDIR/linktheme"
+ln -s "$CATDIR/tokyo-night/colors.toml" "$CATDIR/linkcolors/colors.toml"
+: > "$CATDIR/notatheme"
+scan_out="$(sh "$TSCRIPT" "$CATDIR" 262144 | LC_ALL=C sort)"
+scan_want="$(cat <<'EOF'
+daylight|"light"
+quoted|'light'
+tokyo-night|"dark"
+twice|"light"
+EOF
+)"
+test "$scan_out" = "$scan_want" \
+    || fail "catalog scan listed the wrong themes: got [$scan_out] want [$scan_want]"
+rm -rf "$CATDIR"
+
+python3 - <<'EOF'
+import re
+import sys
+
+def check(name, got, want):
+    if got != want:
+        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
+        sys.exit(1)
+
+# Mirror of ThemeParsers.displayName (services/ThemeParsers.js): split on runs
+# of - or _, drop empty segments, uppercase each segment's first character, and
+# join with single spaces.
+def display_name(name):
+    words = []
+    for word in re.split(r"[-_]+", name):
+        if word == "":
+            continue
+        words.append(word[0].upper() + word[1:])
+    return " ".join(words)
+
+check("catalog/display-kebab", display_name("tokyo-night"), "Tokyo Night")
+check("catalog/display-snake", display_name("rose_pine"), "Rose Pine")
+check("catalog/display-single", display_name("nord"), "Nord")
+check("catalog/display-runs", display_name("a--b__c"), "A B C")
+check("catalog/display-lead-trail", display_name("-lead-trail-"), "Lead Trail")
+check("catalog/display-digits", display_name("123abc"), "123abc")
+check("catalog/display-empty", display_name(""), "")
+
+# Mirror of ThemeParsers.parseTomlString (services/ThemeParsers.js): a quoted
+# value ends at its closing quote, an unquoted value at the first space.
+def parse_toml_string(raw):
+    text = raw.strip()
+    if len(text) >= 2 and text[0] in "\"'":
+        end = text.find(text[0], 1)
+        if end > 0:
+            return text[1:end]
+    parts = text.split(None, 1)
+    return parts[0] if parts else ""
+
+# Mirror of ThemeParsers.parseCatalog (services/ThemeParsers.js): one `name|raw
+# mode` record per line from the scan; the raw value goes through
+# parseTomlString, a valid mode is required, and entries sort by display name
+# then slug and are located under the theme root.
+def parse_catalog(output, root):
+    entries = []
+    for line in output.split("\n"):
+        if line == "":
+            continue
+        sep = line.rfind("|")
+        if sep <= 0:
+            continue
+        name = line[:sep]
+        mode = parse_toml_string(line[sep + 1:])
+        if mode not in ("dark", "light"):
+            continue
+        if name in ("", ".", "..") or "/" in name:
+            continue
+        entries.append({"name": name, "displayName": display_name(name),
+                        "dir": root + "/" + name, "mode": mode})
+    entries.sort(key=lambda entry: (entry["displayName"], entry["name"]))
+    return entries
+
+TEXT = 'tokyo-night|"dark"\ndaylight|"light"\nnord|light\n'
+check("catalog/order", [e["name"] for e in parse_catalog(TEXT, "/r")],
+      ["daylight", "nord", "tokyo-night"])
+check("catalog/dir", parse_catalog(TEXT, "/r")[0]["dir"], "/r/daylight")
+check("catalog/display", parse_catalog(TEXT, "/r")[2]["displayName"], "Tokyo Night")
+check("catalog/single-quotes", parse_catalog("quoted|'light'\n", "/r")[0]["mode"], "light")
+check("catalog/trailing-comment", parse_catalog('commented|"dark" # dark\n', "/r")[0]["mode"], "dark")
+check("catalog/order-by-display", [e["name"] for e in parse_catalog("Zebra|dark\nalpha|light\n", "/r")],
+      ["alpha", "Zebra"])
+check("catalog/drop-bad-mode", [e["name"] for e in parse_catalog("bad|purple\ngood|dark\n", "/r")], ["good"])
+check("catalog/drop-no-sep", parse_catalog("noseparator\n", "/r"), [])
+check("catalog/drop-path", parse_catalog("a/b|dark\n", "/r"), [])
+check("catalog/empty", parse_catalog("", "/r"), [])
+check("catalog/trailing-newline-ok", [e["name"] for e in parse_catalog("good|dark\n", "/r")], ["good"])
+EOF
+
+# --- 17. desktop retint: the renderer writes repo-owned templates ---
+# scripts/render-theme.sh substitutes the resolved palette into the templates
+# under assets/templates/ and writes the three desktop files. It reads no theme
+# directory, so this gate runs the real script against a fixture palette with
+# XDG_CONFIG_HOME redirected, then checks the bytes, the border fallback and
+# override, the empty-palette default, and idempotency.
+RENDER="$ROOT/scripts/render-theme.sh"
+test -f "$RENDER" \
+    || fail "scripts/render-theme.sh is missing"
+for tpl in hypr-theme.lua kitty-theme.conf hyprlock-colors.conf; do
+    test -f "$ROOT/assets/templates/$tpl" \
+        || fail "assets/templates/$tpl is missing"
+done
+grep -q 'render-theme.sh' "$TSVC" \
+    || fail "ThemeService does not run the desktop renderer"
+grep -q 'renderScriptPath' "$TSVC" \
+    || fail "ThemeService does not expose the renderer script path"
+# The renderer also runs for the no-palette case, so a selected-but-unreadable
+# theme leaves the desktop on the same fallback the bar shows instead of the
+# previous theme's files.
+if grep -A4 'function renderDesktop' "$TSVC" | grep -q '!root.hasPalette'; then
+    fail "renderDesktop skips the fallback render for an active theme (stale desktop)"
+fi
+if grep -q 'colors.toml' "$RENDER"; then
+    fail "render-theme.sh names colors.toml; it must consume only the resolved palette"
+fi
+
+RENDER_HOME="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_PALETTE='{"accent":"#7aa2f7","selection":"#33467c","muted":"#565f89","background":"#1a1b26","dark_background":"#16161e","darker_background":"#101014","lighter_background":"#292e42","foreground":"#c0caf5","dark_foreground":"#a9b1d6","light_foreground":"#d5d6db","bright_foreground":"#ffffff","red":"#f7768e","yellow":"#e0af68","green":"#9ece6a","cyan":"#7dcfff","blue":"#7aa2f7","magenta":"#bb9af7","bright_red":"#ff7a93","bright_yellow":"#ff9e64","bright_green":"#b9f27c","bright_cyan":"#7ff7ff","bright_blue":"#7aa2ff","bright_magenta":"#c7a9ff"}'
+XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
+test -f "$RENDER_HOME/hypr/theme.lua" \
+    || fail "renderer wrote no hypr theme.lua"
+test -f "$RENDER_HOME/kitty/theme.conf" \
+    || fail "renderer wrote no kitty theme.conf"
+test -f "$RENDER_HOME/hypr/hyprlock/colors.conf" \
+    || fail "renderer wrote no hyprlock colors.conf"
+grep -q 'rgba(7aa2f7ff)' "$RENDER_HOME/hypr/theme.lua" \
+    || fail "hypr active border does not derive from accent"
+grep -q 'rgba(7aa2f7aa)' "$RENDER_HOME/hypr/theme.lua" \
+    || fail "hypr inactive border does not derive from accent at reduced alpha"
+grep -q 'background *#1a1b26' "$RENDER_HOME/kitty/theme.conf" \
+    || fail "kitty background does not come from the palette"
+grep -q 'cursor *#7aa2f7' "$RENDER_HOME/kitty/theme.conf" \
+    || fail "kitty cursor does not come from accent"
+grep -q 'color1 *#f7768e' "$RENDER_HOME/kitty/theme.conf" \
+    || fail "kitty color1 does not come from red"
+grep -q '\$theme_accent = rgb(122, 162, 247)' "$RENDER_HOME/hypr/hyprlock/colors.conf" \
+    || fail "hyprlock accent does not come from the palette"
+if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf"; then
+    fail "renderer left an unresolved template placeholder"
+fi
+
+before_lua="$(cat "$RENDER_HOME/hypr/theme.lua")"
+before_kitty="$(cat "$RENDER_HOME/kitty/theme.conf")"
+before_lock="$(cat "$RENDER_HOME/hypr/hyprlock/colors.conf")"
+stamp="$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")"
+sleep 1
+XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
+test "$before_lua" = "$(cat "$RENDER_HOME/hypr/theme.lua")" \
+    || fail "renderer is not idempotent: theme.lua changed on an identical rerun"
+test "$before_kitty" = "$(cat "$RENDER_HOME/kitty/theme.conf")" \
+    || fail "renderer is not idempotent: theme.conf changed on an identical rerun"
+test "$before_lock" = "$(cat "$RENDER_HOME/hypr/hyprlock/colors.conf")" \
+    || fail "renderer is not idempotent: colors.conf changed on an identical rerun"
+test "$stamp" = "$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")" \
+    || fail "renderer rewrote an unchanged file"
+
+RENDER_HOME2="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_PALETTE2="$(printf '%s' "$RENDER_PALETTE" | sed 's/}$/,"hyprland_active_border":"#ff0000","hyprland_inactive_border":"#00ff0080"}/')"
+XDG_CONFIG_HOME="$RENDER_HOME2" sh "$RENDER" "$RENDER_PALETTE2"
+grep -q 'rgba(ff0000ff)' "$RENDER_HOME2/hypr/theme.lua" \
+    || fail "hypr does not honor hyprland_active_border"
+grep -q 'rgba(00ff0080)' "$RENDER_HOME2/hypr/theme.lua" \
+    || fail "hypr does not honor hyprland_inactive_border"
+
+# An empty palette is the no-active-theme case: the renderer writes its built-in
+# default so the bar's fallback and the desktop files agree (M1). A palette that
+# is present but missing required roles is still a no-op.
+RENDER_HOME3="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+XDG_CONFIG_HOME="$RENDER_HOME3" sh "$RENDER" ""
+test -f "$RENDER_HOME3/hypr/theme.lua" \
+    || fail "renderer wrote no default theme.lua for an empty palette"
+grep -q 'rgba(b4befe' "$RENDER_HOME3/hypr/theme.lua" \
+    || fail "the empty-palette default does not use the fallback accent"
+grep -q 'background *#141118' "$RENDER_HOME3/kitty/theme.conf" \
+    || fail "the empty-palette default does not use the fallback background"
+
+RENDER_HOME3B="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
+test -z "$(find "$RENDER_HOME3B" -type f)" \
+    || fail "renderer wrote files for a palette missing required roles"
+
+RENDER_HOME4="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_PALETTE4="$(printf '%s' "$RENDER_PALETTE" | sed 's/}$/,"hyprland_active_border":"not-a-color"}/')"
+XDG_CONFIG_HOME="$RENDER_HOME4" sh "$RENDER" "$RENDER_PALETTE4"
+test -f "$RENDER_HOME4/hypr/theme.lua" \
+    || fail "renderer stopped writing when an optional border key is malformed"
+grep -q 'rgba(7aa2f7ff)' "$RENDER_HOME4/hypr/theme.lua" \
+    || fail "a malformed hyprland_active_border does not fall back to accent"
+
+# A three-digit #rgb is expanded to six digits for the raw kitty tokens, so
+# kitty reads the same colour hypr and hyprlock get.
+RENDER_HOME5="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_PALETTE5="$(printf '%s' "$RENDER_PALETTE" | sed 's/"accent":"#7aa2f7"/"accent":"#abc"/')"
+XDG_CONFIG_HOME="$RENDER_HOME5" sh "$RENDER" "$RENDER_PALETTE5"
+grep -q 'cursor *#aabbcc' "$RENDER_HOME5/kitty/theme.conf" \
+    || fail "renderer did not expand a three-digit accent for kitty"
+grep -q 'rgba(aabbccff)' "$RENDER_HOME5/hypr/theme.lua" \
+    || fail "renderer did not expand a three-digit accent for hypr"
+
+rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5"
+
+# --- 18. dashboard Theme block: live palette, name, settings target ---
+# The block is the switcher's second home: a palette strip bound to the mapped
+# roles, the active theme's display name, and a click that opens the Settings
+# Theme section through the shared SettingsService.open entry point. The empty
+# wallpaper grid is gone; ticket 08 owns the background picker.
+DBLOCK="$ROOT/windows/DashboardThemeBlock.qml"
+test -f "$DBLOCK" \
+    || fail "windows/DashboardThemeBlock.qml is missing"
+if grep -qE '\[[[:space:]]*Colors\.' "$DBLOCK"; then
+    fail "DashboardThemeBlock still binds a literal swatch list"
+fi
+grep -q 'Colors.themeSwatches' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not bind the shared mapped swatches"
+grep -q 'readonly property var themeSwatches' "$COLORS" \
+    || fail "Colors has no themeSwatches list of mapped roles"
+grep -q 'ThemeService.activeDisplayName' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not show the active theme name"
+grep -q 'letterSpacing: Globals.uiLetterSpacing' "$DBLOCK" \
+    || fail "DashboardThemeBlock captions lack the section-caption tracking"
+if grep -q 'Globals.uiTitleSize' "$DBLOCK"; then
+    fail "DashboardThemeBlock uses uiTitleSize, which is not a dashboard role"
+fi
+grep -qF 'qsTr("No theme")' "$DBLOCK" \
+    || fail "DashboardThemeBlock has no empty-theme label"
+grep -qF 'SettingsService.open(DashboardService.anchorScreen, "theme")' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not open the Theme section through SettingsService.open"
+if grep -qi 'wallpaper' "$DBLOCK"; then
+    fail "DashboardThemeBlock still renders the empty wallpaper grid"
+fi
+if grep -q 'MouseArea' "$DBLOCK"; then
+    fail "DashboardThemeBlock rolls its own click surface; the shared Card owns the click"
+fi
+grep -q 'property bool clickable' "$ROOT/components/Card.qml" \
+    || fail "Card has no clickable opt-in for a whole-card target"
+grep -qF 'function open(screen, sectionKey)' "$SSVC" \
+    || fail "SettingsService.open does not accept a section target"
+grep -q 'SettingsService.targetSection' "$SCENTER" \
+    || fail "SettingsCenter does not honor the requested section target"
+grep -q 'readonly property string activeDisplayName' "$TSVC" \
+    || fail "ThemeService has no activeDisplayName"
+grep -q 'root.backgroundEntries.length === 0' "$DBLOCK" \
+    || fail "DashboardThemeBlock resets the background page on a transient empty list (L11)"
+
+# --- 19. theme backgrounds: guarded listing plus per-theme apply ---
+# ThemeService lists a theme's backgrounds through scripts/theme-backgrounds-scan.sh,
+# which admits a file only when it is a real regular file, not a symlink, directly
+# inside backgrounds/, with an allowed image extension and at most the 32 MB cap.
+# The scan is a real artifact, so this gate runs it against a fixture directory;
+# ThemeParsers.parseBackgroundList then names and orders the entries, and the
+# awww apply rides the ticket-05 renderer path in ThemeService.
+BSCAN="$ROOT/scripts/theme-backgrounds-scan.sh"
+TILE="$ROOT/components/BackgroundTile.qml"
+test -f "$BSCAN" \
+    || fail "scripts/theme-backgrounds-scan.sh is missing"
+test -f "$TILE" \
+    || fail "components/BackgroundTile.qml is missing"
+grep -q 'theme-backgrounds-scan.sh' "$TSVC" \
+    || fail "ThemeService does not run the background scan script"
+grep -q 'ThemeParsers.backgroundMaxBytes' "$TSVC" \
+    || fail "ThemeService does not pass the background byte cap to the scan"
+grep -q 'ThemeParsers.parseBackgroundList' "$TSVC" \
+    || fail "ThemeService does not build the background list through ThemeParsers"
+grep -qE 'readonly property var backgroundList' "$TSVC" \
+    || fail "ThemeService exposes no background list"
+grep -q 'function refreshBackgrounds' "$TSVC" \
+    || fail "ThemeService exposes no refreshBackgrounds()"
+grep -q 'currentBackgroundName' "$TSVC" \
+    || fail "ThemeService exposes no current background choice"
+grep -qF '["awww", "img"' "$TSVC" \
+    || fail "ThemeService does not apply the background with awww"
+grep -q 'Image' "$TILE" \
+    || fail "BackgroundTile does not decode its thumbnail with Qt"
+grep -q 'root.implicitWidth' "$TILE" \
+    || fail "BackgroundTile does not seed sourceSize from its implicit size (L10)"
+grep -q 'ThemeService.backgroundList' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not bind the background list"
+grep -q 'ThemeService.currentBackgroundName' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not mark the current background"
+grep -q 'ThemeService.selectBackground' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not pick a background through ThemeService"
+grep -q 'BackgroundTile' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not render background thumbnails"
+grep -q 'backgroundPageSize: 4' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not cap a background page at four"
+grep -q 'backgroundPageItems' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not page the background list"
+grep -q 'function stepBackgroundPage' "$DBLOCK" \
+    || fail "DashboardThemeBlock has no background paging step"
+grep -q 'pageForBackground' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not land on the current background's page"
+grep -q 'Icons.chevronLeft' "$DBLOCK" \
+    || fail "DashboardThemeBlock has no previous-page arrow"
+grep -q 'Icons.chevronRight' "$DBLOCK" \
+    || fail "DashboardThemeBlock has no next-page arrow"
+if grep -q 'awww' "$DBLOCK"; then
+    fail "DashboardThemeBlock applies the background itself; the renderer path owns the awww call"
+fi
+if grep -q 'Process' "$DBLOCK"; then
+    fail "DashboardThemeBlock spawns its own process; ThemeService owns the apply"
+fi
+
+BG_DIR="$(mktemp -d /tmp/opencode/theme-backgrounds-XXXXXX)"
+mkdir -p "$BG_DIR/nested"
+printf 'a' > "$BG_DIR/a.png"
+printf 'b' > "$BG_DIR/b.JPG"
+printf 'c' > "$BG_DIR/c.webp"
+printf 'd' > "$BG_DIR/notes.txt"
+ln -s "$BG_DIR/a.png" "$BG_DIR/link.png"
+ln -s "$BG_DIR/nested" "$BG_DIR/linkdir.png"
+printf 'e' > "$BG_DIR/nested/deep.png"
+printf 'f' > "$BG_DIR/big.png"
+truncate -s 33554433 "$BG_DIR/big.png"
+printf 'g' > "$BG_DIR/x..png"
+printf 'h' > "$BG_DIR/pipe|name.png"
+bg_out="$(sh "$BSCAN" "$BG_DIR" 33554432 | LC_ALL=C sort)"
+bg_want="$(printf 'a.png\nb.JPG\nc.webp\n')"
+test "$bg_out" = "$bg_want" \
+    || fail "background scan listed the wrong files: got [$bg_out] want [$bg_want]"
+BG_LINK="$(mktemp -d /tmp/opencode/theme-backgrounds-XXXXXX)"
+ln -s "$BG_DIR" "$BG_LINK/backgrounds"
+bg_link_out="$(sh "$BSCAN" "$BG_LINK/backgrounds" 33554432)"
+test -z "$bg_link_out" \
+    || fail "background scan followed a symlinked backgrounds directory"
+rm -rf "$BG_DIR" "$BG_LINK"
+
+python3 - <<'EOF'
+import re
+import sys
+import urllib.parse
+
+def check(name, got, want):
+    if got != want:
+        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
+        sys.exit(1)
+
+# Mirror of ThemeParsers.backgroundMaxBytes, encodePath, and parseBackgroundList
+# (services/ThemeParsers.js): the scan output is one file name per line; a line is
+# kept only when it is a bare allowed-extension image name, resolved under the
+# backgrounds directory, and the list sorts by name so the picker order is stable.
+# The url is the path percent-encoded per segment, so a name holding # or ? cannot
+# be read as a URL fragment or query by the thumbnail.
+BACKGROUND_MAX_BYTES = 33554432
+SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".bmp")
+CONTROL = re.compile(r"[\u0000-\u001f\u007f]")
+
+def background_name(value):
+    if not isinstance(value, str):
+        return ""
+    text = value.strip()
+    slash = max(text.rfind("/"), text.rfind("\\"))
+    base = text[slash + 1:] if slash >= 0 else text
+    if base == "" or base[0] == "." or ".." in base or "|" in base:
+        return ""
+    if CONTROL.search(base):
+        return ""
+    dot = base.rfind(".")
+    if dot <= 0:
+        return ""
+    if base[dot:].lower() not in SUFFIXES:
+        return ""
+    return base
+
+def encode_path(path):
+    if not isinstance(path, str) or path == "":
+        return ""
+    return "/".join(urllib.parse.quote(part, safe="!'()*-._~") for part in path.split("/"))
+
+def parse_background_list(output, directory):
+    if not isinstance(output, str):
+        return []
+    base = directory if isinstance(directory, str) else ""
+    entries = []
+    for name in output.split("\n"):
+        if name in ("", ".", "..") or "/" in name:
+            continue
+        if CONTROL.search(name) or background_name(name) != name:
+            continue
+        path = name if base == "" else base + "/" + name
+        entries.append({"name": name, "path": path, "url": "file://" + encode_path(path)})
+    entries.sort(key=lambda entry: entry["name"])
+    return entries
+
+check("backgrounds/max-bytes", BACKGROUND_MAX_BYTES, 33554432)
+check("backgrounds/names", [e["name"] for e in parse_background_list("b.png\na.JPG\nnotes.txt\nbig.webp\n", "/bg")],
+      ["a.JPG", "b.png", "big.webp"])
+check("backgrounds/order-stable", [e["name"] for e in parse_background_list("z.png\na.png\nm.png", "/bg")],
+      ["a.png", "m.png", "z.png"])
+check("backgrounds/path", parse_background_list("a.png\n", "/bg")[0]["path"], "/bg/a.png")
+check("backgrounds/empty-dir", parse_background_list("a.png\n", "")[0]["path"], "a.png")
+check("backgrounds/url-encoded", parse_background_list("a#b.png\n", "/bg")[0]["url"], "file:///bg/a%23b.png")
+check("backgrounds/url-space", parse_background_list("a b.png\n", "/bg")[0]["url"], "file:///bg/a%20b.png")
+check("backgrounds/drop-extension", [e["name"] for e in parse_background_list("a.gif\nb.PNG\n", "/bg")], ["b.PNG"])
+check("backgrounds/drop-path", parse_background_list("a/b.png\n", "/bg"), [])
+check("backgrounds/drop-dotdot", parse_background_list("..\n.\n", "/bg"), [])
+check("backgrounds/drop-pipe", parse_background_list("a|b.png\n", "/bg"), [])
+check("backgrounds/drop-control", parse_background_list("a\tb.png\n", "/bg"), [])
+check("backgrounds/drop-hidden", parse_background_list(".hidden.png\n", "/bg"), [])
+check("backgrounds/empty", parse_background_list("", "/bg"), [])
+check("backgrounds/non-string", parse_background_list(None, "/bg"), [])
+EOF
 
 echo "panel-logic: all ok"

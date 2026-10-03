@@ -37,7 +37,7 @@ QtObject {
     readonly property int dashboardUsageWidth: 320
     readonly property int playerArtSize: 86
     readonly property int playerDeviceLabelWidth: 120
-    readonly property int wallpaperTileHeight: 48
+    readonly property int backgroundTileHeight: 48
 
     readonly property int settingsWidth: 900
     readonly property int settingsHeight: 600

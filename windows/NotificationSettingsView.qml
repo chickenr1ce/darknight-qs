@@ -11,10 +11,8 @@ ColumnLayout {
 
     property string filter: ""
 
-    readonly property bool filtering: root.filter !== ""
-    readonly property bool dndRelevant: !root.filtering
-        || qsTr("Do not disturb").toLowerCase().includes(root.filter.toLowerCase())
-        || qsTr("DND").toLowerCase().includes(root.filter.toLowerCase())
+    readonly property bool dndRelevant: SettingsFilter.matches(root.filter, qsTr("Do not disturb"))
+        || SettingsFilter.matches(root.filter, qsTr("DND"))
 
     spacing: Globals.spacing
 

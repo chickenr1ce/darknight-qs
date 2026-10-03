@@ -4,16 +4,15 @@ import QtQuick
 import QtQuick.Layouts
 import qs.components
 import qs.config
+import qs.services
 
 ColumnLayout {
     id: root
 
     property string filter: ""
 
-    readonly property bool filtering: root.filter !== ""
-    readonly property bool motionRelevant: !root.filtering
-        || qsTr("Reduced motion").toLowerCase().includes(root.filter.toLowerCase())
-        || qsTr("Animation").toLowerCase().includes(root.filter.toLowerCase())
+    readonly property bool motionRelevant: SettingsFilter.matches(root.filter, qsTr("Reduced motion"))
+        || SettingsFilter.matches(root.filter, qsTr("Animation"))
 
     spacing: Globals.spacing
 

@@ -9,6 +9,7 @@ Singleton {
 
     property bool visible: false
     property ShellScreen anchorScreen: null
+    property string targetSection: ""
 
     readonly property var sections: [
         {
@@ -26,12 +27,19 @@ Singleton {
             options: [qsTr("Bar visibility")].concat(BarVisibilityService.modules.map(module => module.title)),
             comingSoon: false
         },
-        { key: "weather", title: qsTr("Weather"), options: [qsTr("City"), qsTr("Location")], comingSoon: false }
+        { key: "weather", title: qsTr("Weather"), options: [qsTr("City"), qsTr("Location")], comingSoon: false },
+        {
+            key: "theme",
+            title: qsTr("Theme"),
+            options: [qsTr("Theme")].concat(ThemeService.catalog.map(theme => theme.name), ThemeService.catalog.map(theme => theme.displayName)),
+            comingSoon: false
+        }
     ]
 
-    function open(screen): void {
+    function open(screen, sectionKey): void {
         if (screen)
             root.anchorScreen = screen;
+        root.targetSection = sectionKey ?? "";
         DashboardService.close();
         root.visible = true;
     }

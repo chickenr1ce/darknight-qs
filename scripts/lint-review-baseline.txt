@@ -47,6 +47,7 @@ windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, stri
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/DashboardPlayerBlock.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/DashboardThemeBlock.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/DashboardVolumeBlock.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/LayoutSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
@@ -59,6 +60,7 @@ windows/PowerCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item ins
 windows/SettingsCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/SettingsCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/SettingsCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+windows/ThemeSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/WeatherSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/WeatherSettingsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/WorldClockEditor.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)

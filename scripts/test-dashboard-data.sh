@@ -78,6 +78,33 @@ grep -q 'SystemInfo.packagesText' "$SBLOCK" \
 grep -q 'SystemInfo.uptimeText' "$SBLOCK" \
     || fail "DashboardSystemBlock does not read the live uptime"
 
+# --- 2b. dashboard theme block: live palette, no stub wallpaper grid ---
+# The block is the switcher's second home: its swatches bind the shared mapped
+# list, the name comes from the active theme, and the empty wallpaper grid is
+# gone (ticket 08 owns the background picker).
+TBLOCK="$ROOT/windows/DashboardThemeBlock.qml"
+if grep -qE '\[[[:space:]]*Colors\.' "$TBLOCK"; then
+    fail "DashboardThemeBlock still binds a literal swatch list"
+fi
+grep -q 'Colors.themeSwatches' "$TBLOCK" \
+    || fail "DashboardThemeBlock does not bind the shared mapped swatches"
+grep -q 'ThemeService.activeDisplayName' "$TBLOCK" \
+    || fail "DashboardThemeBlock does not show the live theme name"
+grep -q 'ThemeService.backgroundList' "$TBLOCK" \
+    || fail "DashboardThemeBlock does not bind the background list"
+grep -q 'ThemeService.currentBackgroundName' "$TBLOCK" \
+    || fail "DashboardThemeBlock does not mark the current background"
+grep -q 'ThemeService.selectBackground' "$TBLOCK" \
+    || fail "DashboardThemeBlock does not pick a background through ThemeService"
+grep -q 'BackgroundTile' "$TBLOCK" \
+    || fail "DashboardThemeBlock does not render background thumbnails"
+if grep -q 'awww' "$TBLOCK"; then
+    fail "DashboardThemeBlock applies the background itself; ThemeService owns the awww call"
+fi
+if grep -qi 'wallpaper' "$TBLOCK"; then
+    fail "DashboardThemeBlock still renders the empty wallpaper grid"
+fi
+
 # --- 3. CPU plus RAM poll procfs, no subprocess ---
 SMON="$ROOT/services/SystemMonitor.qml"
 grep -q '"/proc/stat"' "$SMON" \

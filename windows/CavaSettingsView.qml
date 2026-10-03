@@ -11,22 +11,14 @@ ColumnLayout {
 
     property string filter: ""
 
-    readonly property bool filtering: root.filter !== ""
-
     spacing: Globals.spacing
-
-    function matches(label: string): bool {
-        if (!root.filtering)
-            return true;
-        return label.toLowerCase().includes(root.filter.toLowerCase());
-    }
 
     Dropdown {
         id: idCavaStyleDropdown
 
         Layout.fillWidth: true
 
-        visible: root.matches(qsTr("Style"))
+        visible: SettingsFilter.matches(root.filter, qsTr("Style"))
         options: CavaService.styleNames
         currentIndex: CavaService.styleMode
         accessibleName: qsTr("Style")
@@ -39,7 +31,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: Globals.hairlineHeight
 
-        visible: !root.filtering
+        visible: !SettingsFilter.filtering(root.filter)
         color: Colors.border
     }
 
@@ -48,7 +40,7 @@ ColumnLayout {
 
         Layout.fillWidth: true
 
-        visible: root.matches(qsTr("Sensitivity"))
+        visible: SettingsFilter.matches(root.filter, qsTr("Sensitivity"))
         spacing: Globals.rowSpacing
 
         Text {
@@ -104,7 +96,7 @@ ColumnLayout {
 
         Layout.fillWidth: true
 
-        visible: root.matches(qsTr("Sensitivity"))
+        visible: SettingsFilter.matches(root.filter, qsTr("Sensitivity"))
         from: CavaService.minSensitivity
         to: CavaService.maxSensitivity
         stepSize: 50
@@ -119,7 +111,7 @@ ColumnLayout {
 
         Layout.fillWidth: true
 
-        visible: root.matches(qsTr("Auto sensitivity"))
+        visible: SettingsFilter.matches(root.filter, qsTr("Auto sensitivity"))
         spacing: Globals.rowSpacing
 
         Text {
@@ -155,7 +147,7 @@ ColumnLayout {
 
         Layout.fillWidth: true
 
-        visible: root.matches(qsTr("Bars"))
+        visible: SettingsFilter.matches(root.filter, qsTr("Bars"))
         spacing: Globals.rowSpacing
 
         Text {
@@ -231,7 +223,7 @@ ColumnLayout {
 
         Layout.fillWidth: true
 
-        visible: root.matches(qsTr("Max height"))
+        visible: SettingsFilter.matches(root.filter, qsTr("Max height"))
         spacing: Globals.rowSpacing
 
         Text {
@@ -287,7 +279,7 @@ ColumnLayout {
 
         Layout.fillWidth: true
 
-        visible: root.matches(qsTr("Max height"))
+        visible: SettingsFilter.matches(root.filter, qsTr("Max height"))
         from: CavaService.minMaxHeight
         to: CavaService.maxMaxHeight
         stepSize: 1

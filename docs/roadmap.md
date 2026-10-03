@@ -9,22 +9,17 @@ Last updated: 2026-09-29.
 
 ## Open
 
-### Matugen theme pipeline
+### Theme switching
 
-The palette is hardcoded in `config/Colors.qml`. The goal is to derive Material
-roles from the wallpaper with matugen and map them onto the shell's tokens,
-keeping the hardcoded palette as the fallback when the generated file is absent.
+Switch the desktop palette from one place, using omarchy v4 (`quattro`) theme
+directories as the supply. The shell owns the selection, repaints live, and
+re-renders Hyprland, kitty, and hyprlock. The switcher is a Settings Theme
+section plus the dashboard Theme block, and each theme's backgrounds are pickable
+per theme. Decisions in ADRs 0010 and 0011.
 
-- **Theme map.** Freeze the mapping from generated roles to `config/Colors.qml`
-  tokens before writing any loader code. Sources: `~/.config/matugen/config.toml`
-  and the generated `colors.json`. Done when the mapping table is recorded here.
-- **Theme load.** A file-backed loader for the generated `colors.json` that
-  falls back to the hardcoded palette. Done when regenerating the file repaints
-  the bar with no restart and no dropped state.
-- **Switcher.** One place to switch themes. Open question: bar module, power
-  menu, or keybind. Answer it, then build.
-
-Risk: generated roles may not cover every bar token. The frozen map bounds it.
+The matugen pipeline this replaces is dropped for now: the palette comes from the
+theme's `colors.toml`, not from the wallpaper. GTK, icon themes, rofi, and other
+apps are deferred, and a switching keybind is a later addition.
 
 ### Hotplug verification
 

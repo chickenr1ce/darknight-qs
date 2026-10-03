@@ -12,19 +12,11 @@ ColumnLayout {
     property string filter: ""
     property bool showZones: true
 
-    readonly property bool filtering: root.filter !== ""
-    readonly property string query: root.filter.toLowerCase()
-
-    readonly property bool zonesRelevant: !root.filtering
-        || root.matches(qsTr("World clock"))
-        || root.matches(qsTr("Zones"))
-    readonly property bool feedsRelevant: !root.filtering || root.matches(qsTr("Feeds"))
+    readonly property bool zonesRelevant: SettingsFilter.matches(root.filter, qsTr("World clock"))
+        || SettingsFilter.matches(root.filter, qsTr("Zones"))
+    readonly property bool feedsRelevant: SettingsFilter.matches(root.filter, qsTr("Feeds"))
 
     spacing: Globals.spacing
-
-    function matches(label: string): bool {
-        return !root.filtering || label.toLowerCase().includes(root.query);
-    }
 
     WorldClockEditor {
         id: idZoneEditor

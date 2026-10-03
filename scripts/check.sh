@@ -27,6 +27,7 @@ run() {
 run "type lint" ./scripts/lint.sh
 run "review lint" ./scripts/lint-review.sh
 run "panel logic" ./scripts/test-panel-logic.sh
+run "qs-theme" ./scripts/test-qs-theme.sh
 run "dashboard data" ./scripts/test-dashboard-data.sh
 run "spotify connect" ./scripts/test-spotify-connect.sh
 run "calendar clock" ./scripts/test-calendar-clock.sh

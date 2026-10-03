@@ -11,14 +11,9 @@ ColumnLayout {
 
     property string filter: ""
 
-    readonly property bool filtering: !(root.filter === "")
-    readonly property bool barVisibilityRelevant: root.matches(qsTr("Bar visibility"))
+    readonly property bool barVisibilityRelevant: SettingsFilter.matches(root.filter, qsTr("Bar visibility"))
 
     spacing: Globals.spacing
-
-    function matches(label: string): bool {
-        return !root.filtering || label.toLowerCase().includes(root.filter.toLowerCase());
-    }
 
     Repeater {
         model: BarVisibilityService.modules
@@ -28,7 +23,7 @@ ColumnLayout {
 
             required property var modelData
 
-            visible: root.barVisibilityRelevant || root.matches(modelData.title)
+            visible: root.barVisibilityRelevant || SettingsFilter.matches(root.filter, modelData.title)
             label: modelData.title
             value: BarVisibilityService.isVisible(modelData.key)
             onToggled: BarVisibilityService.setVisible(modelData.key, !value)
