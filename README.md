@@ -4,8 +4,6 @@ Quickshell bar and desktop shell (QML) for my personal pc.
 
 ![bar](assets/bar.png)
 
-Clock, workspaces, tray, active window, cava, media, audio, notifications, power menu. One bar per monitor, full modules on the main output.
-
-Clock opens the calendar panel, cava bars open the cava tuner. Panels open under their trigger on the clicked monitor.
+Note that there are certain features for specific use cases I have, so use with caution. This is intended for my personal use.
 
 Run with `quickshell`.
