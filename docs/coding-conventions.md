@@ -274,6 +274,10 @@ Timer { id: idMediaTimer }
   sibling needs a `qmldir` entry. `qmllint` resolves the sibling anyway, so
   only a live `quickshell -p` boot catches the missing import (`... is not a
   type`, verified 2026-09-23).
+- **A directory without a `qmldir` is an implicit module**: `components/`,
+  `config/`, `modules/`, and `windows/` need no `qmldir` and resolve through
+  `qs.components`, `qs.config`, `qs.modules`, and `qs.windows`. Only
+  `services/` and `dev/` carry a `qmldir`, because they declare singletons.
 - **`qmllint` cannot resolve `qs.*`-rooted sibling types**: a file whose root
   type comes from an import path qmllint lacks (e.g. a `Card` from
   `qs.components`) fails as a type everywhere it is used, cascading

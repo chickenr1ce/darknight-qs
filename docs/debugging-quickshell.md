@@ -4,15 +4,21 @@ How to observe the running daily instance without disrupting it.
 
 ## Logs
 
-- Text log: `tail -f /run/user/1000/quickshell/by-id/*/log.log`. Config
-  reloads land here as `Configuration Loaded`, failures as
+- Every instance logs under `$XDG_RUNTIME_DIR/quickshell/by-id/<id>/`, and
+  stale dirs pile up across launches, so the newest dir is not always the
+  one for your config. Resolve it with `scripts/instance.sh` (passive: it
+  never boots an instance):
+  - `scripts/instance.sh log [--config DIR]` prints the `log.log` for the
+    config, newest even after the process exits.
+  - `scripts/instance.sh dir [--config DIR]` prints that instance's by-id dir.
+  - `scripts/instance.sh pid [--config DIR]` prints the pid for
+    `quickshell ipc --pid <pid>`.
+  - `scripts/instance.sh list` maps every by-id dir to its config and pid.
+- Config reloads land in the log as `Configuration Loaded`, failures as
   `Failed to load configuration` with a `caused by` chain naming the file
   and line. The config auto-reloads on save, so watch this file after edits.
-- Every instance logs here, including `quickshell -p` test shells: match
-  the instance by its `Launching config:` line. Stale `by-id/` dirs pile
-  up across launches, so when in doubt pick the dir whose `log.log` was
-  written most recently. Redirecting stderr to a
-  file as well keeps one grepable stream per test run.
+  A test shell booted with `quickshell -p` logs here too; redirecting its
+  stderr to a file keeps one grepable stream per run.
 - Binary log: the sibling `log.qslog` is not grepable directly; pipe it
   through strings first: `strings <log.qslog> | grep <pattern>`.
 - `console.log` lines appear in the text log prefixed with `DEBUG qml:`.
@@ -56,9 +62,12 @@ How to observe the running daily instance without disrupting it.
 ## Dev probe
 
 `dev/DevProbe.qml` is the opt-in IPC surface for live work; prefer it over a
-one-off handler. Enable it with `QUICKSHELL_DEV_PROBE=1` at launch, or by
-creating `$XDG_RUNTIME_DIR/quickshell-dev-probe` and reloading the shell (a
-save does it). It registers target `devprobe`:
+one-off handler. Enable it with `QUICKSHELL_DEV_PROBE=1` at launch, or by writing
+a non-empty file at `$XDG_RUNTIME_DIR/quickshell-dev-probe` and reloading the
+shell (`scripts/reload.sh`). The file must be non-empty: `DevProbe.qml` tests
+`text() !== ""`, so `touch` alone does not enable it. After a reload the
+`devprobe` target takes a moment to register; an early call can answer
+`Not ready to accept queries yet`. It registers target `devprobe`:
 
 - `state` — JSON of every surface's visibility plus DND, reduced motion, world
   zones, and hidden feeds.

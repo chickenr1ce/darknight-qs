@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-LINTER="$ROOT/.agents/skills/qt-qml-review/references/lint-scripts/qt_qml_lint.py"
+LINTER="$ROOT/scripts/qt_qml_lint.py"
 BASELINE="$ROOT/scripts/lint-review-baseline.txt"
 
 command -v python3 >/dev/null || { echo "lint-review: python3 not found" >&2; exit 2; }

@@ -16,8 +16,12 @@ TIMEOUT=30
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --config) CONFIG="$2"; shift 2 ;;
-        --timeout) TIMEOUT="$2"; shift 2 ;;
+        --config)
+            [[ $# -ge 2 ]] || { echo "reload: --config needs a value" >&2; exit 2; }
+            CONFIG="$2"; shift 2 ;;
+        --timeout)
+            [[ $# -ge 2 ]] || { echo "reload: --timeout needs a value" >&2; exit 2; }
+            TIMEOUT="$2"; shift 2 ;;
         *) echo "reload: unknown arg $1" >&2; exit 2 ;;
     esac
 done
@@ -28,15 +32,7 @@ SHELL_QML="$CONFIG/shell.qml"
 # Same error signatures as scripts/check-live-log.sh.
 PATTERN='Failed to load configuration|Failed to open file|recursive rearrange|is not a type|ReferenceError|TypeError|Binding loop detected|Cannot read property'
 
-LOG=""
-for candidate in /run/user/1000/quickshell/by-id/*/log.log; do
-    [[ -f "$candidate" ]] || continue
-    if grep -q "Launching config: \"$SHELL_QML\"" "$candidate" 2>/dev/null; then
-        if [[ -z "$LOG" || "$candidate" -nt "$LOG" ]]; then
-            LOG="$candidate"
-        fi
-    fi
-done
+LOG="$("$ROOT/scripts/instance.sh" log --config "$CONFIG" 2>/dev/null || true)"
 [[ -n "$LOG" ]] || { echo "reload: no live log for $SHELL_QML; boot the instance first" >&2; exit 1; }
 
 last_gen() {

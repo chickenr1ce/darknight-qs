@@ -29,9 +29,8 @@ stability, layout best practices, attribute ordering — live in:
 
 ## 3. Agent Skills
 
-QML/Quickshell agent skills live in `.agents/skills/`:
-- `quickshell-patterns` / `qt-qml` — load when writing or editing any QML in this repo
-- `qt-qml-review`: part of the standard verification pass after QML changes. Run `scripts/check.sh`, which runs type lint (`scripts/lint.sh`), style lint (`scripts/lint-review.sh`), the headless `scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no instance is running). `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own instance.
+The QML and Quickshell skills (`quickshell`, `qt-qml`, and the rest) are installed in the global skills directory; the repo does not vendor them. Load `quickshell` and `qt-qml` when writing or editing any QML in this repo.
+- Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`), style lint (`scripts/lint-review.sh`), the headless `scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no instance is running). The style linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company); `qt-qml-review` remains available as an optional deeper pass. `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own instance.
 - Review fanout: default to one spec pass plus one QML pass over the final diff, each starting from `git diff` and the ticket rather than re-reading the codebase. Add a round only when a review reports a High finding.
 - `qt-qml-profiler` — performance/lag investigations
 - `qt-qml-docs` / `qt-qml-test` / `qt-qml-test-run` / `qt-ui-design` — docs generation, test writing/running, UI design audits
@@ -46,7 +45,7 @@ QML/Quickshell agent skills live in `.agents/skills/`:
 - Domain glossary for dashboard, junction, panels registry, and the rest: `CONTEXT.md`
 - Decision records for why a design is the way it is: `docs/adr/`. Read the ADRs that touch an area before changing it.
 - Verify QML behavior against a live instance; the standalone `qml` runtime's logging is broken in this environment. When the daily shell already runs this worktree, use it and drive it with `quickshell ipc --pid <pid>` — never boot a second instance. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.
-- Live debugging (log paths, geometry, IPC probing, the opt-in `dev/DevProbe.qml` surface): `docs/debugging-quickshell.md`.
+- Live debugging (instance pid and log, geometry, IPC probing, the opt-in `dev/DevProbe.qml` surface): `docs/debugging-quickshell.md`; `scripts/instance.sh pid` resolves the running instance, `log`/`dir` the newest log/dir for the config.
 - Io polling and file-cache behavior that upstream docs leave implicit (stale-command trap, FileView echo, probe recipe): `docs/quickshell-io-notes.md`.
 - Adding a settings section (state seam, view filter, search registration): `docs/settings-sections.md`.
 - Test instances claim `org.freedesktop.Notifications` at startup: stop/mask the current holder first, and never run a second instance while the daily shell holds the bus (it passes vacuously and spams the live screen).

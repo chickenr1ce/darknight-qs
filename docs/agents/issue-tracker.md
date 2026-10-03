@@ -15,8 +15,14 @@ Issues and specs for this repo live as markdown files under `.scratch/`.
   A ticket is ready when every ticket it is blocked by is done
 - Commit messages cite their ticket as `#NN` (for example
   `feat(notifications): toasts (#02)`); resolve it with `git log --grep "#NN"`
+- Acceptance criteria name exact file paths and symbols (`ThemeService.catalog`,
+  not `ThemeService.themes`), so an implementing agent does not have to guess
+  which API is meant
 - Scope changes append a dated `## Amendments` entry under the original
   objective instead of editing the objective or acceptance criteria in place
+- Durable docs (`CONTEXT.md`, ADRs, `docs/`) describe a pending ticket in words
+  rather than by its `.scratch/` path: the folder is deleted when the feature
+  merges, so the path dangles
 
 `AGENTS.md` section 5 carries the full workflow, lifecycle, and amendment
 rules. This file is the pointer the engineering skills read.

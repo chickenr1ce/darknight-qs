@@ -5,21 +5,9 @@ Planned work that is not done yet. Completed plan artifacts are frozen under
 work are in `docs/adr/`; domain terms in `CONTEXT.md`; coding rules in
 `docs/coding-conventions.md`.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-03.
 
 ## Open
-
-### Theme switching
-
-Switch the desktop palette from one place, using omarchy v4 (`quattro`) theme
-directories as the supply. The shell owns the selection, repaints live, and
-re-renders Hyprland, kitty, and hyprlock. The switcher is a Settings Theme
-section plus the dashboard Theme block, and each theme's backgrounds are pickable
-per theme. Decisions in ADRs 0010 and 0011.
-
-The matugen pipeline this replaces is dropped for now: the palette comes from the
-theme's `colors.toml`, not from the wallpaper. GTK, icon themes, rofi, and other
-apps are deferred, and a switching keybind is a later addition.
 
 ### Hotplug verification
 
@@ -37,6 +25,12 @@ Build only if it earns daily use.
 
 ## Done
 
+- Theme switching: omarchy v4 (`quattro`) theme directories as the palette
+  source, live repaint, and desktop retint (Hyprland, kitty, hyprlock). The
+  switcher is the Settings Theme section plus the dashboard Theme block, with
+  each theme's backgrounds pickable per theme. ADRs 0010 and 0011. The matugen
+  pipeline is dropped (the palette comes from `colors.toml`, not the wallpaper);
+  GTK, icon themes, rofi, and a switching keybind are deferred.
 - Waybar migration, Phases 0–7
   (`docs/plans/archive/01-master-quickshell-migration.html`).
 - Unified slab (`02`), notifications exploration and spec (`03`, `04`),

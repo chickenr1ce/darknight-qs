@@ -10,6 +10,8 @@
 #      monitor policy, debounce, focus queue) at their boundary values.
 #      Each oracle cites its QML source; change the source and update the
 #      mirror in the same commit.
+#
+# Section index: grep -n '^# --- ' scripts/test-panel-logic.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

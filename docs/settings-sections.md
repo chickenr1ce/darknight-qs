@@ -26,11 +26,12 @@ query shows all and a query narrows the body. When two rows or sections share a
 shape, compose one shared component (`components/SettingsToggleRow.qml`) instead
 of copying it.
 
-Filtering has one shape. Put `filter`, `filtering`, and `matches()` in a shared
-helper or component and have each view supply its labels, rather than copying
-the trio into every view. A label a view wants searchable is reachable only if
-it is passed to `matches()`; a label the body never tests is invisible to the
-search even when the same string sits in `options`.
+Filtering has one shape: the `services/SettingsFilter.qml` singleton, which
+exposes `filtering(filter)` and `matches(filter, label)`. Have each view supply
+its labels to `matches()` rather than copying the predicates into every view. A
+label a view wants searchable is reachable only if it is passed to `matches()`;
+a label the body never tests is invisible to the search even when the same
+string sits in `options`.
 
 ## 3. Registration: `SettingsService.sections` plus `SettingsCenter`
 
@@ -65,8 +66,8 @@ drift apart.
 - [ ] Search labels live in `options` and the view's `matches()` uses them;
       every registered label is reachable, so no `options` entry (e.g.
       `Bar visibility` in Layout) selects a section and shows an empty body.
-- [ ] Filtering logic is shared, not copied into each view's
-      `filter`/`filtering`/`matches()`.
+- [ ] Filtering routes through `services/SettingsFilter.qml`, not a per-view
+      copy of the predicates.
 - [ ] Repeated rows or sections share one component, not a copy.
 - [ ] Add `<key>` assertions to `scripts/test-panel-logic.sh` section 10
       (search labels, mirror binding, shared component).
