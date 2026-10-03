@@ -16,7 +16,6 @@ Singleton {
     ]
 
     property alias dashboardVisible: idPanelState.visible
-    property alias dashboardLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
     property alias anchorScreen: idPanelState.anchorScreen
     property alias anchorCenterX: idPanelState.anchorCenterX
 
@@ -39,12 +38,6 @@ Singleton {
         name: "dashboard-junction"
         createDir: true
         onParsed: text => root.applyJunctionRadius(text)
-    }
-
-    function toggleDashboard(): void {
-        if (!root.dashboardVisible)
-            root.activeTab = "dashboard";
-        idPanelState.toggle()
     }
 
     function toggleDashboardAt(screen, centerX: real): void {

@@ -57,12 +57,12 @@ if grep -rn --include='*.qml' -E 'panelState\.visible[[:space:]]*=' "$ROOT/modul
     fail "a module, window, or sibling service writes a panel's PanelState visibility directly"
 fi
 # The per-service debounce alias and the uncalled plain toggles stay dead.
-for dead in calendarLastOutsideCloseAt centerLastOutsideCloseAt cavaLastOutsideCloseAt powerLastOutsideCloseAt; do
+for dead in calendarLastOutsideCloseAt centerLastOutsideCloseAt cavaLastOutsideCloseAt powerLastOutsideCloseAt dashboardLastOutsideCloseAt; do
     if grep -rn --include='*.qml' "$dead" "$ROOT/services" | grep -q .; then
         fail "$dead is back; PanelState owns the debounce stamp"
     fi
 done
-for dead in 'function toggleCalendar(' 'function toggleCenter(' 'function toggleCava(' 'function togglePower('; do
+for dead in 'function toggleCalendar(' 'function toggleCenter(' 'function toggleCava(' 'function togglePower(' 'function toggleDashboard('; do
     if grep -rn --include='*.qml' "$dead" "$ROOT/services" | grep -q .; then
         fail "dead wrapper ${dead} is back"
     fi

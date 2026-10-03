@@ -13,7 +13,6 @@ QtObject {
     readonly property string check: "󰄬"  // md-check U+F012C
     readonly property string plus: "󰐕"  // md-plus U+F0415
     readonly property string minus: "󰍴"  // md-minus U+F0374
-    readonly property string reply: "󰑚"  // md-reply U+F045A
     readonly property string chevronUp: "󰅃"  // md-chevron_up U+F0143
     readonly property string chevronDown: "󰅀"  // md-chevron_down U+F0140
     readonly property string chevronLeft: "󰅁"  // md-chevron_left U+F0141
