@@ -1239,10 +1239,86 @@ def parse_toml_string(raw):
     parts = text.split(None, 1)
     return parts[0] if parts else ""
 
-def parse_colors(toml_text):
+ANSI_KEYS = [f"color{i}" for i in range(16)]
+LEGACY_SHORT_NAMES = {
+    "background": "bg",
+    "dark_background": "dark_bg",
+    "darker_background": "darker_bg",
+    "lighter_background": "lighter_bg",
+    "foreground": "fg",
+    "dark_foreground": "dark_fg",
+    "light_foreground": "light_fg",
+    "bright_foreground": "bright_fg",
+}
+ANSI_ROLES = {
+    "red": "color1", "green": "color2", "yellow": "color3", "blue": "color4",
+    "magenta": "color5", "cyan": "color6",
+    "bright_red": "color9", "bright_green": "color10", "bright_yellow": "color11",
+    "bright_blue": "color12", "bright_magenta": "color13", "bright_cyan": "color14",
+}
+COLOR_KEYS = set(REQUIRED_KEYS) | set(OPTIONAL_KEYS) | {
+    "selection_background", "selection_foreground", "cursor", "purple", "bright_purple",
+} | set(ANSI_KEYS) | set(LEGACY_SHORT_NAMES.values())
+
+def normalize_color(value):
+    if not isinstance(value, str):
+        return ""
+    text = value.strip()
+    match = re.fullmatch(r"#([0-9a-fA-F]{3})", text)
+    if match:
+        h = match.group(1)
+        return ("#" + h[0] * 2 + h[1] * 2 + h[2] * 2).lower()
+    match = re.fullmatch(r"#([0-9a-fA-F]{4})", text)
+    if match:
+        h = match.group(1)
+        return ("#" + h[0] * 2 + h[1] * 2 + h[2] * 2 + h[3] * 2).lower()
+    if re.fullmatch(r"#[0-9a-fA-F]{6}", text) or re.fullmatch(r"#[0-9a-fA-F]{8}", text):
+        return text.lower()
+    return ""
+
+def rgb_of(hex_value):
+    h = hex_value.replace("#", "")
+    return [int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)]
+
+def to_hex(r, g, b):
+    clamp = lambda c: max(0, min(255, c))
+    return "#" + "".join(f"{clamp(c):02x}" for c in (r, g, b))
+
+def mix_color(start, end, amount):
+    a = normalize_color(start)
+    b = normalize_color(end)
+    if a == "" or b == "":
+        return ""
+    src = rgb_of(a)
+    dst = rgb_of(b)
+    t = max(0.0, min(1.0, amount))
+    channel = lambda x, y: int(x * (1 - t) + y * t + 0.5)
+    return to_hex(channel(src[0], dst[0]), channel(src[1], dst[1]), channel(src[2], dst[2]))
+
+def luminance_mode(background):
+    if not isinstance(background, str) or re.fullmatch(r"#[0-9a-fA-F]{6}", background) is None:
+        return "dark"
+    return "light" if sum(rgb_of(background.lower())) > 382 else "dark"
+
+def resolve_mode(declared, hint, background_raw):
+    if declared.get("mode") in ("dark", "light"):
+        return declared["mode"]
+    if declared.get("theme_type") in ("dark", "light"):
+        return declared["theme_type"]
+    if hint in ("dark", "light"):
+        return hint
+    return luminance_mode(background_raw)
+
+# Mirror of ThemeParsers.parseColors and its cascade (services/ThemeParsers.js):
+# a canonical file resolves to itself; a pre-semantic ANSI file is filled in via
+# omarchy-theme-color's aliases, ANSI bridge, derived fills, and mixed shades.
+# mode resolves as `mode` -> `theme_type` -> hint -> background luminance -> dark.
+def parse_colors(toml_text, mode_hint=None):
     if not isinstance(toml_text, str):
         return None
-    values = {}
+    colors = {}
+    raw_colors = {}
+    declared = {}
     for line in toml_text.split("\n"):
         line = line.strip()
         if line == "" or line[0] in "#[":
@@ -1251,24 +1327,91 @@ def parse_colors(toml_text):
         if eq <= 0:
             continue
         key = line[:eq].strip()
-        if key not in REQUIRED_KEYS and key not in OPTIONAL_KEYS and key != "mode":
+        decoded = parse_toml_string(line[eq + 1:])
+        if key in ("mode", "theme_type"):
+            declared[key] = decoded
             continue
-        values[key] = parse_toml_string(line[eq + 1:])
-    mode = values.get("mode")
-    if mode not in ("dark", "light"):
-        return None
+        if key not in COLOR_KEYS:
+            continue
+        raw_colors[key] = decoded
+        value = normalize_color(decoded)
+        if value != "":
+            colors[key] = value
+
+    for canonical, legacy in LEGACY_SHORT_NAMES.items():
+        if canonical not in colors and legacy in colors:
+            colors[canonical] = colors[legacy]
+    if "background" not in colors and "color0" in colors:
+        colors["background"] = colors["color0"]
+    if "foreground" not in colors and "color7" in colors:
+        colors["foreground"] = colors["color7"]
+    if "background" in colors:
+        colors["color0"] = colors["background"]
+    if "foreground" in colors:
+        colors["color7"] = colors["foreground"]
+    for role, ansi in ANSI_ROLES.items():
+        if role not in colors and ansi in colors:
+            colors[role] = colors[ansi]
+    if "magenta" not in colors and "purple" in colors:
+        colors["magenta"] = colors["purple"]
+    if "bright_magenta" not in colors and "bright_purple" in colors:
+        colors["bright_magenta"] = colors["bright_purple"]
+    if "light_foreground" not in colors:
+        colors["light_foreground"] = colors.get("color7") or colors.get("foreground")
+    if "bright_foreground" not in colors:
+        colors["bright_foreground"] = colors.get("color15") or colors.get("foreground")
+    colors["cursor"] = colors.get("bright_foreground")
+    if "lighter_background" not in colors:
+        colors["lighter_background"] = colors.get("color0") or colors.get("background")
+    if "dark_foreground" not in colors:
+        colors["dark_foreground"] = colors.get("color8") or colors.get("foreground")
+    if "muted" not in colors:
+        colors["muted"] = colors.get("color8") or colors.get("dark_foreground")
+    if "selection" not in colors:
+        colors["selection"] = colors.get("selection_background") or colors.get("color8") or colors.get("color0") or colors.get("background")
+    if "selection_background" not in colors:
+        colors["selection_background"] = colors.get("selection")
+    if "selection_foreground" not in colors:
+        colors["selection_foreground"] = colors.get("bright_foreground")
+    if "orange" not in colors:
+        colors["orange"] = colors.get("yellow")
+    if "brown" not in colors:
+        colors["brown"] = mix_color(colors.get("orange"), "#000000", 0.5)
+    if "dark_background" not in colors:
+        colors["dark_background"] = mix_color(colors.get("background"), "#000000", 0.25)
+    if "darker_background" not in colors:
+        colors["darker_background"] = mix_color(colors.get("background"), "#000000", 0.5)
+    if "bright_red" not in colors:
+        colors["bright_red"] = mix_color(colors.get("red"), "#ffffff", 0.2)
+    if "bright_yellow" not in colors:
+        colors["bright_yellow"] = mix_color(colors.get("yellow"), "#ffffff", 0.2)
+    if "bright_green" not in colors:
+        colors["bright_green"] = mix_color(colors.get("green"), "#ffffff", 0.2)
+    if "bright_cyan" not in colors:
+        colors["bright_cyan"] = mix_color(colors.get("cyan"), "#ffffff", 0.2)
+    if "bright_blue" not in colors:
+        colors["bright_blue"] = mix_color(colors.get("blue"), "#ffffff", 0.2)
+    if "bright_magenta" not in colors:
+        colors["bright_magenta"] = mix_color(colors.get("magenta"), "#ffffff", 0.2)
+
     palette = {}
     for key in REQUIRED_KEYS:
-        value = values.get(key)
+        value = colors.get(key)
         if not is_opaque_color(value):
             return None
         palette[key] = value.lower()
     for key in OPTIONAL_KEYS:
-        value = values.get(key)
+        value = colors.get(key)
         valid = is_color(value) if key in BORDER_KEYS else is_opaque_color(value)
         if valid:
             palette[key] = value.lower()
-    palette["mode"] = mode
+    if "background" in raw_colors:
+        background_raw = raw_colors["background"]
+    elif "bg" in raw_colors:
+        background_raw = raw_colors["bg"]
+    else:
+        background_raw = raw_colors.get("color0")
+    palette["mode"] = resolve_mode(declared, mode_hint, background_raw)
     return palette
 
 VALID = """
@@ -1330,11 +1473,90 @@ check("colors/alias-8-digit-dropped", "orange" in parse_colors(
 # A light theme flips mode.
 check("colors/light", parse_colors(VALID.replace('mode = "dark"', 'mode = "light"'))["mode"], "light")
 
+# A pre-semantic theme (harbor's shape): ANSI color0-15 plus named accent,
+# foreground, background, selection_*. The resolver fills the semantic roles.
+HARBOR = """
+accent = "#5e81ac"
+foreground = "#1c2d28"
+background = "#dfe4c4"
+selection_foreground = "#1c2d28"
+selection_background = "#5e81ac"
+
+color0 = "#dfe4c4"
+color1 = "#b14752"
+color2 = "#556753"
+color3 = "#dc8164"
+color4 = "#4c6c94"
+color5 = "#8a5b81"
+color6 = "#3d727d"
+color7 = "#384f54"
+color8 = "#7d8794"
+color9 = "#b14752"
+color10 = "#556753"
+color11 = "#dc8164"
+color12 = "#4c6c94"
+color13 = "#8a5b81"
+color14 = "#3d727d"
+color15 = "#1c2d28"
+"""
+harbor = parse_colors(HARBOR, "light")
+check("colors/presemantic/resolves", harbor is not None, True)
+check("colors/presemantic/mode-hint", harbor["mode"], "light")
+check("colors/presemantic/mode-luminance", parse_colors(HARBOR)["mode"], "light")
+check("colors/presemantic/red", harbor["red"], "#b14752")
+check("colors/presemantic/muted", harbor["muted"], "#7d8794")
+check("colors/presemantic/selection", harbor["selection"], "#5e81ac")
+check("colors/presemantic/light_foreground", harbor["light_foreground"], "#1c2d28")
+check("colors/presemantic/bright_foreground", harbor["bright_foreground"], "#1c2d28")
+check("colors/presemantic/dark_background", harbor["dark_background"], "#a7ab93")
+# color9 is present, so bright_red aliases it rather than mixing.
+check("colors/presemantic/bright_red-aliased", harbor["bright_red"], "#b14752")
+
+# Without color9-14 the bright roles are mixed from the base colors.
+MIXED = HARBOR
+for _slot in ("color9", "color10", "color11", "color12", "color13", "color14"):
+    MIXED = "\n".join(line for line in MIXED.split("\n") if not line.startswith(_slot + " = "))
+check("colors/presemantic/mixed-bright-red", parse_colors(MIXED)["bright_red"], "#c16c75")
+
+# magenta falls back to purple when color5 is absent.
+PURPLE = "\n".join(line for line in HARBOR.split("\n") if not line.startswith("color5 = ")) + 'purple = "#123456"\n'
+check("colors/presemantic/purple-alias", parse_colors(PURPLE)["magenta"], "#123456")
+
+# ANSI-only dark: no marker, no mode key, luminance decides.
+DARK = """
+accent = "#5e81ac"
+foreground = "#e0e0e0"
+background = "#121212"
+color0 = "#121212"
+color1 = "#b14752"
+color2 = "#556753"
+color3 = "#dc8164"
+color4 = "#4c6c94"
+color5 = "#8a5b81"
+color6 = "#3d727d"
+color7 = "#e0e0e0"
+"""
+check("colors/presemantic/dark-mode", parse_colors(DARK)["mode"], "dark")
+
+# A canonical value wins over its legacy form, and theme_type is the legacy mode.
+BOTH = VALID.replace('background = "#1a1b26"', 'background = "#1a1b26"\nbg = "#000000"')
+check("colors/canonical-over-legacy", parse_colors(BOTH)["background"], "#1a1b26")
+check("colors/theme-type", parse_colors(
+    VALID.replace('mode = "dark"', 'theme_type = "light"'))["mode"], "light")
+
+NO_MODE = "\n".join(line for line in VALID.split("\n") if not line.startswith("mode = "))
+check("colors/mode-hint-wins", parse_colors(NO_MODE, "light")["mode"], "light")
+
+# Short hex expands to six digits before the opaque check.
+check("colors/short-hex", parse_colors(VALID.replace("#1a1b26", "#123"))["background"], "#112233")
+
 # A missing guaranteed key rejects the whole palette.
 check("colors/missing-key", parse_colors("\n".join(
     line for line in VALID.split("\n") if not line.startswith("red = "))), None)
+
+# mode is no longer required: a canonical file without it resolves by luminance.
 check("colors/missing-mode", parse_colors("\n".join(
-    line for line in VALID.split("\n") if not line.startswith("mode = "))), None)
+    line for line in VALID.split("\n") if not line.startswith("mode = ")))["mode"], "dark")
 
 # An empty file has no palette.
 check("colors/empty", parse_colors(""), None)
@@ -1588,10 +1810,27 @@ write_palette_theme() {
     mkdir -p "$1"
     sed "s/^mode = \"dark\"/mode = \"$2\"/" "$ROOT/tests/fixtures/theme-palette.toml" > "$1/colors.toml"
 }
+# A pre-semantic ANSI-only palette with the given background, plus the named
+# roles omarchy's cascade needs (accent has no fallback).
+write_ansi_theme() {
+    mkdir -p "$1"
+    cat > "$1/colors.toml" <<EOF
+accent = "#5e81ac"
+foreground = "#e0e0e0"
+background = "$2"
+color1 = "#b14752"
+color2 = "#556753"
+color3 = "#dc8164"
+color4 = "#4c6c94"
+color5 = "#8a5b81"
+color6 = "#3d727d"
+EOF
+}
 mkdir -p "$CATDIR/tokyo-night" "$CATDIR/daylight" "$CATDIR/quoted" "$CATDIR/twice" \
     "$CATDIR/modeonly" "$CATDIR/missingkey" "$CATDIR/dupmode" "$CATDIR/oversized" \
     "$CATDIR/hash#name" "$CATDIR/quest?name" "$CATDIR/pipe|name" "$CATDIR/back\\slash" \
-    "$CATDIR/linktheme" "$CATDIR/linkcolors"
+    "$CATDIR/linktheme" "$CATDIR/linkcolors" "$CATDIR/harbor" "$CATDIR/plaindark" \
+    "$CATDIR/legacytype"
 write_palette_theme "$CATDIR/tokyo-night" dark
 write_palette_theme "$CATDIR/daylight" light
 write_palette_theme "$CATDIR/quoted" light
@@ -1614,9 +1853,18 @@ write_palette_theme "$CATDIR/back\\slash" dark
 ln -s "$CATDIR/tokyo-night" "$CATDIR/linktheme"
 ln -s "$CATDIR/tokyo-night/colors.toml" "$CATDIR/linkcolors/colors.toml"
 : > "$CATDIR/notatheme"
+# A pre-semantic ANSI theme with a light.mode marker is listed light; without
+# one its luminance decides. The legacy theme_type key resolves mode too.
+write_ansi_theme "$CATDIR/harbor" "#dfe4c4"
+: > "$CATDIR/harbor/light.mode"
+write_ansi_theme "$CATDIR/plaindark" "#121212"
+sed 's/^mode = "dark"/theme_type = "light"/' "$ROOT/tests/fixtures/theme-palette.toml" > "$CATDIR/legacytype/colors.toml"
 scan_out="$(sh "$TSCRIPT" "$CATDIR" 262144 | LC_ALL=C sort)"
 scan_want="$(cat <<'EOF'
 daylight|"light"
+harbor|light
+legacytype|"light"
+plaindark|dark
 quoted|'light'
 tokyo-night|"dark"
 twice|"light"

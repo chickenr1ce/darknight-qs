@@ -83,10 +83,131 @@ function parseTomlString(raw) {
     return space < 0 ? text : text.slice(0, space);
 }
 
-function parseColors(tomlText) {
+const ANSI_KEYS = [
+    "color0", "color1", "color2", "color3", "color4", "color5", "color6", "color7",
+    "color8", "color9", "color10", "color11", "color12", "color13", "color14", "color15"
+];
+
+// Legacy short names mapped onto their canonical v4 role.
+const LEGACY_SHORT_NAMES = {
+    "background": "bg",
+    "dark_background": "dark_bg",
+    "darker_background": "darker_bg",
+    "lighter_background": "lighter_bg",
+    "foreground": "fg",
+    "dark_foreground": "dark_fg",
+    "light_foreground": "light_fg",
+    "bright_foreground": "bright_fg"
+};
+
+const LEGACY_COLOR_KEYS = [
+    "bg", "dark_bg", "darker_bg", "lighter_bg",
+    "fg", "dark_fg", "light_fg", "bright_fg"
+];
+
+// ANSI slots mapped onto the semantic roles, mirroring omarchy-theme-color.
+const ANSI_ROLES = {
+    "red": "color1",
+    "green": "color2",
+    "yellow": "color3",
+    "blue": "color4",
+    "magenta": "color5",
+    "cyan": "color6",
+    "bright_red": "color9",
+    "bright_green": "color10",
+    "bright_yellow": "color11",
+    "bright_blue": "color12",
+    "bright_magenta": "color13",
+    "bright_cyan": "color14"
+};
+
+const COLOR_KEYS = PALETTE_REQUIRED_KEYS.concat(
+    PALETTE_OPTIONAL_KEYS,
+    ["selection_background", "selection_foreground", "cursor", "purple", "bright_purple"],
+    ANSI_KEYS,
+    LEGACY_COLOR_KEYS
+);
+
+function hexPair(value, index) {
+    return parseInt(value.slice(index, index + 2), 16);
+}
+
+function toHex(r, g, b) {
+    const clamp = c => Math.max(0, Math.min(255, c));
+    const pair = c => clamp(c).toString(16).padStart(2, "0");
+    return "#" + pair(r) + pair(g) + pair(b);
+}
+
+// Normalize a palette value to lowercase `#rrggbb` or `#rrggbbaa`; an empty
+// string means the value is not a hex color. Short forms expand so an ANSI
+// source is comparable to a canonical key.
+function normalizeColor(value) {
+    const text = typeof value === "string" ? value.trim() : "";
+    let match = /^#([0-9a-fA-F]{3})$/.exec(text);
+    if (match) {
+        const h = match[1];
+        return ("#" + h[0] + h[0] + h[1] + h[1] + h[2] + h[2]).toLowerCase();
+    }
+    match = /^#([0-9a-fA-F]{4})$/.exec(text);
+    if (match) {
+        const h = match[1];
+        return ("#" + h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3]).toLowerCase();
+    }
+    if (/^#[0-9a-fA-F]{6}$/.test(text) || /^#[0-9a-fA-F]{8}$/.test(text))
+        return text.toLowerCase();
+    return "";
+}
+
+function rgbOf(hex) {
+    const h = hex.replace("#", "");
+    return [hexPair(h, 0), hexPair(h, 2), hexPair(h, 4)];
+}
+
+// omarchy's mix: int(a*(1-t) + b*t + 0.5) per channel.
+function mixColor(start, end, amount) {
+    const a = normalizeColor(start);
+    const b = normalizeColor(end);
+    if (a === "" || b === "")
+        return "";
+    const from = rgbOf(a);
+    const to = rgbOf(b);
+    const t = Math.max(0, Math.min(1, amount));
+    const channel = (x, y) => Math.floor(x * (1 - t) + y * t + 0.5);
+    return toHex(channel(from[0], to[0]), channel(from[1], to[1]), channel(from[2], to[2]));
+}
+
+// omarchy resolves light/dark from a six-digit #rrggbb background (382 is the
+// midpoint of three 255-wide channels); any other form is dark. There is no
+// `dark.mode` marker: dark is the default.
+function luminanceMode(background) {
+    if (typeof background !== "string" || !/^#[0-9a-fA-F]{6}$/.test(background))
+        return "dark";
+    const rgb = rgbOf(background.toLowerCase());
+    return rgb[0] + rgb[1] + rgb[2] > 382 ? "light" : "dark";
+}
+
+function resolveMode(declared, modeHint, backgroundRaw) {
+    if (isValidMode(declared["mode"]))
+        return declared["mode"];
+    if (isValidMode(declared["theme_type"]))
+        return declared["theme_type"];
+    if (isValidMode(modeHint))
+        return modeHint;
+    return luminanceMode(backgroundRaw);
+}
+
+// Resolve a colors.toml into the guaranteed v4 palette. A canonical file
+// resolves to itself; a pre-semantic file (ANSI color0-color15 plus a few named
+// roles) is filled in through omarchy-theme-color's cascade, so a theme omarchy
+// v4 reads is a theme this shell reads. `modeHint`, when given, is the mode the
+// catalog scan resolved (including the `light.mode` marker the parser cannot
+// see) and takes precedence over a background's luminance.
+function parseColors(tomlText, modeHint) {
     if (typeof tomlText !== "string")
         return null;
-    const values = {};
+    const colors = {};
+    const rawColors = {};
+    const declared = {};
     const lines = tomlText.split("\n");
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -96,28 +217,103 @@ function parseColors(tomlText) {
         if (eq <= 0)
             continue;
         const key = line.slice(0, eq).trim();
-        if (!PALETTE_REQUIRED_KEYS.includes(key) && !PALETTE_OPTIONAL_KEYS.includes(key) && key !== "mode")
+        const decoded = parseTomlString(line.slice(eq + 1));
+        if (key === "mode" || key === "theme_type") {
+            declared[key] = decoded;
             continue;
-        values[key] = parseTomlString(line.slice(eq + 1));
+        }
+        if (!COLOR_KEYS.includes(key))
+            continue;
+        rawColors[key] = decoded;
+        const value = normalizeColor(decoded);
+        if (value !== "")
+            colors[key] = value;
     }
-    const mode = values["mode"];
-    if (!isValidMode(mode))
-        return null;
+
+    for (const canonical in LEGACY_SHORT_NAMES) {
+        const legacy = LEGACY_SHORT_NAMES[canonical];
+        if (colors[canonical] === undefined && colors[legacy] !== undefined)
+            colors[canonical] = colors[legacy];
+    }
+    if (colors["background"] === undefined && colors["color0"] !== undefined)
+        colors["background"] = colors["color0"];
+    if (colors["foreground"] === undefined && colors["color7"] !== undefined)
+        colors["foreground"] = colors["color7"];
+    // omarchy overwrites color0/color7 from the semantic key when it exists, so
+    // derived roles read the canonical value rather than a stale ANSI slot.
+    if (colors["background"] !== undefined)
+        colors["color0"] = colors["background"];
+    if (colors["foreground"] !== undefined)
+        colors["color7"] = colors["foreground"];
+    for (const role in ANSI_ROLES) {
+        const ansi = ANSI_ROLES[role];
+        if (colors[role] === undefined && colors[ansi] !== undefined)
+            colors[role] = colors[ansi];
+    }
+    if (colors["magenta"] === undefined && colors["purple"] !== undefined)
+        colors["magenta"] = colors["purple"];
+    if (colors["bright_magenta"] === undefined && colors["bright_purple"] !== undefined)
+        colors["bright_magenta"] = colors["bright_purple"];
+    if (colors["light_foreground"] === undefined)
+        colors["light_foreground"] = colors["color7"] || colors["foreground"];
+    if (colors["bright_foreground"] === undefined)
+        colors["bright_foreground"] = colors["color15"] || colors["foreground"];
+    colors["cursor"] = colors["bright_foreground"];
+    if (colors["lighter_background"] === undefined)
+        colors["lighter_background"] = colors["color0"] || colors["background"];
+    if (colors["dark_foreground"] === undefined)
+        colors["dark_foreground"] = colors["color8"] || colors["foreground"];
+    if (colors["muted"] === undefined)
+        colors["muted"] = colors["color8"] || colors["dark_foreground"];
+    if (colors["selection"] === undefined)
+        colors["selection"] = colors["selection_background"] || colors["color8"]
+            || colors["color0"] || colors["background"];
+    if (colors["selection_background"] === undefined)
+        colors["selection_background"] = colors["selection"];
+    if (colors["selection_foreground"] === undefined)
+        colors["selection_foreground"] = colors["bright_foreground"];
+    if (colors["orange"] === undefined)
+        colors["orange"] = colors["yellow"];
+    if (colors["brown"] === undefined)
+        colors["brown"] = mixColor(colors["orange"], "#000000", 0.5);
+    if (colors["dark_background"] === undefined)
+        colors["dark_background"] = mixColor(colors["background"], "#000000", 0.25);
+    if (colors["darker_background"] === undefined)
+        colors["darker_background"] = mixColor(colors["background"], "#000000", 0.5);
+    if (colors["bright_red"] === undefined)
+        colors["bright_red"] = mixColor(colors["red"], "#ffffff", 0.2);
+    if (colors["bright_yellow"] === undefined)
+        colors["bright_yellow"] = mixColor(colors["yellow"], "#ffffff", 0.2);
+    if (colors["bright_green"] === undefined)
+        colors["bright_green"] = mixColor(colors["green"], "#ffffff", 0.2);
+    if (colors["bright_cyan"] === undefined)
+        colors["bright_cyan"] = mixColor(colors["cyan"], "#ffffff", 0.2);
+    if (colors["bright_blue"] === undefined)
+        colors["bright_blue"] = mixColor(colors["blue"], "#ffffff", 0.2);
+    if (colors["bright_magenta"] === undefined)
+        colors["bright_magenta"] = mixColor(colors["magenta"], "#ffffff", 0.2);
+
     const palette = {};
     for (let i = 0; i < PALETTE_REQUIRED_KEYS.length; i++) {
         const key = PALETTE_REQUIRED_KEYS[i];
-        const value = values[key];
+        const value = colors[key];
         if (!isOpaqueColorValue(value))
             return null;
         palette[key] = value.toLowerCase();
     }
     for (let i = 0; i < PALETTE_OPTIONAL_KEYS.length; i++) {
         const key = PALETTE_OPTIONAL_KEYS[i];
-        const valid = PALETTE_BORDER_KEYS.includes(key) ? isColorValue(values[key]) : isOpaqueColorValue(values[key]);
+        const value = colors[key];
+        const valid = PALETTE_BORDER_KEYS.includes(key) ? isColorValue(value) : isOpaqueColorValue(value);
         if (valid)
-            palette[key] = values[key].toLowerCase();
+            palette[key] = value.toLowerCase();
     }
-    palette["mode"] = mode;
+    let backgroundRaw = rawColors["background"];
+    if (backgroundRaw === undefined)
+        backgroundRaw = rawColors["bg"];
+    if (backgroundRaw === undefined)
+        backgroundRaw = rawColors["color0"];
+    palette["mode"] = resolveMode(declared, modeHint, backgroundRaw);
     return palette;
 }
 

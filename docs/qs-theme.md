@@ -65,6 +65,11 @@ down it still succeeds, and the next shell start discovers the theme.
 stderr is a terminal, then `installing <name>`) and the result
 `installed <name>` on stdout, so a slow clone is visible rather than silent.
 
+A theme whose `colors.toml` predates the semantic palette — ANSI `color0`–`color15`
+plus a few named roles — is still switchable. The shell resolves it through
+omarchy's own cascade, so an omarchy v4 theme works whether or not it was
+regenerated with the named roles, and the directory is never rewritten.
+
 ### remove
 
 `remove <name>` deletes `<theme root>/<name>` and pings the shell to refresh the

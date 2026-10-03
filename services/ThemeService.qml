@@ -118,6 +118,8 @@ Singleton {
                 root.catalogText = idCatalogCollector.text;
                 root.catalogReady = true;
                 root.reconcileActiveTheme();
+                if (root.activeTheme !== "" && root.hasPalette && root.effectiveMode("") !== root.mode)
+                    root.applyPalette(ThemeParsers.parseColors(idPaletteFile.text(), root.catalogMode(root.activeTheme)));
                 if (root.catalogQueued) {
                     root.catalogQueued = false;
                     Qt.callLater(root.refresh);
@@ -183,7 +185,7 @@ Singleton {
         path: root.colorsTrusted && root.colorsPath !== "" ? "file://" + root.colorsPath : ""
         watchChanges: true
         printErrors: false
-        onLoaded: root.applyPalette(ThemeParsers.parseColors(idPaletteFile.text()))
+        onLoaded: root.applyPalette(ThemeParsers.parseColors(idPaletteFile.text(), root.catalogMode(root.activeTheme)))
         onLoadFailed: root.paletteLoadFailed()
         onFileChanged: root.reloadPalette()
     }
@@ -264,6 +266,18 @@ Singleton {
     function catalogDisplayName(name: string): string {
         const entry = root.catalogEntry(name);
         return entry ? entry.displayName : "";
+    }
+
+    function catalogMode(name: string): string {
+        const entry = root.catalogEntry(name);
+        return entry && (entry.mode === "light" || entry.mode === "dark") ? entry.mode : "";
+    }
+
+    // The scan resolves mode through the `light.mode` marker and luminance,
+    // which the parser cannot see. Prefer it once the catalog has an entry.
+    function effectiveMode(fallback: string): string {
+        const fromCatalog = root.catalogMode(root.activeTheme);
+        return fromCatalog !== "" ? fromCatalog : fallback;
     }
 
     function catalogEntry(name: string): var {
@@ -430,8 +444,11 @@ Singleton {
 
     function applyPalette(palette): void {
         const present = palette !== null && palette !== undefined;
+        const mode = present ? root.effectiveMode(palette.mode) : "";
+        if (present)
+            palette.mode = mode;
         const pick = key => present && palette[key] !== undefined ? palette[key] : root.fallbackColor;
-        root.mode = present ? palette.mode : "";
+        root.mode = mode;
         root.accent = pick("accent");
         root.selection = pick("selection");
         root.muted = pick("muted");

@@ -88,3 +88,9 @@ Trust is uniform and read-only, with no tiers.
   `reconcileActiveTheme` drops a name it does not list. Reading the restored
   palette before the scan lands keeps the bar from waiting on the scan, so this
   brief window is accepted rather than gating every read on `catalogReady`.
+- 2026-10-03 (theme-switch follow-up): the read set gains one empty file, the
+  `light.mode` marker beside `colors.toml`. Omarchy resolves mode from it before
+  falling back to the background's luminance, and the catalog scan must agree
+  with the parser. It carries no data, is not a symlink, and is the only
+  addition: the `colors.toml` rules, the background allowlist, and the
+  no-execution rule are unchanged.

@@ -73,3 +73,12 @@ itself.
   prompt. The format lives in `assets/templates/starship-theme.toml`. Kitty,
   hyprlock, and starship are terminal-shaped targets the palette already
   covers; GTK, icon themes, rofi, and the KDE widget bundle stay out of scope.
+- 2026-10-03 (theme-switch follow-up): pre-semantic themes are supported. This
+  decision rejected the ANSI schema "rather than approximated, because the
+  fallback mapping would be guesswork." Omarchy publishes that mapping in
+  `bin/omarchy-theme-color`, and its v4 shell reads these themes, so the loader
+  ports the cascade instead of guessing: `color0`–`color15` map onto the semantic
+  roles, the missing roles are derived or mixed, and mode falls back to the
+  `light.mode` marker and the background's luminance. A canonical file still
+  resolves to itself. No file is rewritten; resolution happens at read time, so a
+  theme stays verbatim.
