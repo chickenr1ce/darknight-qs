@@ -39,10 +39,17 @@ magenta = '{{magenta}}'
 blue = '{{blue}}'
 cyan = '{{cyan}}'
 selection = '{{selection}}'
+selection_ink = '{{selection_ink}}'
+text_accent = '{{text_accent}}'
+text_red = '{{text_red}}'
+text_yellow = '{{text_yellow}}'
+text_magenta = '{{text_magenta}}'
+text_blue = '{{text_blue}}'
+text_cyan = '{{text_cyan}}'
 
 [directory]
 format = "[](fg:selection)[ $path ]($style)[](fg:selection) "
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 truncation_length = 3
 truncation_symbol = "…/"
 
@@ -58,28 +65,28 @@ symbol = " "
 
 [git_branch]
 format = "[](fg:selection)[ $symbol $branch ]($style)[](fg:selection) "
-style = "bg:selection fg:cyan"
+style = "bg:selection fg:text_cyan"
 symbol = ""
 
 [git_status]
 disabled = false
-style = "bg:selection fg:red"
+style = "bg:selection fg:text_red"
 format = '[](fg:selection)([$all_status$ahead_behind]($style))[](fg:selection) '
-up_to_date = '[ ✓ ](bg:selection fg:accent)'
-untracked = '[?\($count\)](bg:selection fg:yellow)'
-stashed = '[\$](bg:selection fg:accent)'
-modified = '[!\($count\)](bg:selection fg:yellow)'
-renamed = '[»\($count\)](bg:selection fg:accent)'
+up_to_date = '[ ✓ ](bg:selection fg:text_accent)'
+untracked = '[?\($count\)](bg:selection fg:text_yellow)'
+stashed = '[\$](bg:selection fg:text_accent)'
+modified = '[!\($count\)](bg:selection fg:text_yellow)'
+renamed = '[»\($count\)](bg:selection fg:text_accent)'
 deleted = '[✘\($count\)](style)'
-staged = '[++\($count\)](bg:selection fg:yellow)'
-ahead = '[⇡\(${count}\)](bg:selection fg:cyan)'
-diverged = '⇕[\[](bg:selection fg:accent)[⇡\(${ahead_count}\)](bg:selection fg:cyan)[⇣\(${behind_count}\)](bg:selection fg:magenta)[\]](bg:selection fg:accent)'
-behind = '[⇣\(${count}\)](bg:selection fg:magenta)'
+staged = '[++\($count\)](bg:selection fg:text_yellow)'
+ahead = '[⇡\(${count}\)](bg:selection fg:text_cyan)'
+diverged = '⇕[\[](bg:selection fg:text_accent)[⇡\(${ahead_count}\)](bg:selection fg:text_cyan)[⇣\(${behind_count}\)](bg:selection fg:text_magenta)[\]](bg:selection fg:text_accent)'
+behind = '[⇣\(${count}\)](bg:selection fg:text_magenta)'
 
 [time]
 disabled = false
 format = " [](fg:selection)[ $time 󰴈 ]($style)[](fg:selection)"
-style = "bg:selection fg:magenta"
+style = "bg:selection fg:text_magenta"
 time_format = "%I:%M%P"
 use_12hr = true
 
@@ -87,85 +94,85 @@ use_12hr = true
 disabled = false
 format = "[](fg:selection)[ 󰧱 $user ]($style)[](fg:selection) "
 show_always = true
-style_root = "bg:selection fg:accent"
-style_user = "bg:selection fg:accent"
+style_root = "bg:selection fg:text_accent"
+style_user = "bg:selection fg:text_accent"
 
 # Languages
 
 [c]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [elixir]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [elm]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [golang]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [haskell]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [java]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [julia]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [nodejs]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = "󰎙 "
 
 [nim]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = "󰆥 "
 
 [rust]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [scala]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = " "
 
 [python]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
 disabled = false
 symbol = ' '
 
 [conda]
-style = "bg:selection fg:blue"
+style = "bg:selection fg:text_blue"
 format = " [](fg:selection)[ $symbol$environment ]($style)[](fg:selection)"
 disabled = false
 symbol = '🅒 '

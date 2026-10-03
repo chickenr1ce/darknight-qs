@@ -1394,6 +1394,15 @@ def parse_colors(toml_text, mode_hint=None):
     if "bright_magenta" not in colors:
         colors["bright_magenta"] = mix_color(colors.get("magenta"), "#ffffff", 0.2)
 
+    # A degenerate lighter_background (color0 equals background) would make every
+    # surface and border token vanish; step it toward the foreground instead.
+    if colors.get("lighter_background") == colors.get("background"):
+        step = mix_color(colors.get("background"), colors.get("foreground"), 0.2)
+        if step != "" and step != colors.get("background"):
+            colors["lighter_background"] = step
+        elif "dark_background" in colors:
+            colors["lighter_background"] = colors["dark_background"]
+
     palette = {}
     for key in REQUIRED_KEYS:
         value = colors.get(key)
@@ -1451,6 +1460,7 @@ bright_magenta = "#bb9af7"
 palette = parse_colors(VALID)
 check("colors/mode", palette["mode"], "dark")
 check("colors/background", palette["background"], "#1a1b26")
+check("colors/lighter_background-kept", palette["lighter_background"], "#24283b")
 check("colors/red", palette["red"], "#f7768e")
 check("colors/optional-orange", palette["orange"], "#eb927b")
 check("colors/no-urgent-role", "urgent" in palette, False)
@@ -1509,6 +1519,9 @@ check("colors/presemantic/selection", harbor["selection"], "#5e81ac")
 check("colors/presemantic/light_foreground", harbor["light_foreground"], "#1c2d28")
 check("colors/presemantic/bright_foreground", harbor["bright_foreground"], "#1c2d28")
 check("colors/presemantic/dark_background", harbor["dark_background"], "#a7ab93")
+# color0 equals background, so the degenerate lighter_background steps toward
+# the foreground instead of vanishing into the background.
+check("colors/presemantic/lighter_background-stepped", harbor["lighter_background"], "#b8bfa5")
 # color9 is present, so bright_red aliases it rather than mixing.
 check("colors/presemantic/bright_red-aliased", harbor["bright_red"], "#b14752")
 
@@ -2008,6 +2021,11 @@ grep -q "accent = '#7aa2f7'" "$RENDER_HOME/starship.toml" \
     || fail "starship accent does not come from the palette"
 grep -q 'bg:selection' "$RENDER_HOME/starship.toml" \
     || fail "starship pill background does not come from selection"
+# The fixture's hues already contrast with its selection, so they are kept.
+grep -q "text_accent = '#7aa2f7'" "$RENDER_HOME/starship.toml" \
+    || fail "starship dropped a pill hue that already contrasts with selection"
+grep -q 'fg:text_accent' "$RENDER_HOME/starship.toml" \
+    || fail "starship pill text does not use the contrast-resolved hue"
 if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml"; then
     fail "renderer left an unresolved template placeholder"
 fi
@@ -2077,7 +2095,28 @@ grep -q 'rgba(aabbccff)' "$RENDER_HOME5/hypr/theme.lua" \
 grep -q "accent = '#aabbcc'" "$RENDER_HOME5/starship.toml" \
     || fail "renderer did not expand a three-digit accent for starship"
 
-rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5"
+# A light theme whose selection and hues are all mid-tone: none of the pill
+# hues clear the contrast threshold, so each falls back to a black-or-white ink
+# chosen against selection. This is the harbor case; the fixture above proves
+# a theme that already contrasts is untouched.
+RENDER_HOME6="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_PALETTE6="$(printf '%s' "$RENDER_PALETTE" | sed \
+    -e 's/"selection":"#33467c"/"selection":"#5e81ac"/' \
+    -e 's/"accent":"#7aa2f7"/"accent":"#5e81ac"/' \
+    -e 's/"blue":"#7aa2f7"/"blue":"#4c6c94"/' \
+    -e 's/"cyan":"#7dcfff"/"cyan":"#3d727d"/' \
+    -e 's/"red":"#f7768e"/"red":"#b14752"/' \
+    -e 's/"yellow":"#e0af68"/"yellow":"#dc8164"/' \
+    -e 's/"magenta":"#bb9af7"/"magenta":"#8a5b81"/')"
+XDG_CONFIG_HOME="$RENDER_HOME6" sh "$RENDER" "$RENDER_PALETTE6"
+grep -q "selection_ink = '#000000'" "$RENDER_HOME6/starship.toml" \
+    || fail "the pill ink is not the higher-contrast of black and white"
+grep -q "text_blue = '#000000'" "$RENDER_HOME6/starship.toml" \
+    || fail "a low-contrast pill hue did not fall back to the ink"
+grep -q 'fg:text_blue' "$RENDER_HOME6/starship.toml" \
+    || fail "the fallen-back pill text is not referenced by the styles"
+
+rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6"
 
 # --- 18. dashboard Theme block: live palette, name, settings target ---
 # The block is the switcher's second home: a palette strip bound to the mapped

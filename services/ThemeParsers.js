@@ -293,6 +293,18 @@ function parseColors(tomlText, modeHint) {
     if (colors["bright_magenta"] === undefined)
         colors["bright_magenta"] = mixColor(colors["magenta"], "#ffffff", 0.2);
 
+    // A theme whose color0 is its background (a light theme with no elevated
+    // surface) leaves lighter_background identical to background, so every
+    // surface and border token drawn from it vanishes. Step it toward the
+    // foreground instead: darker on a light theme, lighter on a dark one.
+    if (colors["lighter_background"] === colors["background"]) {
+        const step = mixColor(colors["background"], colors["foreground"], 0.2);
+        if (step !== "" && step !== colors["background"])
+            colors["lighter_background"] = step;
+        else if (colors["dark_background"] !== undefined)
+            colors["lighter_background"] = colors["dark_background"];
+    }
+
     const palette = {};
     for (let i = 0; i < PALETTE_REQUIRED_KEYS.length; i++) {
         const key = PALETTE_REQUIRED_KEYS[i];

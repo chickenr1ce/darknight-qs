@@ -109,6 +109,37 @@ for key, suffix in (("background", "background_rgb"),
                     ("red", "red_rgb")):
     tokens[suffix] = rgb(palette[key])
 
+
+# starship paints each pill with `bg:selection` and a per-module hue for its
+# text. A hue only reads when it contrasts with the pill; when it does not (a
+# light theme whose selection and hues are all mid-tone) the text falls back to
+# a black-or-white ink chosen against `selection`. Themes whose hues already
+# contrast keep them, so this changes nothing for those.
+def luminance(value):
+    parts = channels(value)
+    if parts is None:
+        return None
+    def channel(c):
+        c = c / 255
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = parts[:3]
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    if la is None or lb is None:
+        return 0.0
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+PILL_TEXT_MIN = 3.0
+selection = tokens["selection"]
+tokens["selection_ink"] = "#000000" if contrast("#000000", selection) >= contrast("#ffffff", selection) else "#ffffff"
+for key in ("accent", "red", "yellow", "magenta", "blue", "cyan"):
+    tokens["text_" + key] = tokens[key] if contrast(tokens[key], selection) >= PILL_TEXT_MIN else tokens["selection_ink"]
+
 JOBS = (
     ("hypr-theme.lua", os.path.join(config_home, "hypr", "theme.lua")),
     ("kitty-theme.conf", os.path.join(config_home, "kitty", "theme.conf")),

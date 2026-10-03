@@ -92,6 +92,12 @@ selection = '{{selection}}'
 Edit the template, not the rendered file, for any prompt change. fish already
 loads the file with `starship init fish | source`, so the shell needs no change.
 
+Pill text keeps a module's hue when that hue contrasts with `selection`, and
+falls back to a black-or-white ink chosen against `selection` when it does not.
+That keeps a light theme whose selection and hues are all mid-tone (where a hue
+can equal the pill or sit a shade off it) readable, while leaving a theme whose
+hues already contrast unchanged. The renderer computes the choice.
+
 ## Verify
 
 Switch themes (dashboard Theme block or `qs-theme set <name>`), then confirm the
