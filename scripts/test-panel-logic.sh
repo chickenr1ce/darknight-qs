@@ -1967,14 +1967,14 @@ EOF
 
 # --- 17. desktop retint: the renderer writes repo-owned templates ---
 # scripts/render-theme.sh substitutes the resolved palette into the templates
-# under assets/templates/ and writes the three desktop files. It reads no theme
+# under assets/templates/ and writes the five desktop files. It reads no theme
 # directory, so this gate runs the real script against a fixture palette with
 # XDG_CONFIG_HOME redirected, then checks the bytes, the border fallback and
 # override, the empty-palette default, and idempotency.
 RENDER="$ROOT/scripts/render-theme.sh"
 test -f "$RENDER" \
     || fail "scripts/render-theme.sh is missing"
-for tpl in hypr-theme.lua kitty-theme.conf hyprlock-colors.conf starship-theme.toml; do
+for tpl in hypr-theme.lua kitty-theme.conf hyprlock-colors.conf starship-theme.toml yazi-theme.toml; do
     test -f "$ROOT/assets/templates/$tpl" \
         || fail "assets/templates/$tpl is missing"
 done
@@ -2026,7 +2026,20 @@ grep -q "text_accent = '#7aa2f7'" "$RENDER_HOME/starship.toml" \
     || fail "starship dropped a pill hue that already contrasts with selection"
 grep -q 'fg:text_accent' "$RENDER_HOME/starship.toml" \
     || fail "starship pill text does not use the contrast-resolved hue"
-if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml"; then
+test -f "$RENDER_HOME/yazi/theme.toml" \
+    || fail "renderer wrote no yazi theme.toml"
+grep -q 'overall = { bg = "#1a1b26" }' "$RENDER_HOME/yazi/theme.toml" \
+    || fail "yazi background does not come from the palette"
+grep -q 'cwd = { fg = "#7dcfff" }' "$RENDER_HOME/yazi/theme.toml" \
+    || fail "yazi cwd does not come from cyan"
+# A chip paints its text with the black-or-white ink chosen against the hue,
+# not with a fixed palette role.
+grep -q 'fg = "#000000", bg = "#7aa2f7"' "$RENDER_HOME/yazi/theme.toml" \
+    || fail "yazi chip text is not the contrast ink for its background"
+if grep -q '^\[flavor\]' "$RENDER_HOME/yazi/theme.toml"; then
+    fail "yazi theme still points at a static flavor"
+fi
+if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml" "$RENDER_HOME/yazi/theme.toml"; then
     fail "renderer left an unresolved template placeholder"
 fi
 
@@ -2034,6 +2047,7 @@ before_lua="$(cat "$RENDER_HOME/hypr/theme.lua")"
 before_kitty="$(cat "$RENDER_HOME/kitty/theme.conf")"
 before_lock="$(cat "$RENDER_HOME/hypr/hyprlock/colors.conf")"
 before_starship="$(cat "$RENDER_HOME/starship.toml")"
+before_yazi="$(cat "$RENDER_HOME/yazi/theme.toml")"
 stamp="$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")"
 sleep 1
 XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
@@ -2045,6 +2059,8 @@ test "$before_lock" = "$(cat "$RENDER_HOME/hypr/hyprlock/colors.conf")" \
     || fail "renderer is not idempotent: colors.conf changed on an identical rerun"
 test "$before_starship" = "$(cat "$RENDER_HOME/starship.toml")" \
     || fail "renderer is not idempotent: starship.toml changed on an identical rerun"
+test "$before_yazi" = "$(cat "$RENDER_HOME/yazi/theme.toml")" \
+    || fail "renderer is not idempotent: yazi theme.toml changed on an identical rerun"
 test "$stamp" = "$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")" \
     || fail "renderer rewrote an unchanged file"
 
@@ -2069,6 +2085,10 @@ grep -q 'background *#141118' "$RENDER_HOME3/kitty/theme.conf" \
     || fail "the empty-palette default does not use the fallback background"
 grep -q "accent = '#b4befe'" "$RENDER_HOME3/starship.toml" \
     || fail "the empty-palette default does not use the fallback accent for starship"
+grep -q 'overall = { bg = "#141118" }' "$RENDER_HOME3/yazi/theme.toml" \
+    || fail "the empty-palette default does not use the fallback background for yazi"
+grep -q 'bg = "#b4befe"' "$RENDER_HOME3/yazi/theme.toml" \
+    || fail "the empty-palette default does not use the fallback accent for yazi"
 
 RENDER_HOME3B="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
 XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
@@ -2094,6 +2114,8 @@ grep -q 'rgba(aabbccff)' "$RENDER_HOME5/hypr/theme.lua" \
     || fail "renderer did not expand a three-digit accent for hypr"
 grep -q "accent = '#aabbcc'" "$RENDER_HOME5/starship.toml" \
     || fail "renderer did not expand a three-digit accent for starship"
+grep -q 'bg = "#aabbcc"' "$RENDER_HOME5/yazi/theme.toml" \
+    || fail "renderer did not expand a three-digit accent for yazi"
 
 # A light theme whose selection and hues are all mid-tone: none of the pill
 # hues clear the contrast threshold, so each falls back to a black-or-white ink
@@ -2116,7 +2138,22 @@ grep -q "text_blue = '#000000'" "$RENDER_HOME6/starship.toml" \
 grep -q 'fg:text_blue' "$RENDER_HOME6/starship.toml" \
     || fail "the fallen-back pill text is not referenced by the styles"
 
-rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6"
+# A light background with a mid-tone hue: the body text keeps the hue only when
+# it clears the contrast threshold, and otherwise falls back to the black or
+# white ink chosen against the background.
+RENDER_HOME7="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_PALETTE7="$(printf '%s' "$RENDER_PALETTE" | sed \
+    -e 's/"background":"#1a1b26"/"background":"#f5f5f5"/' \
+    -e 's/"dark_background":"#16161e"/"dark_background":"#e6e6e6"/' \
+    -e 's/"darker_background":"#101014"/"darker_background":"#dddddd"/' \
+    -e 's/"lighter_background":"#292e42"/"lighter_background":"#ffffff"/' \
+    -e 's/"foreground":"#c0caf5"/"foreground":"#222222"/' \
+    -e 's/"cyan":"#7dcfff"/"cyan":"#d0f0f0"/')"
+XDG_CONFIG_HOME="$RENDER_HOME7" sh "$RENDER" "$RENDER_PALETTE7"
+grep -q 'cwd = { fg = "#000000" }' "$RENDER_HOME7/yazi/theme.toml" \
+    || fail "yazi did not fall a low-contrast body hue back to the background ink"
+
+rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7"
 
 # --- 18. dashboard Theme block: live palette, name, settings target ---
 # The block is the switcher's second home: a palette strip bound to the mapped

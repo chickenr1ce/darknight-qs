@@ -1,0 +1,244 @@
+# Rendered by scripts/render-theme.sh from the active theme palette.
+# Do not edit: the next palette load overwrites this file.
+#
+# yazi reads a single theme.toml and has no include directive, so this repo
+# owns the whole file. Edit the template at assets/templates/yazi-theme.toml,
+# not this copy. See docs/theme-desktop-setup.md.
+#
+# Chip text uses an on_<role> ink and body text uses a readable_<role> hue,
+# each the higher-contrast choice for its ground, so a light theme stays
+# readable.
+
+# : App
+
+[app]
+overall = { bg = "{{background}}" }
+
+
+
+# : Manager
+
+[mgr]
+cwd = { fg = "{{readable_cyan}}" }
+
+# Find
+find_keyword  = { fg = "{{readable_yellow}}", bold = true, italic = true, underline = true }
+find_position = { fg = "{{readable_magenta}}", bg = "reset", bold = true, italic = true }
+
+# Symlink
+symlink_target = { italic = true }
+
+# Marker
+marker_copied   = { fg = "{{on_blue}}", bg = "{{blue}}" }
+marker_cut      = { fg = "{{on_red}}", bg = "{{red}}" }
+marker_marked   = { fg = "{{on_accent}}", bg = "{{accent}}" }
+marker_selected = { fg = "{{on_yellow}}", bg = "{{yellow}}" }
+
+# Count
+count_copied   = { fg = "{{on_blue}}", bg = "{{blue}}" }
+count_cut      = { fg = "{{on_red}}", bg = "{{red}}" }
+count_selected = { fg = "{{on_yellow}}", bg = "{{yellow}}" }
+
+# Border
+border_symbol = "│"
+border_style  = { fg = "{{muted}}" }
+
+# Highlighting
+syntect_theme = ""
+
+
+
+# : Tabs
+
+[tabs]
+active   = { fg = "{{on_blue}}", bg = "{{blue}}", bold = true }
+inactive = { fg = "{{background}}", bg = "{{foreground}}" }
+
+# Separator
+sep_inner = { open = "", close = "" }
+sep_outer = { open = "", close = "" }
+
+
+
+# : Mode
+
+[mode]
+normal_main = { fg = "{{on_cyan}}", bg = "{{cyan}}", bold = true }
+normal_alt  = { fg = "{{background}}", bg = "{{foreground}}", bold = true }
+
+# Select mode
+select_main = { fg = "{{on_red}}", bg = "{{red}}", bold = true }
+select_alt  = { fg = "{{background}}", bg = "{{foreground}}", bold = true }
+
+# Unset mode
+unset_main = { fg = "{{on_red}}", bg = "{{red}}", bold = true }
+unset_alt  = { fg = "{{background}}", bg = "{{foreground}}", bold = true }
+
+
+
+# : Indicator of hovered file
+
+[indicator]
+parent  = { reversed = true }
+current = { reversed = true }
+preview = { underline = true }
+padding = { open = "", close = "" }
+
+
+
+# : Status bar
+
+[status]
+overall   = { bg = "{{background}}" }
+sep_left  = { open = "", close = "" }
+sep_right = { open = "", close = "" }
+
+# Permissions
+perm_sep   = { fg = "{{muted}}" }
+perm_type  = { fg = "{{readable_magenta}}" }
+perm_read  = { fg = "{{readable_yellow}}" }
+perm_write = { fg = "{{readable_red}}" }
+perm_exec  = { fg = "{{readable_cyan}}" }
+
+# Progress
+progress_label  = { fg = "{{foreground}}", bold = true }
+progress_normal = { fg = "{{readable_blue}}", bg = "{{lighter_background}}" }
+progress_error  = { fg = "{{readable_red}}", bg = "{{lighter_background}}" }
+
+
+
+# : Which
+
+[which]
+cols            = 3
+mask            = { bg = "{{lighter_background}}" }
+cand            = { fg = "{{readable_cyan}}" }
+rest            = { fg = "{{muted}}" }
+desc            = { fg = "{{readable_yellow}}" }
+separator       = "  "
+separator_style = { fg = "{{muted}}" }
+
+
+
+# : Confirmation
+
+[confirm]
+border     = { fg = "{{muted}}" }
+title      = { fg = "{{readable_red}}", bold = true }
+body       = { fg = "{{foreground}}" }
+list       = { fg = "{{foreground}}" }
+btn_yes    = { fg = "{{on_blue}}", bg = "{{blue}}", bold = true }
+btn_no     = { fg = "{{background}}", bg = "{{foreground}}", bold = true }
+btn_labels = [ "  [y]es  ", "  (n)o  " ]
+
+
+
+# : Spotter
+
+[spot]
+border = { fg = "{{muted}}" }
+title  = { fg = "{{readable_cyan}}", bold = true }
+
+# Table
+tbl_col  = { fg = "{{readable_cyan}}" }
+tbl_cell = { fg = "{{on_yellow}}", bg = "{{yellow}}", bold = true }
+
+
+
+# : Notification
+
+[notify]
+title_info  = { fg = "{{readable_blue}}" }
+title_warn  = { fg = "{{readable_yellow}}" }
+title_error = { fg = "{{readable_red}}" }
+
+# Icons
+icon_info  = ""
+icon_warn  = ""
+icon_error = ""
+
+
+
+# : Picker
+
+[pick]
+border   = { fg = "{{blue}}" }
+active   = { fg = "{{readable_magenta}}", bold = true }
+inactive = { fg = "{{muted}}" }
+
+
+
+# : Input
+
+[input]
+border   = { fg = "{{blue}}" }
+title    = { bold = true }
+value    = { fg = "{{foreground}}" }
+selected = { reversed = true }
+
+
+
+# : Completion
+
+[cmp]
+border   = { fg = "{{blue}}" }
+active   = { bg = "{{foreground}}", fg = "{{background}}", bold = true }
+inactive = { fg = "{{muted}}" }
+
+# Icons
+icon_file    = ""
+icon_folder  = ""
+icon_command = ""
+
+
+
+# : Task manager
+
+[tasks]
+border  = { fg = "{{blue}}" }
+title   = { bold = true }
+hovered = { fg = "{{readable_magenta}}", bold = true, reversed = true }
+
+
+
+# : Help menu
+
+[help]
+border  = { fg = "{{muted}}" }
+chord   = { fg = "{{readable_cyan}}" }
+action  = { fg = "{{readable_yellow}}" }
+hovered = { reversed = true, bold = true }
+
+
+
+# : File-specific styles
+
+[filetype]
+rules = [
+  # Images
+  { mime = "image/*", fg = "{{readable_magenta}}" },
+
+  # Media
+  { mime = "{audio,video}/*", fg = "{{readable_yellow}}" },
+
+  # Archives
+  { mime = "application/{zip,rar,7z*,tar,gzip,xz,zstd,bzip*,lzma,compress,archive,cpio,arj,xar,ms-cab*}", fg = "{{readable_red}}" },
+
+  # Documents
+  { mime = "application/{pdf,doc,rtf}", fg = "{{readable_accent}}" },
+
+  # Empty files
+  # { mime = "inode/empty", fg = "{{readable_red}}" },
+
+  # Special files
+  { url = "*", is = "orphan", fg = "{{on_red}}", bg = "{{red}}" },
+  { url = "*", is = "exec", fg = "{{readable_cyan}}" },
+
+  # Dummy files
+  { url = "*", is = "dummy", fg = "{{on_red}}", bg = "{{red}}" },
+  { url = "*/", is = "dummy", fg = "{{on_red}}", bg = "{{red}}" },
+
+  # Fallback
+  { url = "*", fg = "{{foreground}}" },
+  { url = "*/", fg = "{{readable_blue}}" }
+]

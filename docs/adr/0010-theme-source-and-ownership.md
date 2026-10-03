@@ -82,3 +82,13 @@ itself.
   `light.mode` marker and the background's luminance. A canonical file still
   resolves to itself. No file is rewritten; resolution happens at read time, so a
   theme stays verbatim.
+- 2026-10-03 (theme desktop targets): yazi joins the retint targets. Like
+  starship it has no include directive, so the renderer writes
+  `~/.config/yazi/theme.toml` whole and this repo owns the theme, replacing the
+  static `[flavor]` reference a stock config carries. The format lives in
+  `assets/templates/yazi-theme.toml`. A chip paints text on a colored ground, so
+  the renderer emits an `on_<role>` black-or-white ink per hue; body text keeps
+  a hue only when it contrasts with the app background and otherwise falls back
+  to a `readable_<role>` background ink. The flavor's `.tmTheme` code
+  highlighting is dropped with the flavor; the preview syntax theme falls back
+  to the yazi preset.

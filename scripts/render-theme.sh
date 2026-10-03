@@ -4,6 +4,7 @@
 #   ~/.config/kitty/theme.conf
 #   ~/.config/hypr/hyprlock/colors.conf
 #   ~/.config/starship.toml
+#   ~/.config/yazi/theme.toml
 #
 # Usage: render-theme.sh '<palette-json>'
 #
@@ -134,11 +135,25 @@ def contrast(a, b):
     return (hi + 0.05) / (lo + 0.05)
 
 
+def ink(value):
+    return "#000000" if contrast("#000000", value) >= contrast("#ffffff", value) else "#ffffff"
+
+
 PILL_TEXT_MIN = 3.0
 selection = tokens["selection"]
-tokens["selection_ink"] = "#000000" if contrast("#000000", selection) >= contrast("#ffffff", selection) else "#ffffff"
+tokens["selection_ink"] = ink(selection)
 for key in ("accent", "red", "yellow", "magenta", "blue", "cyan"):
     tokens["text_" + key] = tokens[key] if contrast(tokens[key], selection) >= PILL_TEXT_MIN else tokens["selection_ink"]
+# yazi paints chip text on a colored background and body text on the app
+# background. Each hue gets a black-or-white ink chosen against itself for the
+# chips, and a background-contrast variant for body text, so a light theme with
+# mid-tone hues stays readable.
+background_ink = ink(tokens["background"])
+for key in ("accent", "red", "yellow", "blue", "magenta", "cyan"):
+    tokens["on_" + key] = ink(tokens[key])
+    tokens["readable_" + key] = (
+        tokens[key] if contrast(tokens[key], tokens["background"]) >= PILL_TEXT_MIN
+        else background_ink)
 
 JOBS = (
     ("hypr-theme.lua", os.path.join(config_home, "hypr", "theme.lua")),
@@ -146,6 +161,7 @@ JOBS = (
     ("hyprlock-colors.conf",
      os.path.join(config_home, "hypr", "hyprlock", "colors.conf")),
     ("starship-theme.toml", os.path.join(config_home, "starship.toml")),
+    ("yazi-theme.toml", os.path.join(config_home, "yazi", "theme.toml")),
 )
 
 

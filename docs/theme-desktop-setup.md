@@ -1,6 +1,6 @@
 # Theme desktop setup
 
-The theme switcher renders the active palette into four desktop config files.
+The theme switcher renders the active palette into five desktop config files.
 The renderer, `scripts/render-theme.sh`, runs on every palette load and change,
 so the files stay in step with the selected theme. It writes:
 
@@ -8,6 +8,7 @@ so the files stay in step with the selected theme. It writes:
 - `~/.config/kitty/theme.conf`
 - `~/.config/hypr/hyprlock/colors.conf`
 - `~/.config/starship.toml`
+- `~/.config/yazi/theme.toml`
 
 The renderer substitutes colors into templates this repo owns
 (`assets/templates/`) and never reads or evaluates a theme directory. It writes
@@ -20,9 +21,9 @@ renderer through a `Process`, so the UI thread never blocks.
 ## One-time wiring
 
 Three files outside this repo need a line added. The renderer does not touch
-them; add the lines yourself once. Starship is the exception: it has no include
-directive, so the renderer owns `~/.config/starship.toml` outright and there is
-no line to add.
+them; add the lines yourself once. Starship and yazi are the exceptions: neither
+has an include directive, so the renderer owns `~/.config/starship.toml` and
+`~/.config/yazi/theme.toml` outright and there is no line to add.
 
 ### Hyprland borders
 
@@ -98,6 +99,34 @@ That keeps a light theme whose selection and hues are all mid-tone (where a hue
 can equal the pill or sit a shade off it) readable, while leaving a theme whose
 hues already contrast unchanged. The renderer computes the choice.
 
+### yazi
+
+yazi reads one `theme.toml` and has no include directive, so the renderer owns
+`~/.config/yazi/theme.toml` whole, the same way it owns the starship config.
+The theme lives in `assets/templates/yazi-theme.toml`; edit the template, not
+the rendered file. The template drops the flavor reference a stock yazi config
+uses, so the colors come from the active palette rather than a static flavor.
+
+Two details are worth knowing:
+
+- Chip text. yazi paints chip text (tabs, modes, counts, markers) on a colored
+  background. The renderer gives each hue used that way an `on_<role>` ink, the
+  higher-contrast of black and white, so a light theme stays readable. Edit the
+  mapping, not the `on_*` values, when changing a chip.
+- Body text. Text painted on the app background keeps its hue when that hue
+  contrasts with the background, and otherwise falls back to a black-or-white
+  ink chosen against the background (`readable_<role>`). This mirrors the
+  starship pill hardening for the manager, permission, and file-type colors.
+- Code highlighting. Without a flavor there is no matching `.tmTheme` file, so
+  the preview syntax theme falls back to the yazi preset; the rest of the UI
+  follows the palette.
+
+The rendered file takes the slot the flavor reference used to occupy. A yazi
+whose `theme.toml` still carries `[flavor]` is repainted on the next palette
+load, and `package.toml` can keep a flavor installed even once nothing points
+at it. Unlike starship, yazi reads `theme.toml` once at startup, so an already
+running yazi keeps its old colors until it is reopened.
+
 ## Verify
 
 Switch themes (dashboard Theme block or `qs-theme set <name>`), then confirm the
@@ -105,7 +134,8 @@ rendered files match the palette:
 
 ```
 grep -h . ~/.config/hypr/theme.lua ~/.config/kitty/theme.conf \
-    ~/.config/hypr/hyprlock/colors.conf ~/.config/starship.toml
+    ~/.config/hypr/hyprlock/colors.conf ~/.config/starship.toml \
+    ~/.config/yazi/theme.toml
 ```
 
 For a visual check, capture a bordered window and a kitty window with
