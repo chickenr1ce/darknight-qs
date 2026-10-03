@@ -8,22 +8,25 @@ import qs.services
 Singleton {
     id: root
 
+    readonly property var tabs: [
+        { key: "dashboard", title: qsTr("Dashboard") },
+        { key: "media", title: qsTr("Media") },
+        { key: "performance", title: qsTr("Performance") },
+        { key: "workspaces", title: qsTr("Workspaces") }
+    ]
+
     property alias dashboardVisible: idPanelState.visible
     property alias dashboardLastOutsideCloseAt: idPanelState.lastOutsideCloseAt
     property alias anchorScreen: idPanelState.anchorScreen
     property alias anchorCenterX: idPanelState.anchorCenterX
 
+    property string activeTab: "dashboard"
     property int junctionRadius: Globals.junctionRadiusDefault
 
     onJunctionRadiusChanged: {
         if (idJunctionState.loading || !idJunctionState.loaded)
             return;
         root.saveJunctionRadius();
-    }
-
-    onDashboardVisibleChanged: {
-        if (root.dashboardVisible)
-            SettingsService.close();
     }
 
     PanelState {
@@ -39,15 +42,35 @@ Singleton {
     }
 
     function toggleDashboard(): void {
+        if (!root.dashboardVisible)
+            root.activeTab = "dashboard";
         idPanelState.toggle()
     }
 
     function toggleDashboardAt(screen, centerX: real): void {
+        if (!root.dashboardVisible)
+            root.activeTab = "dashboard";
         idPanelState.toggleAt(screen, centerX)
     }
 
     function openDashboardAt(screen, centerX: real): void {
+        root.activeTab = "dashboard";
         idPanelState.openAt(screen, centerX)
+    }
+
+    function selectTab(key: string): void {
+        root.activeTab = key;
+    }
+
+    function openSettings(sectionKey: string): void {
+        root.activeTab = "settings";
+        SettingsService.requestSection(sectionKey);
+    }
+
+    function openSettingsAt(screen, centerX: real, sectionKey: string): void {
+        root.activeTab = "settings";
+        SettingsService.requestSection(sectionKey);
+        idPanelState.openAt(screen, centerX);
     }
 
     function close(): void {

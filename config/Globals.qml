@@ -39,9 +39,8 @@ QtObject {
     readonly property int playerDeviceLabelWidth: 120
     readonly property int backgroundTileHeight: 48
 
-    readonly property int settingsWidth: 900
-    readonly property int settingsHeight: 600
     readonly property int settingsSidebarWidth: 148
+    readonly property int settingsBodyMaxHeight: 320
 
     readonly property int panelTopGap: 8
     readonly property int panelEdgeMargin: horizontalBarMargin

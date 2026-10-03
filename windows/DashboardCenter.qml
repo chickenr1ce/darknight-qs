@@ -30,6 +30,7 @@ PanelShell {
         DevGeometry.register("dashboard.theme", idDashboardTheme);
         DevGeometry.register("dashboard.cpu", idDashboardCpu);
         DevGeometry.register("dashboard.volume", idDashboardVolume);
+        DevGeometry.register("dashboard.settings", idDashboardSettingsView);
     }
 
     readonly property real halfBlockWidth: (Globals.dashboardWidth - 2 * Globals.panelPadding - Math.round(Globals.dashboardWidth * 0.27) - 2 * Globals.rowSpacing) / 2
@@ -54,9 +55,9 @@ PanelShell {
 
             glyph: Icons.cog
             glyphSize: Globals.uiIconSize
-            restColor: Colors.textSubtle
+            restColor: DashboardService.activeTab === "settings" ? Colors.accent : Colors.textSubtle
             accessibleName: qsTr("Settings")
-            onClicked: SettingsService.open(DashboardService.anchorScreen)
+            onClicked: DashboardService.openSettings("")
         }
     }
 
@@ -65,6 +66,7 @@ PanelShell {
 
         Layout.fillWidth: true
 
+        visible: DashboardService.activeTab === "dashboard"
         spacing: Globals.rowSpacing
 
         ColumnLayout {
@@ -119,6 +121,7 @@ PanelShell {
 
         Layout.fillWidth: true
 
+        visible: DashboardService.activeTab === "dashboard"
         spacing: Globals.rowSpacing
 
         DashboardCpuBlock {
@@ -135,5 +138,37 @@ PanelShell {
             Layout.fillWidth: true
             Layout.fillHeight: true
         }
+    }
+
+    Item {
+        id: idDashboardPlaceholder
+
+        Layout.fillWidth: true
+
+        visible: DashboardService.activeTab !== "dashboard" && DashboardService.activeTab !== "settings"
+        implicitHeight: idPlaceholderLabel.implicitHeight + 4 * Globals.panelPadding
+
+        Text {
+            id: idPlaceholderLabel
+
+            anchors.centerIn: parent
+
+            textFormat: Text.PlainText
+            text: qsTr("Coming soon")
+            color: Colors.textSubtle
+
+            font {
+                family: Globals.uiFontFamily
+                pixelSize: Globals.uiBodySize
+            }
+        }
+    }
+
+    SettingsView {
+        id: idDashboardSettingsView
+
+        Layout.fillWidth: true
+
+        visible: DashboardService.activeTab === "settings"
     }
 }

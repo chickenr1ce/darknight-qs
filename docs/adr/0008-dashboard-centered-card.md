@@ -41,8 +41,8 @@ with its own geometry and its own service, and it stays out of the registry.
   `services/Panels.qml`, and `Panels.anyOpen` does not read it, so the
   one-panel rule never closes the dashboard.
 - The dashboard and the settings window are mutually exclusive through direct
-  service calls. `SettingsService.open` closes the dashboard, and
-  `DashboardService.onDashboardVisibleChanged` closes settings (ADR 0007).
+  service calls (ADR 0007). Superseded by ADR 0012: settings is the dashboard's
+  Settings tab, so there is no second surface to exclude.
 - Dismissal reuses the shared shell behavior: outside click through the
   `HyprlandFocusGrab`, Escape through the shell `Shortcut`, the panel state
   anti-reopen window, and reduced motion gating.

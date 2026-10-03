@@ -20,7 +20,7 @@ Card {
     clickable: true
     accessibleName: qsTr("Open theme settings")
 
-    onClicked: SettingsService.open(DashboardService.anchorScreen, "theme")
+    onClicked: DashboardService.openSettings("theme")
     onBackgroundEntriesChanged: {
         if (root.backgroundEntries.length === 0)
             return;

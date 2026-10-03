@@ -32,7 +32,7 @@ Item {
             return JSON.stringify({
                 screens: Quickshell.screens.map(screen => screen.name),
                 dashboard: DashboardService.dashboardVisible,
-                settings: SettingsService.visible,
+                settings: DashboardService.dashboardVisible && DashboardService.activeTab === "settings",
                 calendar: CalendarService.calendarVisible,
                 cava: CavaService.cavaVisible,
                 center: NotificationServer.centerVisible,
@@ -52,7 +52,7 @@ Item {
             if (name === "dashboard")
                 DashboardService.dashboardVisible ? DashboardService.close() : DashboardService.openDashboardAt(screen, centerX);
             else if (name === "settings")
-                SettingsService.visible ? SettingsService.close() : SettingsService.open(screen);
+                DashboardService.dashboardVisible && DashboardService.activeTab === "settings" ? DashboardService.close() : DashboardService.openSettingsAt(screen, centerX, "");
             else if (name === "calendar")
                 CalendarService.calendarVisible ? CalendarService.closeCalendarFromOutside() : Panels.openCalendarAt(screen, centerX);
             else if (name === "cava")
@@ -65,7 +65,6 @@ Item {
 
         function closeAll(): void {
             DashboardService.close();
-            SettingsService.close();
             CalendarService.closeCalendarFromOutside();
             CavaService.closeCavaFromOutside();
             NotificationServer.closeCenterFromOutside();
@@ -74,6 +73,10 @@ Item {
 
         function toggleDnd(): void {
             NotificationServer.toggleDnd();
+        }
+
+        function tab(name: string): void {
+            DashboardService.selectTab(name);
         }
 
         function setReducedMotion(on: bool): void {

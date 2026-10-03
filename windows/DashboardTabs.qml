@@ -3,61 +3,83 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import qs.config
+import qs.services
 
 RowLayout {
     id: root
-
-    property int activeIndex: 0
-
-    readonly property var tabs: [qsTr("Dashboard"), qsTr("Media"), qsTr("Performance"), qsTr("Workspaces")]
 
     spacing: Globals.rowSpacing
 
     Repeater {
         id: idTabsRepeater
 
-        model: root.tabs
+        model: DashboardService.tabs
 
-        delegate: ColumnLayout {
-            id: idTabColumn
+        delegate: Item {
+            id: idTab
 
             Layout.fillWidth: true
             Layout.minimumWidth: 0
 
-            required property string modelData
-            required property int index
+            required property var modelData
 
-            readonly property bool isActive: index === root.activeIndex
+            readonly property bool isActive: idTab.modelData.key === DashboardService.activeTab
+            readonly property bool hovered: idTabMouse.containsMouse && !idTab.isActive
 
-            spacing: Globals.dayCellGap
+            implicitHeight: idTabColumn.implicitHeight
 
-            Text {
-                id: idTabLabel
+            Accessible.role: Accessible.Button
+            Accessible.name: idTab.modelData.title
 
-                Layout.fillWidth: true
+            ColumnLayout {
+                id: idTabColumn
 
-                horizontalAlignment: Text.AlignHCenter
-                textFormat: Text.PlainText
-                elide: Text.ElideRight
-                text: idTabColumn.modelData
-                color: idTabColumn.isActive ? Colors.text : Colors.textSubtle
+                anchors {
+                    left: parent.left
+                    right: parent.right
+                    verticalCenter: parent.verticalCenter
+                }
 
-                font {
-                    family: Globals.uiFontFamily
-                    pixelSize: Globals.uiBodySize
-                    weight: idTabColumn.isActive ? Font.DemiBold : Font.Normal
+                spacing: Globals.dayCellGap
+
+                Text {
+                    id: idTabLabel
+
+                    Layout.fillWidth: true
+
+                    horizontalAlignment: Text.AlignHCenter
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    text: idTab.modelData.title
+                    color: idTab.isActive || idTab.hovered ? Colors.text : Colors.textSubtle
+
+                    font {
+                        family: Globals.uiFontFamily
+                        pixelSize: Globals.uiBodySize
+                        weight: idTab.isActive ? Font.DemiBold : Font.Normal
+                    }
+                }
+
+                Rectangle {
+                    id: idTabUnderline
+
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Globals.armedEdgeWidth
+
+                    opacity: idTab.isActive ? 1 : 0
+                    radius: Globals.armedEdgeWidth / 2
+                    color: Colors.accent
                 }
             }
 
-            Rectangle {
-                id: idTabUnderline
+            MouseArea {
+                id: idTabMouse
 
-                Layout.fillWidth: true
-                Layout.preferredHeight: Globals.armedEdgeWidth
+                anchors.fill: parent
 
-                visible: idTabColumn.isActive
-                radius: Globals.armedEdgeWidth / 2
-                color: Colors.accent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: DashboardService.selectTab(idTab.modelData.key)
             }
         }
     }

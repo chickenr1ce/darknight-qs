@@ -105,9 +105,9 @@ before asking, never sequential single passes. Drive the loop without the
 pointer: open surfaces through `quickshell ipc --pid <pid> call`
 (devprobe `toggle` plus `geom` for numbers), capture with `grim -g` to
 `/tmp/opencode/`, and compare captures with pixel reads. Read the surface's
-`at:` and `size:` from `hyprctl clients` immediately before `grim`; a
-`FloatingWindow` can land on a different monitor across opens, so a remembered
-position captures whatever sits underneath. Confirm a clean reload afterward
+geometry from the devprobe `geom` snapshot immediately before `grim`; the
+dashboard and its tabs are layer surfaces, so `hyprctl clients` does not list
+them. Confirm a clean reload afterward
 with `scripts/reload.sh`. No packaged Wayland input injector is installed:
 `wtype`, `ydotool`, `dotool`, and `wlrctl` are absent, and `xdotool` is
 X11-only. The probe is the reliable hands-free trigger. `/dev/uinput` is
@@ -148,22 +148,9 @@ plus `modules/`, autostart in `modules/autostart.lua`).
 `hyprland-old.conf` is retired legacy: grepping `*.conf` for exec or bind
 entries looks authoritative while being wrong.
 
-The settings window depends on a rule in `modules/windowrules.lua`:
-
-```lua
-hl.window_rule({
-    name = "quickshell-settings",
-    match = { class = "^org[.]quickshell$", title = "^Settings$" },
-    float = true,
-    center = true
-})
-```
-
-That rule is the only thing making the settings toplevel float. It is not in
-this repository, so a fresh checkout or another machine shows a tiled settings
-window until someone adds it. `title` must equal the `settingsWindowTitle`
-constant in `windows/SettingsCenter.qml`; that constant is deliberately not
-translated because Hyprland matches the title literally.
+Settings is a dashboard tab, not a toplevel (ADR 0012), so it needs no
+`windowrules.lua` entry. An old `quickshell-settings` rule is harmless but
+dead.
 
 ### Toplevel class
 

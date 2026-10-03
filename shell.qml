@@ -152,8 +152,6 @@ ShellRoot {
 
     DashboardCenter {}
 
-    SettingsCenter {}
-
     NotificationCenter {}
 
     CalendarCenter {}

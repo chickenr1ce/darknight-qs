@@ -443,7 +443,7 @@ grep -q 'junctionRadius: DashboardService.junctionRadius' "$DCENTER" \
 
 # Dashboard card layout follows the reference card: tab row plus block grid
 # with stub content in palette tokens. Live data arrives in later tickets.
-for block in DashboardTabs DashboardWeatherBlock DashboardSystemBlock DashboardCpuBlock DashboardVolumeBlock DashboardPlayerBlock DashboardThemeBlock; do
+for block in DashboardWeatherBlock DashboardSystemBlock DashboardCpuBlock DashboardVolumeBlock DashboardPlayerBlock DashboardThemeBlock; do
     test -f "$ROOT/windows/$block.qml" \
         || fail "windows/$block.qml is missing"
     grep -q 'qsTr(' "$ROOT/windows/$block.qml" \
@@ -455,6 +455,10 @@ for block in DashboardTabs DashboardWeatherBlock DashboardSystemBlock DashboardC
         fail "$block.qml reaches the network; stubs stay fixed with no traffic"
     fi
 done
+test -f "$ROOT/windows/DashboardTabs.qml" \
+    || fail "windows/DashboardTabs.qml is missing"
+grep -qF 'qsTr("Dashboard")' "$ROOT/services/DashboardService.qml" \
+    || fail "DashboardService tab titles are not translated"
 grep -q 'DashboardTabs' "$DCENTER" \
     || fail "DashboardCenter does not compose the tab row"
 grep -q 'DashboardPlayerBlock' "$DCENTER" \
@@ -463,21 +467,20 @@ if grep -qiE 'cream|peach' "$ROOT"/windows/Dashboard*.qml; then
     fail "dashboard blocks carry reference cream/peach; palette tokens only"
 fi
 
-# --- 9. settings window: Hyprland-managed toplevel, dashboard gear, search ---
-# Settings is a FloatingWindow hosted in a Loader, outside the exclusive
-# registry. It owns no focus grab; opening it closes the dashboard (ADR 0007).
+# --- 9. settings tab: dashboard tab host, section registry, search ---
+# Settings is the dashboard's Settings tab (ADR 0012), not a separate window.
+# DashboardService.activeTab picks the page; windows/SettingsView.qml holds
+# the search field, the section rail, and the card-wrapped section body. The
+# SettingsService singleton keeps the section registry and a deep link.
 SSVC="$ROOT/services/SettingsService.qml"
-SCENTER="$ROOT/windows/SettingsCenter.qml"
+SCENTER="$ROOT/windows/SettingsView.qml"
 CSV="$ROOT/windows/CavaSettingsView.qml"
+DTABS="$ROOT/windows/DashboardTabs.qml"
 
 test -f "$SSVC" \
     || fail "services/SettingsService.qml is missing"
-grep -q 'property bool visible: false' "$SSVC" \
-    || fail "SettingsService has no visible flag"
-grep -qF 'function open(screen, sectionKey)' "$SSVC" \
-    || fail "SettingsService has no open(screen, sectionKey)"
-grep -qF 'function close' "$SSVC" \
-    || fail "SettingsService has no close"
+grep -q 'property string targetSection' "$SSVC" \
+    || fail "SettingsService has no targetSection deep link"
 grep -q '^import qs.services' "$SSVC" \
     || fail "SettingsService.qml is missing its qs.services self-import"
 grep -q '^singleton SettingsService 1.0 SettingsService.qml' "$ROOT/services/qmldir" \
@@ -486,58 +489,88 @@ if grep -q 'SettingsService' "$ROOT/services/Panels.qml"; then
     fail "Panels owns SettingsService; settings opens from the dashboard, not the registry"
 fi
 
-# Settings is a toplevel, not a PanelShell: the shared-grab switches are gone.
+# The toplevel window is gone: no FloatingWindow, no title selector, no
+# dependency on the external Hyprland float rule.
+if grep -rqE 'FloatingWindow|settingsWindowTitle' "$ROOT/windows" "$ROOT/shell.qml" "$ROOT/services"; then
+    fail "settings is still a FloatingWindow; the dashboard tab owns it now"
+fi
+if grep -q 'SettingsCenter' "$ROOT/shell.qml"; then
+    fail "shell.qml still instantiates the removed SettingsCenter"
+fi
+test -f "$ROOT/windows/SettingsCenter.qml" \
+    && fail "windows/SettingsCenter.qml still exists"
 if grep -qE 'grabEnabled|extraGrabWindows' "$ROOT/components/PanelShell.qml"; then
-    fail "PanelShell still carries the settings shared-grab switches; settings is a toplevel now"
+    fail "PanelShell still carries the settings shared-grab switches"
 fi
 
+# Tab host: the row renders DashboardService.tabs, marks and switches the
+# active key, and every tab is an accessible button.
+test -f "$DTABS" \
+    || fail "windows/DashboardTabs.qml is missing"
+grep -q 'DashboardService.tabs' "$DTABS" \
+    || fail "DashboardTabs does not render DashboardService.tabs"
+grep -q 'DashboardService.activeTab' "$DTABS" \
+    || fail "DashboardTabs does not mark the active tab"
+grep -q 'DashboardService.selectTab' "$DTABS" \
+    || fail "DashboardTabs does not switch tabs"
+grep -q 'Accessible.role: Accessible.Button' "$DTABS" \
+    || fail "tabs are not accessible buttons"
+grep -q 'property string activeTab' "$DSVC" \
+    || fail "DashboardService has no activeTab"
+grep -qF 'function selectTab(key: string)' "$DSVC" \
+    || fail "DashboardService has no selectTab(key)"
+grep -qF 'function openSettings(sectionKey: string)' "$DSVC" \
+    || fail "DashboardService has no openSettings(sectionKey)"
+grep -q 'SettingsView' "$DCENTER" \
+    || fail "DashboardCenter does not host SettingsView"
+grep -q 'DashboardService.activeTab' "$DCENTER" \
+    || fail "DashboardCenter does not gate pages on activeTab"
+grep -qF 'qsTr("Coming soon")' "$DCENTER" \
+    || fail "DashboardCenter has no placeholder for the empty tabs"
+grep -q 'DashboardService.openSettings' "$DCENTER" \
+    || fail "DashboardCenter gear does not open the settings tab"
+
+# Settings view: search plus rail plus the card-wrapped section body.
 test -f "$SCENTER" \
-    || fail "windows/SettingsCenter.qml is missing"
-grep -q 'FloatingWindow' "$SCENTER" \
-    || fail "SettingsCenter is not a Hyprland-managed FloatingWindow"
-grep -q 'active: SettingsService.visible' "$SCENTER" \
-    || fail "SettingsCenter does not gate on SettingsService.visible"
-grep -q 'SettingsService.close()' "$SCENTER" \
-    || fail "SettingsCenter does not close via SettingsService"
-grep -qF 'settingsWindowTitle: "Settings"' "$SCENTER" \
-    || fail "SettingsCenter has no settingsWindowTitle for the Hyprland float rule to match"
-grep -qF 'title: root.settingsWindowTitle' "$SCENTER" \
-    || fail "SettingsCenter window title does not derive from settingsWindowTitle"
-grep -qF '"title:^" + root.settingsWindowTitle' "$SCENTER" \
-    || fail "SettingsCenter placement selector does not derive from settingsWindowTitle"
-grep -q 'Globals.settingsWidth' "$SCENTER" \
-    || fail "SettingsCenter does not size from Globals.settingsWidth"
-grep -q 'Globals.settingsHeight' "$SCENTER" \
-    || fail "SettingsCenter does not size from Globals.settingsHeight"
-grep -q 'Globals.settingsSidebarWidth' "$SCENTER" \
-    || fail "SettingsCenter does not size the sidebar from Globals.settingsSidebarWidth"
+    || fail "windows/SettingsView.qml is missing"
 grep -qF 'qsTr("Search settings…")' "$SCENTER" \
-    || fail "SettingsCenter has no search field"
+    || fail "SettingsView has no search field"
 grep -qF 'qsTr("No match")' "$SCENTER" \
-    || fail "SettingsCenter has no no-match note"
+    || fail "SettingsView has no no-match note"
 grep -q 'NavItem' "$SCENTER" \
-    || fail "SettingsCenter does not compose the sidebar NavItem"
-grep -q 'SettingsCenter' "$ROOT/shell.qml" \
-    || fail "shell.qml does not instantiate SettingsCenter"
+    || fail "SettingsView does not compose the sidebar NavItem"
+grep -q 'Globals.settingsSidebarWidth' "$SCENTER" \
+    || fail "SettingsView does not size the sidebar from Globals.settingsSidebarWidth"
+grep -q 'Card' "$SCENTER" \
+    || fail "SettingsView does not wrap the section body in a Card"
+grep -q 'Globals.settingsBodyMaxHeight' "$SCENTER" \
+    || fail "SettingsView does not cap the section body height"
 grep -q 'onTargetSectionChanged' "$SCENTER" \
-    || fail "SettingsCenter does not re-apply a later targetSection (M5)"
+    || fail "SettingsView does not re-apply a later targetSection (M5)"
 grep -A4 'function onTargetSectionChanged' "$SCENTER" | grep -q 'SettingsService.sections\[0\].key' \
-    || fail "SettingsCenter does not reset to the first section when targetSection clears"
+    || fail "SettingsView does not reset to the first section when targetSection clears"
+grep -q 'SettingsService.requestSection' "$SCENTER" \
+    || fail "SettingsView rail does not sync the shared section target"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$SCENTER" "$CSV" "$SSVC" "$ROOT/components/NavItem.qml"; then
     fail "settings surface carries raw hex; palette tokens only"
 fi
 
-# Dashboard gear opens settings on the dashboard's screen; opening settings
-# closes the dashboard and opening the dashboard closes settings, so the two
-# never stack.
-grep -q 'SettingsService.open' "$DCENTER" \
-    || fail "DashboardCenter gear does not open settings"
+# The dashboard gear and the theme block switch to the Settings tab; the
+# dashboard stays open, and the theme block deep-links to its section.
+grep -q 'DashboardService.openSettings' "$DCENTER" \
+    || fail "DashboardCenter gear does not open the settings tab"
 grep -qF 'accessibleName: qsTr("Settings")' "$DCENTER" \
     || fail "DashboardCenter has no settings gear"
-grep -qF 'DashboardService.close()' "$SSVC" \
-    || fail "SettingsService does not close the dashboard when settings opens"
-grep -qF 'SettingsService.close()' "$DSVC" \
-    || fail "DashboardService does not close settings when the dashboard opens"
+grep -qF 'DashboardService.activeTab === "settings" ? Colors.accent' "$DCENTER" \
+    || fail "DashboardCenter gear does not mark the settings page active"
+if grep -qF '{ key: "settings"' "$DSVC"; then
+    fail "DashboardService.tabs still carries a Settings row tab; the gear owns settings"
+fi
+grep -qF 'DashboardService.openSettings("theme")' "$ROOT/windows/DashboardThemeBlock.qml" \
+    || fail "DashboardThemeBlock does not deep-link to the theme section"
+if grep -q 'SettingsService.close()' "$DSVC"; then
+    fail "DashboardService still closes settings when the dashboard opens"
+fi
 
 # Cava editor is one component shared by the quick panel and settings, so the
 # mirror is the same binding, not a copy.
@@ -560,13 +593,18 @@ done
 grep -qF 'qsTr("Style")' "$SSVC" \
     || fail "SettingsService sections do not list Style for search"
 
-# Settings tokens exist and the sidebar component is shared.
-grep -q 'property int settingsWidth' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no settingsWidth token"
-grep -q 'property int settingsHeight' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no settingsHeight token"
+# Settings tokens: the dashboard width carries the surface, so the window
+# width/height tokens are gone; the rail width and body cap remain.
 grep -q 'property int settingsSidebarWidth' "$ROOT/config/Globals.qml" \
     || fail "Globals has no settingsSidebarWidth token"
+grep -q 'property int settingsBodyMaxHeight' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no settingsBodyMaxHeight cap"
+if grep -q 'property int settingsWidth' "$ROOT/config/Globals.qml"; then
+    fail "Globals still has the removed settingsWidth token"
+fi
+if grep -q 'property int settingsHeight' "$ROOT/config/Globals.qml"; then
+    fail "Globals still has the removed settingsHeight token"
+fi
 test -f "$ROOT/components/NavItem.qml" \
     || fail "components/NavItem.qml is missing"
 
@@ -1781,7 +1819,7 @@ rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_
 # --- 18. dashboard Theme block: live palette, name, settings target ---
 # The block is the switcher's second home: a palette strip bound to the mapped
 # roles, the active theme's display name, and a click that opens the Settings
-# Theme section through the shared SettingsService.open entry point. The empty
+# Theme section through the dashboard tab. The empty
 # wallpaper grid is gone; ticket 08 owns the background picker.
 DBLOCK="$ROOT/windows/DashboardThemeBlock.qml"
 test -f "$DBLOCK" \
@@ -1802,8 +1840,8 @@ if grep -q 'Globals.uiTitleSize' "$DBLOCK"; then
 fi
 grep -qF 'qsTr("No theme")' "$DBLOCK" \
     || fail "DashboardThemeBlock has no empty-theme label"
-grep -qF 'SettingsService.open(DashboardService.anchorScreen, "theme")' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not open the Theme section through SettingsService.open"
+grep -qF 'DashboardService.openSettings("theme")' "$DBLOCK" \
+    || fail "DashboardThemeBlock does not open the Theme section through the dashboard tab"
 if grep -qi 'wallpaper' "$DBLOCK"; then
     fail "DashboardThemeBlock still renders the empty wallpaper grid"
 fi
@@ -1812,10 +1850,10 @@ if grep -q 'MouseArea' "$DBLOCK"; then
 fi
 grep -q 'property bool clickable' "$ROOT/components/Card.qml" \
     || fail "Card has no clickable opt-in for a whole-card target"
-grep -qF 'function open(screen, sectionKey)' "$SSVC" \
-    || fail "SettingsService.open does not accept a section target"
+grep -q 'property string targetSection' "$SSVC" \
+    || fail "SettingsService has no section target"
 grep -q 'SettingsService.targetSection' "$SCENTER" \
-    || fail "SettingsCenter does not honor the requested section target"
+    || fail "SettingsView does not honor the requested section target"
 grep -q 'readonly property string activeDisplayName' "$TSVC" \
     || fail "ThemeService has no activeDisplayName"
 grep -q 'root.backgroundEntries.length === 0' "$DBLOCK" \

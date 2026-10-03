@@ -1,7 +1,8 @@
 # ADR 0007: settings is a Hyprland-managed window
 
 Date: 2026-09-26. Feature: dashboard-settings (`#03`, supersedes the settings
-half of ADR 0006).
+half of ADR 0006). Superseded by ADR 0012 (2026-10-03): settings is the
+dashboard's Settings tab, not a toplevel.
 
 ## Context
 

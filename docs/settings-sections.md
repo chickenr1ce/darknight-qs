@@ -1,6 +1,6 @@
 # Adding a settings section
 
-`windows/SettingsCenter.qml` is a Hyprland-managed `FloatingWindow`. It edits the
+`windows/SettingsView.qml` renders the dashboard's Settings tab. It edits the
 same service state as the quick panels, so a change in either place shows in the
 other. A section has three parts, and each one has a single home.
 
@@ -33,17 +33,18 @@ label a view wants searchable is reachable only if it is passed to `matches()`;
 a label the body never tests is invisible to the search even when the same
 string sits in `options`.
 
-## 3. Registration: `SettingsService.sections` plus `SettingsCenter`
+## 3. Registration: `SettingsService.sections` plus `SettingsView`
 
 Add an entry to `SettingsService.sections` with a `key`, a `title`, the
 searchable `options` labels, and `comingSoon: false`. Then compose the view in
-`SettingsCenter.qml`, gated on the section and handed the search filter:
+`SettingsView.qml`'s card body, gated on the section and handed the search
+filter:
 
 ```qml
 MySettingsView {
     Layout.fillWidth: true
-    visible: idSettingsWindow.hasSection && idSettingsWindow.currentSection.key === "my"
-    filter: idSettingsWindow.bodyFilter
+    visible: root.hasSection && root.currentSection.key === "my"
+    filter: root.bodyFilter
 }
 ```
 
