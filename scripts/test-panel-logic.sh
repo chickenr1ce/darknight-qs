@@ -646,6 +646,87 @@ grep -q 'WeatherSettingsView' "$SCENTER" \
 grep -q 'weather-location' "$ROOT/services/WeatherService.qml" \
     || fail "WeatherService does not persist the city"
 
+# Dashboard junction radius: a slider writes the service across the whole
+# range and the service persists it behind the StateFile load guard.
+DJUNC="$ROOT/services/DashboardService.qml"
+DVIEW="$ROOT/windows/DashboardSettingsView.qml"
+test -f "$DVIEW" \
+    || fail "windows/DashboardSettingsView.qml is missing"
+grep -q 'property string filter' "$DVIEW" \
+    || fail "DashboardSettingsView has no filter property"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Seam radius"))' "$DVIEW" \
+    || fail "DashboardSettingsView does not match its Seam radius search label, so searching it shows an empty body"
+grep -q 'from: 0' "$DVIEW" \
+    || fail "DashboardSettingsView slider does not start at the square join"
+grep -q 'to: Globals.junctionRadiusMax' "$DVIEW" \
+    || fail "DashboardSettingsView slider does not span the junction radius range"
+grep -q 'value: DashboardService.junctionRadius' "$DVIEW" \
+    || fail "DashboardSettingsView slider does not read the shared radius"
+grep -q 'DashboardService.setJunctionRadius' "$DVIEW" \
+    || fail "DashboardSettingsView slider does not write the shared radius"
+grep -q 'DashboardSettingsView' "$SCENTER" \
+    || fail "SettingsCenter does not compose the Dashboard section"
+grep -qF 'key: "dashboard"' "$SSVC" \
+    || fail "SettingsService has no dashboard section"
+grep -qF 'qsTr("Seam radius")' "$SSVC" \
+    || fail "SettingsService dashboard options do not list Seam radius"
+grep -q 'name: "dashboard-junction"' "$DJUNC" \
+    || fail "DashboardService does not persist the junction radius behind a StateFile"
+grep -q 'idJunctionState.loading || !idJunctionState.loaded' "$DJUNC" \
+    || fail "DashboardService does not guard saves on the StateFile loading/loaded flags"
+grep -q 'function saveJunctionRadius' "$DJUNC" \
+    || fail "DashboardService has no saveJunctionRadius"
+grep -q 'function clampJunctionRadius' "$DJUNC" \
+    || fail "DashboardService does not clamp the junction radius to its range"
+test -f "$ROOT/components/SettingsSliderRow.qml" \
+    || fail "components/SettingsSliderRow.qml is missing"
+grep -q 'SettingsSliderRow' "$DVIEW" \
+    || fail "DashboardSettingsView does not compose the shared slider row"
+grep -q 'SettingsSliderRow' "$CSV" \
+    || fail "CavaSettingsView does not compose the shared slider row"
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$DVIEW" "$ROOT/components/SettingsSliderRow.qml"; then
+    fail "dashboard settings surface carries raw hex; palette tokens only"
+fi
+
+# Oracle for DashboardService.clampJunctionRadius: round, clamp to 0..max,
+# and keep the fallback when the value is not numeric. JS Number(null) is 0.
+python3 - <<'EOF'
+import math
+import sys
+
+def check(name, got, want):
+    if got != want:
+        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
+        sys.exit(1)
+
+def clamp_radius(value, fallback, maximum=32):
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        value = 0
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    if math.isnan(n):
+        return fallback
+    if math.isinf(n):
+        return 0 if n < 0 else maximum
+    n = math.floor(n + 0.5)
+    return max(0, min(maximum, n))
+
+check("radius/high", clamp_radius(40, 16), 32)
+check("radius/low", clamp_radius(-3, 16), 0)
+check("radius/round", clamp_radius(7.5, 16), 8)
+check("radius/zero", clamp_radius(0, 16), 0)
+check("radius/numeric-text", clamp_radius("20", 16), 20)
+check("radius/text", clamp_radius("nope", 16), 16)
+check("radius/empty", clamp_radius("", 16), 0)
+check("radius/whitespace", clamp_radius("  ", 16), 0)
+check("radius/null", clamp_radius(None, 16), 0)
+check("radius/infinite", clamp_radius(float("inf"), 16), 32)
+check("radius/negative-infinite", clamp_radius(float("-inf"), 16), 0)
+check("radius/missing", clamp_radius(float("nan"), 16), 16)
+EOF
+
 # Both toggle sections share one row component, so On/Off plus hint cannot drift.
 test -f "$ROOT/components/SettingsToggleRow.qml" \
     || fail "components/SettingsToggleRow.qml is missing"

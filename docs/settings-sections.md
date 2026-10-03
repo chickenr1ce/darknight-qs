@@ -15,6 +15,7 @@ one property and panels read it — never keep a second copy in the view.
 - `NotificationServer.qml` — `dndEnabled`.
 - `WeatherService.qml` — city, coordinates, and weather reading.
 - `BarVisibilityService.qml` — per-module bar visibility.
+- `DashboardService.qml` — junction radius.
 - `Globals.qml` — `reducedMotion`.
 
 ## 2. View: a component in `windows/`

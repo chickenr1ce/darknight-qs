@@ -35,74 +35,18 @@ ColumnLayout {
         color: Colors.border
     }
 
-    RowLayout {
+    SettingsSliderRow {
         id: idCavaSensitivityRow
 
         Layout.fillWidth: true
 
         visible: SettingsFilter.matches(root.filter, qsTr("Sensitivity"))
-        spacing: Globals.rowSpacing
-
-        Text {
-            id: idCavaSensitivityLabel
-
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-
-            textFormat: Text.PlainText
-            elide: Text.ElideRight
-            text: qsTr("Sensitivity")
-            color: Colors.text
-
-            font {
-                family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
-            }
-        }
-
-        Text {
-            id: idCavaSensitivityValue
-
-            Layout.alignment: Qt.AlignVCenter
-            Layout.preferredWidth: idCavaSensitivityMetrics.width
-
-            horizontalAlignment: Text.AlignRight
-            textFormat: Text.PlainText
-            text: CavaService.sensitivity
-            color: Colors.textSubtle
-
-            font {
-                family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
-                weight: Font.Medium
-            }
-        }
-
-        TextMetrics {
-            id: idCavaSensitivityMetrics
-
-            text: "5000"
-
-            font {
-                family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
-                weight: Font.Medium
-            }
-        }
-    }
-
-    Slider {
-        id: idCavaSensitivitySlider
-
-        Layout.fillWidth: true
-
-        visible: SettingsFilter.matches(root.filter, qsTr("Sensitivity"))
+        label: qsTr("Sensitivity")
         from: CavaService.minSensitivity
         to: CavaService.maxSensitivity
         stepSize: 50
         value: CavaService.sensitivity
         disabled: CavaService.autoSensitivity
-        accessibleName: qsTr("Sensitivity")
         onMoved: newValue => CavaService.sensitivity = Math.round(newValue)
     }
 
@@ -218,73 +162,17 @@ ColumnLayout {
         }
     }
 
-    RowLayout {
+    SettingsSliderRow {
         id: idCavaMaxHeightRow
 
         Layout.fillWidth: true
 
         visible: SettingsFilter.matches(root.filter, qsTr("Max height"))
-        spacing: Globals.rowSpacing
-
-        Text {
-            id: idCavaMaxHeightLabel
-
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-
-            textFormat: Text.PlainText
-            elide: Text.ElideRight
-            text: qsTr("Max height")
-            color: Colors.text
-
-            font {
-                family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
-            }
-        }
-
-        Text {
-            id: idCavaMaxHeightValue
-
-            Layout.alignment: Qt.AlignVCenter
-            Layout.preferredWidth: idCavaMaxHeightMetrics.width
-
-            horizontalAlignment: Text.AlignRight
-            textFormat: Text.PlainText
-            text: CavaService.maxHeight
-            color: Colors.textSubtle
-
-            font {
-                family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
-                weight: Font.Medium
-            }
-        }
-
-        TextMetrics {
-            id: idCavaMaxHeightMetrics
-
-            text: "20"
-
-            font {
-                family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
-                weight: Font.Medium
-            }
-        }
-    }
-
-    Slider {
-        id: idCavaMaxHeightSlider
-
-        Layout.fillWidth: true
-
-        visible: SettingsFilter.matches(root.filter, qsTr("Max height"))
+        label: qsTr("Max height")
         from: CavaService.minMaxHeight
         to: CavaService.maxMaxHeight
         stepSize: 1
         value: CavaService.maxHeight
-        accessibleName: qsTr("Max height")
         onMoved: newValue => CavaService.maxHeight = Math.round(newValue)
     }
 }

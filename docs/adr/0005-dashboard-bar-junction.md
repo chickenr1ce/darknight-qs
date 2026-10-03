@@ -73,3 +73,10 @@ The verdict came from `.scratch/dashboard-settings/prototype-junction.html`
   `.scratch/dashboard-junction-radius/issues/01-junction-radius-control.md`.
   The geometry, the default, and `Globals.junctionRadiusMax` are unchanged; only
   the control and its persistence are outstanding.
+
+- 2026-09-30 (dashboard-junction-radius): the control and its persistence
+  shipped. `DashboardService.junctionRadius` persists to the
+  `dashboard-junction` state file behind the `StateFile` load guard, and the
+  Settings Dashboard section exposes it over `0..Globals.junctionRadiusMax`
+  through `components/Slider.qml`. The default, `Globals.junctionRadiusMax`,
+  and the geometry are unchanged.

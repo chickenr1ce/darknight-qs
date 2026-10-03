@@ -306,6 +306,15 @@ Loader {
                                     filter: idSettingsWindow.bodyFilter
                                 }
 
+                                DashboardSettingsView {
+                                    id: idDashboardSection
+
+                                    Layout.fillWidth: true
+
+                                    visible: idSettingsWindow.hasSection && idSettingsWindow.currentSection.key === "dashboard"
+                                    filter: idSettingsWindow.bodyFilter
+                                }
+
                                 Text {
                                     id: idComingSoonNote
 

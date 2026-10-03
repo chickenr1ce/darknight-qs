@@ -377,8 +377,8 @@ All panels and plugins share tokens and primitives; never invent a parallel visu
 
 ### No copied rows
 
-- Two settings rows or sections that share a shape compose one shared component (`SettingsToggleRow`, `CavaSettingsView`) rather than a copy. A control's label and hint live in the shared component once, never per section.
-- A value row counts as a row: two label/value rows that share a shape (label, value, their own `TextMetrics`) compose one component, not a copy. `windows/CavaSettingsView.qml` carries the same label/value/metrics shape for Sensitivity, Max height, and Bars.
+- Two settings rows or sections that share a shape compose one shared component (`SettingsToggleRow`, `SettingsSliderRow`, or a section view such as `CavaSettingsView`) rather than a copy. A control's label and hint live in the shared component once, never per section.
+- A value row counts as a row: two label/value rows that share a shape (label, value, their own `TextMetrics`, and a `Slider`) compose one component, not a copy. `components/SettingsSliderRow.qml` owns that shape; `CavaSettingsView` and `DashboardSettingsView` compose it.
 
 ### No raw values
 

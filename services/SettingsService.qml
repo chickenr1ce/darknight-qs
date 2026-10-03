@@ -33,7 +33,8 @@ Singleton {
             title: qsTr("Theme"),
             options: [qsTr("Theme")].concat(ThemeService.catalog.map(theme => theme.name), ThemeService.catalog.map(theme => theme.displayName)),
             comingSoon: false
-        }
+        },
+        { key: "dashboard", title: qsTr("Dashboard"), options: [qsTr("Seam radius")], comingSoon: false }
     ]
 
     function open(screen, sectionKey): void {
