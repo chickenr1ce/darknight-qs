@@ -1,12 +1,13 @@
 # Theme desktop setup
 
-The theme switcher renders the active palette into three desktop config files.
+The theme switcher renders the active palette into four desktop config files.
 The renderer, `scripts/render-theme.sh`, runs on every palette load and change,
 so the files stay in step with the selected theme. It writes:
 
 - `~/.config/hypr/theme.lua`
 - `~/.config/kitty/theme.conf`
 - `~/.config/hypr/hyprlock/colors.conf`
+- `~/.config/starship.toml`
 
 The renderer substitutes colors into templates this repo owns
 (`assets/templates/`) and never reads or evaluates a theme directory. It writes
@@ -19,7 +20,9 @@ renderer through a `Process`, so the UI thread never blocks.
 ## One-time wiring
 
 Three files outside this repo need a line added. The renderer does not touch
-them; add the lines yourself once.
+them; add the lines yourself once. Starship is the exception: it has no include
+directive, so the renderer owns `~/.config/starship.toml` outright and there is
+no line to add.
 
 ### Hyprland borders
 
@@ -73,6 +76,22 @@ input-field {
 }
 ```
 
+### starship
+
+Starship reads one config file and has no include directive, so the renderer
+overwrites `~/.config/starship.toml` whole. The prompt lives in the template
+`assets/templates/starship-theme.toml`, which selects a palette named `theme`
+whose roles come from the active theme:
+
+```toml
+[palettes.theme]
+accent = '{{accent}}'
+selection = '{{selection}}'
+```
+
+Edit the template, not the rendered file, for any prompt change. fish already
+loads the file with `starship init fish | source`, so the shell needs no change.
+
 ## Verify
 
 Switch themes (dashboard Theme block or `qs-theme set <name>`), then confirm the
@@ -80,7 +99,7 @@ rendered files match the palette:
 
 ```
 grep -h . ~/.config/hypr/theme.lua ~/.config/kitty/theme.conf \
-    ~/.config/hypr/hyprlock/colors.conf
+    ~/.config/hypr/hyprlock/colors.conf ~/.config/starship.toml
 ```
 
 For a visual check, capture a bordered window and a kitty window with

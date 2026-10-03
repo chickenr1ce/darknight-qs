@@ -1,0 +1,171 @@
+# Rendered by scripts/render-theme.sh from the active theme palette.
+# Do not edit: the next palette load overwrites this file.
+#
+# starship has no include directive, so this repo owns the whole file. Edit
+# the template at assets/templates/starship-theme.toml, not this copy. See
+# docs/theme-desktop-setup.md.
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+$username\
+$directory\
+$git_branch\
+$git_status\
+$fill\
+$c\
+$elixir\
+$elm\
+$golang\
+$haskell\
+$java\
+$julia\
+$nodejs\
+$nim\
+$rust\
+$scala\
+$conda\
+$python\
+$time\n  \
+[󱞪](fg:accent) \
+"""
+
+palette = "theme"
+
+[palettes.theme]
+accent = '{{accent}}'
+red = '{{red}}'
+yellow = '{{yellow}}'
+magenta = '{{magenta}}'
+blue = '{{blue}}'
+cyan = '{{cyan}}'
+selection = '{{selection}}'
+
+[directory]
+format = "[](fg:selection)[ $path ]($style)[](fg:selection) "
+style = "bg:selection fg:blue"
+truncation_length = 3
+truncation_symbol = "…/"
+
+[directory.substitutions]
+Documents = "󰈙"
+Downloads = " "
+Music = " "
+Pictures = " "
+
+[fill]
+style = "fg:selection"
+symbol = " "
+
+[git_branch]
+format = "[](fg:selection)[ $symbol $branch ]($style)[](fg:selection) "
+style = "bg:selection fg:cyan"
+symbol = ""
+
+[git_status]
+disabled = false
+style = "bg:selection fg:red"
+format = '[](fg:selection)([$all_status$ahead_behind]($style))[](fg:selection) '
+up_to_date = '[ ✓ ](bg:selection fg:accent)'
+untracked = '[?\($count\)](bg:selection fg:yellow)'
+stashed = '[\$](bg:selection fg:accent)'
+modified = '[!\($count\)](bg:selection fg:yellow)'
+renamed = '[»\($count\)](bg:selection fg:accent)'
+deleted = '[✘\($count\)](style)'
+staged = '[++\($count\)](bg:selection fg:yellow)'
+ahead = '[⇡\(${count}\)](bg:selection fg:cyan)'
+diverged = '⇕[\[](bg:selection fg:accent)[⇡\(${ahead_count}\)](bg:selection fg:cyan)[⇣\(${behind_count}\)](bg:selection fg:magenta)[\]](bg:selection fg:accent)'
+behind = '[⇣\(${count}\)](bg:selection fg:magenta)'
+
+[time]
+disabled = false
+format = " [](fg:selection)[ $time 󰴈 ]($style)[](fg:selection)"
+style = "bg:selection fg:magenta"
+time_format = "%I:%M%P"
+use_12hr = true
+
+[username]
+disabled = false
+format = "[](fg:selection)[ 󰧱 $user ]($style)[](fg:selection) "
+show_always = true
+style_root = "bg:selection fg:accent"
+style_user = "bg:selection fg:accent"
+
+# Languages
+
+[c]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[elixir]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[elm]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[golang]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[haskell]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[java]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[julia]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[nodejs]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = "󰎙 "
+
+[nim]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = "󰆥 "
+
+[rust]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[scala]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = " "
+
+[python]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$version ]($style)[](fg:selection)"
+disabled = false
+symbol = ' '
+
+[conda]
+style = "bg:selection fg:blue"
+format = " [](fg:selection)[ $symbol$environment ]($style)[](fg:selection)"
+disabled = false
+symbol = '🅒 '

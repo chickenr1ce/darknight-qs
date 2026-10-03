@@ -1713,7 +1713,7 @@ EOF
 RENDER="$ROOT/scripts/render-theme.sh"
 test -f "$RENDER" \
     || fail "scripts/render-theme.sh is missing"
-for tpl in hypr-theme.lua kitty-theme.conf hyprlock-colors.conf; do
+for tpl in hypr-theme.lua kitty-theme.conf hyprlock-colors.conf starship-theme.toml; do
     test -f "$ROOT/assets/templates/$tpl" \
         || fail "assets/templates/$tpl is missing"
 done
@@ -1752,13 +1752,22 @@ grep -q 'color1 *#f7768e' "$RENDER_HOME/kitty/theme.conf" \
     || fail "kitty color1 does not come from red"
 grep -q '\$theme_accent = rgb(122, 162, 247)' "$RENDER_HOME/hypr/hyprlock/colors.conf" \
     || fail "hyprlock accent does not come from the palette"
-if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf"; then
+test -f "$RENDER_HOME/starship.toml" \
+    || fail "renderer wrote no starship.toml"
+grep -q "palette = \"theme\"" "$RENDER_HOME/starship.toml" \
+    || fail "starship does not select the rendered palette"
+grep -q "accent = '#7aa2f7'" "$RENDER_HOME/starship.toml" \
+    || fail "starship accent does not come from the palette"
+grep -q 'bg:selection' "$RENDER_HOME/starship.toml" \
+    || fail "starship pill background does not come from selection"
+if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml"; then
     fail "renderer left an unresolved template placeholder"
 fi
 
 before_lua="$(cat "$RENDER_HOME/hypr/theme.lua")"
 before_kitty="$(cat "$RENDER_HOME/kitty/theme.conf")"
 before_lock="$(cat "$RENDER_HOME/hypr/hyprlock/colors.conf")"
+before_starship="$(cat "$RENDER_HOME/starship.toml")"
 stamp="$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")"
 sleep 1
 XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
@@ -1768,6 +1777,8 @@ test "$before_kitty" = "$(cat "$RENDER_HOME/kitty/theme.conf")" \
     || fail "renderer is not idempotent: theme.conf changed on an identical rerun"
 test "$before_lock" = "$(cat "$RENDER_HOME/hypr/hyprlock/colors.conf")" \
     || fail "renderer is not idempotent: colors.conf changed on an identical rerun"
+test "$before_starship" = "$(cat "$RENDER_HOME/starship.toml")" \
+    || fail "renderer is not idempotent: starship.toml changed on an identical rerun"
 test "$stamp" = "$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")" \
     || fail "renderer rewrote an unchanged file"
 
@@ -1790,6 +1801,8 @@ grep -q 'rgba(b4befe' "$RENDER_HOME3/hypr/theme.lua" \
     || fail "the empty-palette default does not use the fallback accent"
 grep -q 'background *#141118' "$RENDER_HOME3/kitty/theme.conf" \
     || fail "the empty-palette default does not use the fallback background"
+grep -q "accent = '#b4befe'" "$RENDER_HOME3/starship.toml" \
+    || fail "the empty-palette default does not use the fallback accent for starship"
 
 RENDER_HOME3B="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
 XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
@@ -1813,6 +1826,8 @@ grep -q 'cursor *#aabbcc' "$RENDER_HOME5/kitty/theme.conf" \
     || fail "renderer did not expand a three-digit accent for kitty"
 grep -q 'rgba(aabbccff)' "$RENDER_HOME5/hypr/theme.lua" \
     || fail "renderer did not expand a three-digit accent for hypr"
+grep -q "accent = '#aabbcc'" "$RENDER_HOME5/starship.toml" \
+    || fail "renderer did not expand a three-digit accent for starship"
 
 rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5"
 

@@ -64,3 +64,12 @@ itself.
   and belong with the deferred app theming.
 - The switch cannot retint apps this feature does not cover. Adding a target means
   adding a template and a render case, not changing the model.
+
+## Amendments
+
+- 2026-10-03 (theme desktop targets): starship joins the retint targets. It has
+  no include directive, so the renderer writes `~/.config/starship.toml` whole
+  rather than a file the user's own config includes, and this repo owns the
+  prompt. The format lives in `assets/templates/starship-theme.toml`. Kitty,
+  hyprlock, and starship are terminal-shaped targets the palette already
+  covers; GTK, icon themes, rofi, and the KDE widget bundle stay out of scope.
