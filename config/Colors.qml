@@ -19,6 +19,7 @@ QtObject {
     readonly property color purple: ThemeService.hasPalette ? ThemeService.magenta : "#a980db"
     readonly property color red: ThemeService.hasPalette ? ThemeService.red : "#ff5252"
     readonly property color yellow: ThemeService.hasPalette ? ThemeService.yellow : "#d7d370"
+    readonly property color textFaint: root.contrastRatio(root.textSecondary, root.background) < root.contrastRatio(root.accent, root.background) ? root.textSecondary : root.mixInto(root.background, root.text, 0.2)
 
     readonly property color criticalCard: ThemeService.hasPalette ? root.mixInto(root.background, ThemeService.red, 0.10) : "#2a161c"
     readonly property color criticalCardBorder: ThemeService.hasPalette ? root.mixInto(root.background, ThemeService.red, 0.22) : "#40222b"
@@ -28,7 +29,6 @@ QtObject {
     readonly property color card: background
     readonly property color cardSecondary: backgroundSecondary
     readonly property color border: surface
-    readonly property color lavender: accent
     readonly property color accentDim: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
     readonly property color onAccent: background
     readonly property color danger: red
@@ -36,6 +36,17 @@ QtObject {
     readonly property color accentSecondary: purple
 
     readonly property var themeSwatches: [root.accent, root.purple, root.text, root.surface, root.background]
+
+    function relativeLuminance(value: color): real {
+        const channel = c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        return 0.2126 * channel(value.r) + 0.7152 * channel(value.g) + 0.0722 * channel(value.b);
+    }
+
+    function contrastRatio(a: color, b: color): real {
+        const la = root.relativeLuminance(a);
+        const lb = root.relativeLuminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
 
     function mixInto(base: color, tint: color, amount: real): color {
         return Qt.rgba(

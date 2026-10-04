@@ -340,7 +340,7 @@ Text {
 
     textFormat: Text.PlainText
     elide: Text.ElideRight
-    color: Colors.lavender
+    color: Colors.accent
 }
 
 Rectangle {
@@ -359,7 +359,7 @@ Text {
     id: idMediaLabel
     textFormat: Text.PlainText
     elide: Text.ElideRight
-    color: Colors.lavender
+    color: Colors.accent
     Layout.fillWidth: true
 }
 ```

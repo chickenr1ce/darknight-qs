@@ -1902,7 +1902,7 @@ MAPPED = {
     "text": "#cac4d4",
     "textSubtle": "#9d93ad",
     "textSecondary": "#4f455f",
-    "accent": "#b4befe", "lavender": "#b4befe", "accentDim": "#b4befe",
+    "accent": "#b4befe", "accentDim": "#b4befe",
     "accentSecondary": "#a980db", "purple": "#a980db",
     "danger": "#ff5252", "red": "#ff5252",
     "warning": "#d7d370", "yellow": "#d7d370",
@@ -1944,6 +1944,14 @@ check("colors/accentDim/accent", "accent" in exprs["accentDim"], True)
 for token in ("criticalCard", "criticalCardBorder"):
     check(f"colors/{token}/red", "red" in exprs[token], True)
     check(f"colors/{token}/background", "background" in exprs[token], True)
+
+# textFaint keeps the theme's secondary when it already sits below the accent,
+# and otherwise blends the background toward the foreground.
+check("colors/textFaint/defined", "textFaint" in exprs, True)
+check("colors/textFaint/secondary", "textSecondary" in exprs["textFaint"], True)
+check("colors/textFaint/accent", "accent" in exprs["textFaint"], True)
+check("colors/textFaint/derived", "mixInto" in exprs["textFaint"], True)
+check("colors/textFaint/primary", "root.text," in exprs["textFaint"], True)
 
 # appColor keeps its hash and never reads the palette.
 appmatch = re.search(r"function appColor\([^)]*\)[^{]*\{(.*?)\n    \}", text, re.S)

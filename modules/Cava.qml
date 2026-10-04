@@ -51,7 +51,7 @@ ModuleBox {
                     required property int index
 
                     radius: root.barRadius
-                    color: Colors.lavender
+                    color: Colors.accent
                 }
             }
         }
@@ -80,7 +80,7 @@ ModuleBox {
                     required property int index
 
                     radius: root.barRadius
-                    color: Colors.lavender
+                    color: Colors.accent
                 }
             }
         }
@@ -93,8 +93,8 @@ ModuleBox {
             anchors.fill: parent
 
             ShapePath {
-                fillColor: Colors.lavender
-                strokeColor: Colors.lavender
+                fillColor: Colors.accent
+                strokeColor: Colors.accent
                 strokeWidth: 1
                 joinStyle: ShapePath.RoundJoin
 
@@ -112,8 +112,8 @@ ModuleBox {
             anchors.fill: parent
 
             ShapePath {
-                fillColor: Colors.lavender
-                strokeColor: Colors.lavender
+                fillColor: Colors.accent
+                strokeColor: Colors.accent
                 strokeWidth: 1
                 joinStyle: ShapePath.RoundJoin
 
@@ -148,7 +148,7 @@ ModuleBox {
                     required property int index
 
                     radius: 0
-                    color: Colors.lavender
+                    color: Colors.accent
                 }
             }
         }
@@ -178,7 +178,7 @@ ModuleBox {
                     required property int index
 
                     radius: 0
-                    color: Colors.lavender
+                    color: Colors.accent
                 }
             }
         }

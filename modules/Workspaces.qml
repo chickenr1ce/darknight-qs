@@ -91,7 +91,7 @@ ModuleBox {
                     anchors.centerIn: parent
 
                     text: idWorkspaceButton.workspace?.name ?? String(idWorkspaceButton.workspaceId)
-                    color: idWorkspaceButton.isUrgentWorkspace ? Colors.red : idWorkspaceButton.isHovered ? Colors.text : idWorkspaceButton.isActiveWorkspace ? Colors.lavender : Colors.textSecondary
+                    color: idWorkspaceButton.isUrgentWorkspace ? Colors.red : idWorkspaceButton.isHovered ? Colors.text : idWorkspaceButton.isActiveWorkspace ? Colors.accent : Colors.textFaint
                     font {
                         family: Globals.fontFamily
                         pixelSize: Globals.fontPixelSize

@@ -52,7 +52,7 @@ ModuleBox {
         Layout.minimumWidth: 0
 
         text: root.hasTitle ? root.title : qsTr("Desktop")
-        color: root.hasTitle ? Colors.lavender : Colors.textSecondary
+        color: root.hasTitle ? Colors.accent : Colors.textFaint
         textFormat: Text.PlainText
         elide: Text.ElideRight
         font.family: Globals.fontFamily

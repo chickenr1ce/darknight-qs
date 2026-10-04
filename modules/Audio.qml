@@ -114,7 +114,7 @@ ModuleBox {
             anchors.verticalCenter: parent.verticalCenter
             text: root.volumeGlyph
             size: Globals.fontPixelSize
-            color: Colors.lavender
+            color: Colors.accent
         }
 
         Text {
@@ -124,7 +124,7 @@ ModuleBox {
 
             textFormat: Text.PlainText
             text: root.volumeText
-            color: Colors.lavender
+            color: Colors.accent
 
             font {
                 family: Globals.fontFamily

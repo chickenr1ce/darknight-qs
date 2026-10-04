@@ -23,7 +23,7 @@ ModuleBox {
 
         Layout.alignment: Qt.AlignCenter
 
-        color: Colors.lavender
+        color: Colors.accent
         text: Qt.formatDateTime(new Date(), "dd.MM HH:mm")
         font {
             family: Globals.fontFamily

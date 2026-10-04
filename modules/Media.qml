@@ -74,14 +74,14 @@ ModuleBox {
             Layout.alignment: Qt.AlignVCenter
             text: Icons.music
             size: Globals.fontPixelSize
-            color: root.isPlaying ? Colors.lavender : Colors.textSecondary
+            color: root.isPlaying ? Colors.accent : Colors.textFaint
         }
 
         Icon {
             Layout.alignment: Qt.AlignVCenter
             text: root.statusGlyph
             size: Globals.fontPixelSize
-            color: root.isPlaying ? Colors.lavender : Colors.textSecondary
+            color: root.isPlaying ? Colors.accent : Colors.textFaint
         }
 
         Text {
@@ -95,7 +95,7 @@ ModuleBox {
             textFormat: Text.PlainText
             elide: Text.ElideRight
             text: root.trackText
-            color: root.isPlaying ? Colors.lavender : Colors.textSecondary
+            color: root.isPlaying ? Colors.accent : Colors.textFaint
 
             font {
                 family: Globals.fontFamily

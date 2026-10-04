@@ -35,7 +35,7 @@ Item {
         }
 
         radius: Globals.radius
-        color: Colors.lavender
+        color: Colors.accent
         opacity: 0
     }
 
@@ -50,7 +50,7 @@ Item {
 
         width: root.active ? parent.width - 2 * root.horizontalInset : 0
         height: 2
-        color: Colors.lavender
+        color: Colors.accent
         opacity: root.active ? 1 : 0
 
         Behavior on width {

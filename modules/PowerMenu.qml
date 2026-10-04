@@ -23,7 +23,7 @@ ModuleBox {
 
         Layout.alignment: Qt.AlignCenter
 
-        color: Colors.lavender
+        color: Colors.accent
         font {
             family: Globals.iconFontFamily
             pixelSize: Globals.fontPixelSize

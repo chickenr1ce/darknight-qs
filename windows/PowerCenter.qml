@@ -256,7 +256,7 @@ PanelShell {
 
                             textFormat: Text.PlainText
                             text: idPowerRowItem.rowGlyph
-                            color: Colors.lavender
+                            color: Colors.accent
 
                             font {
                                 family: Globals.iconFontFamily

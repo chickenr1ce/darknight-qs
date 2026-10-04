@@ -59,7 +59,7 @@ ModuleBox {
         Layout.alignment: Qt.AlignCenter
 
         text: NotificationServer.dndEnabled ? Icons.bellOffOutline : (root.hasUnread ? Icons.bellBadge : Icons.bell)
-        color: NotificationServer.dndEnabled ? Colors.textSecondary : Colors.lavender
+        color: NotificationServer.dndEnabled ? Colors.textSecondary : Colors.accent
         font {
             family: Globals.iconFontFamily
             pixelSize: Globals.fontPixelSize
