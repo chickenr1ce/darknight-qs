@@ -6,12 +6,13 @@ import qs.config
 import qs.components
 import qs.services
 
-// Persistent 5 per monitor: DP-1 holds 1–5, DP-2 holds 6–10.
+// Each monitor owns a contiguous block of MonitorService.workspacesPerMonitor
+// workspaces; the block starts at MonitorService.firstWorkspaceFor(monitorName).
 ModuleBox {
     id: root
 
     property string monitorName: ""
-    readonly property int firstWorkspaceId: root.monitorName === "DP-2" ? 6 : 1
+    readonly property int firstWorkspaceId: MonitorService.firstWorkspaceFor(root.monitorName)
 
     visible: BarVisibilityService.isVisible("workspaces")
 
@@ -25,7 +26,7 @@ ModuleBox {
 
         Repeater {
             id: idWorkspaceRepeater
-            model: 5
+            model: MonitorService.workspacesPerMonitor
 
             delegate: Rectangle {
                 id: idWorkspaceButton

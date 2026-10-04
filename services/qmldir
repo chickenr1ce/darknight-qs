@@ -9,6 +9,7 @@ singleton PowerService 1.0 PowerService.qml
 singleton DashboardService 1.0 DashboardService.qml
 singleton SettingsService 1.0 SettingsService.qml
 singleton SettingsFilter 1.0 SettingsFilter.qml
+singleton MonitorService 1.0 MonitorService.qml
 singleton BarVisibilityService 1.0 BarVisibilityService.qml
 singleton SystemInfo 1.0 SystemInfo.qml
 singleton SystemMonitor 1.0 SystemMonitor.qml

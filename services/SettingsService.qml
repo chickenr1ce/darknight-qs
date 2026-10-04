@@ -24,6 +24,12 @@ Singleton {
             options: [qsTr("Bar visibility")].concat(BarVisibilityService.modules.map(module => module.title)),
             comingSoon: false
         },
+        {
+            key: "monitors",
+            title: qsTr("Monitors"),
+            options: [qsTr("Primary monitor"), qsTr("Workspaces per monitor")].concat(MonitorService.screenNames),
+            comingSoon: false
+        },
         { key: "motion", title: qsTr("Motion"), options: [qsTr("Reduced motion"), qsTr("Animation")], comingSoon: false },
         { key: "notifications", title: qsTr("Notifications"), options: [qsTr("Do not disturb"), qsTr("DND")], comingSoon: false },
         {

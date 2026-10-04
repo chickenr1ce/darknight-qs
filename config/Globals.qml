@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import Quickshell
 
 QtObject {
     id: root
@@ -98,7 +99,22 @@ QtObject {
     readonly property int bodyScrollMin: 160
     readonly property real uiLetterSpacing: 0.6
 
-    readonly property string primaryMonitor: "DP-1"
+    readonly property var screensByPosition: {
+        const ordered = [];
+        for (let i = 0; i < Quickshell.screens.length; i++)
+            ordered.push(Quickshell.screens[i]);
+        ordered.sort((a, b) => a.x - b.x || a.y - b.y
+            || (a.name < b.name ? -1 : (a.name > b.name ? 1 : 0)));
+        return ordered;
+    }
+
+    property string primaryMonitorOverride: ""
+
+    readonly property bool primaryMonitorValid: root.screensByPosition.some(screen => screen.name === root.primaryMonitorOverride)
+
+    readonly property string primaryMonitor: root.primaryMonitorValid
+        ? root.primaryMonitorOverride
+        : (root.screensByPosition.length > 0 ? root.screensByPosition[0].name : "")
 
     function triggerCenterX(triggerItem, triggerScreen): real {
         return triggerItem.mapToGlobal(triggerItem.width / 2, 0).x - (triggerScreen ? triggerScreen.x : 0);

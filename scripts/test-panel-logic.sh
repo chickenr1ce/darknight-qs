@@ -81,10 +81,21 @@ for trigger in "Clock.qml:Panels.toggleCalendarAt" "Notifications.qml:Panels.tog
 done
 
 # --- 2. monitor policy is data in Globals, composed in modules ---
+# The primary resolves at runtime from Quickshell.screens plus a persisted
+# override; no source hardcodes DP-1 and no module branches on the name.
 grep -q 'monitorName === "DP-1"' "$ROOT/shell.qml" \
     && fail "shell.qml still gates modules by monitor name directly"
-grep -q 'primaryMonitor' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no primaryMonitor policy"
+if grep -q '"DP-1"' "$ROOT/config/Globals.qml"; then
+    fail "Globals still hardcodes DP-1; resolve the primary from the screens"
+fi
+grep -q 'import Quickshell' "$ROOT/config/Globals.qml" \
+    || fail "Globals does not import Quickshell for the screen list"
+grep -q 'Quickshell.screens' "$ROOT/config/Globals.qml" \
+    || fail "Globals does not resolve the primary from Quickshell.screens"
+grep -q 'readonly property var screensByPosition' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no screensByPosition ordering"
+grep -q 'property string primaryMonitorOverride' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no persisted primaryMonitorOverride"
 grep -q 'function onPrimaryMonitor' "$ROOT/config/Globals.qml" \
     || fail "Globals has no onPrimaryMonitor helper"
 for module in Tray Media Audio PowerMenu Cava Notifications; do
@@ -93,6 +104,15 @@ for module in Tray Media Audio PowerMenu Cava Notifications; do
     grep -q 'Globals.onPrimaryMonitor(root.monitorName)' "$ROOT/modules/$module.qml" \
         || fail "$module.qml does not compose Globals.onPrimaryMonitor"
 done
+# Workspaces assigns each monitor a contiguous block from MonitorService; no
+# name literal and no fixed count.
+if grep -q '"DP-2"' "$ROOT/modules/Workspaces.qml"; then
+    fail "Workspaces still hardcodes DP-2; use MonitorService.firstWorkspaceFor"
+fi
+grep -q 'MonitorService.firstWorkspaceFor(root.monitorName)' "$ROOT/modules/Workspaces.qml" \
+    || fail "Workspaces does not derive its first workspace from MonitorService"
+grep -q 'model: MonitorService.workspacesPerMonitor' "$ROOT/modules/Workspaces.qml" \
+    || fail "Workspaces does not size its row from MonitorService.workspacesPerMonitor"
 
 # --- 3. one focus module, thin call sites ---
 grep -q 'function focusByTokens' "$ROOT/services/HyprlandFocus.qml" \
@@ -218,13 +238,84 @@ check("clamp/bell-case", anchor_left(1920, 1700), 1510)
 check("clamp/narrow", anchor_left(400, 200), 10)
 check("clamp/tiny", anchor_left(300, 150), 10)
 
-# Mirror of Globals.onPrimaryMonitor (config/Globals.qml): primary is DP-1.
-def on_primary(monitor):
-    return monitor == "" or monitor == "DP-1"
+# Mirror of Globals.screensByPosition and Globals.primaryMonitor
+# (config/Globals.qml): the screens sort by x, then y, then name; the stored
+# override wins only when it names a connected screen, otherwise the first
+# screen, otherwise "". onPrimaryMonitor still treats an empty name as primary.
+def resolve_primary(screens, override):
+    ordered = sorted(screens, key=lambda s: (s["x"], s["y"], s["name"]))
+    names = [s["name"] for s in ordered]
+    if override in names:
+        return override
+    return names[0] if names else ""
 
-check("monitor/empty", on_primary(""), True)
-check("monitor/primary", on_primary("DP-1"), True)
-check("monitor/other", on_primary("DP-2"), False)
+# Mirror of MonitorService.applySettings (services/MonitorService.qml): the
+# persisted primary is kept verbatim, even when that screen is away. Only
+# setPrimary validates against the connected names, so a choice survives a
+# disconnect and the bar falls back to the first screen until it returns.
+def apply_primary(stored, parsed):
+    return parsed if isinstance(parsed, str) else stored
+
+def on_primary(monitor, primary):
+    return monitor == "" or monitor == primary
+
+SCREENS = [
+    {"name": "DP-2", "x": 1920, "y": 0},
+    {"name": "DP-1", "x": 0, "y": 0},
+]
+check("monitor/override-wins", resolve_primary(SCREENS, "DP-2"), "DP-2")
+check("monitor/auto-first", resolve_primary(SCREENS, ""), "DP-1")
+check("monitor/unknown-falls-back", resolve_primary(SCREENS, "HDMI-A-1"), "DP-1")
+check("monitor/x-order", resolve_primary([{"name": "B", "x": 1, "y": 0}, {"name": "A", "x": 0, "y": 0}], ""), "A")
+check("monitor/y-order", resolve_primary([{"name": "B", "x": 0, "y": 1}, {"name": "A", "x": 0, "y": 0}], ""), "A")
+check("monitor/name-order", resolve_primary([{"name": "B", "x": 0, "y": 0}, {"name": "A", "x": 0, "y": 0}], ""), "A")
+check("monitor/no-screens", resolve_primary([], ""), "")
+check("monitor/no-screens-unknown", resolve_primary([], "DP-1"), "")
+check("monitor/empty-primary", on_primary("", resolve_primary(SCREENS, "")), True)
+check("monitor/override-primary", on_primary("DP-2", resolve_primary(SCREENS, "DP-2")), True)
+check("monitor/other-hides", on_primary("DP-1", resolve_primary(SCREENS, "DP-2")), False)
+# A stored override for a screen that is away is kept, not cleared; the bar
+# falls back to the first screen and the choice returns on reconnect.
+RECONNECTED = SCREENS + [{"name": "HDMI-A-1", "x": 3840, "y": 0}]
+check("monitor/override-kept-disconnected", apply_primary("", "HDMI-A-1"), "HDMI-A-1")
+check("monitor/override-falls-back", resolve_primary(SCREENS, "HDMI-A-1"), "DP-1")
+check("monitor/override-returns", resolve_primary(RECONNECTED, "HDMI-A-1"), "HDMI-A-1")
+check("monitor/override-nonstring-ignored", apply_primary("DP-2", 7), "DP-2")
+
+# Mirror of MonitorService.orderedMonitors and firstWorkspaceFor
+# (services/MonitorService.qml): the primary leads, the rest of
+# Globals.screensByPosition follows, and each monitor owns a contiguous block
+# of workspacesPerMonitor workspaces starting at 1. An empty or unknown name
+# yields 1.
+def ordered_monitors(screens, primary):
+    names = [s["name"] for s in sorted(screens, key=lambda s: (s["x"], s["y"], s["name"]))]
+    ordered = []
+    if primary != "":
+        ordered.append(primary)
+    for name in names:
+        if name != primary:
+            ordered.append(name)
+    return ordered
+
+def first_workspace_for(screens, primary, per_monitor, monitor):
+    ordered = ordered_monitors(screens, primary)
+    if monitor not in ordered:
+        return 1
+    return ordered.index(monitor) * per_monitor + 1
+
+THREE = [
+    {"name": "DP-3", "x": 3840, "y": 0},
+    {"name": "DP-1", "x": 0, "y": 0},
+    {"name": "DP-2", "x": 1920, "y": 0},
+]
+check("workspaces/order-primary", ordered_monitors(THREE, "DP-1"), ["DP-1", "DP-2", "DP-3"])
+check("workspaces/first-primary", first_workspace_for(THREE, "DP-1", 5, "DP-1"), 1)
+check("workspaces/first-second", first_workspace_for(THREE, "DP-1", 5, "DP-2"), 6)
+check("workspaces/first-third", first_workspace_for(THREE, "DP-1", 5, "DP-3"), 11)
+check("workspaces/first-unknown", first_workspace_for(THREE, "DP-1", 5, "HDMI-A-1"), 1)
+check("workspaces/first-empty", first_workspace_for(THREE, "DP-1", 5, ""), 1)
+check("workspaces/count-three", first_workspace_for(THREE, "DP-1", 3, "DP-3"), 7)
+check("workspaces/override-order", first_workspace_for(THREE, "DP-2", 5, "DP-1"), 6)
 
 # Mirror of PanelState.toggle debounce (services/PanelState.qml): 300 ms.
 def toggle(visible, last_close_at, now):
@@ -685,6 +776,77 @@ grep -q 'WeatherSettingsView' "$SCENTER" \
     || fail "SettingsCenter does not compose the Weather section"
 grep -q 'weather-location' "$ROOT/services/WeatherService.qml" \
     || fail "WeatherService does not persist the city"
+
+# Monitors section: a dropdown picks the primary from the connected screens,
+# writes the one MonitorService, and the choice persists behind its StateFile.
+MSVC="$ROOT/services/MonitorService.qml"
+MVIEW="$ROOT/windows/MonitorSettingsView.qml"
+test -f "$MSVC" \
+    || fail "services/MonitorService.qml is missing"
+test -f "$MVIEW" \
+    || fail "windows/MonitorSettingsView.qml is missing"
+grep -q '^singleton MonitorService 1.0 MonitorService.qml' "$ROOT/services/qmldir" \
+    || fail "MonitorService is not registered in services/qmldir"
+grep -q '^import qs.services' "$MSVC" \
+    || fail "MonitorService.qml is missing its qs.services self-import"
+grep -q 'name: "monitor-settings"' "$MSVC" \
+    || fail "MonitorService does not persist to the monitor-settings state file"
+grep -q 'idMonitorState.loading || !idMonitorState.loaded' "$MSVC" \
+    || fail "MonitorService does not guard saves on the StateFile loading/loaded flags"
+grep -q 'function setPrimary' "$MSVC" \
+    || fail "MonitorService has no setPrimary"
+grep -q 'function applySettings' "$MSVC" \
+    || fail "MonitorService has no applySettings"
+grep -q 'function saveSettings' "$MSVC" \
+    || fail "MonitorService has no saveSettings"
+grep -q 'property var screenNames' "$MSVC" \
+    || fail "MonitorService exposes no screenNames"
+grep -q 'Globals.screensByPosition' "$MSVC" \
+    || fail "MonitorService does not derive its names from Globals.screensByPosition"
+grep -qF 'key: "monitors"' "$SSVC" \
+    || fail "SettingsService has no monitors section"
+grep -qF 'qsTr("Primary monitor")' "$SSVC" \
+    || fail "SettingsService monitors options do not list Primary monitor"
+grep -qF 'MonitorService.screenNames' "$SSVC" \
+    || fail "SettingsService monitors options do not derive from MonitorService"
+if grep -qE 'key: "monitors".*comingSoon: true' "$SSVC"; then
+    fail "monitors section is still coming soon"
+fi
+grep -q 'property string filter' "$MVIEW" \
+    || fail "MonitorSettingsView has no filter property"
+grep -q 'Dropdown' "$MVIEW" \
+    || fail "MonitorSettingsView does not use the shared Dropdown"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Primary monitor"))' "$MVIEW" \
+    || fail "MonitorSettingsView does not match its Primary monitor search label, so searching it shows an empty body"
+grep -q 'MonitorService.screenNames' "$MVIEW" \
+    || fail "MonitorSettingsView does not list the connected screens"
+grep -q 'MonitorService.setPrimary' "$MVIEW" \
+    || fail "MonitorSettingsView does not write the primary through MonitorService"
+grep -q 'readonly property var orderedMonitors' "$MSVC" \
+    || fail "MonitorService has no orderedMonitors"
+grep -q 'function firstWorkspaceFor' "$MSVC" \
+    || fail "MonitorService has no firstWorkspaceFor"
+grep -q 'function setWorkspacesPerMonitor' "$MSVC" \
+    || fail "MonitorService has no setWorkspacesPerMonitor"
+grep -q 'function clampWorkspacesPerMonitor' "$MSVC" \
+    || fail "MonitorService does not clamp the workspace count"
+grep -qF 'qsTr("Workspaces per monitor")' "$SSVC" \
+    || fail "SettingsService monitors options do not list Workspaces per monitor"
+grep -q 'SettingsSliderRow' "$MVIEW" \
+    || fail "MonitorSettingsView does not use the shared slider row for the workspace count"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Workspaces per monitor"))' "$MVIEW" \
+    || fail "MonitorSettingsView does not match its Workspaces per monitor search label, so searching it shows an empty body"
+grep -q 'value: MonitorService.workspacesPerMonitor' "$MVIEW" \
+    || fail "MonitorSettingsView does not read the workspace count from MonitorService"
+grep -q 'MonitorService.setWorkspacesPerMonitor' "$MVIEW" \
+    || fail "MonitorSettingsView does not write the workspace count through MonitorService"
+grep -q 'MonitorSettingsView' "$SCENTER" \
+    || fail "SettingsView does not compose the Monitors section"
+grep -qF 'root.currentSection.key === "monitors"' "$SCENTER" \
+    || fail "SettingsView does not gate the Monitors section"
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$MVIEW" "$MSVC"; then
+    fail "monitors settings surface carries raw hex; palette tokens only"
+fi
 
 # Dashboard junction radius: a slider writes the service across the whole
 # range and the service persists it behind the StateFile load guard.

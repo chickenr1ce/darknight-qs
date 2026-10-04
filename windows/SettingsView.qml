@@ -216,6 +216,15 @@ ColumnLayout {
                         filter: root.bodyFilter
                     }
 
+                    MonitorSettingsView {
+                        id: idMonitorSection
+
+                        Layout.fillWidth: true
+
+                        visible: root.hasSection && root.currentSection.key === "monitors"
+                        filter: root.bodyFilter
+                    }
+
                     WeatherSettingsView {
                         id: idWeatherSection
 

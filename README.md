@@ -98,11 +98,14 @@ package for it.
 
 ### Monitors
 
-Monitor names are fixed. The bar is built for a two-monitor layout: primary
-`DP-1` gets the full bar, secondary `DP-2` gets the minimal bar (clock and
-workspaces 6–10). On a machine whose outputs are named differently, edit
-`config/Globals.qml` (`primaryMonitor`) and `modules/Workspaces.qml` (the
-`DP-2` workspace split).
+The bar is built for a two-monitor layout. The primary monitor shows the full
+bar; every other screen shows the minimal bar (clock and workspaces). By default
+the primary is the first connected screen by position (x, then y, then name).
+Pick another under Settings → Monitors, or choose Auto to return to the
+positional default; the choice persists.
+
+The workspace split is still fixed: the second monitor's workspaces are 6–10
+(`modules/Workspaces.qml`).
 
 ### Notifications
 
