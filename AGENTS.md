@@ -13,6 +13,11 @@ stability, layout best practices, attribute ordering — live in:
 
 > **`docs/coding-conventions.md`** — read it before writing or reviewing any QML in this repo.
 
+Shell script rules — error handling, validate-before-write, symlink refusal, the
+`--` operand convention — live in:
+
+> **`docs/shell-scripts.md`** — read it before writing or reviewing any `scripts/*.sh` change.
+
 ---
 
 ## 2. Git Worktrees
@@ -30,8 +35,8 @@ stability, layout best practices, attribute ordering — live in:
 ## 3. Agent Skills
 
 The QML and Quickshell skills (`quickshell`, `qt-qml`, and the rest) are installed in the global skills directory; the repo does not vendor them. Load `quickshell` and `qt-qml` when writing or editing any QML in this repo.
-- Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`), style lint (`scripts/lint-review.sh`), the headless `scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no instance is running). The style linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company); `qt-qml-review` remains available as an optional deeper pass. `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own instance.
-- Review fanout: default to one spec pass plus one QML pass over the final diff, each starting from `git diff` and the ticket rather than re-reading the codebase. Add a round only when a review reports a High finding.
+- Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`), style lint (`scripts/lint-review.sh`), shell lint (`scripts/lint-shell.sh`, skips when shellcheck is not installed), the headless `scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no instance is running). The style linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company); `qt-qml-review` remains available as an optional deeper pass. `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own instance. A `pre-commit` hook (`.githooks/`, enabled once per clone with `git config core.hooksPath .githooks`) runs the gate; bypass a single commit with `--no-verify`.
+- Review fanout: default to one spec pass plus one QML pass over the final diff, each starting from `git diff` and the ticket rather than re-reading the codebase, and run any shell-semantics claim before reporting it. Add a round only when a review reports a High finding.
 - `qt-qml-profiler` — performance/lag investigations
 - `qt-qml-docs` / `qt-qml-test` / `qt-qml-test-run` / `qt-ui-design` — docs generation, test writing/running, UI design audits
 

@@ -4,8 +4,15 @@
 # boots its own instance and claims the notification bus.
 set -uo pipefail
 
+# Git exports GIT_DIR, GIT_WORK_TREE, and GIT_INDEX_FILE into hooks. A gate
+# script that runs `git -C <tempdir> ...` (the test scripts do) would otherwise
+# target this repository and corrupt it, so drop the hook environment and let
+# every git command discover its own repository.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+unset GIT_OBJECT_DIRECTORY GIT_COMMON_DIR GIT_ALTERNATE_OBJECT_DIRECTORIES
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
+cd "$ROOT" || exit 2
 
 FAILED=()
 TMP="$(mktemp -d /tmp/opencode/check-XXXXXX)"
@@ -14,7 +21,8 @@ trap 'rm -rf "$TMP"' EXIT
 run() {
     local label="$1"
     shift
-    local out="$TMP/$(echo "$label" | tr ' ' '-')"
+    local out
+    out="$TMP/$(echo "$label" | tr ' ' '-')"
     if "$@" >"$out" 2>&1; then
         echo "ok   $label"
     else
@@ -26,6 +34,7 @@ run() {
 
 run "type lint" ./scripts/lint.sh
 run "review lint" ./scripts/lint-review.sh
+run "shell lint" ./scripts/lint-shell.sh
 run "panel logic" ./scripts/test-panel-logic.sh
 run "qs-theme" ./scripts/test-qs-theme.sh
 run "seed-themes" ./scripts/test-seed-themes.sh

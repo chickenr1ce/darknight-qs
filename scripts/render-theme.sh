@@ -29,6 +29,8 @@ if [ -z "$palette" ]; then
     palette='{"mode":"dark","accent":"#b4befe","selection":"#282936","muted":"#9d93ad","background":"#141118","dark_background":"#27222f","darker_background":"#0f0d13","lighter_background":"#282936","foreground":"#cac4d4","dark_foreground":"#4f455f","light_foreground":"#e8e3f0","bright_foreground":"#ffffff","red":"#ff5252","yellow":"#d7d370","green":"#a6d189","cyan":"#7dcfff","blue":"#82a1ff","magenta":"#a980db","bright_red":"#ff7a93","bright_yellow":"#e8c96a","bright_green":"#c0e8a0","bright_cyan":"#9bd4e8","bright_blue":"#a6c1ff","bright_magenta":"#c7a9ff"}'
 fi
 
+# CDPATH= is cleared for cd; shellcheck 0.11 misreads it as SC1007.
+# shellcheck disable=SC1007
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 template_dir=$script_dir/../assets/templates
 config_home=${XDG_CONFIG_HOME:-}

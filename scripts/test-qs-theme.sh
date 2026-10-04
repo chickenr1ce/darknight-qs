@@ -9,6 +9,12 @@
 # including the shell-down exit codes.
 set -euo pipefail
 
+# Git exports GIT_DIR, GIT_WORK_TREE, and GIT_INDEX_FILE into hooks. The fixture
+# repositories below are created with `git -C`, which those variables override,
+# so clear them or `make_repo` commits into this repository instead of the
+# fixture.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CLI="$ROOT/scripts/qs-theme.sh"
 SVC="$ROOT/services/ThemeService.qml"
@@ -55,7 +61,9 @@ grep -q 'function isSelectionObject' "$PARSE" \
     || fail "ThemeParsers has no selection-object predicate"
 
 # --- 2. backgroundName boundary oracle (mirror of services/ThemeParsers.js) ---
-python3 - <<'EOF'
+ORACLE_MANIFEST="$WORK/oracle-names.json" python3 - <<'EOF'
+import json
+import os
 import re
 import sys
 
@@ -110,6 +118,24 @@ check("leading-dot-extension", background_name(".png"), "")
 check("embedded-newline", background_name("a\n.png"), "")
 check("ansi-escape", background_name("\x1b]0;evil\x07.png"), "")
 check("embedded-tab", background_name("a\tb.png"), "")
+
+# Hand the same inputs and the oracle's verdict to the shell parity check
+# (section 22), so the CLI's own name rule cannot drift from this mirror
+# unnoticed. The inputs are the check() calls above; the verifier is the same
+# background_name, so only a change to the rule moves both.
+manifest = os.environ.get("ORACLE_MANIFEST")
+if manifest:
+    with open(manifest, "w") as handle:
+        json.dump([
+            {"value": value, "accept": background_name(value) != ""}
+            for value in (
+                "swirl.png", "/x/y.webp", "backgrounds/a/b.jpeg", "a\\b.bmp",
+                "art.JPG", "  pad.png  ", "../escape.png", "a..png", "a..b.png",
+                "a|b.png", ".hidden.png", "noext", "anim.gif", "", "dir/", ".png",
+                "a\n.png", "\x1b]0;evil\x07.png", "a\tb.png",
+                "star*.png", "-dash.png",
+            )
+        ], handle)
 EOF
 echo "qs-theme: backgroundName oracle ok"
 
@@ -713,5 +739,45 @@ if XDG_DATA_HOME="$GLOB" sh "$CLI" remove-background --theme nobg any.png 2>"$WO
 fi
 grep -q 'has no backgrounds' "$WORK/err" \
     || fail "the no-backgrounds refusal did not explain itself"
+
+# --- 22. the shell name rule agrees with the JS oracle (section 2) ---
+# backgroundName lives in three live places (ThemeParsers.js, qs-theme.sh's
+# background_name_of, theme-backgrounds-scan.sh). This drives the CLI's copy
+# over the oracle's input table, so the CLI rejecting a name the picker would
+# list (or the reverse) fails the gate.
+PARITY="$WORK/data-parity"
+mkdir -p "$PARITY/quickshell/themes/parity/backgrounds"
+write_theme "$PARITY/quickshell/themes/parity"
+CLI="$CLI" ORACLE_MANIFEST="$WORK/oracle-names.json" PARITY="$PARITY" python3 - <<'EOF'
+import json
+import os
+import subprocess
+import sys
+
+with open(os.environ["ORACLE_MANIFEST"]) as handle:
+    cases = json.load(handle)
+
+env = dict(os.environ, XDG_DATA_HOME=os.environ["PARITY"], QS_THEME_STUB="down")
+mismatches = []
+for case in cases:
+    value = case["value"]
+    proc = subprocess.run(
+        ["sh", os.environ["CLI"], "remove-background", "--theme", "parity", "--", value],
+        env=env, capture_output=True, text=True,
+    )
+    rejected = "not a background image" in proc.stderr
+    if rejected == case["accept"]:
+        mismatches.append((value, case["accept"], proc.stderr.strip()))
+
+if mismatches:
+    for value, accept, err in mismatches:
+        print(
+            f"qs-theme FAIL: shell name rule disagrees with the oracle for {value!r}: "
+            f"oracle accept={accept}, cli stderr={err!r}",
+            file=sys.stderr,
+        )
+    sys.exit(1)
+EOF
+echo "qs-theme: shell name rule matches the JS oracle"
 
 echo "qs-theme: all ok"
