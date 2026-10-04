@@ -19,6 +19,12 @@ Singleton {
         },
         { key: "dashboard", title: qsTr("Dashboard"), options: [qsTr("Seam radius")], comingSoon: false },
         {
+            key: "audio",
+            title: qsTr("Audio"),
+            options: [qsTr("Audio outputs")].concat(AudioService.sinkNodes.map(node => AudioService.rawLabelFor(node))),
+            comingSoon: false
+        },
+        {
             key: "fonts",
             title: qsTr("Fonts"),
             options: [qsTr("Font")].concat(FontService.roles.map(role => role.label)),

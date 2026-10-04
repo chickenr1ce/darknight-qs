@@ -104,6 +104,25 @@ function parseCavaSettings(jsonText, limits) {
     return out;
 }
 
+function parseAudioSettings(jsonText) {
+    let parsed = null;
+    try
+    {
+        parsed = JSON.parse(jsonText);
+    }
+    catch (e)
+    {
+        return null;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        return null;
+    const stringList = value => Array.isArray(value) ? value.filter(entry => typeof entry === "string") : [];
+    const out = {};
+    out["hidden"] = stringList(parsed.hidden);
+    out["order"] = stringList(parsed.order);
+    return out;
+}
+
 function parseFontSettings(jsonText) {
     let parsed = null;
     try

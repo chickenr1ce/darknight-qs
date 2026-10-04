@@ -15,16 +15,9 @@ ModuleBox {
     visible: BarVisibilityService.isVisible("audio") && Globals.onPrimaryMonitor(root.monitorName)
 
     readonly property PwNode defaultSink: Pipewire.defaultAudioSink
-    readonly property var sinks: AudioService.catalog
     readonly property bool tooltipShown: root.isHovered && root.tooltipArmed
     readonly property int tooltipAnimMs: Globals.reducedMotion ? 0 : Globals.hoverMs
-    readonly property string currentOutputName: {
-        const raw = root.defaultSink ? (root.defaultSink.description ?? root.defaultSink.name ?? "") : "";
-        if (raw === "")
-            return qsTr("No output");
-        const index = root.sinkIndexFor(raw);
-        return index === -1 ? raw : root.sinks[index].label;
-    }
+    readonly property string currentOutputName: root.defaultSink ? AudioService.rawLabelFor(root.defaultSink) : qsTr("No output")
 
     readonly property var audioNode: root.defaultSink ? (root.defaultSink.audio ?? null) : null
     readonly property string volumeGlyph: root.audioNode === null ? Icons.volumeOff : (root.audioNode.muted ? Icons.volumeMute : Icons.volumeHigh)
@@ -63,39 +56,27 @@ ModuleBox {
     onCurrentOutputNameChanged: idTipSwapAnimation.restart()
     onVolumeTextChanged: idAudioLabelSwapAnimation.restart()
 
-    // Cycle order matches waybar toggle_audio.sh; disconnected sinks are skipped so a click never lands on nothing.
-    function sinkIndexFor(raw: string): int {
-        for (let i = 0; i < root.sinks.length; i++) {
-            if (raw.includes(root.sinks[i].match))
-                return i;
-        }
-        return -1;
-    }
-
     function cycleAudioSink(): void {
-        if (!Pipewire.nodes || !Pipewire.nodes.values)
+        const sinks = AudioService.sinks;
+        if (sinks.length === 0)
             return;
-        const currentLabel = root.defaultSink ? (root.defaultSink.description ?? root.defaultSink.name ?? "") : "";
-        const currentIndex = root.sinkIndexFor(currentLabel);
-        for (let step = 1; step <= root.sinks.length; step++) {
-            const nextSink = root.sinks[(currentIndex + step) % root.sinks.length];
-            for (const node of Pipewire.nodes.values) {
-                // Sources share names with their sinks (AB13X mono vs stereo), so only match real sinks.
-                if (!node.isSink || node.isStream)
-                    continue;
-                const nodeLabel = node.description ?? node.name ?? "";
-                if (nodeLabel.includes(nextSink.match)) {
-                    if (!idAudioSetDefaultProcess.running) {
-                        idAudioSetDefaultProcess.command = ["wpctl", "set-default", String(node.id)];
-                        idAudioSetDefaultProcess.running = true;
-                    }
-                    if (!idAudioNotifyProcess.running) {
-                        idAudioNotifyProcess.command = ["notify-send", "Audio Switched", `Output: ${nextSink.label}`];
-                        idAudioNotifyProcess.running = true;
-                    }
-                    return;
-                }
+        let currentIndex = -1;
+        for (let i = 0; i < sinks.length; i++) {
+            if (AudioService.isDefaultNode(sinks[i].node)) {
+                currentIndex = i;
+                break;
             }
+        }
+        const next = sinks[(currentIndex + 1) % sinks.length];
+        if (AudioService.isDefaultNode(next.node))
+            return;
+        if (!idAudioSetDefaultProcess.running) {
+            idAudioSetDefaultProcess.command = ["wpctl", "set-default", String(next.node.id)];
+            idAudioSetDefaultProcess.running = true;
+        }
+        if (!idAudioNotifyProcess.running) {
+            idAudioNotifyProcess.command = ["notify-send", "Audio Switched", `Output: ${next.label}`];
+            idAudioNotifyProcess.running = true;
         }
     }
 

@@ -929,6 +929,57 @@ check("radius/negative-infinite", clamp_radius(float("-inf"), 16), 0)
 check("radius/missing", clamp_radius(float("nan"), 16), 16)
 EOF
 
+# Audio section: every detected output is listed with a visibility toggle and
+# reorder arrows, all through AudioService. The dashboard list and the bar
+# cycle read the same service.
+AUDIOVIEW="$ROOT/windows/AudioSettingsView.qml"
+AUDIOSVC="$ROOT/services/AudioService.qml"
+test -f "$AUDIOVIEW" \
+    || fail "windows/AudioSettingsView.qml is missing"
+grep -q 'property string filter' "$AUDIOVIEW" \
+    || fail "AudioSettingsView has no filter property"
+grep -q 'AudioService.sinkNodes' "$AUDIOVIEW" \
+    || fail "AudioSettingsView does not list the detected outputs"
+grep -q 'AudioService.setHidden' "$AUDIOVIEW" \
+    || fail "AudioSettingsView cannot hide an output"
+grep -q 'AudioService.moveOutput' "$AUDIOVIEW" \
+    || fail "AudioSettingsView cannot reorder outputs"
+if grep -q 'AudioService.setLabel\|labelOverrides' "$AUDIOVIEW"; then
+    fail "AudioSettingsView still offers rename"
+fi
+grep -q 'SettingsFilter.matches' "$AUDIOVIEW" \
+    || fail "AudioSettingsView does not filter through the shared SettingsFilter"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Audio outputs"))' "$AUDIOVIEW" \
+    || fail "AudioSettingsView does not match its Audio outputs search label, so searching it shows an empty body"
+grep -q 'AudioSettingsView' "$SCENTER" \
+    || fail "SettingsView does not compose the Audio section"
+grep -qF 'root.currentSection.key === "audio"' "$SCENTER" \
+    || fail "SettingsView does not gate the Audio section"
+grep -qF 'key: "audio"' "$SSVC" \
+    || fail "SettingsService has no audio section"
+grep -qF 'qsTr("Audio outputs")' "$SSVC" \
+    || fail "SettingsService audio options do not list Audio outputs"
+grep -qF 'AudioService.sinkNodes.map' "$SSVC" \
+    || fail "SettingsService audio options do not derive from the detected outputs"
+grep -q 'name: "audio-outputs"' "$AUDIOSVC" \
+    || fail "AudioService does not persist curated outputs behind a StateFile"
+grep -q 'idAudioState.loading || !idAudioState.loaded' "$AUDIOSVC" \
+    || fail "AudioService does not guard saves on the StateFile loading/loaded flags"
+grep -q 'function setHidden' "$AUDIOSVC" \
+    || fail "AudioService has no setHidden"
+grep -q 'function moveOutput' "$AUDIOSVC" \
+    || fail "AudioService has no moveOutput"
+grep -q 'function applySettings' "$AUDIOSVC" \
+    || fail "AudioService has no applySettings"
+grep -q 'function persist' "$AUDIOSVC" \
+    || fail "AudioService has no persist"
+if grep -q 'function setLabel\|labelOverrides' "$AUDIOSVC"; then
+    fail "AudioService still carries rename state"
+fi
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$AUDIOVIEW" "$AUDIOSVC"; then
+    fail "audio settings surface carries raw hex; palette tokens only"
+fi
+
 # Both toggle sections share one row component, so On/Off plus hint cannot drift.
 test -f "$ROOT/components/SettingsToggleRow.qml" \
     || fail "components/SettingsToggleRow.qml is missing"
@@ -997,7 +1048,7 @@ grep -q 'function matches' "$FILTER" \
     || fail "SettingsFilter has no matches()"
 grep -q 'function filtering' "$FILTER" \
     || fail "SettingsFilter has no filtering()"
-for view in "$CSV" "$CAL" "$WV" "$ROOT/windows/LayoutSettingsView.qml" "$NOTIF" "$MOTION" "$THEMEVIEW"; do
+for view in "$CSV" "$CAL" "$WV" "$ROOT/windows/LayoutSettingsView.qml" "$NOTIF" "$MOTION" "$THEMEVIEW" "$AUDIOVIEW"; do
     grep -q 'SettingsFilter' "$view" \
         || fail "$(basename "$view") does not filter through the shared SettingsFilter"
 done

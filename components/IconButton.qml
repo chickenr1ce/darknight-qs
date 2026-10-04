@@ -11,6 +11,7 @@ Item {
 
     property string glyph: Icons.close
     property bool probeHovered: false
+    property bool disabled: false
     property string accessibleName: qsTr("Close")
     property int glyphSize: Globals.uiBodySize
     property color restColor: Colors.textSecondary
@@ -19,6 +20,7 @@ Item {
 
     readonly property bool hovered: idButtonMouseArea.containsMouse || root.probeHovered
 
+    enabled: !root.disabled
     implicitWidth: root.glyphSize + 2 * Globals.iconButtonPadding
     implicitHeight: root.glyphSize + 2 * Globals.iconButtonPadding
 
@@ -33,15 +35,16 @@ Item {
         text: root.glyph
         size: root.glyphSize
         // Dim tone is fine: the glyph is decorative, never read.
-        color: root.hovered ? Colors.text : root.restColor
+        color: root.disabled ? Colors.textFaint : (root.hovered ? Colors.text : root.restColor)
     }
 
     MouseArea {
         id: idButtonMouseArea
 
         anchors.fill: parent
+        enabled: !root.disabled
         hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
+        cursorShape: root.disabled ? Qt.ArrowCursor : Qt.PointingHandCursor
         onClicked: root.clicked()
     }
 }

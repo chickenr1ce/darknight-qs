@@ -159,30 +159,43 @@ grep -q 'SystemMonitor.cpuTempC' "$CBLOCK" \
     || fail "DashboardCpuBlock does not show the CPU temperature"
 
 # --- 4. per-sink volume list extends the audio seam ---
+# Outputs are discovered from pipewire at runtime, then curated through a
+# persisted order and hidden set. No hardware allowlist.
 ASVC="$ROOT/services/AudioService.qml"
 grep -q 'Pipewire.nodes.values' "$ASVC" \
     || fail "AudioService does not enumerate pipewire nodes"
-grep -q 'readonly property var catalog' "$ASVC" \
-    || fail "AudioService has no shared output catalog"
 grep -q 'function isSinkNode' "$ASVC" \
     || fail "AudioService has no isSinkNode filter"
-grep -q 'function matchesCatalog' "$ASVC" \
-    || fail "AudioService has no matchesCatalog"
-grep -q 'function catalogLabelFor' "$ASVC" \
-    || fail "AudioService has no catalogLabelFor"
+grep -q 'node.isSink && !node.isStream' "$ASVC" \
+    || fail "AudioService keeps streams or sources in the sink list"
+grep -q 'function keyFor' "$ASVC" \
+    || fail "AudioService has no stable output key"
+grep -q 'function rawLabelFor' "$ASVC" \
+    || fail "AudioService has no rawLabelFor display label"
+grep -q 'function orderedNodes' "$ASVC" \
+    || fail "AudioService has no orderedNodes curation order"
+grep -q 'function setHidden' "$ASVC" \
+    || fail "AudioService has no setHidden curation"
+grep -q 'function moveOutput' "$ASVC" \
+    || fail "AudioService has no moveOutput curation"
 grep -q 'function percentForVolume' "$ASVC" \
     || fail "AudioService has no percentForVolume"
 grep -q 'function volumeForPercent' "$ASVC" \
     || fail "AudioService has no volumeForPercent"
 grep -q 'function setVolume' "$ASVC" \
     || fail "AudioService has no setVolume"
-grep -q 'node.isSink && !node.isStream' "$ASVC" \
-    || fail "AudioService keeps streams or sources in the sink list"
-grep -q 'AudioService.catalog' "$ROOT/modules/Audio.qml" \
-    || fail "the bar Audio module keeps a second sink catalog"
-if grep -q 'match: "JadeAudio"' "$ROOT/modules/Audio.qml"; then
-    fail "the bar Audio module still hardcodes the sink catalog"
+grep -q 'name: "audio-outputs"' "$ASVC" \
+    || fail "AudioService does not persist curated outputs behind a StateFile"
+if grep -q 'function setLabel\|labelOverrides' "$ASVC"; then
+    fail "AudioService still carries the removed rename state"
 fi
+if grep -q 'match: "JadeAudio"\|match: "AB13X"\|match: "Pebble"' "$ASVC" "$ROOT/modules/Audio.qml"; then
+    fail "AudioService or the bar Audio module still hardcodes a sink catalog"
+fi
+grep -q 'AudioService.sinks' "$ROOT/modules/Audio.qml" \
+    || fail "the bar Audio module does not read the live sink list"
+grep -q 'AudioService.rawLabelFor' "$ROOT/modules/Audio.qml" \
+    || fail "the bar Audio module does not use the output label"
 
 VBLOCK="$ROOT/windows/DashboardVolumeBlock.qml"
 grep -q 'AudioService.sinks' "$VBLOCK" \
@@ -679,58 +692,63 @@ check("format/rate-mb", format_rate(1572864), "1.5 MB/s")
 check("format/rate-kb", format_rate(2048), "2 KB/s")
 check("format/rate-b", format_rate(700), "700 B/s")
 
-# Mirror of AudioService sink selection (services/AudioService.qml): the one
-# catalog drives both the bar cycle and the dashboard list. A node counts only
-# when it is a real sink and its label matches a catalog entry; the result
-# follows catalog order, so a physical HDMI or virtual filter sink never shows.
+# Mirror of AudioService output discovery (services/AudioService.qml): every
+# real sink is discovered at runtime, then a saved order and hidden set curate
+# it. A saved key orders first; outputs the user has not seen append after it
+# sorted by label, so a fresh install lists its own hardware.
 def is_sink_node(node):
     return bool(node) and node.get("isSink", False) and not node.get("isStream", False) and node.get("audio") is not None
+
+def key_for(node):
+    if not node:
+        return ""
+    return node.get("name") or node.get("description") or node.get("nickname") or str(node.get("id"))
 
 def raw_label_for(node):
     if not node:
         return ""
     return node.get("description") or node.get("nickname") or node.get("name") or ""
 
-def matches_catalog(node, entry):
-    return entry["match"] in raw_label_for(node)
-
-def catalog_label_for(node, catalog):
-    for entry in catalog:
-        if matches_catalog(node, entry):
-            return entry["label"]
-    return raw_label_for(node)
-
-CATALOG = [
-    {"match": "JadeAudio", "label": "JadeAudio JIEZI"},
-    {"match": "AB13X", "label": "AB13X Dongle"},
-    {"match": "Pebble", "label": "Creative Pebble V3"},
-]
-
-def selected_labels(nodes, catalog=CATALOG):
+def ordered_nodes(nodes, order):
     out = []
-    for entry in catalog:
+    for key in order:
         for node in nodes:
-            if is_sink_node(node) and matches_catalog(node, entry):
-                out.append(catalog_label_for(node, catalog))
+            if key_for(node) == key:
+                out.append(node)
                 break
+    rest = [node for node in nodes if key_for(node) not in order]
+    rest.sort(key=lambda node: raw_label_for(node).lower())
+    out.extend(rest)
+    return out
+
+def visible_sinks(nodes, hidden=None, order=None):
+    hidden = hidden or []
+    order = order or []
+    out = []
+    real = [node for node in nodes if is_sink_node(node)]
+    for node in ordered_nodes(real, order):
+        key = key_for(node)
+        if key in hidden:
+            continue
+        out.append({"key": key, "label": raw_label_for(node)})
     return out
 
 HDMI = {"isSink": True, "isStream": False, "audio": {}, "description": "Navi 48 HDMI/DP Audio Controller Digital Stereo (HDMI) [LG ULTRAGEAR]", "name": "alsa_output.pci-0000_28_00.1.hdmi-stereo"}
 EASY = {"isSink": True, "isStream": False, "audio": {}, "description": "Easy Effects Sink", "name": "easyeffects_sink"}
-JADE = {"isSink": True, "isStream": False, "audio": {}, "description": "JadeAudio JIEZI Analog Stereo"}
-AB13X = {"isSink": True, "isStream": False, "audio": {}, "description": "AB13X Headset Adapter Analog Stereo"}
-PEBBLE = {"isSink": True, "isStream": False, "audio": {}, "description": "Pebble V3 Analog Stereo"}
+JADE = {"isSink": True, "isStream": False, "audio": {}, "description": "JadeAudio JIEZI Analog Stereo", "name": "alsa_output.usb-JadeAudio_JIEZI-00.analog-stereo"}
+AB13X = {"isSink": True, "isStream": False, "audio": {}, "description": "AB13X Headset Adapter Analog Stereo", "name": "alsa_output.usb-AB13X-00.analog-stereo"}
+PEBBLE = {"isSink": True, "isStream": False, "audio": {}, "description": "Pebble V3 Analog Stereo", "name": "alsa_output.usb-Creative_Pebble_V3-00.analog-stereo"}
 
 check("sink/real", is_sink_node({"isSink": True, "isStream": False, "audio": {}}), True)
 check("sink/stream", is_sink_node({"isSink": True, "isStream": True, "audio": {}}), False)
 check("sink/source", is_sink_node({"isSink": False, "isStream": False, "audio": {}}), False)
 check("sink/no-audio", is_sink_node({"isSink": True, "isStream": False, "audio": None}), False)
-check("sink/catalog-order", selected_labels([PEBBLE, AB13X, EASY, HDMI, JADE]), ["JadeAudio JIEZI", "AB13X Dongle", "Creative Pebble V3"])
-check("sink/catalog-drops-unmatched", selected_labels([HDMI, EASY]), [])
-check("sink/catalog-single", selected_labels([PEBBLE]), ["Creative Pebble V3"])
-check("sink/catalog-first-match", selected_labels([JADE, {"isSink": True, "isStream": False, "audio": {}, "description": "JadeAudio JIEZI clone"}]), ["JadeAudio JIEZI"])
-check("sink/matches-case", matches_catalog({"description": "jadeaudio jiezi"}, {"match": "JadeAudio"}), False)
-check("sink/unmatched-label", catalog_label_for(HDMI, CATALOG), HDMI["description"])
+check("sink/key-prefers-name", key_for(PEBBLE), PEBBLE["name"])
+check("sink/key-falls-back", key_for({"description": "Fallback", "id": 7}), "Fallback")
+check("sink/discover-all", [s["label"] for s in visible_sinks([PEBBLE, HDMI, JADE])], [JADE["description"], HDMI["description"], PEBBLE["description"]])
+check("sink/hidden-drops", [s["key"] for s in visible_sinks([JADE, EASY, PEBBLE], hidden=[key_for(EASY)])], [key_for(JADE), key_for(PEBBLE)])
+check("sink/saved-order", [s["key"] for s in visible_sinks([JADE, PEBBLE, HDMI], order=[key_for(PEBBLE), key_for(JADE)])], [key_for(PEBBLE), key_for(JADE), key_for(HDMI)])
+check("sink/drops-non-sinks", visible_sinks([{"isSink": False, "isStream": False, "audio": {}, "name": "mic"}]), [])
 
 # Mirror of AudioService.percentForVolume plus volumeForPercent.
 def percent_for_volume(volume):

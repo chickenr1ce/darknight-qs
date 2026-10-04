@@ -252,6 +252,15 @@ ColumnLayout {
                         filter: root.bodyFilter
                     }
 
+                    AudioSettingsView {
+                        id: idAudioSection
+
+                        Layout.fillWidth: true
+
+                        visible: root.hasSection && root.currentSection.key === "audio"
+                        filter: root.bodyFilter
+                    }
+
                     FontsSettingsView {
                         id: idFontsSection
 

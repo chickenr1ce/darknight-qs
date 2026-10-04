@@ -22,6 +22,8 @@ modules/Notifications.qml STY-3 3 font.* properties using dot notation -- use gr
 modules/Tray.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 modules/Tray.qml STY-3 3 anchor.* properties using dot notation -- use group notation: anchor { ... }
 modules/Workspaces.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
+services/AudioService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/AudioService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/BarVisibilityService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
@@ -44,6 +46,7 @@ services/SpotifyService.qml BND-2 Imperative '=' on 'idDevicesProcess.running' d
 services/SpotifyService.qml BND-2 Imperative '=' on 'idDevicesProcess.running' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/SpotifyService.qml BND-2 Imperative '=' on 'idTransferProcess.running' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/WeatherService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/AudioSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
