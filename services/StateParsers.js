@@ -103,3 +103,24 @@ function parseCavaSettings(jsonText, limits) {
     out["maxHeight"] = clampInt(parsed.maxHeight, limits["maxHeight"]);
     return out;
 }
+
+function parseFontSettings(jsonText) {
+    let parsed = null;
+    try
+    {
+        parsed = JSON.parse(jsonText);
+    }
+    catch (e)
+    {
+        return null;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        return null;
+    const keys = ["uiFamily", "monoFamily", "iconFamily"];
+    const out = {};
+    for (let i = 0; i < keys.length; i++) {
+        if (typeof parsed[keys[i]] === "string")
+            out[keys[i]] = parsed[keys[i]];
+    }
+    return out;
+}

@@ -16,6 +16,7 @@ one property and panels read it — never keep a second copy in the view.
 - `WeatherService.qml` — city, coordinates, and weather reading.
 - `BarVisibilityService.qml` — per-module bar visibility.
 - `DashboardService.qml` — junction radius.
+- `FontService.qml` — Interface, Bar, and Icons families (writes the `Globals` role properties).
 - `Globals.qml` — `reducedMotion`.
 
 ## 2. View: a component in `windows/`

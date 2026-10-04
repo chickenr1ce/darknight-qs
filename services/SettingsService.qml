@@ -19,6 +19,12 @@ Singleton {
         },
         { key: "dashboard", title: qsTr("Dashboard"), options: [qsTr("Seam radius")], comingSoon: false },
         {
+            key: "fonts",
+            title: qsTr("Fonts"),
+            options: [qsTr("Font")].concat(FontService.roles.map(role => role.label)),
+            comingSoon: false
+        },
+        {
             key: "layout",
             title: qsTr("Layout"),
             options: [qsTr("Bar visibility")].concat(BarVisibilityService.modules.map(module => module.title)),

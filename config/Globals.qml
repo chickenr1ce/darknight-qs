@@ -13,12 +13,12 @@ QtObject {
     readonly property int radius: 5
     readonly property int slabRadius: 9
     readonly property int fontPixelSize: 16
-    readonly property string fontFamily: "Iosevka"
-
-    readonly property string uiFontFamily: "Geist"
-    // Single icon family for the whole shell: every glyph comes from
-    // qs.config Icons and is drawn here, never through fontconfig fallback.
-    readonly property string iconFontFamily: "GeistMono Nerd Font"
+    // Font roles are chosen in Settings (Fonts) and persisted by FontService.
+    // The icon picker is restricted to Nerd Fonts, so every glyph still comes
+    // from qs.config Icons rather than fontconfig fallback.
+    property string fontFamily: "Iosevka"
+    property string uiFontFamily: "Geist"
+    property string iconFontFamily: "GeistMono Nerd Font"
     readonly property int uiCaptionSize: 12
     readonly property int uiTitleSize: 15
     readonly property int uiDisplaySize: 28

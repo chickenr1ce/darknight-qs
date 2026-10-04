@@ -152,8 +152,10 @@ Timer { id: idMediaTimer }
 - **Font family roles**: Iosevka (`Globals.fontFamily`) is the bar/module
   identity; `Globals.uiFontFamily` (Geist) is the reading-surface family for
   notification toasts, the notification center, the dashboard, and future prose
-  UI. Text sizes on reading surfaces come from the named `Globals.ui*Size`
-  scale; never hardcode pixel sizes there. The dashboard's type roles are in
+  UI. Both, plus the icon family, are user-selectable in Settings → Fonts and
+  persisted by `FontService`; the names here are the shipped defaults. Text
+  sizes on reading surfaces come from the named `Globals.ui*Size` scale; never
+  hardcode pixel sizes there. The dashboard's type roles are in
   "Dashboard type roles" below.
 - **A bare singleton name can resolve to a C++ type**: if a file imports both
   a Quickshell service module (for a delegate's role type) and the matching
@@ -387,7 +389,9 @@ All panels and plugins share tokens and primitives; never invent a parallel visu
 ### No raw values
 
 - Colors, type sizes, radii, spacing, and durations come from `config/Colors.qml` or `config/Globals.qml` by role name (`Colors.panel`, `Colors.accent`, `Globals.panelPadding`, `Globals.cardRadius`), never hardcoded hex or pixel literals.
-- Bar identity stays Iosevka (`Globals.fontFamily`); reading surfaces use the named Geist scale (`Globals.ui*Size`). Text sizes on reading surfaces never hardcode pixels.
+- Bar identity defaults to Iosevka (`Globals.fontFamily`, user-selectable in
+  Settings → Fonts); reading surfaces use the named Geist scale
+  (`Globals.ui*Size`). Text sizes on reading surfaces never hardcode pixels.
 - Glyphs come from `config/Icons.qml` through `components/Icon.qml`; never write a nerd-font glyph literal in a module. The registry is the single source of truth for icon codepoints, so no glyph depends on fontconfig fallback picking a foreign family.
 
 ### No layout reflow on state change

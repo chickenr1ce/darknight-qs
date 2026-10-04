@@ -2542,4 +2542,141 @@ check("backgrounds/empty", parse_background_list("", "/bg"), [])
 check("backgrounds/non-string", parse_background_list(None, "/bg"), [])
 EOF
 
+# --- 20. fonts: one picker per role, one service, persisted ---
+FONTSVC="$ROOT/services/FontService.qml"
+FONTVIEW="$ROOT/windows/FontsSettingsView.qml"
+FONTROW="$ROOT/components/FontPickerRow.qml"
+GLOBALS="$ROOT/config/Globals.qml"
+
+# FontService owns enumeration, role mapping, and persistence; its setters
+# write the shared Globals families every Text binds to, so a pick repaints
+# the whole shell with no restart.
+test -f "$FONTSVC" \
+    || fail "services/FontService.qml is missing"
+grep -q '^singleton FontService 1.0 FontService.qml' "$ROOT/services/qmldir" \
+    || fail "FontService is not registered in services/qmldir"
+grep -q 'name: "font-settings"' "$FONTSVC" \
+    || fail "FontService does not persist to the font-settings state file"
+grep -q 'idFontState.loading || !idFontState.loaded' "$FONTSVC" \
+    || fail "FontService does not guard saves on the StateFile loading/loaded flags"
+grep -q 'function applySettings' "$FONTSVC" \
+    || fail "FontService has no applySettings"
+grep -q 'function saveSettings' "$FONTSVC" \
+    || fail "FontService has no saveSettings"
+grep -q 'function setFamily' "$FONTSVC" \
+    || fail "FontService has no setFamily"
+grep -q 'function familyFor' "$FONTSVC" \
+    || fail "FontService has no familyFor"
+grep -q 'function familiesFor' "$FONTSVC" \
+    || fail "FontService has no familiesFor"
+grep -q 'Qt.fontFamilies()' "$FONTSVC" \
+    || fail "FontService does not enumerate the installed families"
+grep -q 'indexOf("Nerd Font")' "$FONTSVC" \
+    || fail "FontService does not restrict the icon role to Nerd Fonts"
+grep -q 'Globals.uiFontFamily' "$FONTSVC" \
+    || fail "FontService does not drive the shared UI family"
+grep -q 'Globals.fontFamily' "$FONTSVC" \
+    || fail "FontService does not drive the shared bar family"
+grep -q 'Globals.iconFontFamily' "$FONTSVC" \
+    || fail "FontService does not drive the shared icon family"
+
+# One picker row renders every role, so Change, Search, and No match cannot
+# drift between Interface, Bar, and Icons.
+test -f "$FONTROW" \
+    || fail "components/FontPickerRow.qml is missing"
+grep -q 'signal selected' "$FONTROW" \
+    || fail "FontPickerRow exposes no selected signal"
+grep -q 'NavItem' "$FONTROW" \
+    || fail "FontPickerRow does not reuse the shared NavItem for results"
+grep -q 'function filtered' "$FONTROW" \
+    || fail "FontPickerRow has no filtered()"
+grep -q 'property int maxResults' "$FONTROW" \
+    || fail "FontPickerRow does not cap its result list"
+
+test -f "$FONTVIEW" \
+    || fail "windows/FontsSettingsView.qml is missing"
+grep -q 'property string filter' "$FONTVIEW" \
+    || fail "FontsSettingsView has no filter property"
+grep -q 'FontService.roles' "$FONTVIEW" \
+    || fail "FontsSettingsView does not render one picker per FontService role"
+grep -q 'FontPickerRow' "$FONTVIEW" \
+    || fail "FontsSettingsView does not compose the shared picker row"
+grep -q 'FontService.familyFor' "$FONTVIEW" \
+    || fail "FontsSettingsView does not read the role family from FontService"
+grep -q 'FontService.familiesFor' "$FONTVIEW" \
+    || fail "FontsSettingsView does not list the role families from FontService"
+grep -q 'FontService.setFamily' "$FONTVIEW" \
+    || fail "FontsSettingsView does not write the role family through FontService"
+grep -q 'SettingsFilter.matches' "$FONTVIEW" \
+    || fail "FontsSettingsView does not filter through the shared SettingsFilter"
+grep -q 'FontsSettingsView' "$SCENTER" \
+    || fail "SettingsView does not compose the Fonts section"
+grep -qF 'root.currentSection.key === "fonts"' "$SCENTER" \
+    || fail "SettingsView does not gate the Fonts section"
+grep -qF 'key: "fonts"' "$SSVC" \
+    || fail "SettingsService has no fonts section"
+grep -qF 'FontService.roles.map(role => role.label)' "$SSVC" \
+    || fail "SettingsService fonts options do not derive from FontService roles"
+if grep -qE 'key: "fonts".*comingSoon: true' "$SSVC"; then
+    fail "fonts section is still coming soon"
+fi
+
+# The picker sets state; the shared Globals roles must stay writable.
+grep -q '^    property string fontFamily' "$GLOBALS" \
+    || fail "Globals.fontFamily is not writable"
+grep -q '^    property string uiFontFamily' "$GLOBALS" \
+    || fail "Globals.uiFontFamily is not writable"
+grep -q '^    property string iconFontFamily' "$GLOBALS" \
+    || fail "Globals.iconFontFamily is not writable"
+
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$FONTVIEW" "$FONTROW"; then
+    fail "fonts settings surface carries raw hex; palette tokens only"
+fi
+
+# Oracle for StateParsers.parseFontSettings: keep string families only, return
+# null for malformed or non-object payloads. Mirrors services/StateParsers.js.
+python3 - <<'EOF'
+import json
+import sys
+
+def check(name, got, want):
+    if got != want:
+        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
+        sys.exit(1)
+
+def parse_font_settings(text):
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    out = {}
+    for key in ("uiFamily", "monoFamily", "iconFamily"):
+        if isinstance(parsed.get(key), str):
+            out[key] = parsed[key]
+    return out
+
+check("fonts/parse", parse_font_settings('{"uiFamily": "Geist", "monoFamily": 7, "iconFamily": "X"}'),
+      {"uiFamily": "Geist", "iconFamily": "X"})
+check("fonts/parse-malformed", parse_font_settings("{nope"), None)
+check("fonts/parse-nonobject", parse_font_settings('["a"]'), None)
+
+# Mirror of FontPickerRow.filtered: case-insensitive substring match, cap 40,
+# empty query shows the first page.
+def filter_fonts(families, query, cap=40):
+    needle = query.strip().lower()
+    out = []
+    for family in families:
+        if len(out) >= cap:
+            break
+        if needle == "" or needle in family.lower():
+            out.append(family)
+    return out
+
+check("fonts/filter-empty-caps", filter_fonts([f"F{i}" for i in range(50)], ""), [f"F{i}" for i in range(40)])
+check("fonts/filter-match", filter_fonts(["Geist", "Iosevka", "GeistMono"], "geist"), ["Geist", "GeistMono"])
+check("fonts/filter-none", filter_fonts(["Geist"], "nope"), [])
+EOF
+
 echo "panel-logic: all ok"

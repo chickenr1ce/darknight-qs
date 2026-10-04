@@ -252,6 +252,15 @@ ColumnLayout {
                         filter: root.bodyFilter
                     }
 
+                    FontsSettingsView {
+                        id: idFontsSection
+
+                        Layout.fillWidth: true
+
+                        visible: root.hasSection && root.currentSection.key === "fonts"
+                        filter: root.bodyFilter
+                    }
+
                     Text {
                         id: idComingSoonNote
 

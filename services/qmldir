@@ -17,5 +17,6 @@ singleton AudioService 1.0 AudioService.qml
 singleton SpotifyService 1.0 SpotifyService.qml
 singleton WeatherService 1.0 WeatherService.qml
 singleton ThemeService 1.0 ThemeService.qml
+singleton FontService 1.0 FontService.qml
 PanelState 1.0 PanelState.qml
 StateFile 1.0 StateFile.qml
