@@ -28,10 +28,10 @@ fixture = json.load(open(sys.argv[2]))
 parsed = mod.parse_devices(fixture)
 devices = parsed["devices"]
 assert parsed["activeId"] == fixture["devices"][0]["id"], "active device not picked up"
-assert [d["name"] for d in devices] == ["cachyos-alexiz", "Pixel 9", "Living Room speaker"]
+assert [d["name"] for d in devices] == ["Workstation", "Pixel 9", "Living Room speaker"]
 assert devices[0] == {
     "id": "702341f5c9bd8b7f84aa9b789a1df8cded69d710",
-    "name": "cachyos-alexiz",
+    "name": "Workstation",
     "type": "Computer",
     "isActive": True,
     "isRestricted": False,

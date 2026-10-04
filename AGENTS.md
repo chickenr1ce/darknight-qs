@@ -18,9 +18,9 @@ stability, layout best practices, attribute ordering — live in:
 ## 2. Git Worktrees
 
 - Feature work happens in worktrees, **always created under the sibling
-  `/home/alexiz/worktrees/` folder**, e.g.:
+  `$HOME/worktrees/` folder**, e.g.:
   ```
-  git worktree add /home/alexiz/worktrees/quickshell-<topic>
+  git worktree add $HOME/worktrees/quickshell-<topic>
   ```
 - Never scatter worktrees inside the config directory itself.
 - Remove a worktree when its branch is merged; delete stray untracked files first.

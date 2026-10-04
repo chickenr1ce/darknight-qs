@@ -156,8 +156,8 @@ assert rows[0]["title"] == "(no title)", "short row broke parsing: %r" % (rows,)
 assert "short gcalcli row" in buf.getvalue(), "short row did not warn"
 rows = mod.parse_gcalcli_tsv("start_date\tstart_time\tend_date\tend_time\ttitle\n2026-09-16\t09:00\t2026-09-16\t09:30\t(No title)\n")
 assert rows[0]["title"] == "(no title)", "gcalcli untitled event not normalized: %r" % (rows,)
-names = mod.parse_gcalcli_list(" Access  Title\n ------  -----\n  owner  alexizfirdaus@gmail.com\n  owner  Family Room\n  reader  Feiertage in Deutschland\n\n")
-assert names == ["Family Room", "Feiertage in Deutschland", "alexizfirdaus@gmail.com"], "list parse broke: %r" % (names,)
+names = mod.parse_gcalcli_list(" Access  Title\n ------  -----\n  owner  user@example.com\n  owner  Family Room\n  reader  Feiertage in Deutschland\n\n")
+assert names == ["Family Room", "Feiertage in Deutschland", "user@example.com"], "list parse broke: %r" % (names,)
 assert mod.parse_gcalcli_list(" Access  Title\n ------  -----\n") == [], "empty list should yield no names"
 assert mod.parse_gcalcli_list("") == [], "blank list output should yield no names"
 buf = io.StringIO()
