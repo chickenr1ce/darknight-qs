@@ -1020,6 +1020,16 @@ grep -q 'ThemeService.activeTheme' "$THEMEVIEW" \
     || fail "ThemeSettingsView does not mark the active theme"
 grep -q 'ThemeService.selectTheme' "$THEMEVIEW" \
     || fail "ThemeSettingsView cannot switch themes"
+grep -q 'modelData.swatches' "$THEMEVIEW" \
+    || fail "ThemeSettingsView does not render each theme's preview swatches"
+grep -q 'readonly property var themeSwatches' "$THEMEVIEW" \
+    || fail "ThemeSettingsView does not guard the delegate's modelData"
+grep -q 'Globals.themeSwatchChipSize' "$THEMEVIEW" \
+    || fail "ThemeSettingsView swatches do not use the shared chip size"
+grep -q 'trailingWidth' "$ROOT/components/NavItem.qml" \
+    || fail "NavItem has no trailing slot for the theme swatches"
+grep -q 'themeSwatchChipSize' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no themeSwatchChipSize token"
 grep -q 'SettingsFilter.matches' "$THEMEVIEW" \
     || fail "ThemeSettingsView does not filter through the shared SettingsFilter"
 grep -q 'ThemeService' "$ROOT/config/Colors.qml" \
@@ -2108,16 +2118,25 @@ ln -s "$CATDIR/tokyo-night/colors.toml" "$CATDIR/linkcolors/colors.toml"
 write_ansi_theme "$CATDIR/harbor" "#dfe4c4"
 : > "$CATDIR/harbor/light.mode"
 write_ansi_theme "$CATDIR/plaindark" "#121212"
+# Preview roles keep the first opaque value, in loader order: a non-opaque
+# magenta falls through to color5, and purple loses to color5.
+write_ansi_theme "$CATDIR/magenta-alpha" "#121212"
+printf 'magenta = "#8a5b81aa"\n' >> "$CATDIR/magenta-alpha/colors.toml"
+write_ansi_theme "$CATDIR/magenta-order" "#121212"
+sed -i 's/^color5 = "#8a5b81"/color5 = "#222222"/' "$CATDIR/magenta-order/colors.toml"
+printf 'purple = "#111111"\n' >> "$CATDIR/magenta-order/colors.toml"
 sed 's/^mode = "dark"/theme_type = "light"/' "$ROOT/tests/fixtures/theme-palette.toml" > "$CATDIR/legacytype/colors.toml"
 scan_out="$(sh "$TSCRIPT" "$CATDIR" 262144 | LC_ALL=C sort)"
 scan_want="$(cat <<'EOF'
-daylight|"light"
-harbor|light
-legacytype|"light"
-plaindark|dark
-quoted|'light'
-tokyo-night|"dark"
-twice|"light"
+daylight|"light"|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26
+harbor|light|#5e81ac|#8a5b81|#e0e0e0|#dfe3ca|#dfe4c4
+legacytype|"light"|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26
+magenta-alpha|dark|#5e81ac|#8a5b81|#e0e0e0|#3b3b3b|#121212
+magenta-order|dark|#5e81ac|#222222|#e0e0e0|#3b3b3b|#121212
+plaindark|dark|#5e81ac|#8a5b81|#e0e0e0|#3b3b3b|#121212
+quoted|'light'|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26
+tokyo-night|"dark"|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26
+twice|"light"|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26
 EOF
 )"
 test "$scan_out" = "$scan_want" \
@@ -2163,28 +2182,54 @@ def parse_toml_string(raw):
     parts = text.split(None, 1)
     return parts[0] if parts else ""
 
-# Mirror of ThemeParsers.parseCatalog (services/ThemeParsers.js): one `name|raw
-# mode` record per line from the scan; the raw value goes through
-# parseTomlString, a valid mode is required, and entries sort by display name
+# Mirror of ThemeParsers.parseCatalog (services/ThemeParsers.js): one
+# `name|raw mode|<preview roles>` record per line from the scan; the raw value
+# goes through parseTomlString, a valid mode and name are required, the trailing
+# roles are normalized to lowercase opaque hex, and entries sort by display name
 # then slug and are located under the theme root.
 def parse_catalog(output, root):
     entries = []
     for line in output.split("\n"):
         if line == "":
             continue
-        sep = line.rfind("|")
-        if sep <= 0:
+        parts = line.split("|")
+        if len(parts) < 2:
             continue
-        name = line[:sep]
-        mode = parse_toml_string(line[sep + 1:])
+        name = parts[0]
+        mode = parse_toml_string(parts[1])
         if mode not in ("dark", "light"):
             continue
-        if name in ("", ".", "..") or "/" in name:
+        if not is_valid_name(name):
             continue
         entries.append({"name": name, "displayName": display_name(name),
-                        "dir": root + "/" + name, "mode": mode})
+                        "dir": root + "/" + name, "mode": mode,
+                        "swatches": [normalize(part) for part in parts[2:] if normalize(part)]})
     entries.sort(key=lambda entry: (entry["displayName"], entry["name"]))
     return entries
+
+
+def is_valid_name(name):
+    if name in ("", ".", ".."):
+        return False
+    if any(ch in name for ch in "/\\|#?"):
+        return False
+    return not any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in name)
+
+
+def is_opaque(value):
+    if not re.fullmatch(r"#[0-9a-fA-F]+", value or ""):
+        return False
+    return len(value) - 1 in (3, 6)
+
+
+def normalize(value):
+    if not is_opaque(value):
+        return ""
+    h = value[1:].lower()
+    if len(h) == 3:
+        h = h[0] * 2 + h[1] * 2 + h[2] * 2
+    return "#" + h
+
 
 TEXT = 'tokyo-night|"dark"\ndaylight|"light"\nnord|light\n'
 check("catalog/order", [e["name"] for e in parse_catalog(TEXT, "/r")],
@@ -2198,8 +2243,18 @@ check("catalog/order-by-display", [e["name"] for e in parse_catalog("Zebra|dark\
 check("catalog/drop-bad-mode", [e["name"] for e in parse_catalog("bad|purple\ngood|dark\n", "/r")], ["good"])
 check("catalog/drop-no-sep", parse_catalog("noseparator\n", "/r"), [])
 check("catalog/drop-path", parse_catalog("a/b|dark\n", "/r"), [])
+check("catalog/drop-hash-name", parse_catalog("a#b|dark\n", "/r"), [])
+check("catalog/drop-quest-name", parse_catalog("a?b|dark\n", "/r"), [])
 check("catalog/empty", parse_catalog("", "/r"), [])
 check("catalog/trailing-newline-ok", [e["name"] for e in parse_catalog("good|dark\n", "/r")], ["good"])
+check("catalog/preview-roles", parse_catalog("tokyo-night|dark|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26\n", "/r")[0]["swatches"],
+      ["#7aa2f7", "#ad8ee6", "#a9b1d6", "#24283b", "#1a1b26"])
+check("catalog/preview-short-hex", parse_catalog("x|dark|#ABC|#ad8ee6\n", "/r")[0]["swatches"],
+      ["#aabbcc", "#ad8ee6"])
+check("catalog/preview-drops-invalid", parse_catalog("x|dark|#7aa2f7|notacolor|#ad8ee6\n", "/r")[0]["swatches"],
+      ["#7aa2f7", "#ad8ee6"])
+check("catalog/preview-drops-alpha", parse_catalog("x|dark|#7aa2f7ff\n", "/r")[0]["swatches"], [])
+check("catalog/no-preview", parse_catalog("x|dark\n", "/r")[0]["swatches"], [])
 EOF
 
 # --- 17. desktop retint: the renderer writes repo-owned templates ---

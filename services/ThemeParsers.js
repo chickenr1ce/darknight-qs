@@ -453,6 +453,13 @@ function compareCatalogNames(a, b) {
     return 0;
 }
 
+// One scan record is `name|raw mode|<accent>|<magenta>|<foreground>|<surface>
+// |<background>`. The name is one validated path segment, so it can hold no
+// delimiter; the raw mode goes through parseTomlString and must resolve to a
+// valid mode. The trailing roles become the entry's preview swatches, in the
+// same order the dashboard strip reads them; each must be an opaque hex value,
+// and an invalid one is dropped rather than emitting a colour the palette
+// schema does not allow.
 function parseCatalog(output, themeRoot) {
     if (typeof output !== "string")
         return [];
@@ -463,20 +470,27 @@ function parseCatalog(output, themeRoot) {
         const line = lines[i];
         if (line === "")
             continue;
-        const sep = line.lastIndexOf("|");
-        if (sep <= 0)
+        const parts = line.split("|");
+        if (parts.length < 2)
             continue;
-        const name = line.slice(0, sep);
-        const mode = parseTomlString(line.slice(sep + 1));
+        const name = parts[0];
+        const mode = parseTomlString(parts[1]);
         if (!isValidMode(mode))
             continue;
         if (!isValidThemeName(name))
             continue;
+        const swatches = [];
+        for (let f = 2; f < parts.length; f++) {
+            const value = isOpaqueColorValue(parts[f]) ? normalizeColor(parts[f]) : "";
+            if (value !== "")
+                swatches.push(value);
+        }
         entries.push({
             "name": name,
             "displayName": displayName(name),
             "dir": root + "/" + name,
-            "mode": mode
+            "mode": mode,
+            "swatches": swatches
         });
     }
     entries.sort(compareCatalogNames);

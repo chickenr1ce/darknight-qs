@@ -80,6 +80,7 @@ QtObject {
     readonly property int quietButtonHPadding: 2
     readonly property int quietButtonVPadding: 1
     readonly property int appDotSize: 9
+    readonly property int themeSwatchChipSize: 12
     readonly property int appRailWidth: 3
     readonly property int panelRadius: slabRadius
     readonly property int headerHeight: 34

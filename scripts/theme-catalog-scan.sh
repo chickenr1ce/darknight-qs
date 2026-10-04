@@ -1,15 +1,21 @@
 #!/bin/sh
-# Catalog scan for ThemeService: print `<name>|<raw mode value>` for each trusted
-# theme directory under the root given as $1. A theme is trusted when it is a
-# real directory holding a readable, regular-file colors.toml of at most the byte
-# cap given as $2 whose palette the loader can build, so the catalog never lists a
-# theme that yields no palette (a mode-only file would be a silent dead switch).
-# The palette may be canonical v4 or the pre-semantic ANSI form omarchy v4 still
-# reads; ThemeParsers.parseColors fills the latter through omarchy's cascade, and
-# this scan mirrors the cascade's requirements so the two agree. Mode is the
-# file's `mode`, else the legacy `theme_type`, else the `light.mode` marker, else
-# the background's luminance. One awk pass validates the file, so the scan does
-# not fork per theme. Only colors.toml and that one marker are read (ADR 0011).
+# Catalog scan for ThemeService: print
+# `<name>|<mode>|<accent>|<magenta>|<foreground>|<surface>|<background>` for each
+# trusted theme directory under the root given as $1. A theme is trusted when it
+# is a real directory holding a readable, regular-file colors.toml of at most the
+# byte cap given as $2 whose palette the loader can build, so the catalog never
+# lists a theme that yields no palette (a mode-only file would be a silent dead
+# switch). The trailing colors are the theme's preview, resolved from the same
+# source roles the loader reads, keeping the first opaque value: magenta through
+# color5/purple, foreground through fg/color7, background through bg/color0, and
+# surface through lighter_bg/color0/background, stepped toward the foreground when
+# it lands on the background, matching parseColors. The palette may be canonical
+# v4 or the pre-semantic ANSI form omarchy v4 still reads;
+# ThemeParsers.parseColors fills the latter through omarchy's cascade, and this
+# scan mirrors the cascade's requirements so the two agree. Mode is the file's
+# `mode`, else the legacy `theme_type`, else the `light.mode` marker, else the
+# background's luminance. One awk pass validates the file, so the scan does not
+# fork per theme. Only colors.toml and that one marker are read (ADR 0011).
 set -u
 
 root=${1:-}
@@ -52,6 +58,25 @@ function hexval(c) {
 function hexpair(h, i) {
     return hexval(substr(h, i, 1)) * 16 + hexval(substr(h, i + 1, 1))
 }
+function expand(value,   h, len) {
+    h = value
+    sub(/^#/, "", h)
+    len = length(h)
+    if (len == 3)
+        return "#" tolower(substr(h, 1, 1) substr(h, 1, 1) substr(h, 2, 1) substr(h, 2, 1) substr(h, 3, 1) substr(h, 3, 1))
+    if (len == 6)
+        return "#" tolower(h)
+    return ""
+}
+function mixchannel(x, y, t) {
+    return int(x * (1 - t) + y * t + 0.5)
+}
+function mixcolor(start, end, t,   a, b) {
+    a = expand(start)
+    b = expand(end)
+    if (a == "" || b == "") return ""
+    return sprintf("#%02x%02x%02x", mixchannel(hexpair(a, 2), hexpair(b, 2), t), mixchannel(hexpair(a, 4), hexpair(b, 4), t), mixchannel(hexpair(a, 6), hexpair(b, 6), t))
+}
 BEGIN {
     n = split("accent selection muted background dark_background darker_background lighter_background foreground dark_foreground light_foreground bright_foreground red yellow green cyan blue magenta bright_red bright_yellow bright_green bright_cyan bright_blue bright_magenta color0 color1 color2 color3 color4 color5 color6 color7 color8 color9 color10 color11 color12 color13 color14 color15 bg dark_bg darker_bg lighter_bg fg dark_fg light_fg bright_fg selection_background selection_foreground purple bright_purple", keys, " ")
     for (i = 1; i <= n; i++) known[keys[i]] = 1
@@ -89,18 +114,40 @@ END {
         && (isopaque(color["magenta"]) || isopaque(color["color5"]) || isopaque(color["purple"])) \
         && (isopaque(color["cyan"]) || isopaque(color["color6"]))
     if (!ok) exit 1
-    if (validmode(mode)) { print mode_raw; exit }
-    if (validmode(theme_type)) { print tt_raw; exit }
-    if (light_marker == 1) { print "light"; exit }
-    bg = color["background"]
-    if (bg == "") bg = color["bg"]
-    if (bg == "") bg = color["color0"]
-    if (bg ~ /^#[0-9a-fA-F]{6}$/) {
-        lum = hexpair(bg, 2) + hexpair(bg, 4) + hexpair(bg, 6)
-        print (lum > 382) ? "light" : "dark"
-    } else {
-        print "dark"
+    bgraw = color["background"]
+    if (bgraw == "") bgraw = color["bg"]
+    if (bgraw == "") bgraw = color["color0"]
+    if (validmode(mode)) resolved = mode_raw
+    else if (validmode(theme_type)) resolved = tt_raw
+    else if (light_marker == 1) resolved = "light"
+    else if (bgraw ~ /^#[0-9a-fA-F]{6}$/) {
+        lum = hexpair(bgraw, 2) + hexpair(bgraw, 4) + hexpair(bgraw, 6)
+        resolved = (lum > 382) ? "light" : "dark"
+    } else resolved = "dark"
+    accent = color["accent"]
+    if (!isopaque(accent)) accent = ""
+    magenta = color["magenta"]
+    if (!isopaque(magenta)) magenta = color["color5"]
+    if (!isopaque(magenta)) magenta = color["purple"]
+    if (!isopaque(magenta)) magenta = ""
+    foreground = color["foreground"]
+    if (!isopaque(foreground)) foreground = color["fg"]
+    if (!isopaque(foreground)) foreground = color["color7"]
+    if (!isopaque(foreground)) foreground = ""
+    background = color["background"]
+    if (!isopaque(background)) background = color["bg"]
+    if (!isopaque(background)) background = color["color0"]
+    if (!isopaque(background)) background = ""
+    surface = color["lighter_background"]
+    if (!isopaque(surface)) surface = color["lighter_bg"]
+    if (!isopaque(surface)) surface = color["color0"]
+    if (!isopaque(surface)) surface = background
+    if (!isopaque(surface)) surface = ""
+    if (isopaque(surface) && isopaque(background) && expand(surface) == expand(background)) {
+        stepped = mixcolor(background, foreground, 0.2)
+        if (stepped != "" && stepped != expand(background)) surface = stepped
     }
+    printf "%s|%s|%s|%s|%s|%s\n", resolved, accent, magenta, foreground, surface, background
 }
 '
 

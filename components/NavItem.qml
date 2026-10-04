@@ -9,6 +9,7 @@ Item {
     property string text: ""
     property bool active: false
     property bool disabled: false
+    property int trailingWidth: 0
 
     signal clicked()
 
@@ -62,7 +63,7 @@ Item {
             right: parent.right
             verticalCenter: parent.verticalCenter
             leftMargin: Globals.cardHPadding
-            rightMargin: Globals.cardHPadding
+            rightMargin: Globals.cardHPadding + (root.trailingWidth > 0 ? root.trailingWidth + Globals.fieldPadding : 0)
         }
 
         textFormat: Text.PlainText
