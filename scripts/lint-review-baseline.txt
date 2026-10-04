@@ -35,7 +35,7 @@ services/CavaService.qml BND-1 property var -- use a typed property (int, string
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
-services/MprisPlayers.qml BND-5 list<> property has no granular change signals -- add/move/remove won't notify; consider a ListModel or notify manually
+services/MprisPlayers.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
@@ -57,6 +57,7 @@ windows/DashboardThemeBlock.qml BND-1 property var -- use a typed property (int,
 windows/DashboardVolumeBlock.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/FontsSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/LayoutSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/MediaSettingsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)

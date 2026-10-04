@@ -216,6 +216,15 @@ ColumnLayout {
                         filter: root.bodyFilter
                     }
 
+                    MediaSettingsView {
+                        id: idMediaSection
+
+                        Layout.fillWidth: true
+
+                        visible: root.hasSection && root.currentSection.key === "media"
+                        filter: root.bodyFilter
+                    }
+
                     MonitorSettingsView {
                         id: idMonitorSection
 

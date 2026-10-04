@@ -576,6 +576,16 @@ grep -q '^import qs.services' "$SSVC" \
     || fail "SettingsService.qml is missing its qs.services self-import"
 grep -q '^singleton SettingsService 1.0 SettingsService.qml' "$ROOT/services/qmldir" \
     || fail "SettingsService is not registered in services/qmldir"
+
+# The category rail is always alphabetical: the rail renders `sections`, the
+# derived list sorted by title, never the literal insertion order.
+grep -qF 'readonly property var sectionRegistry: [' "$SSVC" \
+    || fail "SettingsService has no sectionRegistry"
+grep -qF 'readonly property var sections: [...root.sectionRegistry].sort' "$SSVC" \
+    || fail "SettingsService sections are not derived by sorting sectionRegistry"
+grep -q 'a.title.localeCompare(b.title)' "$SSVC" \
+    || fail "SettingsService sections are not sorted alphabetically by title"
+
 if grep -q 'SettingsService' "$ROOT/services/Panels.qml"; then
     fail "Panels owns SettingsService; settings opens from the dashboard, not the registry"
 fi
@@ -846,6 +856,44 @@ grep -qF 'root.currentSection.key === "monitors"' "$SCENTER" \
     || fail "SettingsView does not gate the Monitors section"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$MVIEW" "$MSVC"; then
     fail "monitors settings surface carries raw hex; palette tokens only"
+fi
+
+# Media section: one toggle per seen MPRIS app, persisted behind the
+# MprisPlayers StateFile so the dashboard player and the bar share the filter.
+MEDVIEW="$ROOT/windows/MediaSettingsView.qml"
+MPLAYERS="$ROOT/services/MprisPlayers.qml"
+test -f "$MEDVIEW" \
+    || fail "windows/MediaSettingsView.qml is missing"
+grep -q 'property string filter' "$MEDVIEW" \
+    || fail "MediaSettingsView has no filter property"
+grep -q 'MprisPlayers.seenPlayers' "$MEDVIEW" \
+    || fail "MediaSettingsView does not list the seen players"
+grep -q 'MprisPlayers.setAllowed' "$MEDVIEW" \
+    || fail "MediaSettingsView cannot toggle a player"
+grep -q 'SettingsToggleRow' "$MEDVIEW" \
+    || fail "MediaSettingsView does not compose the shared toggle row"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Player"))' "$MEDVIEW" \
+    || fail "MediaSettingsView does not match its Player search label, so searching it shows an empty body"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Apps"))' "$MEDVIEW" \
+    || fail "MediaSettingsView does not match its Apps search label, so searching it shows an empty body"
+grep -q 'MediaSettingsView' "$SCENTER" \
+    || fail "SettingsView does not compose the Media section"
+grep -qF 'root.currentSection.key === "media"' "$SCENTER" \
+    || fail "SettingsView does not gate the Media section"
+grep -qF 'key: "media"' "$SSVC" \
+    || fail "SettingsService has no media section"
+grep -qF 'qsTr("Apps")' "$SSVC" \
+    || fail "SettingsService media options do not list Apps"
+grep -qF 'MprisPlayers.seenPlayers.map' "$SSVC" \
+    || fail "SettingsService media options do not derive from MprisPlayers.seenPlayers"
+grep -q 'name: "mpris-players"' "$MPLAYERS" \
+    || fail "MprisPlayers does not persist the media filter behind a StateFile"
+grep -q 'idAppsState.loading || !idAppsState.loaded' "$MPLAYERS" \
+    || fail "MprisPlayers does not guard saves on the StateFile loading/loaded flags"
+grep -q 'property var browserTokens' "$MPLAYERS" \
+    || fail "MprisPlayers does not seed the browsers as hidden"
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$MEDVIEW"; then
+    fail "media settings surface carries raw hex; palette tokens only"
 fi
 
 # Dashboard junction radius: a slider writes the service across the whole

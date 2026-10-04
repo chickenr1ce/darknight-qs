@@ -9,7 +9,7 @@ Singleton {
 
     property string targetSection: ""
 
-    readonly property var sections: [
+    readonly property var sectionRegistry: [
         { key: "calendar", title: qsTr("Calendar"), options: [qsTr("World clock"), qsTr("Zones"), qsTr("Feeds")], comingSoon: false },
         {
             key: "cava",
@@ -37,6 +37,12 @@ Singleton {
             comingSoon: false
         },
         {
+            key: "media",
+            title: qsTr("Media"),
+            options: [qsTr("Player"), qsTr("Apps")].concat(MprisPlayers.seenPlayers.map(player => player.label)),
+            comingSoon: false
+        },
+        {
             key: "monitors",
             title: qsTr("Monitors"),
             options: [qsTr("Primary monitor"), qsTr("Workspaces per monitor")].concat(MonitorService.screenNames),
@@ -52,6 +58,8 @@ Singleton {
         },
         { key: "weather", title: qsTr("Weather"), options: [qsTr("City"), qsTr("Location")], comingSoon: false }
     ]
+
+    readonly property var sections: [...root.sectionRegistry].sort((a, b) => a.title.localeCompare(b.title))
 
     function requestSection(sectionKey: string): void {
         root.targetSection = sectionKey;

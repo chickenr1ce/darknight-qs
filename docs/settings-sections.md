@@ -34,12 +34,14 @@ label a view wants searchable is reachable only if it is passed to `matches()`;
 a label the body never tests is invisible to the search even when the same
 string sits in `options`.
 
-## 3. Registration: `SettingsService.sections` plus `SettingsView`
+## 3. Registration: `SettingsService.sectionRegistry` plus `SettingsView`
 
-Add an entry to `SettingsService.sections` with a `key`, a `title`, the
-searchable `options` labels, and `comingSoon: false`. Then compose the view in
-`SettingsView.qml`'s card body, gated on the section and handed the search
-filter:
+Add an entry to `SettingsService.sectionRegistry` with a `key`, a `title`, the
+searchable `options` labels, and `comingSoon: false`. Insertion order is
+irrelevant: `SettingsService.sections` is the derived view the rail renders,
+sorted by title, so the category list is always alphabetical. Then compose the
+view in `SettingsView.qml`'s card body, gated on the section and handed the
+search filter:
 
 ```qml
 MySettingsView {
@@ -64,6 +66,8 @@ drift apart.
 ## Checklist
 
 - [ ] State lives in one service; settings and panels bind the same property.
+- [ ] The new section is added to `SettingsService.sectionRegistry`; the rail
+      renders `sections`, sorted by title, so insertion order never matters.
 - [ ] The view filters by `filter`; an empty query shows everything.
 - [ ] Search labels live in `options` and the view's `matches()` uses them;
       every registered label is reachable, so no `options` entry (e.g.

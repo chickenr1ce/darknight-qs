@@ -215,6 +215,14 @@ grep -q 'function toggleShuffle' "$MPLAYERS" \
     || fail "MprisPlayers has no toggleShuffle"
 grep -q 'function formatTime' "$MPLAYERS" \
     || fail "MprisPlayers has no formatTime"
+grep -q 'function setAllowed' "$MPLAYERS" \
+    || fail "MprisPlayers has no setAllowed"
+grep -q 'name: "mpris-players"' "$MPLAYERS" \
+    || fail "MprisPlayers does not persist the app filter"
+grep -q 'property var browserTokens' "$MPLAYERS" \
+    || fail "MprisPlayers does not seed the browsers as hidden"
+grep -q 'Mpris.players.values.filter' "$MPLAYERS" \
+    || fail "MprisPlayers playerList does not filter by the app filter"
 
 PBLOCK="$ROOT/windows/DashboardPlayerBlock.qml"
 grep -q 'MprisPlayers.activePlayer' "$PBLOCK" \
@@ -811,6 +819,78 @@ check("time/seconds", format_time(74), "1:14")
 check("time/pad", format_time(65), "1:05")
 check("time/negative", format_time(-5), "0:00")
 check("time/long", format_time(3725), "62:05")
+
+# Mirror of MprisPlayers.defaultAllowed (services/MprisPlayers.qml): the browser
+# seed hides a known browser key by exact token or substring, everything else
+# stays allowed.
+BROWSER_TOKENS = ["firefox", "firefox-esr", "waterfox", "floorp", "zen-browser",
+                  "chromium", "chrome", "brave", "vivaldi", "opera",
+                  "microsoft-edge", "thorium", "ladybird", "epiphany"]
+BROWSER_EXACT = ["zen"]
+
+def default_allowed(key):
+    if key in BROWSER_EXACT:
+        return False
+    return not any(token in key for token in BROWSER_TOKENS)
+
+check("filter/spotify", default_allowed("spotify"), True)
+check("filter/firefox", default_allowed("firefox"), False)
+check("filter/firefox-identity", default_allowed("mozilla firefox"), False)
+check("filter/zen", default_allowed("zen"), False)
+check("filter/zen-partial", default_allowed("citizen"), True)
+check("filter/vlc", default_allowed("vlc"), True)
+
+# Mirror of MprisPlayers.playerKey/parseApps/applyApps (services/MprisPlayers.qml):
+# keys are lowercased and instance suffixes dropped; a malformed file parses to
+# no entries; a load keeps in-memory entries the file does not know.
+def player_key(desktop_entry, identity, dbus_name):
+    key = (desktop_entry or identity or dbus_name or "").lower().strip()
+    return key.split(".instance")[0]
+
+def parse_apps(text):
+    out = {}
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return out
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("apps"), dict):
+        return out
+    for key, entry in parsed["apps"].items():
+        if not isinstance(entry, dict):
+            continue
+        label = entry.get("label")
+        out[key.lower()] = {
+            "label": label if isinstance(label, str) and label != "" else key,
+            "allowed": entry.get("allowed") is not False,
+        }
+    return out
+
+def apply_apps(current, text):
+    stored = parse_apps(text)
+    for key, value in current.items():
+        if key not in stored:
+            stored[key] = value
+    return stored
+
+check("filter/key-desktop", player_key("Spotify", "Spotify", ""), "spotify")
+check("filter/key-identity", player_key("", "Mozilla firefox", ""), "mozilla firefox")
+check("filter/key-instance", player_key("", "", "org.mpris.MediaPlayer2.firefox.instance_1_50"),
+      "org.mpris.mediaplayer2.firefox")
+check("filter/parse-malformed", parse_apps("{ not json"), {})
+check("filter/parse-empty", parse_apps('{"apps": {}}'), {})
+check("filter/parse-label-fallback",
+      parse_apps('{"apps": {"firefox": {"allowed": false}}}')["firefox"],
+      {"label": "firefox", "allowed": False})
+check("filter/parse-strict-allowed",
+      parse_apps('{"apps": {"vlc": {"label": "VLC", "allowed": 0}}}')["vlc"]["allowed"], True)
+check("filter/merge-keeps-current",
+      sorted(apply_apps({"spotify": {"label": "Spotify", "allowed": True}},
+                        '{"apps": {"firefox": {"label": "Mozilla firefox", "allowed": false}}}').keys()),
+      ["firefox", "spotify"])
+check("filter/merge-stored-wins",
+      apply_apps({"firefox": {"label": "old", "allowed": True}},
+                 '{"apps": {"firefox": {"label": "Mozilla firefox", "allowed": false}}}')["firefox"]["allowed"],
+      False)
 
 # Mirror of SpotifyService.parseResponse (services/SpotifyService.qml): the
 # backend prints one JSON object per call; ok gates the payload and a bad
