@@ -560,4 +560,158 @@ test -f "$DANGLE/quickshell/themes/tokyo-night/colors.toml" \
 grep -q 'mv -- "\$backup" "\$dest"' "$CLI" \
     || fail "install cleanup does not restore a backed-up theme"
 
+# --- 21. remove-background deletes images from a theme ---
+RM="$WORK/data-remove-bg"
+mkdir -p "$RM/quickshell/themes/tokyo-night/backgrounds"
+write_theme "$RM/quickshell/themes/tokyo-night"
+printf 'one' > "$RM/quickshell/themes/tokyo-night/backgrounds/first.png"
+printf 'two' > "$RM/quickshell/themes/tokyo-night/backgrounds/second.JPG"
+printf 'three' > "$RM/quickshell/themes/tokyo-night/backgrounds/third.webp"
+
+# By name, --theme, with the shell down.
+QS_THEME_STUB=down XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme tokyo-night first.png >"$WORK/out" 2>"$WORK/err"
+grep -q '^removed first.png$' "$WORK/out" \
+    || fail "remove-background did not report the removed name"
+test ! -e "$RM/quickshell/themes/tokyo-night/backgrounds/first.png" \
+    || fail "remove-background left the image in place"
+
+# A directory prefix is dropped, mirroring add-background and the picker.
+QS_THEME_STUB=down XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme tokyo-night "/x/y/second.JPG" >"$WORK/out" 2>"$WORK/err"
+grep -q '^removed second.JPG$' "$WORK/out" \
+    || fail "remove-background did not take the segment after a slash"
+test ! -e "$RM/quickshell/themes/tokyo-night/backgrounds/second.JPG" \
+    || fail "remove-background did not remove the path-prefixed name"
+
+QS_THEME_STUB=down XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme tokyo-night third.webp >/dev/null 2>&1
+test "$(find "$RM/quickshell/themes/tokyo-night/backgrounds" -type f | wc -l)" -eq 0 \
+    || fail "remove-background left files behind"
+
+# The active theme is the default target (the stub reports tokyo-night).
+printf 'active' > "$RM/quickshell/themes/tokyo-night/backgrounds/active.png"
+XDG_DATA_HOME="$RM" sh "$CLI" remove-background active.png >"$WORK/out" 2>"$WORK/err"
+grep -q '^removed active.png$' "$WORK/out" \
+    || fail "remove-background did not default to the active theme"
+test ! -e "$RM/quickshell/themes/tokyo-night/backgrounds/active.png" \
+    || fail "remove-background did not remove from the active theme"
+
+# With the shell down and no --theme, the active theme cannot be resolved.
+printf 'keep' > "$RM/quickshell/themes/tokyo-night/backgrounds/keep.png"
+if QS_THEME_STUB=down XDG_DATA_HOME="$RM" sh "$CLI" remove-background keep.png 2>"$WORK/err"; then
+    fail "remove-background resolved a theme with the shell down and no --theme"
+fi
+grep -q 'no active theme' "$WORK/err" \
+    || fail "the no-active-theme refusal did not explain itself"
+
+# A name that is not there is refused and nothing else is touched.
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme tokyo-night missing.png 2>"$WORK/err"; then
+    fail "remove-background accepted a name that is not installed"
+fi
+grep -q 'no background named' "$WORK/err" \
+    || fail "the missing-name refusal did not explain itself"
+test -f "$RM/quickshell/themes/tokyo-night/backgrounds/keep.png" \
+    || fail "a refused removal deleted a file"
+
+# Every argument is validated before any deletion: a bad second name leaves the
+# first in place.
+printf 'a' > "$RM/quickshell/themes/tokyo-night/backgrounds/one.png"
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme tokyo-night one.png nope.txt 2>"$WORK/err"; then
+    fail "remove-background accepted a non-image name"
+fi
+grep -q 'not a background image' "$WORK/err" \
+    || fail "the non-image refusal did not explain itself"
+test -f "$RM/quickshell/themes/tokyo-night/backgrounds/one.png" \
+    || fail "remove-background deleted before validating every argument"
+
+# No argument is a usage error.
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme tokyo-night 2>"$WORK/err"; then
+    fail "remove-background accepted no name"
+fi
+grep -q 'usage: qs-theme remove-background' "$WORK/err" \
+    || fail "remove-background did not print its usage"
+
+# An unknown option is refused.
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --bogus tokyo-night 2>"$WORK/err"; then
+    fail "remove-background accepted an unknown option"
+fi
+
+# A missing theme and a traversing theme name are refused.
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme nope one.png 2>"$WORK/err"; then
+    fail "remove-background accepted a theme that is not installed"
+fi
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme ../escape one.png 2>"$WORK/err"; then
+    fail "remove-background accepted a traversing theme name"
+fi
+
+# A symlinked theme directory is refused and its target is untouched.
+mkdir -p "$WORK/remove-real"
+printf 'x' > "$WORK/remove-real/one.png"
+ln -s "$WORK/remove-real" "$RM/quickshell/themes/linkedrm"
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme linkedrm one.png 2>"$WORK/err"; then
+    fail "remove-background went through a symlinked theme directory"
+fi
+test -f "$WORK/remove-real/one.png" \
+    || fail "remove-background escaped through a symlinked theme directory"
+
+# A symlinked backgrounds directory is refused.
+mkdir -p "$RM/quickshell/themes/bgrm" "$WORK/remove-outside"
+write_theme "$RM/quickshell/themes/bgrm"
+printf 'x' > "$WORK/remove-outside/one.png"
+ln -s "$WORK/remove-outside" "$RM/quickshell/themes/bgrm/backgrounds"
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme bgrm one.png 2>"$WORK/err"; then
+    fail "remove-background went through a symlinked backgrounds directory"
+fi
+test -f "$WORK/remove-outside/one.png" \
+    || fail "remove-background escaped through a symlinked backgrounds directory"
+
+# A symlinked entry is refused rather than unlinked.
+mkdir -p "$RM/quickshell/themes/symrm/backgrounds"
+write_theme "$RM/quickshell/themes/symrm"
+printf 'x' > "$WORK/remove-outside/real.png"
+ln -s "$WORK/remove-outside/real.png" "$RM/quickshell/themes/symrm/backgrounds/real.png"
+if XDG_DATA_HOME="$RM" sh "$CLI" remove-background --theme symrm real.png 2>"$WORK/err"; then
+    fail "remove-background accepted a symlinked entry"
+fi
+test -f "$WORK/remove-outside/real.png" \
+    || fail "remove-background followed a symlinked entry"
+
+# A glob character in a name is literal, and several names delete in one run.
+GLOB="$WORK/data-remove-glob"
+mkdir -p "$GLOB/quickshell/themes/globtheme/backgrounds"
+write_theme "$GLOB/quickshell/themes/globtheme"
+printf '1' > "$GLOB/quickshell/themes/globtheme/backgrounds/star*.png"
+printf '2' > "$GLOB/quickshell/themes/globtheme/backgrounds/plain.png"
+printf '3' > "$GLOB/quickshell/themes/globtheme/backgrounds/other.png"
+XDG_DATA_HOME="$GLOB" sh "$CLI" remove-background --theme globtheme 'star*.png' plain.png >"$WORK/out" 2>"$WORK/err"
+grep -qxF 'removed star*.png' "$WORK/out" \
+    || fail "remove-background did not treat a glob character in a name literally"
+grep -qxF 'removed plain.png' "$WORK/out" \
+    || fail "remove-background did not remove both names in one run"
+test -f "$GLOB/quickshell/themes/globtheme/backgrounds/other.png" \
+    || fail "remove-background removed a name it was not given"
+test ! -e "$GLOB/quickshell/themes/globtheme/backgrounds/plain.png" \
+    || fail "remove-background left one of the requested names"
+
+# A name repeated in one run is removed once.
+printf 'd' > "$GLOB/quickshell/themes/globtheme/backgrounds/dup.png"
+XDG_DATA_HOME="$GLOB" sh "$CLI" remove-background --theme globtheme dup.png dup.png >"$WORK/out" 2>"$WORK/err"
+test "$(grep -c '^removed dup.png$' "$WORK/out")" -eq 1 \
+    || fail "remove-background reported a repeated name more than once"
+test ! -e "$GLOB/quickshell/themes/globtheme/backgrounds/dup.png" \
+    || fail "remove-background did not remove a repeated name"
+
+# A leading-dash name is reachable with --.
+printf 'n' > "$GLOB/quickshell/themes/globtheme/backgrounds/-dash.png"
+XDG_DATA_HOME="$GLOB" sh "$CLI" remove-background --theme globtheme -- -dash.png >"$WORK/out" 2>"$WORK/err"
+grep -qxF 'removed -dash.png' "$WORK/out" \
+    || fail "remove-background could not remove a leading-dash name with --"
+
+# A theme with no backgrounds directory is refused.
+mkdir -p "$GLOB/quickshell/themes/nobg"
+write_theme "$GLOB/quickshell/themes/nobg"
+if XDG_DATA_HOME="$GLOB" sh "$CLI" remove-background --theme nobg any.png 2>"$WORK/err"; then
+    fail "remove-background accepted a theme with no backgrounds directory"
+fi
+grep -q 'has no backgrounds' "$WORK/err" \
+    || fail "the no-backgrounds refusal did not explain itself"
+
 echo "qs-theme: all ok"

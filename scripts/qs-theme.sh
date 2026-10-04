@@ -9,8 +9,11 @@
 #   qs-theme background <file>            remember the active theme's background
 #   qs-theme add-background [--theme <name>] [--force] <file>...
 #                                         copy local image(s) into a theme
+#   qs-theme remove-background [--theme <name>] [--] <name>...
+#                                         delete local image(s) from a theme
 #
-# install, remove, and add-background write the theme directory themselves.
+# install, remove, add-background, and remove-background write the theme
+# directory themselves.
 # Every other verb is a thin client over the shell's "theme" IPC target, so the
 # shell stays the one source of truth. They still succeed when the shell is down;
 # the next start lists the change. Setup and the PATH symlink: docs/qs-theme.md.
@@ -45,6 +48,8 @@ usage: qs-theme <command> [args]
   background <file>            remember the active theme's background
   add-background [--theme <name>] [--force] <file>...
                                copy local image(s) into a theme's backgrounds
+  remove-background [--theme <name>] [--] <name>...
+                               delete image(s) from a theme's backgrounds
 USAGE
 }
 
@@ -353,6 +358,78 @@ add_backgrounds() {
     quickshell ipc call theme refresh >/dev/null 2>&1 || true
 }
 
+remove_backgrounds() {
+    theme=
+    while [ $# -gt 0 ]; do
+        case $1 in
+            --theme)
+                [ $# -ge 2 ] || die "--theme needs a name"
+                theme=$(slug_of "$2") || die "not a theme name: $(safe "$2")"
+                shift 2
+                ;;
+            --)
+                shift
+                break
+                ;;
+            -*)
+                die "unknown option: $(safe "$1")"
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    [ $# -ge 1 ] || die "usage: qs-theme remove-background [--theme <name>] <name>..."
+
+    if [ -z "$theme" ]; then
+        theme=$(ipc current) || true
+        [ -n "$theme" ] || die "no active theme; pass --theme <name>"
+        theme=$(slug_of "$theme") || die "the active theme is not a usable name"
+    fi
+
+    dir=$theme_root/$theme
+    if [ -L "$dir" ]; then
+        die "refusing a symlinked theme directory: $dir"
+    fi
+    [ -d "$dir" ] || die "no theme named $theme is installed"
+
+    bg=$dir/backgrounds
+    if [ -L "$bg" ]; then
+        die "refusing a symlinked backgrounds directory: $bg"
+    fi
+    [ -d "$bg" ] || die "theme $theme has no backgrounds"
+
+    # Resolve and check every name before removing any, so one bad argument
+    # leaves the theme untouched. background_name_of drops a directory prefix
+    # and refuses a path that could escape backgrounds/, so only a plain name
+    # directly under $bg is ever removed; a symlinked entry is refused, matching
+    # the scan that hides it from the picker.
+    names=
+    for arg in "$@"; do
+        base=$(background_name_of "$arg") || die "not a background image (jpg, jpeg, png, webp, bmp): $(safe "$arg")"
+        dest=$bg/$base
+        if [ -L "$dest" ] || [ ! -f "$dest" ]; then
+            die "no background named $(safe "$base") in $theme"
+        fi
+        case "|$names|" in
+            *"|$base|"*) continue ;;
+        esac
+        names="$names$base|"
+    done
+
+    rest=$names
+    while [ -n "$rest" ]; do
+        base=${rest%%|*}
+        rest=${rest#*|}
+        if ! rm -f -- "$bg/$base"; then
+            die "cannot remove $bg/$base"
+        fi
+        printf 'removed %s\n' "$base"
+    done
+
+    quickshell ipc call theme refresh >/dev/null 2>&1 || true
+}
+
 ipc() {
     command -v quickshell >/dev/null 2>&1 || die "quickshell is not on PATH"
     out=$(quickshell ipc call theme "$@") || die "the shell is not running"
@@ -416,6 +493,7 @@ case $command in
     set) do_set "$@" ;;
     background) do_background "$@" ;;
     add-background) add_backgrounds "$@" ;;
+    remove-background) remove_backgrounds "$@" ;;
     ''|-h|--help|help) usage ;;
     *) die "unknown command: $command" ;;
 esac

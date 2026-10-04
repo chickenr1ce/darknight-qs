@@ -2,9 +2,9 @@
 
 `qs-theme` installs theme directories and drives the running shell's theme
 service. The shell owns the catalog, the selection, and the backgrounds;
-`install`, `remove`, and `add-background` write the theme directory itself and
-every other verb is a thin client over the `theme` IPC target on
-`services/ThemeService.qml`.
+`install`, `remove`, `add-background`, and `remove-background` write the theme
+directory itself and every other verb is a thin client over the `theme` IPC
+target on `services/ThemeService.qml`.
 
 ## Bundled theme
 
@@ -39,6 +39,7 @@ qs-theme current
 qs-theme set <name>
 qs-theme background <file>
 qs-theme add-background [--theme <name>] [--force] <file>...
+qs-theme remove-background [--theme <name>] [--] <name>...
 ```
 
 ### install
@@ -117,6 +118,35 @@ existing name is refused unless `--force` is given, which replaces it.
 The verb writes the theme directory itself, like `install` and `remove`. On
 success it pings the shell so the picker lists the new image without a restart;
 with the shell down the copy still succeeds and the next start lists it.
+
+### remove-background
+
+`remove-background` deletes one or more images from a theme's `backgrounds/`
+directory. Like `add-background` it targets the active theme by default, or a
+named one with `--theme`:
+
+```
+qs-theme remove-background swirl.png
+qs-theme remove-background --theme darknight forest.png art.JPG
+```
+
+An argument is resolved the way the picker resolves a stored name: a directory
+prefix is dropped and the basename must be an image name (extension jpg, jpeg,
+png, webp, or bmp, no leading dot, no `..`, no control character or `|`). The
+removed path is always a plain file directly under
+`<theme root>/<name>/backgrounds/`; a name that is not there is refused, as are
+a symlinked theme directory, a symlinked `backgrounds/` directory, and a
+symlinked entry. Every argument is checked before anything is deleted, so one bad
+name leaves the theme unchanged. A name that begins with `-` is read as an
+option, so pass `--` first (`qs-theme remove-background -- -wall.png`).
+
+The verb writes the theme directory itself, like `install`, `remove`, and
+`add-background`. On success it pings the shell, so the picker and the desktop
+update without a restart: when the removed image was the theme's remembered
+choice, the shell falls back to the first remaining image (removing the last
+image applies nothing, so the desktop keeps the last applied one until another
+theme is chosen). With the shell down the deletion still succeeds and the next
+start rescans.
 
 ### list, current, set, background
 
