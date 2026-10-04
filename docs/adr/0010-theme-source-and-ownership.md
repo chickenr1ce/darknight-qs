@@ -92,3 +92,18 @@ itself.
   to a `readable_<role>` background ink. The flavor's `.tmTheme` code
   highlighting is dropped with the flavor; the preview syntax theme falls back
   to the yazi preset.
+- 2026-10-04 (bundled darknight theme): the repository ships one theme of its
+  own under `assets/themes/darknight` — the palette that was the hardcoded
+  `config/Colors.qml` fallback, plus two backgrounds. `scripts/install.sh`
+  seeds it into the quickshell theme root and refreshes it on each run, so a
+  fresh install has a catalog entry without a `qs-theme install`. The seed
+  renews the theme's own files and adds a bundled background the installed theme
+  lacks; it never overwrites an existing background, so a user's replacement or
+  a higher-resolution original survives, and it skips a symlinked destination.
+  `ThemeService`
+  selects `darknight` once the catalog is ready when the state file holds no
+  saved selection, so the bar and the desktop retint start on the theme rather
+  than the no-theme default; a saved selection, including one whose theme left
+  the catalog, is unchanged. The theme root and the read rules are untouched
+  (ADR 0011): the seed writes the same root the shell already scans, and only
+  `colors.toml` and `backgrounds/` are read.

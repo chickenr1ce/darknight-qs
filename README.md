@@ -67,8 +67,10 @@ quickshell -p ~/src/darknight-qs
 
 `scripts/install.sh` reports the required and optional tools, the three font
 families the shell names, and whether another daemon holds the notification bus.
-It then symlinks `scripts/qs-theme.sh` to `~/.local/bin/qs-theme`, and offers to
-link the clone into `~/.config/quickshell` so plain `quickshell` loads it:
+It then symlinks `scripts/qs-theme.sh` to `~/.local/bin/qs-theme`, seeds the
+bundled `darknight` theme (palette plus two backgrounds) into
+`~/.local/share/quickshell/themes`, and offers to link the clone into
+`~/.config/quickshell` so plain `quickshell` loads it:
 
 ```sh
 ~/src/darknight-qs/scripts/install.sh --link
@@ -112,6 +114,17 @@ The workspace split is still fixed: the second monitor's workspaces are 6–10
 The shell claims `org.freedesktop.Notifications` at startup. Stop `mako` or
 `dunst` and disable its autostart first, or the shell cannot own the bus. The
 installer warns when one holds it.
+
+### Themes
+
+On a fresh install with no saved selection, the shell starts on the bundled
+`darknight` theme. `install.sh` seeds it into
+`~/.local/share/quickshell/themes`, so the Settings → Theme picker and the
+dashboard Theme block list it with two backgrounds on first run. Switch themes,
+add backgrounds, or install omarchy v4 themes from a git URL with
+[qs-theme](docs/qs-theme.md); the seeded palette also retints Hyprland, kitty,
+hyprlock, starship, and yazi when those targets are wired up
+([desktop setup](docs/theme-desktop-setup.md)).
 
 ## Updating
 

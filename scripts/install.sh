@@ -9,33 +9,44 @@
 #   ~/.config/quickshell        -> this clone        (only with --link, or ask)
 #   ~/.local/bin/qs-theme       -> scripts/qs-theme.sh
 #
-# It never edits your Hyprland config; it prints the exec-once line instead.
-# Nothing else on disk is touched, and an existing real file or directory is
-# never replaced. Run from any clone path.
+# and seeds the bundled themes under assets/themes/ into the XDG theme root
+# ~/.local/share/quickshell/themes (skip with --no-seed), so a fresh install
+# has a theme to pick without a qs-theme install. The seed renews a theme's own
+# files and adds a bundled background the installed theme lacks; an existing
+# background is never overwritten, so a user's replacement survives an update.
+# It never edits your Hyprland config; it prints the exec-once line
+# instead. An existing real file or directory is never replaced elsewhere on
+# disk. Run from any clone path.
 #
-# Usage: scripts/install.sh [--link|--no-link] [--help]
+# Usage: scripts/install.sh [--link|--no-link] [--seed|--no-seed] [--help]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 CONFIG_LINK="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell"
 QS_THEME_LINK="$HOME/.local/bin/qs-theme"
+THEME_BUNDLE="$ROOT/assets/themes"
+THEME_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/quickshell/themes"
 
 LINK_MODE=ask
+SEED_MODE=yes
 MISSING_REQUIRED=()
 
 usage() {
     cat <<EOF
 install.sh — check this machine and wire the common Quickshell paths.
 
-Usage: scripts/install.sh [--link|--no-link]
+Usage: scripts/install.sh [--link|--no-link] [--seed|--no-seed]
 
 Options:
   --link       link this clone into $CONFIG_LINK (overwrites a symlink, not a real path)
-  --no-link    skip every symlink, check only
+  --no-link    skip both symlinks, but still seed the bundled themes
+  --seed       seed the bundled themes into $THEME_ROOT (default)
+  --no-seed    skip seeding the bundled themes
   --help       this message
 
 Without a flag the clone link is offered on a terminal and skipped when not.
-The qs-theme symlink is created unless --no-link is given.
+The qs-theme symlink is created unless --no-link is given; the theme seed
+unless --no-seed is given.
 EOF
 }
 
@@ -189,10 +200,31 @@ link_qs_theme() {
     ok "linked $QS_THEME_LINK -> $src"
 }
 
+# Seed the repository's bundled themes into the XDG theme root. The seed script
+# owns the copy rules and reports one `seeded`/`refreshed` line per theme; its
+# skips (a symlinked or non-directory destination) go straight to stderr. A
+# missing bundle is not an error.
+seed_themes() {
+    if [[ ! -d "$THEME_BUNDLE" ]]; then
+        return
+    fi
+    local out line
+    if ! out="$(sh "$ROOT/scripts/seed-themes.sh" "$THEME_BUNDLE" "$THEME_ROOT")"; then
+        warn "seeding bundled themes failed"
+        return
+    fi
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && ok "$line"
+    done <<<"$out"
+    return 0
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --link)    LINK_MODE=yes ;;
         --no-link) LINK_MODE=no ;;
+        --seed)    SEED_MODE=yes ;;
+        --no-seed) SEED_MODE=no ;;
         -h|--help) usage; exit 0 ;;
         *) echo "install: unknown arg $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -259,6 +291,12 @@ case "$LINK_MODE" in
 esac
 if [[ "$LINK_MODE" != "no" ]]; then
     link_qs_theme
+fi
+
+if [[ "$SEED_MODE" == "yes" ]]; then
+    echo
+    echo "install: seeding bundled themes into $THEME_ROOT"
+    seed_themes
 fi
 
 echo

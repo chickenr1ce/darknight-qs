@@ -153,14 +153,17 @@ sh scripts/render-theme.sh '{"mode":"dark","accent":"#7aa2f7", ...}'
 
 Output paths follow `XDG_CONFIG_HOME`, falling back to `HOME/.config`, so a test
 can redirect them. An empty palette renders the built-in no-theme default, so the
-desktop files match the bar's fallback. A malformed palette or a template with an
-unresolved placeholder exits without writing.
+desktop files match the bar's fallback; the shell normally starts on the bundled
+darknight theme, so this default is reached only when no theme is active. A
+malformed palette or a template with an unresolved placeholder exits without
+writing.
 
 ## Backgrounds
 
-Each theme ships images under its `backgrounds/` directory. The dashboard Theme
-block lists the trusted ones as thumbnails and marks the current choice. Picking
-one remembers it for that theme in the selection state and sends it to awww:
+Each theme ships images under its `backgrounds/` directory (the bundled
+darknight theme ships two). The dashboard Theme block lists the trusted ones as
+thumbnails and marks the current choice. Picking one remembers it for that theme
+in the selection state and sends it to awww:
 
 ```
 awww img <theme root>/<theme>/backgrounds/<file>

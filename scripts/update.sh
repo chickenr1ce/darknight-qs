@@ -4,7 +4,9 @@
 # The friend tracks main. A pull into the clone is enough for content changes:
 # Quickshell reloads when watched file content changes. A structural change (a
 # new file, qmldir, or import) is why a restart is still the reliable last step.
-# Settings live under XDG state and cache, not the repo, so they survive.
+# Settings live under XDG state and cache, not the repo, so they survive. The
+# dependency re-check re-seeds the bundled darknight theme into the theme root,
+# so a changed bundled palette or background lands on update.
 #
 # Refuses a dirty tree so a pull never strands local work: commit or stash
 # first. Works from any clone path. Usage: scripts/update.sh [--no-restart]
@@ -58,7 +60,7 @@ if ! git pull --ff-only; then
     die "git pull --ff-only failed; resolve it by hand, then rerun"
 fi
 
-say "re-checking dependencies"
+say "re-checking dependencies and refreshing bundled themes"
 if ! "$ROOT/scripts/install.sh" --no-link; then
     die "dependency check failed; install the missing packages listed above, then rerun (shell not restarted)"
 fi

@@ -1,0 +1,35 @@
+mode = "dark"
+
+# Roles taken from the current quickshell bar fallbacks in config/Colors.qml.
+accent = "#b4befe"
+selection = "#3a3450"
+muted = "#9d93ad"
+
+background = "#141118"
+dark_background = "#27222f"
+darker_background = "#0e0c11"
+lighter_background = "#282936"
+
+foreground = "#cac4d4"
+dark_foreground = "#4f455f"
+light_foreground = "#d5d6db"
+bright_foreground = "#ffffff"
+
+red = "#ff5252"
+yellow = "#d7d370"
+green = "#a6e3a1"
+cyan = "#94e2d5"
+blue = "#89b4fa"
+magenta = "#a980db"
+
+bright_red = "#ff7a7a"
+bright_yellow = "#e6df94"
+bright_green = "#b9edb4"
+bright_cyan = "#a9ece2"
+bright_blue = "#a0c8ff"
+bright_magenta = "#c79bf0"
+
+# The current Hyprland borders (looks.lua): flat here, since v4 carries one
+# active color rather than the two-color gradient.
+hyprland_active_border = "#b7bdf8"
+hyprland_inactive_border = "#595959aa"

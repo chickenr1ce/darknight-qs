@@ -483,6 +483,22 @@ function parseCatalog(output, themeRoot) {
     return entries;
 }
 
+// A selection file that parses to a JSON object is a saved selection even when
+// it names no theme (the user removed the active theme). An empty, malformed, or
+// non-object file is not, so ThemeService may fall back to its default theme
+// rather than treat a corrupt file as a deliberate no-theme choice.
+function isSelectionObject(jsonText) {
+    if (typeof jsonText !== "string")
+        return false;
+    let parsed = null;
+    try {
+        parsed = JSON.parse(jsonText);
+    } catch (e) {
+        return false;
+    }
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed);
+}
+
 function parseSelection(jsonText) {
     let parsed = null;
     try {

@@ -1330,6 +1330,10 @@ grep -q 'isValidThemeName(parsed.theme)' "$TPARSE" \
     || fail "parseSelection does not validate the restored theme name"
 grep -q 'isValidThemeName(name)' "$TPARSE" \
     || fail "parseCatalog does not use the shared theme-name predicate"
+grep -q 'function isSelectionObject' "$TPARSE" \
+    || fail "ThemeParsers has no selection-object predicate"
+grep -q 'ThemeParsers.isSelectionObject' "$TSVC" \
+    || fail "ThemeService does not tell a saved selection from a corrupt file"
 grep -q 'function themePathAllowed' "$TSVC" \
     || fail "ThemeService does not gate a path on catalog membership"
 grep -q 'root.themePathAllowed(root.activeTheme)' "$TSVC" \
@@ -1855,6 +1859,18 @@ if (selection('tokyo-night') !== 'tokyo-night')
     fail('parseSelection dropped a valid theme name');
 if (ctx.isValidThemeName === undefined)
     fail('ThemeParsers.js did not expose isValidThemeName under node');
+if (ctx.isSelectionObject === undefined)
+    fail('ThemeParsers.js did not expose isSelectionObject under node');
+if (ctx.isSelectionObject('') !== false)
+    fail('isSelectionObject accepted an empty state file');
+if (ctx.isSelectionObject('{nope') !== false)
+    fail('isSelectionObject accepted malformed JSON');
+if (ctx.isSelectionObject('[1, 2]') !== false)
+    fail('isSelectionObject accepted a JSON array');
+if (ctx.isSelectionObject('{"theme":""}') !== true)
+    fail('isSelectionObject rejected a saved no-theme selection');
+if (ctx.isSelectionObject('{"theme":"tokyo-night"}') !== true)
+    fail('isSelectionObject rejected a saved selection');
 const bg = ctx.parseBackgrounds('{"__proto__": "a.png"}');
 if (bg["__proto__"] !== "a.png")
     fail('parseBackgrounds lost a __proto__ key');

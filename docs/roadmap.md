@@ -31,6 +31,10 @@ Build only if it earns daily use.
   each theme's backgrounds pickable per theme. ADRs 0010 and 0011. The matugen
   pipeline is dropped (the palette comes from `colors.toml`, not the wallpaper);
   GTK, icon themes, rofi, and a switching keybind are deferred.
+- Bundled darknight theme: `assets/themes/darknight` (the old hardcoded
+  `config/Colors.qml` fallback, plus two backgrounds) is seeded into the theme
+  root by `scripts/install.sh`, and `ThemeService` selects it when no selection
+  is saved, so a fresh install has a theme in the picker. ADR 0010 amendment.
 - Waybar migration, Phases 0–7
   (`docs/plans/archive/01-master-quickshell-migration.html`).
 - Unified slab (`02`), notifications exploration and spec (`03`, `04`),

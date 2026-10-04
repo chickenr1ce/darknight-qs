@@ -6,6 +6,18 @@ service. The shell owns the catalog, the selection, and the backgrounds;
 every other verb is a thin client over the `theme` IPC target on
 `services/ThemeService.qml`.
 
+## Bundled theme
+
+The repository ships one theme, `darknight` (palette plus two backgrounds),
+under `assets/themes/`. `scripts/install.sh` seeds it into the theme root, so
+the catalog is never empty on a fresh install, and the shell starts on
+darknight when no selection is saved (`ThemeService.defaultThemeName`). The
+seed renews the theme's own files and adds any bundled background the installed
+theme lacks, so a background added with `add-background` — or a higher-resolution
+original — is never overwritten; a symlinked destination is skipped rather than
+followed. `install.sh --no-seed` skips it; re-running `install.sh` (or
+`scripts/update.sh`) refreshes it.
+
 ## Put it on PATH
 
 The script is committed at `scripts/qs-theme.sh`. Symlink it once:
@@ -77,7 +89,8 @@ catalog. The name is validated as a slug first, so the command can only ever
 delete one directory directly under the theme root; a symlinked theme directory
 is refused. Removing the active theme is allowed: the shell drops it from the
 selection when the refreshed catalog no longer lists it, and the bar falls back
-to its default palette until another theme is chosen.
+to the built-in no-theme palette, not the bundled darknight theme, until another
+theme is chosen.
 
 ```
 qs-theme remove outpost

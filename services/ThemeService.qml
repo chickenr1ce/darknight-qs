@@ -14,7 +14,9 @@ Singleton {
     readonly property string colorsFileName: "colors.toml"
     readonly property string colorsPath: root.themePathAllowed(root.activeTheme) ? root.themeRoot + "/" + root.activeTheme + "/" + root.colorsFileName : ""
 
+    readonly property string defaultThemeName: "darknight"
     property string activeTheme: ""
+    property bool selectionKnown: false
     readonly property string activeDisplayName: root.catalogDisplayName(root.activeTheme)
     property string backgroundsJson: "{}"
     readonly property var backgrounds: ThemeParsers.parseBackgrounds(root.backgroundsJson)
@@ -105,6 +107,7 @@ Singleton {
         name: "theme"
         createDir: true
         onParsed: text => root.applySelection(text)
+        onLoadedChanged: Qt.callLater(root.applyDefaultTheme)
     }
 
     Process {
@@ -118,6 +121,7 @@ Singleton {
                 root.catalogText = idCatalogCollector.text;
                 root.catalogReady = true;
                 root.reconcileActiveTheme();
+                root.applyDefaultTheme();
                 if (root.activeTheme !== "" && root.hasPalette && root.effectiveMode("") !== root.mode)
                     root.applyPalette(ThemeParsers.parseColors(idPaletteFile.text(), root.catalogMode(root.activeTheme)));
                 if (root.catalogQueued) {
@@ -226,6 +230,7 @@ Singleton {
 
     function applySelection(jsonText: string): void {
         const selection = ThemeParsers.parseSelection(jsonText);
+        root.selectionKnown = ThemeParsers.isSelectionObject(jsonText);
         const hadTheme = root.activeTheme !== "";
         root.backgroundsJson = JSON.stringify(selection.backgrounds);
         root.activeTheme = selection.theme;
@@ -246,6 +251,14 @@ Singleton {
         if (root.hasTheme(root.activeTheme))
             return;
         root.activeTheme = "";
+    }
+
+    function applyDefaultTheme(): void {
+        if (!idThemeState.loaded || root.selectionKnown)
+            return;
+        if (root.activeTheme !== "" || !root.hasTheme(root.defaultThemeName))
+            return;
+        root.selectTheme(root.defaultThemeName);
     }
 
     function saveSelection(): void {

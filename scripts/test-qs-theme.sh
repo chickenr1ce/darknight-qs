@@ -43,6 +43,16 @@ grep -q 'function refreshBackgrounds' "$SVC" \
     || fail "ThemeService does not expose refreshBackgrounds"
 grep -q 'refreshBackgrounds()' "$SVC" \
     || fail "the refresh IPC does not rescan backgrounds"
+grep -q 'defaultThemeName: "darknight"' "$SVC" \
+    || fail "ThemeService does not name darknight as the bundled default theme"
+grep -q 'hasTheme(root.defaultThemeName)' "$SVC" \
+    || fail "the default theme is not gated on catalog membership"
+grep -q 'ThemeParsers.isSelectionObject' "$SVC" \
+    || fail "ThemeService does not distinguish a saved selection from a corrupt one"
+grep -A8 'function applyDefaultTheme' "$SVC" | grep -q 'selectionKnown' \
+    || fail "applyDefaultTheme does not respect a restored selection"
+grep -q 'function isSelectionObject' "$PARSE" \
+    || fail "ThemeParsers has no selection-object predicate"
 
 # --- 2. backgroundName boundary oracle (mirror of services/ThemeParsers.js) ---
 python3 - <<'EOF'
