@@ -1,5 +1,7 @@
 .pragma library
 
+// Portions ported from Omarchy's bin/omarchy-theme-color (MIT); see NOTICE.
+
 const THEME_MAX_BYTES = 262144
 
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/

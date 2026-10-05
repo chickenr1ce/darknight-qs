@@ -8,7 +8,8 @@ dashboard, quick panels, notifications, and a power menu.
 
 This is personal-use software. Some modules assume my hardware and habits, so
 read the [monitor](#monitors) and [notification](#notifications) notes before you
-rely on it. MIT licensed, see [LICENSE](LICENSE).
+rely on it. MIT licensed, see [LICENSE](LICENSE); third-party notices and the
+Omarchy trademark disclaimer are in [NOTICE](NOTICE).
 
 ## Requirements
 
@@ -184,3 +185,19 @@ Each of these is optional; the shell runs without it.
   Hyprland, kitty, hyprlock, and starship from the active theme.
 - [qs-theme](docs/qs-theme.md) (optional) — install and switch omarchy v4
   themes, and manage backgrounds, from the CLI.
+
+## Trademarks and third-party notices
+
+Omarchy is a trademark of its owner (see https://omarchy.org/brand/).
+darknight-qs is an independent community project: it is not affiliated with
+or endorsed by the Omarchy project or 37signals.
+
+`services/ThemeParsers.js` ports the color cascade from Omarchy's
+`bin/omarchy-theme-color`; Omarchy is MIT licensed and its notice is kept in
+[NOTICE](NOTICE). Imported themes are third-party content with their own
+licenses, downloaded by the user and not redistributed by this repository.
+
+The two background images bundled with the `darknight` theme are third-party
+artwork, credited to their authors in [NOTICE](NOTICE), not covered by this
+repository's MIT license, and included with all rights remaining with the
+artists.

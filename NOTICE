@@ -1,0 +1,56 @@
+darknight-qs
+Third-party notices
+
+======================================================================
+
+Omarchy
+https://github.com/omacom/omarchy
+
+Portions of `services/ThemeParsers.js` are ported from Omarchy's
+`bin/omarchy-theme-color`: its ANSI-to-semantic colour cascade, its colour
+mix, and its light/dark resolution. Omarchy is released under the MIT
+License, reproduced in full below.
+
+----------------------------------------------------------------------
+
+Copyright (c) David Heinemeier Hansson
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+======================================================================
+
+Bundled background images
+
+The bundled `darknight` theme under `assets/themes/darknight/` ships two
+background images. They are third-party artwork, sourced from Wallhaven and
+credited to their authors below. They are not covered by this repository's
+MIT license: all rights remain with the artists, no license is granted, and
+the credit is a courtesy, not a permission.
+
+- `backgrounds/wallhaven1.jpg` - artwork by
+  [@huashiJW](https://x.com/huashiJW)
+- `backgrounds/wallhaven2.png` - artwork by
+  [mmair](https://mmair.artstation.com/)
+
+======================================================================
+
+Omarchy is a trademark of its owner (see https://omarchy.org/brand/).
+darknight-qs is an independent community project. It is not affiliated with
+or endorsed by the Omarchy project or 37signals.
