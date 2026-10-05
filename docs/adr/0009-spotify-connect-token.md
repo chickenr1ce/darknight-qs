@@ -69,7 +69,7 @@ for playback.
 ## Consequences and known limits
 
 - The user must create a Spotify app and authorize once. Setup is documented in
-  `docs/spotify-connect.md`; until then `authMissing` is true and the device row
+  `docs/user/spotify-connect.md`; until then `authMissing` is true and the device row
   is hidden.
 - Spotify's PKCE refresh does not rotate the refresh token in this flow
   (verified live 2026-09-28), so the stored token is long-lived and refresh

@@ -1336,11 +1336,11 @@ done
 
 # The settings-section seam and the shared-row rule are documented where the
 # navigator and the reviewer reach them.
-test -f "$ROOT/docs/settings-sections.md" \
-    || fail "docs/settings-sections.md is missing"
+test -f "$ROOT/docs/dev/settings-sections.md" \
+    || fail "docs/dev/settings-sections.md is missing"
 grep -q 'settings-sections.md' "$ROOT/AGENTS.md" \
-    || fail "AGENTS.md does not point at docs/settings-sections.md"
-grep -q 'SettingsToggleRow' "$ROOT/docs/coding-conventions.md" \
+    || fail "AGENTS.md does not point at docs/dev/settings-sections.md"
+grep -q 'SettingsToggleRow' "$ROOT/docs/dev/coding-conventions.md" \
     || fail "coding conventions do not require shared settings rows"
 
 # --- 13. one shared focus grab across the panel shells ---

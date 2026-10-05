@@ -3,7 +3,7 @@
 #
 # yazi reads a single theme.toml and has no include directive, so this repo
 # owns the whole file. Edit the template at assets/templates/yazi-theme.toml,
-# not this copy. See docs/theme-desktop-setup.md.
+# not this copy. See docs/user/theme-desktop-setup.md.
 #
 # Chip text uses an on_<role> ink and body text uses a readable_<role> hue,
 # each the higher-contrast choice for its ground, so a light theme stays

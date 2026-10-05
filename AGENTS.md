@@ -11,12 +11,12 @@ Workflow and repo conventions for AI agents and contributors working in `~/.conf
 All QML style rules — `id` naming, component encapsulation & sizing, dynamic content
 stability, layout best practices, attribute ordering — live in:
 
-> **`docs/coding-conventions.md`** — read it before writing or reviewing any QML in this repo.
+> **`docs/dev/coding-conventions.md`** — read it before writing or reviewing any QML in this repo.
 
 Shell script rules — error handling, validate-before-write, symlink refusal, the
 `--` operand convention — live in:
 
-> **`docs/shell-scripts.md`** — read it before writing or reviewing any `scripts/*.sh` change.
+> **`docs/dev/shell-scripts.md`** — read it before writing or reviewing any `scripts/*.sh` change.
 
 ---
 
@@ -44,19 +44,25 @@ The QML and Quickshell skills (`quickshell`, `qt-qml`, and the rest) are install
 
 ## 4. Docs
 
+Docs are split by audience: `docs/user/` holds end-user setup and how-to pages
+(linked from the README's Optional integrations), and `docs/dev/` holds agent and
+contributor reference. Cross-cutting records stay put: `docs/adr/` (decisions),
+`CONTEXT.md` (glossary), and `docs/plans/` (archived plans). Put a new doc in the
+folder matching its reader.
+
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
 - For Qt 6 API details (signals, slots, properties, defaults, since-version), verify with the `qt-docs` MCP tools (`qt_documentation_search`, then `qt_documentation_read`) instead of recalling from training; pass `version: "6.11"` to match the installed Qt 6.11.2, since the server otherwise serves 6.12.
-- For current context on the project, refer to `docs/roadmap.md`, `CONTEXT.md`, and `docs/plans/README.md`
+- For current context on the project, refer to `docs/dev/roadmap.md`, `CONTEXT.md`, and `docs/plans/README.md`
 - Domain glossary for dashboard, junction, panels registry, and the rest: `CONTEXT.md`
 - Decision records for why a design is the way it is: `docs/adr/`. Read the ADRs that touch an area before changing it.
 - Verify QML behavior against a live instance; the standalone `qml` runtime's logging is broken in this environment. When the daily shell already runs this worktree, use it and drive it with `quickshell ipc --pid <pid>` — never boot a second instance. `scripts/smoke-toasts.sh` is the regression gate for the notification toast layer.
-- Live debugging (instance pid and log, geometry, IPC probing, the opt-in `dev/DevProbe.qml` surface): `docs/debugging-quickshell.md`; `scripts/instance.sh pid` resolves the running instance, `log`/`dir` the newest log/dir for the config.
+- Live debugging (instance pid and log, geometry, IPC probing, the opt-in `dev/DevProbe.qml` surface): `docs/dev/debugging-quickshell.md`; `scripts/instance.sh pid` resolves the running instance, `log`/`dir` the newest log/dir for the config.
 - **Live-test hand-off**: after any change the shell loads (`.qml`, `qmldir`, settings), end the reply with a fenced `bash` block giving the exact command to boot *this* worktree — absolute path, ready to paste, without being asked. Use `scripts/restart.sh --probe <worktree>`; it stops the running shell (daily instance included) and starts `quickshell -p <worktree>` detached. Say in one line that this takes `org.freedesktop.Notifications` from the daily shell, that `scripts/restart.sh` with no `--probe` brings the daily one back, and that `scripts/instance.sh log` tails the new boot's errors.
-- Io polling and file-cache behavior that upstream docs leave implicit (stale-command trap, FileView echo, probe recipe): `docs/quickshell-io-notes.md`.
-- Adding a settings section (state seam, view filter, search registration): `docs/settings-sections.md`.
+- Io polling and file-cache behavior that upstream docs leave implicit (stale-command trap, FileView echo, probe recipe): `docs/dev/quickshell-io-notes.md`.
+- Adding a settings section (state seam, view filter, search registration): `docs/dev/settings-sections.md`.
 - Test instances claim `org.freedesktop.Notifications` at startup: stop/mask the current holder first, and never run a second instance while the daily shell holds the bus (it passes vacuously and spams the live screen).
 - Launch persistent daemons with `setsid` so they outlive the invoking shell; capture regions with `grim -g "x,y WxH"` instead of full-screen grabs.
-- Screenshots pasted into chat are not measurable: never call alignment from them. A visual verdict needs the capture saved to disk (`grim` to `/tmp`) plus a pixel or geometry reading; see `docs/debugging-quickshell.md`.
+- Screenshots pasted into chat are not measurable: never call alignment from them. A visual verdict needs the capture saved to disk (`grim` to `/tmp`) plus a pixel or geometry reading; see `docs/dev/debugging-quickshell.md`.
 
 ---
 

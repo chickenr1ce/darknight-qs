@@ -14,7 +14,7 @@ change, and file load).
   `onChanged` handler runs before child bindings refresh, so a start
   issued there uses the previous arguments — observed as a poll argv
   missing the just-added zone. Defer with `Qt.callLater`; see the
-  bindings rule in `docs/coding-conventions.md`.
+  bindings rule in `docs/dev/coding-conventions.md`.
 - Guard every start with `if (!proc.running)` plus a queued flag that
   `onStreamFinished` re-checks. Never restart a run to pick up new
   arguments; queue instead.

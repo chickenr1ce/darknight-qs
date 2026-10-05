@@ -3,7 +3,7 @@
 #
 # starship has no include directive, so this repo owns the whole file. Edit
 # the template at assets/templates/starship-theme.toml, not this copy. See
-# docs/theme-desktop-setup.md.
+# docs/user/theme-desktop-setup.md.
 "$schema" = 'https://starship.rs/config-schema.json'
 
 format = """

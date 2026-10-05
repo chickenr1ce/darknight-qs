@@ -2,7 +2,7 @@
 -- Do not edit: the next palette load overwrites this file.
 --
 -- Load it by adding `require("theme")` at the end of
--- ~/.config/hypr/modules/looks.lua. See docs/theme-desktop-setup.md.
+-- ~/.config/hypr/modules/looks.lua. See docs/user/theme-desktop-setup.md.
 hl.config({
     general = {
         col = {

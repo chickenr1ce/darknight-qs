@@ -16,7 +16,7 @@
 # directory themselves.
 # Every other verb is a thin client over the shell's "theme" IPC target, so the
 # shell stays the one source of truth. They still succeed when the shell is down;
-# the next start lists the change. Setup and the PATH symlink: docs/qs-theme.md.
+# the next start lists the change. Setup and the PATH symlink: docs/user/qs-theme.md.
 set -eu
 
 data_home=${XDG_DATA_HOME:-${HOME}/.local/share}

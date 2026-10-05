@@ -2,7 +2,7 @@
 # Do not edit: the next palette load overwrites this file.
 #
 # btop lists user themes from ~/.config/btop/themes/. Pick `theme` once in
-# btop's options menu (Esc -> Color theme); see docs/theme-desktop-setup.md.
+# btop's options menu (Esc -> Color theme); see docs/user/theme-desktop-setup.md.
 
 # Main background. Empty would mean the terminal background; a theme supplies
 # one, so btop paints its own.

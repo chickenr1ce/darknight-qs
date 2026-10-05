@@ -16,7 +16,7 @@
 # palette argument renders the built-in no-theme default below.
 #
 # Output paths follow XDG_CONFIG_HOME, falling back to HOME/.config, so the
-# headless gate can redirect them. See docs/theme-desktop-setup.md for the
+# headless gate can redirect them. See docs/user/theme-desktop-setup.md for the
 # user-side include lines.
 set -eu
 

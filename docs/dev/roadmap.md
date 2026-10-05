@@ -3,7 +3,7 @@
 Planned work that is not done yet. Completed plan artifacts are frozen under
 `docs/plans/archive/` (index: `docs/plans/README.md`). Decisions behind shipped
 work are in `docs/adr/`; domain terms in `CONTEXT.md`; coding rules in
-`docs/coding-conventions.md`.
+`docs/dev/coding-conventions.md`.
 
 Last updated: 2026-10-03.
 
@@ -42,6 +42,6 @@ Build only if it earns daily use.
   deepening (`07`).
 - Calendar: month view, events, agenda, and world clocks. ADR 0001 (panel
   placement) and ADRs 0002–0004 (iCal backend and per-calendar fetch).
-- Weather: dashboard block with city search. `docs/weather.md`.
+- Weather: dashboard block with city search. `docs/user/weather.md`.
 - Cpu module: deleted 2026-09-23; the bar slot went to cava. Restore from git
   history if a CPU readout earns daily use.

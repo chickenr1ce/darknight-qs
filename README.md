@@ -30,7 +30,7 @@ Omarchy trademark disclaimer are in [NOTICE](NOTICE).
 | --- | --- |
 | `playerctl` | MPRIS media controls; playback pauses on suspend |
 | `mpc` | MPD control; playback pauses on suspend |
-| `gcalcli` | the opt-in multi-calendar backend (see [Calendar](#calendar-optional)) |
+| `gcalcli` | the opt-in multi-calendar backend (see [Calendar setup](docs/user/calendar.md)) |
 | `awww` | applies theme backgrounds |
 | one of `hyprlock`, `betterlockscreen`, `i3lock` | the power menu's Lock action |
 
@@ -123,9 +123,9 @@ On a fresh install with no saved selection, the shell starts on the bundled
 `~/.local/share/quickshell/themes`, so the Settings → Theme picker and the
 dashboard Theme block list it with two backgrounds on first run. Switch themes,
 add backgrounds, or install omarchy v4 themes from a git URL with
-[qs-theme](docs/qs-theme.md); the seeded palette also retints Hyprland, kitty,
-hyprlock, starship, yazi, and btop when those targets are wired up
-([desktop setup](docs/theme-desktop-setup.md)).
+[qs-theme](docs/user/qs-theme.md); the seeded palette also retints Hyprland,
+kitty, hyprlock, starship, yazi, and btop when those targets are wired up
+([desktop setup](docs/user/theme-desktop-setup.md)).
 
 ## Updating
 
@@ -149,41 +149,21 @@ fast-forward only, re-checks dependencies, and restarts the shell on this clone:
 ~/src/darknight-qs/scripts/update.sh
 ```
 
-## Calendar (optional)
-
-The calendar panel reads Google Calendar secret iCal URLs. There is no settings
-field for them yet, so write the URL file once. One URL per non-blank line; a
-single URL also works:
-
-```sh
-mkdir -p "${XDG_STATE_HOME:-~/.local/state}/quickshell"
-printf '%s\n' '<primary-url>' '<holidays-url>' > "${XDG_STATE_HOME:-~/.local/state}/quickshell/calendar-url"
-chmod 600 "${XDG_STATE_HOME:-~/.local/state}/quickshell/calendar-url"
-```
-
-Get each URL from Google Calendar on the web: Settings for my calendars →
-Integrate calendar → "Secret address in iCal format". Each URL is a bearer token:
-keep the file owner-only and never commit it. The panel works offline from the
-last good cache.
-
-`bash` does not expand `~` inside `${...}`, so on bash substitute `$HOME` for
-`~` in that path.
-
-For the Contacts birthdays calendar, or per-calendar toggles, install `gcalcli`
-and follow the Tier 2 steps in the `scripts/calendar-fetch.py` docstring.
-
 ## Optional integrations
 
 Each of these is optional; the shell runs without it.
 
-- [Weather and city search](docs/weather.md) (optional) — the dashboard weather
-  block works with `curl` and no API key; the doc covers the cache and location
-  search.
-- [Spotify Connect](docs/spotify-connect.md) (optional) — the dashboard player
-  block needs a one-time Spotify app authorization.
-- [Theme desktop setup](docs/theme-desktop-setup.md) (optional) — retint
+- [Calendar setup](docs/user/calendar.md) (optional) — the calendar panel reads
+  Google Calendar secret iCal URLs; write the URL file once, and add `gcalcli`
+  for the birthdays calendar and per-calendar toggles.
+- [Weather and city search](docs/user/weather.md) (optional) — the dashboard
+  weather block works with `curl` and no API key; the doc covers the cache and
+  location search.
+- [Spotify Connect](docs/user/spotify-connect.md) (optional) — the dashboard
+  player block needs a one-time Spotify app authorization.
+- [Theme desktop setup](docs/user/theme-desktop-setup.md) (optional) — retint
   Hyprland, kitty, hyprlock, starship, yazi, and btop from the active theme.
-- [qs-theme](docs/qs-theme.md) (optional) — install and switch omarchy v4
+- [qs-theme](docs/user/qs-theme.md) (optional) — install and switch omarchy v4
   themes, and manage backgrounds, from the CLI.
 
 ## Trademarks and third-party notices

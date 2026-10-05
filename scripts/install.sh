@@ -328,7 +328,7 @@ printf '  exec-once = quickshell    # after linking the clone into %s\n' "$CONFI
 
 echo
 echo "install: optional app retint (add it yourself, this never edits your config)"
-echo '  see docs/theme-desktop-setup.md (btop: pick "theme" in the options menu)'
+echo '  see docs/user/theme-desktop-setup.md (btop: pick "theme" in the options menu)'
 
 echo
 if [[ ${#MISSING_REQUIRED[@]} -gt 0 ]]; then
