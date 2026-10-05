@@ -75,6 +75,7 @@ Card {
             id: idThemeSwatches
 
             Layout.fillWidth: true
+            Layout.fillHeight: false
             Layout.preferredHeight: Globals.uiDisplaySize
 
             spacing: Globals.fieldPadding
@@ -106,6 +107,7 @@ Card {
             id: idBackgroundHeader
 
             Layout.fillWidth: true
+            Layout.fillHeight: false
 
             visible: ThemeService.backgroundList.length > 0
             spacing: Globals.fieldPadding
@@ -180,6 +182,8 @@ Card {
             id: idBackgroundGrid
 
             Layout.fillWidth: true
+            Layout.fillHeight: false
+            Layout.preferredHeight: 2 * Globals.backgroundTileHeight + Globals.fieldPadding
 
             visible: ThemeService.backgroundList.length > 0
             columns: 2
@@ -195,6 +199,7 @@ Card {
                     id: idBackgroundTile
 
                     Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignTop
                     Layout.preferredHeight: Globals.backgroundTileHeight
 
                     required property var modelData
