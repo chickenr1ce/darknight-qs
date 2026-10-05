@@ -22,8 +22,10 @@ set -u
 config_home=${1:-}
 [ -n "$config_home" ] || exit 0
 
+# CDPATH= is cleared for cd; shellcheck 0.11 misreads it as SC1007.
+# shellcheck disable=SC1007
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-repo_root=${2:-$(CDPATH= cd -- "$script_dir/.." && pwd)}
+repo_root=${2:-$script_dir/..}
 render=$repo_root/scripts/render-theme.sh
 
 theme_dir=$config_home/btop/themes
