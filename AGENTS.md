@@ -36,7 +36,7 @@ Shell script rules — error handling, validate-before-write, symlink refusal, t
 
 The QML and Quickshell skills (`quickshell`, `qt-qml`, and the rest) are installed in the global skills directory; the repo does not vendor them. Load `quickshell` and `qt-qml` when writing or editing any QML in this repo.
 - Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`), style lint (`scripts/lint-review.sh`), shell lint (`scripts/lint-shell.sh`, skips when shellcheck is not installed), the headless `scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no instance is running). The style linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company); `qt-qml-review` remains available as an optional deeper pass. `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own instance. A `pre-commit` hook (`.githooks/`, enabled once per clone with `git config core.hooksPath .githooks`) runs the gate; bypass a single commit with `--no-verify`.
-- Review fanout: default to one spec pass plus one QML pass over the final diff, each starting from `git diff` and the ticket rather than re-reading the codebase, and run any shell-semantics claim before reporting it. Add a round only when a review reports a High finding.
+- Review fanout: default to one spec pass plus one QML pass over the final diff, each starting from `git diff` and the ticket rather than re-reading the codebase, and verify any shell-semantics claim, and any Qt API claim through `qt-docs`, before reporting it. Add a round only when a review reports a High finding.
 - `qt-qml-profiler` — performance/lag investigations
 - `qt-qml-docs` / `qt-qml-test` / `qt-qml-test-run` / `qt-ui-design` — docs generation, test writing/running, UI design audits
 
@@ -45,7 +45,7 @@ The QML and Quickshell skills (`quickshell`, `qt-qml`, and the rest) are install
 ## 4. Docs
 
 - For researching a quickshell component, refer to https://quickshell.org/docs/v0.3.1/guide/
-- For Qt 6 API details (signals, slots, properties, defaults, since-version), verify with the `qt-docs` MCP tools (`qt_documentation_search`, then `qt_documentation_read`) instead of recalling from training; the server carries the 6.11 docs, which match the installed Qt 6.11.2.
+- For Qt 6 API details (signals, slots, properties, defaults, since-version), verify with the `qt-docs` MCP tools (`qt_documentation_search`, then `qt_documentation_read`) instead of recalling from training; pass `version: "6.11"` to match the installed Qt 6.11.2, since the server otherwise serves 6.12.
 - For current context on the project, refer to `docs/roadmap.md`, `CONTEXT.md`, and `docs/plans/README.md`
 - Domain glossary for dashboard, junction, panels registry, and the rest: `CONTEXT.md`
 - Decision records for why a design is the way it is: `docs/adr/`. Read the ADRs that touch an area before changing it.
