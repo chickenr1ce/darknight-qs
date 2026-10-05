@@ -43,6 +43,7 @@ run "spotify connect" ./scripts/test-spotify-connect.sh
 run "calendar clock" ./scripts/test-calendar-clock.sh
 run "calendar fetch" ./scripts/test-calendar-fetch.sh
 run "instance" ./scripts/test-instance.sh
+run "live-log test" ./scripts/test-live-log.sh
 run "live log" ./scripts/check-live-log.sh
 
 echo

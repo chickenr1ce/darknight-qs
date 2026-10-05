@@ -2,6 +2,8 @@
 # Fail on error signatures in the live log of a running test instance.
 #
 # Passive by design: it never boots an instance and never claims the bus.
+# With --config it skips unless an instance is running, so a stopped config's
+# newest log is never read as live; an explicit --log is always scanned.
 # Point it at the newest by-id log for CONFIG and check only lines after the
 # last launch or reload, so stale warnings from prior code cannot fail it.
 # Usage: scripts/check-live-log.sh [--config DIR] [--log FILE]
@@ -26,6 +28,10 @@ done
 fail() { echo "check-live-log FAIL: $*" >&2; exit 1; }
 
 if [[ -z "$LOG" ]]; then
+    if ! "$ROOT/scripts/instance.sh" pid --config "$CONFIG" >/dev/null 2>&1; then
+        echo "check-live-log: SKIP, no running instance for $CONFIG; boot the test instance first"
+        exit 0
+    fi
     LOG="$("$ROOT/scripts/instance.sh" log --config "$CONFIG" 2>/dev/null || true)"
     if [[ -z "$LOG" ]]; then
         echo "check-live-log: SKIP, no live log for $CONFIG/shell.qml; boot the test instance first"

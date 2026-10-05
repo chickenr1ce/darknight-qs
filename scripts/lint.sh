@@ -18,6 +18,12 @@ if [[ ${#PYFILES[@]} -gt 0 ]]; then
 fi
 
 QMLLINT=/usr/lib/qt6/bin/qmllint
+# Quickshell's QML modules ship with the shell, not Qt, so a runner without the
+# shell cannot resolve them (and qmllint can crash on the unresolved modules).
+if [ ! -d /usr/lib/qt6/qml/Quickshell ]; then
+    echo "lint: Quickshell QML modules not found, skipping QML type lint" >&2
+    exit 0
+fi
 FILES=("$@")
 if [[ ${#FILES[@]} -eq 0 ]]; then
     UNTRACKED="$(git ls-files --others --exclude-standard '*.qml' || true)"

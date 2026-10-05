@@ -2166,8 +2166,9 @@ ln -s "$CATDIR/tokyo-night/colors.toml" "$CATDIR/linkcolors/colors.toml"
 write_ansi_theme "$CATDIR/harbor" "#dfe4c4"
 : > "$CATDIR/harbor/light.mode"
 write_ansi_theme "$CATDIR/plaindark" "#121212"
-# Preview roles keep the first opaque value, in loader order: a non-opaque
-# magenta falls through to color5, and purple loses to color5.
+# A role takes the first key holding any hex value, then must be opaque, so a
+# non-opaque magenta is a dead switch the scan drops, while an absent magenta
+# falls through to color5 before purple.
 write_ansi_theme "$CATDIR/magenta-alpha" "#121212"
 printf 'magenta = "#8a5b81aa"\n' >> "$CATDIR/magenta-alpha/colors.toml"
 write_ansi_theme "$CATDIR/magenta-order" "#121212"
@@ -2179,7 +2180,6 @@ scan_want="$(cat <<'EOF'
 daylight|"light"|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26
 harbor|light|#5e81ac|#8a5b81|#e0e0e0|#dfe3ca|#dfe4c4
 legacytype|"light"|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26
-magenta-alpha|dark|#5e81ac|#8a5b81|#e0e0e0|#3b3b3b|#121212
 magenta-order|dark|#5e81ac|#222222|#e0e0e0|#3b3b3b|#121212
 plaindark|dark|#5e81ac|#8a5b81|#e0e0e0|#3b3b3b|#121212
 quoted|'light'|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26
@@ -2189,6 +2189,44 @@ EOF
 )"
 test "$scan_out" = "$scan_want" \
     || fail "catalog scan listed the wrong themes: got [$scan_out] want [$scan_want]"
+
+# The preview must match the palette the loader builds, or Settings shows
+# colours the theme never applies. Run the real parseColors under node against
+# each listed fixture and compare the five roles the scan emits; a listed theme
+# parseColors rejects is a dead switch the scan should have dropped.
+node - "$TPARSE" "$CATDIR" "$scan_out" <<'NODEEOF'
+const fs = require('fs');
+const vm = require('vm');
+const path = require('path');
+const parserPath = process.argv[2];
+const catdir = process.argv[3];
+const scanOut = process.argv[4];
+const src = fs.readFileSync(parserPath, 'utf8').replace(/^\.pragma .*$/m, '');
+const ctx = { console };
+vm.createContext(ctx);
+vm.runInContext(src, ctx);
+function fail(message) {
+    console.error('panel-logic FAIL: ' + message);
+    process.exit(1);
+}
+const roles = ['accent', 'magenta', 'foreground', 'lighter_background', 'background'];
+for (const line of scanOut.split('\n')) {
+    if (line === '')
+        continue;
+    const parts = line.split('|');
+    const name = parts[0];
+    const preview = parts.slice(2);
+    const palette = ctx.parseColors(fs.readFileSync(path.join(catdir, name, 'colors.toml'), 'utf8'), '');
+    if (palette === null) {
+        fail('the scan listed a theme parseColors rejects: ' + name);
+        continue;
+    }
+    for (let i = 0; i < roles.length; i++) {
+        if (preview[i] !== palette[roles[i]])
+            fail('preview mismatch for ' + name + ' ' + roles[i] + ': scan ' + preview[i] + ' palette ' + palette[roles[i]]);
+    }
+}
+NODEEOF
 rm -rf "$CATDIR"
 
 python3 - <<'EOF'

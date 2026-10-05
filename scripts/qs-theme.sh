@@ -339,7 +339,9 @@ add_backgrounds() {
     for file in "$@"; do
         base=$(background_name_of "$file")
         dest=$bg/$base
-        if [ -e "$dest" ] && [ "$file" -ef "$dest" ] 2>/dev/null; then
+        src_id=$(stat -L -c '%d:%i' -- "$file" 2>/dev/null) || src_id=
+        dest_id=$(stat -L -c '%d:%i' -- "$dest" 2>/dev/null) || dest_id=
+        if [ -n "$src_id" ] && [ "$src_id" = "$dest_id" ]; then
             say "$(safe "$base") is already in $theme"
             continue
         fi

@@ -485,6 +485,14 @@ XDG_DATA_HOME="$ADD" sh "$CLI" add-background --theme tokyo-night --force "$SRC/
 grep -q 'replaced' "$ADD/quickshell/themes/tokyo-night/backgrounds/photo.png" \
     || fail "add-background --force did not replace the file"
 
+# A source that is already the destination is reported and left untouched.
+BGDEST="$ADD/quickshell/themes/tokyo-night/backgrounds/photo.png"
+XDG_DATA_HOME="$ADD" sh "$CLI" add-background --theme tokyo-night --force "$BGDEST" >"$WORK/out" 2>"$WORK/err"
+grep -q 'already in' "$WORK/err" \
+    || fail "add-background did not report a source already in the theme"
+grep -q 'replaced' "$BGDEST" \
+    || fail "add-background clobbered a source that is already the destination"
+
 # An oversized file is refused and nothing lands.
 truncate -s 33554433 "$SRC/big.png"
 if XDG_DATA_HOME="$ADD" sh "$CLI" add-background --theme tokyo-night "$SRC/big.png" 2>"$WORK/err"; then

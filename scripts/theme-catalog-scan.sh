@@ -6,10 +6,13 @@
 # byte cap given as $2 whose palette the loader can build, so the catalog never
 # lists a theme that yields no palette (a mode-only file would be a silent dead
 # switch). The trailing colors are the theme's preview, resolved from the same
-# source roles the loader reads, keeping the first opaque value: magenta through
-# color5/purple, foreground through fg/color7, background through bg/color0, and
-# surface through lighter_bg/color0/background, stepped toward the foreground when
-# it lands on the background, matching parseColors. The palette may be canonical
+# source roles the loader reads, resolving each the way parseColors does: the
+# first key holding any hex value wins (magenta through color5/purple, foreground
+# through fg/color7, background through bg/color0, surface through
+# lighter_bg/background), and every required role must be opaque or the theme is
+# dropped, so the scan never lists a palette the loader would reject. A surface
+# that lands on the background is stepped toward the foreground, matching
+# parseColors. The palette may be canonical
 # v4 or the pre-semantic ANSI form omarchy v4 still reads;
 # ThemeParsers.parseColors fills the latter through omarchy's cascade, and this
 # scan mirrors the cascade's requirements so the two agree. Mode is the file's
@@ -24,12 +27,13 @@ cap=${2:-}
 [ -n "$cap" ] || exit 0
 [ -d "$root" ] || exit 0
 
-# Mirror of ThemeParsers.parseColors' requirements: accent has no fallback, the
-# neutral ramp derives from a background and a foreground, and the named colors
-# derive from the ANSI slots. Every source value must be an opaque #rgb or
-# #rrggbb, matching isOpaqueColorValue. A declared mode is printed raw so
-# ThemeParsers.parseTomlString resolves it the same way; otherwise the awk
-# resolves mode from the marker flag and the background's luminance.
+# Mirror of ThemeParsers.parseColors' requirements: a role takes the first key
+# that holds any hex value (accent has no fallback; the named colors fall back to
+# their ANSI slot), and each required role must then be opaque #rgb or #rrggbb,
+# matching isOpaqueColorValue. A value present but non-opaque is not skipped for
+# a later key, because parseColors does not skip it either. A declared mode is
+# printed raw so ThemeParsers.parseTomlString resolves it the same way; otherwise
+# the awk resolves mode from the marker flag and the background's luminance.
 scan_awk='
 function strip(raw,   text, quote, rest, p, sp) {
     text = raw
@@ -48,6 +52,16 @@ function isopaque(value,   len) {
     if (value !~ /^#[0-9a-fA-F]+$/) return 0
     len = length(value) - 1
     return len == 3 || len == 6
+}
+function iscolor(value,   len) {
+    if (value !~ /^#[0-9a-fA-F]+$/) return 0
+    len = length(value) - 1
+    return len == 3 || len == 4 || len == 6 || len == 8
+}
+function firstcolor(a, b, c) {
+    if (iscolor(a)) return a
+    if (iscolor(b)) return b
+    return iscolor(c) ? c : ""
 }
 function validmode(value) {
     return value == "dark" || value == "light"
@@ -104,15 +118,19 @@ BEGIN {
     if (key in known) color[key] = strip(substr(line, eq + 1))
 }
 END {
-    ok = isopaque(color["accent"]) \
-        && (isopaque(color["background"]) || isopaque(color["bg"]) || isopaque(color["color0"])) \
-        && (isopaque(color["foreground"]) || isopaque(color["fg"]) || isopaque(color["color7"])) \
-        && (isopaque(color["red"]) || isopaque(color["color1"])) \
-        && (isopaque(color["green"]) || isopaque(color["color2"])) \
-        && (isopaque(color["yellow"]) || isopaque(color["color3"])) \
-        && (isopaque(color["blue"]) || isopaque(color["color4"])) \
-        && (isopaque(color["magenta"]) || isopaque(color["color5"]) || isopaque(color["purple"])) \
-        && (isopaque(color["cyan"]) || isopaque(color["color6"]))
+    accent = color["accent"]
+    background = firstcolor(color["background"], color["bg"], color["color0"])
+    foreground = firstcolor(color["foreground"], color["fg"], color["color7"])
+    red = firstcolor(color["red"], color["color1"], "")
+    green = firstcolor(color["green"], color["color2"], "")
+    yellow = firstcolor(color["yellow"], color["color3"], "")
+    blue = firstcolor(color["blue"], color["color4"], "")
+    magenta = firstcolor(color["magenta"], color["color5"], color["purple"])
+    cyan = firstcolor(color["cyan"], color["color6"], "")
+    surface = firstcolor(color["lighter_background"], color["lighter_bg"], background)
+    ok = isopaque(accent) && isopaque(background) && isopaque(foreground) \
+        && isopaque(red) && isopaque(green) && isopaque(yellow) \
+        && isopaque(blue) && isopaque(magenta) && isopaque(cyan) && isopaque(surface)
     if (!ok) exit 1
     bgraw = color["background"]
     if (bgraw == "") bgraw = color["bg"]
@@ -124,26 +142,7 @@ END {
         lum = hexpair(bgraw, 2) + hexpair(bgraw, 4) + hexpair(bgraw, 6)
         resolved = (lum > 382) ? "light" : "dark"
     } else resolved = "dark"
-    accent = color["accent"]
-    if (!isopaque(accent)) accent = ""
-    magenta = color["magenta"]
-    if (!isopaque(magenta)) magenta = color["color5"]
-    if (!isopaque(magenta)) magenta = color["purple"]
-    if (!isopaque(magenta)) magenta = ""
-    foreground = color["foreground"]
-    if (!isopaque(foreground)) foreground = color["fg"]
-    if (!isopaque(foreground)) foreground = color["color7"]
-    if (!isopaque(foreground)) foreground = ""
-    background = color["background"]
-    if (!isopaque(background)) background = color["bg"]
-    if (!isopaque(background)) background = color["color0"]
-    if (!isopaque(background)) background = ""
-    surface = color["lighter_background"]
-    if (!isopaque(surface)) surface = color["lighter_bg"]
-    if (!isopaque(surface)) surface = color["color0"]
-    if (!isopaque(surface)) surface = background
-    if (!isopaque(surface)) surface = ""
-    if (isopaque(surface) && isopaque(background) && expand(surface) == expand(background)) {
+    if (expand(surface) == expand(background)) {
         stepped = mixcolor(background, foreground, 0.2)
         if (stepped != "" && stepped != expand(background)) surface = stepped
     }

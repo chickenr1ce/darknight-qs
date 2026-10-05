@@ -532,10 +532,12 @@ RE_IMPORT_LINE = re.compile(r'^\s*import\s+(.+)')
 
 # --- BND (Bindings & Properties) ---
 
-# BND-1: property var usage. Research: qmllint warns via
+# BND-1: writable `property var` usage. Research: qmllint warns via
 # prefer-non-var-properties; typed properties enable qmlsc compilation
-# to C++ and eliminate meta-object overhead in property access.
-RE_BND_PROP_VAR = re.compile(r'^\s*(required\s+)?property\s+var\s+\w+')
+# to C++ and eliminate meta-object overhead in property access. Required
+# properties are component inputs, not stored state, and a delegate's model
+# role cannot be typed, so the rule covers plain writable vars only.
+RE_BND_PROP_VAR = re.compile(r'^\s*property\s+var\s+\w+')
 
 # BND-2: Imperative = on property that likely had a binding.
 # Research: any `prop = value` in a JS block destroys the binding
