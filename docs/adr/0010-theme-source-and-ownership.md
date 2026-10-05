@@ -107,3 +107,14 @@ itself.
   the catalog, is unchanged. The theme root and the read rules are untouched
   (ADR 0011): the seed writes the same root the shell already scans, and only
   `colors.toml` and `backgrounds/` are read.
+- 2026-10-05 (theme desktop targets): btop joins the retint targets. btop
+  selects from its themes directory rather than an include, so the renderer
+  writes `~/.config/btop/themes/theme.theme` and the theme is picked once in
+  btop's options menu; btop's own config rewrites do not touch the theme file.
+  btop lists user themes by absolute path, so the menu does not match a bare
+  `color_theme = "theme"` (it still loads, but the counter is off by one);
+  picking it in the menu stores the path. `scripts/install.sh` seeds a default
+  theme file when it is absent, so btop lists it before the shell has rendered.
+  The format lives in `assets/templates/btop-theme.theme`, mapping box outlines
+  and graph gradients onto the named hues and painting process-state text with
+  the black-or-white `on_<role>` ink, matching the yazi chips.

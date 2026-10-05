@@ -124,7 +124,7 @@ On a fresh install with no saved selection, the shell starts on the bundled
 dashboard Theme block list it with two backgrounds on first run. Switch themes,
 add backgrounds, or install omarchy v4 themes from a git URL with
 [qs-theme](docs/qs-theme.md); the seeded palette also retints Hyprland, kitty,
-hyprlock, starship, and yazi when those targets are wired up
+hyprlock, starship, yazi, and btop when those targets are wired up
 ([desktop setup](docs/theme-desktop-setup.md)).
 
 ## Updating
@@ -182,7 +182,7 @@ Each of these is optional; the shell runs without it.
 - [Spotify Connect](docs/spotify-connect.md) (optional) — the dashboard player
   block needs a one-time Spotify app authorization.
 - [Theme desktop setup](docs/theme-desktop-setup.md) (optional) — retint
-  Hyprland, kitty, hyprlock, and starship from the active theme.
+  Hyprland, kitty, hyprlock, starship, yazi, and btop from the active theme.
 - [qs-theme](docs/qs-theme.md) (optional) — install and switch omarchy v4
   themes, and manage backgrounds, from the CLI.
 

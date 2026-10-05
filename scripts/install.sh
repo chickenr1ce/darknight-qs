@@ -14,6 +14,9 @@
 # has a theme to pick without a qs-theme install. The seed renews a theme's own
 # files and adds a bundled background the installed theme lacks; an existing
 # background is never overwritten, so a user's replacement survives an update.
+# When btop is installed it also seeds a default btop theme into
+# <config>/btop/themes, so btop lists the retint theme before the shell has ever
+# rendered a palette.
 # It never edits your Hyprland config; it prints the exec-once line
 # instead. An existing real file or directory is never replaced elsewhere on
 # disk. Run from any clone path.
@@ -26,6 +29,7 @@ CONFIG_LINK="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell"
 QS_THEME_LINK="$HOME/.local/bin/qs-theme"
 THEME_BUNDLE="$ROOT/assets/themes"
 THEME_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/quickshell/themes"
+BT_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 LINK_MODE=ask
 SEED_MODE=yes
@@ -40,8 +44,8 @@ Usage: scripts/install.sh [--link|--no-link] [--seed|--no-seed]
 Options:
   --link       link this clone into $CONFIG_LINK (overwrites a symlink, not a real path)
   --no-link    skip both symlinks, but still seed the bundled themes
-  --seed       seed the bundled themes into $THEME_ROOT (default)
-  --no-seed    skip seeding the bundled themes
+  --seed       seed the bundled themes and the btop theme (default)
+  --no-seed    skip seeding the bundled themes and the btop theme
   --help       this message
 
 Without a flag the clone link is offered on a terminal and skipped when not.
@@ -219,6 +223,21 @@ seed_themes() {
     return 0
 }
 
+# Seed a default btop retint theme so btop lists it before the shell has
+# rendered a palette. seed-btop-theme.sh owns the rules; it prints
+# `seeded btop theme` on a fresh seed and explains its skips on stderr.
+seed_btop_theme() {
+    local out line
+    if ! out="$(sh "$ROOT/scripts/seed-btop-theme.sh" "$BT_CONFIG_HOME" "$ROOT")"; then
+        warn "seeding the btop theme failed"
+        return
+    fi
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && ok "$line"
+    done <<<"$out"
+    return 0
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --link)    LINK_MODE=yes ;;
@@ -297,12 +316,19 @@ if [[ "$SEED_MODE" == "yes" ]]; then
     echo
     echo "install: seeding bundled themes into $THEME_ROOT"
     seed_themes
+    if have btop; then
+        seed_btop_theme
+    fi
 fi
 
 echo
 echo "install: optional Hyprland autostart (add it yourself, this never edits your config)"
 printf '  exec-once = quickshell -p %s\n' "$ROOT"
 printf '  exec-once = quickshell    # after linking the clone into %s\n' "$CONFIG_LINK"
+
+echo
+echo "install: optional app retint (add it yourself, this never edits your config)"
+echo '  see docs/theme-desktop-setup.md (btop: pick "theme" in the options menu)'
 
 echo
 if [[ ${#MISSING_REQUIRED[@]} -gt 0 ]]; then

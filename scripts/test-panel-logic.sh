@@ -2345,14 +2345,14 @@ EOF
 
 # --- 17. desktop retint: the renderer writes repo-owned templates ---
 # scripts/render-theme.sh substitutes the resolved palette into the templates
-# under assets/templates/ and writes the five desktop files. It reads no theme
+# under assets/templates/ and writes the six desktop files. It reads no theme
 # directory, so this gate runs the real script against a fixture palette with
 # XDG_CONFIG_HOME redirected, then checks the bytes, the border fallback and
 # override, the empty-palette default, and idempotency.
 RENDER="$ROOT/scripts/render-theme.sh"
 test -f "$RENDER" \
     || fail "scripts/render-theme.sh is missing"
-for tpl in hypr-theme.lua kitty-theme.conf hyprlock-colors.conf starship-theme.toml yazi-theme.toml; do
+for tpl in hypr-theme.lua kitty-theme.conf hyprlock-colors.conf starship-theme.toml yazi-theme.toml btop-theme.theme; do
     test -f "$ROOT/assets/templates/$tpl" \
         || fail "assets/templates/$tpl is missing"
 done
@@ -2417,7 +2417,21 @@ grep -q 'fg = "#000000", bg = "#7aa2f7"' "$RENDER_HOME/yazi/theme.toml" \
 if grep -q '^\[flavor\]' "$RENDER_HOME/yazi/theme.toml"; then
     fail "yazi theme still points at a static flavor"
 fi
-if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml" "$RENDER_HOME/yazi/theme.toml"; then
+test -f "$RENDER_HOME/btop/themes/theme.theme" \
+    || fail "renderer wrote no btop theme"
+grep -q 'theme\[main_bg\]="#1a1b26"' "$RENDER_HOME/btop/themes/theme.theme" \
+    || fail "btop background does not come from the palette"
+grep -q 'theme\[hi_fg\]="#7aa2f7"' "$RENDER_HOME/btop/themes/theme.theme" \
+    || fail "btop highlight does not come from accent"
+grep -q 'theme\[temp_end\]="#f7768e"' "$RENDER_HOME/btop/themes/theme.theme" \
+    || fail "btop temperature gradient does not come from red"
+# The banner and followed-process grounds paint their text with the
+# black-or-white ink chosen against the ground, not a fixed palette role.
+grep -q 'theme\[proc_banner_fg\]="#000000"' "$RENDER_HOME/btop/themes/theme.theme" \
+    || fail "btop banner text is not the contrast ink for accent"
+grep -q 'theme\[followed_fg\]="#000000"' "$RENDER_HOME/btop/themes/theme.theme" \
+    || fail "btop followed text is not the contrast ink for blue"
+if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml" "$RENDER_HOME/yazi/theme.toml" "$RENDER_HOME/btop/themes/theme.theme"; then
     fail "renderer left an unresolved template placeholder"
 fi
 
@@ -2426,6 +2440,7 @@ before_kitty="$(cat "$RENDER_HOME/kitty/theme.conf")"
 before_lock="$(cat "$RENDER_HOME/hypr/hyprlock/colors.conf")"
 before_starship="$(cat "$RENDER_HOME/starship.toml")"
 before_yazi="$(cat "$RENDER_HOME/yazi/theme.toml")"
+before_btop="$(cat "$RENDER_HOME/btop/themes/theme.theme")"
 stamp="$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")"
 sleep 1
 XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
@@ -2439,6 +2454,8 @@ test "$before_starship" = "$(cat "$RENDER_HOME/starship.toml")" \
     || fail "renderer is not idempotent: starship.toml changed on an identical rerun"
 test "$before_yazi" = "$(cat "$RENDER_HOME/yazi/theme.toml")" \
     || fail "renderer is not idempotent: yazi theme.toml changed on an identical rerun"
+test "$before_btop" = "$(cat "$RENDER_HOME/btop/themes/theme.theme")" \
+    || fail "renderer is not idempotent: btop theme changed on an identical rerun"
 test "$stamp" = "$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")" \
     || fail "renderer rewrote an unchanged file"
 
@@ -2467,6 +2484,10 @@ grep -q 'overall = { bg = "#141118" }' "$RENDER_HOME3/yazi/theme.toml" \
     || fail "the empty-palette default does not use the fallback background for yazi"
 grep -q 'bg = "#b4befe"' "$RENDER_HOME3/yazi/theme.toml" \
     || fail "the empty-palette default does not use the fallback accent for yazi"
+grep -q 'theme\[main_bg\]="#141118"' "$RENDER_HOME3/btop/themes/theme.theme" \
+    || fail "the empty-palette default does not use the fallback background for btop"
+grep -q 'theme\[hi_fg\]="#b4befe"' "$RENDER_HOME3/btop/themes/theme.theme" \
+    || fail "the empty-palette default does not use the fallback accent for btop"
 
 RENDER_HOME3B="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
 XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
@@ -2494,6 +2515,8 @@ grep -q "accent = '#aabbcc'" "$RENDER_HOME5/starship.toml" \
     || fail "renderer did not expand a three-digit accent for starship"
 grep -q 'bg = "#aabbcc"' "$RENDER_HOME5/yazi/theme.toml" \
     || fail "renderer did not expand a three-digit accent for yazi"
+grep -q 'theme\[hi_fg\]="#aabbcc"' "$RENDER_HOME5/btop/themes/theme.theme" \
+    || fail "renderer did not expand a three-digit accent for btop"
 
 # A light theme whose selection and hues are all mid-tone: none of the pill
 # hues clear the contrast threshold, so each falls back to a black-or-white ink

@@ -5,6 +5,7 @@
 #   ~/.config/hypr/hyprlock/colors.conf
 #   ~/.config/starship.toml
 #   ~/.config/yazi/theme.toml
+#   ~/.config/btop/themes/theme.theme
 #
 # Usage: render-theme.sh '<palette-json>'
 #
@@ -164,6 +165,8 @@ JOBS = (
      os.path.join(config_home, "hypr", "hyprlock", "colors.conf")),
     ("starship-theme.toml", os.path.join(config_home, "starship.toml")),
     ("yazi-theme.toml", os.path.join(config_home, "yazi", "theme.toml")),
+    ("btop-theme.theme",
+     os.path.join(config_home, "btop", "themes", "theme.theme")),
 )
 
 

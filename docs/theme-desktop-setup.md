@@ -1,6 +1,6 @@
 # Theme desktop setup
 
-The theme switcher renders the active palette into five desktop config files.
+The theme switcher renders the active palette into six desktop config files.
 The renderer, `scripts/render-theme.sh`, runs on every palette load and change,
 so the files stay in step with the selected theme. It writes:
 
@@ -9,6 +9,7 @@ so the files stay in step with the selected theme. It writes:
 - `~/.config/hypr/hyprlock/colors.conf`
 - `~/.config/starship.toml`
 - `~/.config/yazi/theme.toml`
+- `~/.config/btop/themes/theme.theme`
 
 The renderer substitutes colors into templates this repo owns
 (`assets/templates/`) and never reads or evaluates a theme directory. It writes
@@ -20,10 +21,11 @@ renderer through a `Process`, so the UI thread never blocks.
 
 ## One-time wiring
 
-Three files outside this repo need a line added. The renderer does not touch
-them; add the lines yourself once. Starship and yazi are the exceptions: neither
-has an include directive, so the renderer owns `~/.config/starship.toml` and
-`~/.config/yazi/theme.toml` outright and there is no line to add.
+Some files outside this repo must be pointed at the rendered output once. The
+renderer does not touch them. Starship and yazi have no include directive, so
+the renderer owns `~/.config/starship.toml` and `~/.config/yazi/theme.toml`
+outright and there is nothing to add. Hyprland, kitty, and hyprlock each need a
+line added; btop needs a one-time pick in its own options menu.
 
 ### Hyprland borders
 
@@ -50,6 +52,30 @@ include theme.conf
 
 The `# BEGIN_KITTY_THEME` / `# END_KITTY_THEME` markers can stay; only the
 included file changes.
+
+### btop
+
+Select the rendered theme in btop's own options menu: press `Esc`, move to
+`Color theme`, and cycle with the arrow keys until the value reads `theme`.
+btop applies it live and remembers it. The file is
+`~/.config/btop/themes/theme.theme`, which the renderer owns and reconciles on
+every palette load; the selected name does not change. btop re-scans its themes
+directory whenever the options menu opens, so a file that appeared after btop
+started is still listed, and `Ctrl+R` reloads it.
+
+Pick it from the menu rather than hand-editing `color_theme`. btop lists user
+themes by their absolute path, so a hand-written `color_theme = "theme"` loads
+but the menu cannot match it: the counter is off by one (`<n>/<n-1>`) and the
+arrow keys start from the wrong place. Selecting it in the menu stores the path
+and the counter reads correctly.
+
+`scripts/install.sh` seeds a default `theme.theme` when the file is absent, so
+btop lists `theme` even before the shell has rendered a palette; the renderer
+overwrites it with the active palette. The template is
+`assets/templates/btop-theme.theme`; edit the template, not the rendered file.
+Text painted on a colored ground (the process banner and the followed-process
+row) uses the renderer's black-or-white `on_<role>` ink, matching the yazi
+chips.
 
 ### hyprlock
 
@@ -135,7 +161,7 @@ rendered files match the palette:
 ```
 grep -h . ~/.config/hypr/theme.lua ~/.config/kitty/theme.conf \
     ~/.config/hypr/hyprlock/colors.conf ~/.config/starship.toml \
-    ~/.config/yazi/theme.toml
+    ~/.config/yazi/theme.toml ~/.config/btop/themes/theme.theme
 ```
 
 For a visual check, capture a bordered window and a kitty window with
