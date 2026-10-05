@@ -4,7 +4,7 @@ A Quickshell bar and desktop shell for a Hyprland desktop. It
 replaces waybar with one unified slab: workspaces, tray, media and audio, CPU, a
 dashboard, quick panels, notifications, and a power menu.
 
-![The bar across two monitors](assets/bar.png)
+![The desktop shell with dashboard open](assets/desktop.png)
 
 This is personal-use software. Some modules assume my hardware and habits, so
 read the [monitor](#monitors) and [notification](#notifications) notes before you
