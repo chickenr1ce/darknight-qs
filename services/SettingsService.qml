@@ -45,7 +45,13 @@ Singleton {
         {
             key: "monitors",
             title: qsTr("Monitors"),
-            options: [qsTr("Primary monitor"), qsTr("Workspaces per monitor")].concat(MonitorService.screenNames),
+            options: [qsTr("Primary monitor"), qsTr("Displays"), qsTr("Workspaces per monitor")]
+                .concat(
+                    MonitorService.screenNames,
+                    MonitorService.monitors.map(monitor => monitor.name),
+                    MonitorService.monitors.map(monitor => monitor.model).filter(label => label !== ""),
+                    MonitorService.monitors.map(monitor => monitor.description).filter(label => label !== "")
+                ),
             comingSoon: false
         },
         { key: "motion", title: qsTr("Motion"), options: [qsTr("Reduced motion"), qsTr("Animation")], comingSoon: false },

@@ -21,6 +21,7 @@ ColumnLayout {
     }
     readonly property bool primaryVisible: SettingsFilter.matches(root.filter, qsTr("Primary monitor"))
         || MonitorService.screenNames.some(name => SettingsFilter.matches(root.filter, name))
+    readonly property bool displaysRelevant: SettingsFilter.matches(root.filter, qsTr("Displays"))
 
     spacing: Globals.spacing
 
@@ -59,6 +60,71 @@ ColumnLayout {
             currentIndex: root.primaryIndex
             accessibleName: qsTr("Primary monitor")
             onSelected: index => root.selectPrimary(index)
+        }
+    }
+
+    Text {
+        id: idDisplaysHint
+
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+
+        visible: root.displaysRelevant
+        textFormat: Text.PlainText
+        wrapMode: Text.WordWrap
+        text: qsTr("Turn a display off to remove it from the layout, or back on to restore its mode and position. The last display stays on, and a reboot or config reload turns everything back on.")
+        color: Colors.textSubtle
+
+        font {
+            family: Globals.uiFontFamily
+            pixelSize: Globals.uiCaptionSize
+        }
+    }
+
+    Repeater {
+        id: idMonitorToggles
+
+        model: MonitorService.monitorNames
+
+        delegate: SettingsToggleRow {
+            id: idMonitorToggle
+
+            Layout.fillWidth: true
+
+            required property string modelData
+
+            readonly property var row: MonitorService.rowState(idMonitorToggle.modelData)
+            readonly property var monitor: idMonitorToggle.row?.monitor ?? null
+            readonly property bool monitorRelevant: root.displaysRelevant
+                || SettingsFilter.matches(root.filter, idMonitorToggle.modelData)
+                || SettingsFilter.matches(root.filter, idMonitorToggle.monitor?.model ?? "")
+                || SettingsFilter.matches(root.filter, idMonitorToggle.monitor?.description ?? "")
+            readonly property bool lastDisplay: idMonitorToggle.row?.lastDisplay ?? false
+
+            visible: idMonitorToggle.monitorRelevant && idMonitorToggle.monitor !== null
+            label: idMonitorToggle.modelData
+            hint: idMonitorToggle.lastDisplay ? qsTr("Last display, stays on") : ((idMonitorToggle.monitor?.model ?? "") !== "" ? idMonitorToggle.monitor.model : (idMonitorToggle.monitor?.description ?? ""))
+            value: !(idMonitorToggle.monitor?.disabled ?? true)
+            locked: MonitorService.toggleBusy || idMonitorToggle.lastDisplay
+            onToggled: MonitorService.setEnabled(idMonitorToggle.modelData, idMonitorToggle.monitor?.disabled ?? false)
+        }
+    }
+
+    Text {
+        id: idDisplaysEmpty
+
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+
+        visible: root.displaysRelevant && MonitorService.monitorsLoaded && MonitorService.monitors.length === 0
+        textFormat: Text.PlainText
+        wrapMode: Text.WordWrap
+        text: qsTr("No displays detected")
+        color: Colors.textSubtle
+
+        font {
+            family: Globals.uiFontFamily
+            pixelSize: Globals.uiBodySize
         }
     }
 

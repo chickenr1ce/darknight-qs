@@ -23,7 +23,7 @@ ShellRoot {
             id: idPanelWindow
 
             required property ShellScreen modelData
-            property string monitorName: modelData.name
+            property string monitorName: modelData ? modelData.name : ""
 
             screen: modelData
 

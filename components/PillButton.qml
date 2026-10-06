@@ -18,6 +18,8 @@ Item {
     property bool probeHovered: false
     // Disabled pills keep their slot but go inert, so the header never reflows.
     property bool disabled: false
+    // Locked pills stay inert but keep their true state's fill and label colour.
+    property bool locked: false
     property bool quiet: false
     // Ghost pills carry no resting fill; hover or an active state reveals one.
     property bool ghost: false
@@ -103,9 +105,9 @@ Item {
         id: idMouseArea
 
         anchors.fill: parent
-        enabled: !root.disabled
+        enabled: !root.disabled && !root.locked
         hoverEnabled: true
-        cursorShape: root.disabled ? Qt.ArrowCursor : Qt.PointingHandCursor
+        cursorShape: root.disabled || root.locked ? Qt.ArrowCursor : Qt.PointingHandCursor
         onClicked: root.clicked()
     }
 }

@@ -32,6 +32,8 @@ services/CavaService.qml BND-1 property var -- use a typed property (int, string
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/MonitorService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/MonitorService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/MprisPlayers.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation
 services/NotificationServer.qml DEL-1 model.roleName without required property -- declare required properties for type safety and qmlsc compilation

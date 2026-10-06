@@ -25,6 +25,9 @@ Build only if it earns daily use.
 
 ## Done
 
+- Displays: turn an output off or back on from Settings → Monitors through
+  `hyprctl eval` plus the Lua `hl.monitor` API, with the last display guarded.
+  ADR 0016.
 - Theme switching: omarchy v4 (`quattro`) theme directories as the palette
   source, live repaint, and desktop retint (Hyprland, kitty, hyprlock). The
   switcher is the Settings Theme section plus the dashboard Theme block, with

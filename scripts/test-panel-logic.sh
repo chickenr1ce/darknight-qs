@@ -85,6 +85,8 @@ done
 # override; no source hardcodes DP-1 and no module branches on the name.
 grep -q 'monitorName === "DP-1"' "$ROOT/shell.qml" \
     && fail "shell.qml still gates modules by monitor name directly"
+grep -q 'property string monitorName: modelData ? modelData.name : ""' "$ROOT/shell.qml" \
+    || fail "shell.qml does not null-guard modelData.name, so removing a screen logs a TypeError"
 if grep -q '"DP-1"' "$ROOT/config/Globals.qml"; then
     fail "Globals still hardcodes DP-1; resolve the primary from the screens"
 fi
@@ -316,6 +318,73 @@ check("workspaces/first-unknown", first_workspace_for(THREE, "DP-1", 5, "HDMI-A-
 check("workspaces/first-empty", first_workspace_for(THREE, "DP-1", 5, ""), 1)
 check("workspaces/count-three", first_workspace_for(THREE, "DP-1", 3, "DP-3"), 7)
 check("workspaces/override-order", first_workspace_for(THREE, "DP-2", 5, "DP-1"), 6)
+
+# Mirror of MonitorService.modeFor/positionFor/scaleFor/escapeLua/setEnabled
+# (services/MonitorService.qml): a disabled output keeps its geometry in
+# `hyprctl monitors all -j`, so the mode and position rebuild from
+# width/height/refreshRate and x/y for the re-enable spec; missing geometry
+# falls back to preferred/auto/1. setEnabled refuses a no-op and refuses to
+# disable when it would leave no display on, and always routes through the
+# Lua `hl.monitor` API.
+def js_round(value):
+    return int(value + 0.5) if value >= 0 else -int(-value + 0.5)
+
+def monitor_mode(m):
+    if not (m.get("width", 0) > 0 and m.get("height", 0) > 0 and m.get("refreshRate", 0) > 0):
+        return "preferred"
+    return f"{js_round(m['width'])}x{js_round(m['height'])}@{js_round(m['refreshRate'])}"
+
+def monitor_position(m):
+    if m.get("x") is None or m.get("y") is None:
+        return "auto"
+    return f"{js_round(m['x'])}x{js_round(m['y'])}"
+
+def monitor_scale(m):
+    scale = m.get("scale")
+    return scale if scale and scale > 0 else 1
+
+def escape_lua(value):
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+def enabled_count(monitors):
+    return len([m for m in monitors if not m["disabled"]])
+
+def set_enabled_spec(monitors, name, enabled):
+    m = next((x for x in monitors if x["name"] == name), None)
+    if m is None:
+        return None
+    if m["disabled"] == (not enabled):
+        return None
+    if not enabled and enabled_count(monitors) <= 1:
+        return None
+    spec = f'hl.monitor({{ output = "{escape_lua(name)}", disabled = {"false" if enabled else "true"}'
+    if enabled:
+        spec += f', mode = "{monitor_mode(m)}", position = "{monitor_position(m)}", scale = {monitor_scale(m)}'
+    return spec + " })"
+
+TWO = [
+    {"name": "DP-1", "disabled": False, "x": 0, "y": 0, "width": 2560, "height": 1440, "refreshRate": 179.96, "scale": 1},
+    {"name": "DP-2", "disabled": False, "x": 2560, "y": 100, "width": 1920, "height": 1080, "refreshRate": 165.003, "scale": 1},
+]
+ONE = [dict(TWO[0])]
+OFF = [dict(TWO[0]), dict(TWO[1], disabled=True)]
+NODATA = [{"name": "DP-9", "disabled": False, "width": 0, "height": 0, "refreshRate": 0, "scale": 0}]
+check("display/mode-rounds", monitor_mode(TWO[0]), "2560x1440@180")
+check("display/mode-disabled-kept", monitor_mode(OFF[1]), "1920x1080@165")
+check("display/mode-half-up", monitor_mode({"width": 100, "height": 50, "refreshRate": 59.5}), "100x50@60")
+check("display/mode-no-geometry", monitor_mode(NODATA[0]), "preferred")
+check("display/position", monitor_position(OFF[1]), "2560x100")
+check("display/position-missing", monitor_position(NODATA[0]), "auto")
+check("display/scale-fallback", monitor_scale(NODATA[0]), 1)
+check("display/escape", escape_lua('DP"1'), 'DP\\"1')
+check("display/disable-spec", set_enabled_spec(TWO, "DP-1", False),
+      'hl.monitor({ output = "DP-1", disabled = true })')
+check("display/enable-spec", set_enabled_spec(OFF, "DP-2", True),
+      'hl.monitor({ output = "DP-2", disabled = false, mode = "1920x1080@165", position = "2560x100", scale = 1 })')
+check("display/refuse-last", set_enabled_spec(ONE, "DP-1", False), None)
+check("display/refuse-noop-off", set_enabled_spec(OFF, "DP-2", False), None)
+check("display/refuse-noop-on", set_enabled_spec(TWO, "DP-1", True), None)
+check("display/refuse-unknown", set_enabled_spec(TWO, "HDMI-A-1", True), None)
 
 # Mirror of PanelState.toggle debounce (services/PanelState.qml): 300 ms.
 def toggle(visible, last_close_at, now):
@@ -813,6 +882,42 @@ grep -q 'property var screenNames' "$MSVC" \
     || fail "MonitorService exposes no screenNames"
 grep -q 'Globals.screensByPosition' "$MSVC" \
     || fail "MonitorService does not derive its names from Globals.screensByPosition"
+grep -q 'property var monitors' "$MSVC" \
+    || fail "MonitorService exposes no monitor list"
+grep -q 'function applyMonitors' "$MSVC" \
+    || fail "MonitorService has no applyMonitors"
+grep -q 'function setEnabled' "$MSVC" \
+    || fail "MonitorService has no setEnabled"
+grep -q '"monitors", "all", "-j"' "$MSVC" \
+    || fail "MonitorService does not read the full hyprctl monitor list"
+grep -q '"hyprctl", "eval"' "$MSVC" \
+    || fail "MonitorService does not toggle through hyprctl eval"
+grep -q 'hl.monitor' "$MSVC" \
+    || fail "MonitorService does not use the Lua monitor API"
+if grep -q 'hyprctl", "keyword"' "$MSVC"; then
+    fail "MonitorService uses hyprctl keyword, which the Lua config parser rejects"
+fi
+grep -q 'readonly property bool multiMonitor' "$MSVC" \
+    || fail "MonitorService does not expose the last-display guard"
+grep -q 'readonly property bool toggleBusy' "$MSVC" \
+    || fail "MonitorService has no in-flight guard for rapid toggles"
+grep -q 'property bool toggleSettling' "$MSVC" \
+    || fail "MonitorService does not hold the guard through the post-command poll"
+grep -q 'property int toggleEpoch' "$MSVC" \
+    || fail "MonitorService does not epoch-guard the post-command settling clear"
+grep -q 'idCommandWatchdog' "$MSVC" \
+    || fail "MonitorService has no watchdog for a hung hyprctl command"
+grep -q 'property bool pendingRefresh' "$MSVC" \
+    || fail "MonitorService drops a refresh that lands mid-poll"
+grep -q 'function escapeLua' "$MSVC" \
+    || fail "MonitorService does not escape the output name for the Lua spec"
+grep -q 'property bool monitorsLoaded' "$MSVC" \
+    || fail "MonitorService does not track whether the first poll completed"
+grep -q 'MonitorService.monitorsLoaded' "$MVIEW" \
+    || fail "MonitorSettingsView can flash its empty note before the first poll"
+grep -q 'MonitorService.toggleBusy' "$MVIEW" \
+    || fail "MonitorSettingsView does not hold rows inert through a toggle"
+
 grep -qF 'key: "monitors"' "$SSVC" \
     || fail "SettingsService has no monitors section"
 grep -qF 'qsTr("Primary monitor")' "$SSVC" \
@@ -832,6 +937,26 @@ grep -q 'MonitorService.screenNames' "$MVIEW" \
     || fail "MonitorSettingsView does not list the connected screens"
 grep -q 'MonitorService.setPrimary' "$MVIEW" \
     || fail "MonitorSettingsView does not write the primary through MonitorService"
+grep -q 'SettingsToggleRow' "$MVIEW" \
+    || fail "MonitorSettingsView does not compose the shared toggle row for displays"
+grep -q 'model: MonitorService.monitorNames' "$MVIEW" \
+    || fail "MonitorSettingsView keys its Repeater on the stable name list so a toggle does not rebuild the rows"
+grep -q 'MonitorService.setEnabled' "$MVIEW" \
+    || fail "MonitorSettingsView does not toggle a display through MonitorService"
+grep -q 'MonitorService.rowState' "$MVIEW" \
+    || fail "MonitorSettingsView does not read a consistent per-row display state"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Displays"))' "$MVIEW" \
+    || fail "MonitorSettingsView does not match its Displays search label, so searching it shows an empty body"
+grep -q 'property var monitorNames' "$MSVC" \
+    || fail "MonitorService exposes no stable monitor name list"
+grep -q 'property bool locked' "$ROOT/components/SettingsToggleRow.qml" \
+    || fail "SettingsToggleRow cannot keep a true-state pill inert without dimming it"
+grep -q 'property bool locked' "$ROOT/components/PillButton.qml" \
+    || fail "PillButton cannot be locked without losing its highlight fill"
+grep -q 'locked: MonitorService.toggleBusy || idMonitorToggle.lastDisplay' "$MVIEW" \
+    || fail "MonitorSettingsView does not lock the last display (and busy rows) instead of dimming them"
+grep -q 'onTextChanged: idHintSwapAnimation.restart()' "$ROOT/components/SettingsToggleRow.qml" \
+    || fail "SettingsToggleRow does not animate a hint text swap"
 grep -q 'readonly property var orderedMonitors' "$MSVC" \
     || fail "MonitorService has no orderedMonitors"
 grep -q 'function firstWorkspaceFor' "$MSVC" \
@@ -842,6 +967,10 @@ grep -q 'function clampWorkspacesPerMonitor' "$MSVC" \
     || fail "MonitorService does not clamp the workspace count"
 grep -qF 'qsTr("Workspaces per monitor")' "$SSVC" \
     || fail "SettingsService monitors options do not list Workspaces per monitor"
+grep -qF 'qsTr("Displays")' "$SSVC" \
+    || fail "SettingsService monitors options do not list Displays"
+grep -q 'MonitorService.monitors.map' "$SSVC" \
+    || fail "SettingsService monitors options do not derive from MonitorService.monitors"
 grep -q 'SettingsSliderRow' "$MVIEW" \
     || fail "MonitorSettingsView does not use the shared slider row for the workspace count"
 grep -qF 'SettingsFilter.matches(root.filter, qsTr("Workspaces per monitor"))' "$MVIEW" \

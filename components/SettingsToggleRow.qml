@@ -10,6 +10,7 @@ ColumnLayout {
     property string label: ""
     property string hint: ""
     property bool value: false
+    property bool locked: false
 
     signal toggled()
 
@@ -46,6 +47,7 @@ ColumnLayout {
             Layout.preferredWidth: idToggleMetrics.width + 2 * Globals.pillHPadding
 
             highlighted: root.value
+            locked: root.locked
             text: root.value ? qsTr("On") : qsTr("Off")
             onClicked: root.toggled()
         }
@@ -62,9 +64,31 @@ ColumnLayout {
         color: Colors.textSubtle
         wrapMode: Text.WordWrap
 
+        onTextChanged: idHintSwapAnimation.restart()
+
         font {
             family: Globals.uiFontFamily
             pixelSize: Globals.uiCaptionSize
+        }
+    }
+
+    ParallelAnimation {
+        id: idHintSwapAnimation
+
+        NumberAnimation {
+            target: idToggleHint
+            property: "opacity"
+            from: 0
+            to: 1
+            duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+        }
+        NumberAnimation {
+            target: idToggleHint
+            property: "scale"
+            from: 0.97
+            to: 1
+            duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+            easing.type: Easing.OutCubic
         }
     }
 

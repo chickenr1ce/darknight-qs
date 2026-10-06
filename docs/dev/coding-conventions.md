@@ -196,6 +196,12 @@ Timer { id: idMediaTimer }
   (`hyprctl cursorpos`) and restore it after with
   `hl.dsp.cursor.move({ x, y })`; focus stays on the window
   (verified live 2026-09-13).
+- **`hyprctl keyword` is dead under Hyprland's Lua config parser**:
+  `hyprctl keyword monitor DP-2,disable` prints `keyword can't work with
+  non-legacy parsers. Use eval.` and no-ops, so a `Process` around it updates
+  no state (verified live 2026-10-06, Hyprland 0.56.2 with the quattro Lua
+  config). Configure monitors through `hyprctl eval 'hl.monitor({ … })'`;
+  ADR 0016.
 - **SNI theme icons arrive as `image://icon/` and draw `currentColor` black**:
   Qt renders monochrome panel SVGs (e.g. Papirus `spotify-linux-32`,
   `steam_tray_mono`) as black on the dark bar, so tint theme sources to text
