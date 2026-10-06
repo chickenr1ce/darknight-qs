@@ -1,6 +1,9 @@
 # Documentation
 
-Docs are organized by audience.
+Docs are organized by audience, and a new doc goes in the folder matching its
+reader. `user/` holds end-user setup and how-to pages (linked from the README's
+Optional integrations); `dev/` holds agent and contributor reference.
+Cross-cutting records — ADRs, the glossary, plans — stay at the root.
 
 ## User docs — [`user/`](user/)
 

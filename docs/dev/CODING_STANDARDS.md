@@ -1,8 +1,8 @@
 # Coding Standards — Quickshell
 
-Rules for QML and `scripts/*.sh` changes. Read this document before writing or
-reviewing any QML or `scripts/*.sh` change. `AGENTS.md` is the entry point; this
-document holds the details.
+Rules for QML and `scripts/*.sh` changes: read this document before writing or
+reviewing either. `AGENTS.md` is the entry point; this document holds the
+details.
 
 ---
 
@@ -415,9 +415,8 @@ All panels and plugins share tokens and primitives; never invent a parallel visu
 ## 6. Shell scripts
 
 Conventions for the shell scripts under `scripts/`. `scripts/lint-shell.sh`
-(shellcheck at warning severity) covers the mechanical rules; this document
-covers the judgement calls it cannot check. Read it before writing or reviewing
-a change to a `scripts/*.sh` file.
+(shellcheck at warning severity) covers the mechanical rules; this section
+covers the judgement calls it cannot check.
 
 ### Shebang and dialect
 
@@ -488,7 +487,7 @@ shellcheck is not installed), the headless `scripts/test-*.sh` gates, and
 linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company);
 `qt-qml-review` remains available as an optional deeper pass.
 `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own
-instance. A `pre-commit` hook (`.githooks/`, enabled once per clone with
+instance; it is the regression gate for the notification toast layer. A `pre-commit` hook (`.githooks/`, enabled once per clone with
 `git config core.hooksPath .githooks`) runs the gate; bypass a single commit with
 `--no-verify`.
 
