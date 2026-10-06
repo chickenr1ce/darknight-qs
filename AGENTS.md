@@ -6,15 +6,10 @@ Workflow and repo conventions for AI agents and contributors working in `~/.conf
 
 ---
 
-## 1. Coding Conventions (read first)
+## 1. Coding Standards (read first)
 
-All QML style rules live in:
-
-> **`docs/dev/coding-conventions.md`** — read it before writing or reviewing any QML in this repo.
-
-Shell script rules live in:
-
-> **`docs/dev/shell-scripts.md`** — read it before writing or reviewing any `scripts/*.sh` change.
+QML and shell rules live in **`docs/dev/CODING_STANDARDS.md`** — read it before
+writing or reviewing any QML or `scripts/*.sh` change.
 
 ---
 
@@ -32,10 +27,11 @@ Shell script rules live in:
 ## 3. Agent Skills
 
 Load `quickshell` and `qt-qml` when writing or editing any QML in this repo.
-- Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`), style lint (`scripts/lint-review.sh`), shell lint (`scripts/lint-shell.sh`, skips when shellcheck is not installed), the headless `scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no instance is running). The style linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company); `qt-qml-review` remains available as an optional deeper pass. `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own instance. A `pre-commit` hook (`.githooks/`, enabled once per clone with `git config core.hooksPath .githooks`) runs the gate; bypass a single commit with `--no-verify`.
-- Review fanout: default to one spec pass plus one QML pass over the final diff, each starting from `git diff` and the ticket rather than re-reading the codebase, and verify any shell-semantics claim, and any Qt API claim through `qt-docs`, before reporting it. Add a round only when a review reports a High finding.
+
 - `qt-qml-profiler` — performance/lag investigations
 - `qt-qml-docs` / `qt-qml-test` / `qt-qml-test-run` / `qt-ui-design` — docs generation, test writing/running, UI design audits
+
+Verification gate and review fanout live in `docs/dev/CODING_STANDARDS.md`.
 
 ---
 
