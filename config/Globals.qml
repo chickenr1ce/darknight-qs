@@ -31,6 +31,12 @@ QtObject {
 
     readonly property int centerWidth: 380
     readonly property int centerMaxHeight: 540
+
+    readonly property int polkitWidth: 520
+    readonly property int polkitMetaHeight: 26
+    readonly property int polkitInputHeight: 36
+    readonly property int polkitFooterHeight: 24
+    readonly property real polkitScrimOpacity: 0.55
     readonly property int centerOpenMs: 140
     readonly property int centerCloseMs: 140
     readonly property int dashboardWidth: 720

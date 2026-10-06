@@ -3,8 +3,8 @@
 **Symptom:** `btrfs-assistant-launcher` (as normal user) failed with pkexec
 "Not authorized"; even `pkexec /bin/true` failed for uid 1000.
 
-**Status:** Worked around with `polkit-kde-agent`. Revert to `hyprpolkitagent`
-once upstream fix lands (see *Revert conditions*).
+**Status:** Resolved 2026-10-06 — the shell ships its own Quickshell agent
+(ADR 0015); the KDE workaround is dropped. See *Resolution*.
 
 ---
 
@@ -86,3 +86,22 @@ Plan: verify `ls /usr/lib/qt6/qml/Quickshell/Services/ | grep -i polkit`, build
 it after the waybar→quickshell migration settles, then drop the KDE agent from
 autostart. Keep cancel-on-Esc/focus-loss correct — a wedged dialog leaves hung
 `polkit-agent-helper@*` units behind (observed during this incident).
+
+## Resolution – 2026-10-06
+
+The upstream fix landed downstream. CachyOS rebuilt `hyprland-qt-support`
+`0.1.0-13.1` → `0.1.0-14.1` on 2026-08-24; the symbol reverted to public API
+(`objdump -T` now reports `Qt_6`, not `Qt_6_PRIVATE_API`, and `ldd -r` is
+clean). So reverting to `hyprpolkitagent` would also have worked.
+
+The shell instead built the native agent named in the long-term plan above,
+using `Quickshell.Services.Polkit` (public API) and the shell's own palette:
+`services/PolkitService.qml` owns the `PolkitAgent`, `windows/PolkitDialog.qml`
+renders the B2 "Context Runner". The package's private-API link is a recurring
+failure class, and a foreign agent cannot adopt the shell's tokens, so the
+native dialog is the durable fix. See ADR 0015. `polkit-kde-agent` is removed
+from the Hyprland autostart and the shell must be the only registered agent.
+
+Note for future live testing: a cancelled or failed `pkexec` request adds a
+`polkit-1` entry to PAM `faillock`; a few in a row (deny = 3) lock the account
+for `unlock_time` (10 min). Stop triggering auth once enough is verified.

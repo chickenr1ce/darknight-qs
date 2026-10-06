@@ -1,0 +1,2081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quickshell Polkit Authentication Agent — 6 Refined Designs (v2)</title>
+  <style>
+    /* ==========================================================================
+       QUICKSHELL DESIGN TOKENS (from config/Colors.qml & config/Globals.qml)
+       ========================================================================== */
+    :root {
+      /* Theme palette */
+      --bg: #141118;
+      --bg-secondary: #27222f;
+      --surface: #282936;
+      --border: #282936;
+      --text: #cac4d4;
+      --text-secondary: #4f455f;
+      --text-subtle: #9d93ad;
+      --text-faint: #373042;
+      --accent: #b4befe;
+      --accent-dim: rgba(180, 190, 254, 0.12);
+      --accent-secondary: #a980db;
+      --danger: #ff5252;
+      --danger-dim: rgba(255, 82, 82, 0.14);
+      --warning: #d7d370;
+      --critical-card: #2a161c;
+      --critical-border: #40222b;
+      --on-accent: #141118;
+
+      /* Radii */
+      --radius-slab: 9px;
+      --radius-card: 6px;
+      --radius-pill: 4px;
+
+      /* Spacing */
+      --spacing: 10px;
+      --card-padding: 10px;
+      --card-hpadding: 12px;
+      --row-spacing: 8px;
+      --hairline: 1px;
+      --bar-height: 28px;
+
+      /* Typography */
+      --font-ui: "Geist", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "Iosevka", "JetBrains Mono", ui-monospace, monospace;
+      --size-caption: 11px;
+      --size-body: 13px;
+      --size-title: 15px;
+      --size-display: 20px;
+      --size-pill: 12px;
+
+      /* Motion */
+      --motion-hover: 140ms cubic-bezier(0.2, 0.0, 0, 1);
+      --motion-press: 120ms cubic-bezier(0.2, 0.0, 0, 1);
+      --press-scale: 0.96;
+    }
+
+    /* STRICT QUALITY BAR: Zero drop shadows, zero backdrop blur */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      text-shadow: none !important;
+    }
+
+    body.reduced-motion,
+    body.reduced-motion * {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+      transform: none !important;
+    }
+
+    body {
+      background-color: #0b090e;
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: var(--size-body);
+      line-height: 1.5;
+      padding-bottom: 80px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Sticky Shell Meta Bar */
+    .meta-bar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .meta-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+    }
+    .meta-brand .badge {
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid rgba(180, 190, 254, 0.25);
+    }
+    .meta-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+    }
+    .meta-nav a {
+      color: var(--text-subtle);
+      padding: 4px 8px;
+      border-radius: var(--radius-pill);
+      transition: all var(--motion-hover);
+    }
+    .meta-nav a:hover {
+      color: var(--text);
+      background: var(--bg-secondary);
+      text-decoration: none;
+    }
+    .meta-nav a.active {
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .meta-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .control-label {
+      font-size: 11px;
+      color: var(--text-subtle);
+      font-family: var(--font-mono);
+    }
+    .pill-group {
+      display: inline-flex;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      padding: 2px;
+      gap: 2px;
+    }
+    .state-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-subtle);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background var(--motion-hover), color var(--motion-hover);
+    }
+    .state-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .state-btn.active {
+      color: var(--on-accent);
+      background: var(--accent);
+      font-weight: 600;
+    }
+    .toggle-btn {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--text-subtle);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 5px 9px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all var(--motion-hover);
+    }
+    .toggle-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .toggle-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    /* Hero header */
+    .doc-intro {
+      margin-bottom: 40px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .doc-title {
+      font-size: 26px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+    .doc-desc {
+      color: var(--text-subtle);
+      max-width: 860px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* Palette Bar */
+    .swatches-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+    }
+    .swatch {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-subtle);
+      padding: 2px 6px;
+      background: var(--bg-secondary);
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .swatch-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    /* Section layout */
+    .design-family-header {
+      margin-top: 48px;
+      margin-bottom: 24px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    .family-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+    .family-meta {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent);
+    }
+
+    .design-section {
+      margin-bottom: 56px;
+      scroll-margin-top: 72px;
+    }
+    .design-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .design-num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent);
+      margin-right: 8px;
+      font-weight: 600;
+    }
+    .design-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+      display: inline-block;
+    }
+    .design-tagline {
+      color: var(--text-subtle);
+      font-size: 13px;
+      margin-left: 12px;
+      font-weight: normal;
+    }
+
+    /* Workbench 2-col layout */
+    .workbench {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 1040px) {
+      .workbench {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Desktop Viewport Canvas */
+    .viewport-canvas {
+      position: relative;
+      background: #0d0b10;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-slab);
+      overflow: hidden;
+      min-height: 420px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Simulated Wayland Top Bar (barHeight = 28) */
+    .sim-bar {
+      height: var(--bar-height);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-subtle);
+      user-select: none;
+      z-index: 20;
+      position: relative;
+    }
+    .sim-bar-left, .sim-bar-center, .sim-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sim-ws-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      background: var(--bg-secondary);
+      color: var(--text-subtle);
+      font-size: 10px;
+    }
+    .sim-ws-pill.active {
+      background: var(--accent);
+      color: var(--on-accent);
+      font-weight: bold;
+    }
+    .sim-title {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    /* Modal Scrim Backdrop: Flat semi-opaque fill, zero blur, zero drop shadow */
+    .scrim {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      background: rgba(10, 8, 14, 0.82);
+    }
+
+    /* Shared Card Shells (Strictly flat, 1px border, radius max 9px) */
+    .flat-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-slab);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Input Field & Focus Rings */
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .auth-input {
+      width: 100%;
+      height: 32px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      color: #ffffff;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 0 32px 0 10px;
+      outline: none;
+      letter-spacing: 0.08em;
+      transition: border-color var(--motion-hover);
+    }
+    .auth-input:focus {
+      border-color: var(--accent);
+    }
+    .auth-input.has-error {
+      border-color: var(--danger) !important;
+      color: var(--danger);
+    }
+    .auth-input:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      background: #1a1720;
+    }
+    .input-icon-btn {
+      position: absolute;
+      right: 6px;
+      background: transparent;
+      border: none;
+      color: var(--text-subtle);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      transition: color var(--motion-hover);
+    }
+    .input-icon-btn:hover {
+      color: var(--text);
+    }
+
+    /* Indeterminate Progress Bar */
+    .progress-track {
+      display: none;
+      height: 2px;
+      background: var(--bg-secondary);
+      position: relative;
+      overflow: hidden;
+    }
+    .progress-track.visible {
+      display: block;
+    }
+    .progress-bar-moving {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 32%;
+      background: var(--accent);
+      animation: indeterminate 1.1s infinite ease-in-out;
+    }
+    @keyframes indeterminate {
+      0% { left: -32%; }
+      100% { left: 100%; }
+    }
+
+    /* Error Banner (Flat fill, 1px border, danger tokens) */
+    .error-banner {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--danger);
+      font-family: var(--font-mono);
+      background: var(--critical-card);
+      border: 1px solid var(--critical-border);
+      padding: 6px 10px;
+      border-radius: var(--radius-card);
+    }
+    .error-banner.visible {
+      display: flex;
+    }
+
+    /* PillButton component styling */
+    .pill-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      height: 26px;
+      padding: 0 11px;
+      border-radius: var(--radius-pill);
+      font-family: var(--font-ui);
+      font-size: var(--size-pill);
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      user-select: none;
+      transition: background var(--motion-hover), color var(--motion-hover), border-color var(--motion-hover), transform var(--motion-press);
+    }
+    .pill-btn:active {
+      transform: scale(var(--press-scale));
+    }
+    .pill-btn.ghost {
+      background: transparent;
+      color: var(--text-subtle);
+      border-color: transparent;
+    }
+    .pill-btn.ghost:hover {
+      background: var(--bg-secondary);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .pill-btn.primary {
+      background: var(--accent);
+      color: var(--on-accent);
+      font-weight: 600;
+    }
+    .pill-btn.primary:hover {
+      filter: brightness(1.08);
+      border-color: #ffffff;
+    }
+    .pill-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .kbd-key {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-subtle);
+      user-select: none;
+    }
+
+    /* Documentation Side Panel */
+    .doc-side {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-slab);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .doc-side h4 {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
+    }
+    .doc-side p {
+      font-size: 12px;
+      color: var(--text-subtle);
+      line-height: 1.5;
+    }
+    .token-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .token-table th, .token-table td {
+      padding: 5px 4px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .token-table th {
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-weight: 500;
+      font-size: 10px;
+    }
+    .token-table td:first-child {
+      font-family: var(--font-mono);
+      color: var(--text);
+    }
+    .token-table td:last-child {
+      color: var(--text-subtle);
+    }
+
+    /* Identity Chip Component */
+    .chip-list {
+      display: flex;
+      gap: 6px;
+    }
+    .id-chip {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: 5px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text);
+      transition: all var(--motion-hover);
+      flex: 1;
+      user-select: none;
+    }
+    .id-chip:hover {
+      border-color: var(--text-subtle);
+    }
+    .id-chip.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: #ffffff;
+    }
+    .id-avatar {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+    .id-chip.selected .id-avatar {
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+    .id-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-subtle);
+      margin-left: auto;
+    }
+
+    /* ==========================================================================
+       SPECIFIC DESIGN STYLING: FAMILY A (Direction 1 Descendants)
+       ========================================================================== */
+
+    /* A1: Quiet Card (Leanest possible modal, no header bar, single accent pill) */
+    .card-a1 {
+      width: 360px;
+      padding: 14px;
+      gap: 10px;
+    }
+    .a1-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .a1-title-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 600;
+      font-size: 14px;
+      color: #ffffff;
+    }
+    .a1-context {
+      font-size: 12px;
+      color: var(--text-subtle);
+      line-height: 1.35;
+    }
+    .a1-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 2px;
+    }
+    .a1-identity-toggle {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .a1-identity-toggle:hover {
+      color: var(--text);
+      border-color: var(--text-subtle);
+    }
+
+    /* A2: Key Detail Card (Shows its work: monospace detail table, identity chips under field) */
+    .card-a2 {
+      width: 400px;
+    }
+    .a2-header {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .a2-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .a2-spec-table {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .a2-spec-row {
+      display: flex;
+      border-bottom: 1px solid rgba(40, 41, 54, 0.6);
+      padding: 3px 8px;
+    }
+    .a2-spec-row:last-child {
+      border-bottom: none;
+    }
+    .a2-spec-k {
+      width: 72px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .a2-spec-v {
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .a2-footer {
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* A3: Focus-Forward Card (Field-first, display title, demoted message caption, progressive chips) */
+    .card-a3 {
+      width: 380px;
+      padding: 16px;
+      gap: 12px;
+    }
+    .a3-hero-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .a3-lock-glyph {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-card);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .a3-display-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+    .a3-field-caption {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-subtle);
+      margin-bottom: 4px;
+    }
+    .a3-progressive-chips {
+      display: none;
+      margin-top: -4px;
+    }
+    .a3-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 2px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ==========================================================================
+       SPECIFIC DESIGN STYLING: FAMILY B (Direction 3 Descendants)
+       ========================================================================== */
+
+    /* B1: Bare Runner (Single unbroken row, no card body, lock + input + hint) */
+    .runner-b1 {
+      width: 480px;
+      height: 38px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-slab);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .runner-b1:focus-within {
+      border-color: var(--accent);
+    }
+    .runner-b1.has-error {
+      border-color: var(--danger);
+    }
+    .b1-input {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ffffff;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      letter-spacing: 0.05em;
+    }
+    .b1-hints {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .b1-progress-edge {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      display: none;
+    }
+    .b1-progress-edge.visible {
+      display: block;
+    }
+
+    /* B2: Context Runner (Three tight tiers, no card body padding) */
+    .runner-b2 {
+      width: 520px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-slab);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .b2-meta-row {
+      height: 26px;
+      padding: 0 10px;
+      background: #17141c;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .b2-input-row {
+      height: 36px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+    }
+    .b2-input-row:focus-within {
+      background: #19151e;
+    }
+    .b2-accelerators {
+      height: 24px;
+      padding: 0 10px;
+      background: #100e14;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    /* B3: Expanding Runner (Single row baseline, expands drawer only for errors or identities) */
+    .runner-b3-container {
+      width: 500px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-slab);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all var(--motion-hover);
+    }
+    .b3-main-row {
+      height: 38px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .b3-drawer {
+      display: none;
+      padding: 8px 10px;
+      background: #16121b;
+      border-top: 1px solid var(--border);
+    }
+    .b3-drawer.visible {
+      display: block;
+    }
+
+    /* Matrix & Comparison Table Section */
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-slab);
+      overflow: hidden;
+    }
+    .matrix-table th, .matrix-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .matrix-table th {
+      background: var(--bg-secondary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .matrix-table tr:last-child td {
+      border-bottom: none;
+    }
+    .matrix-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .score-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .score-high {
+      background: rgba(180, 190, 254, 0.16);
+      color: var(--accent);
+      border: 1px solid rgba(180, 190, 254, 0.3);
+    }
+    .score-med {
+      background: rgba(215, 211, 112, 0.16);
+      color: var(--warning);
+      border: 1px solid rgba(215, 211, 112, 0.3);
+    }
+    .score-low {
+      background: rgba(255, 82, 82, 0.16);
+      color: var(--danger);
+      border: 1px solid rgba(255, 82, 82, 0.3);
+    }
+
+    .recommendation-card {
+      margin-top: 24px;
+      background: #16131c;
+      border: 1px solid rgba(180, 190, 254, 0.35);
+      border-radius: var(--radius-slab);
+      padding: 18px 20px;
+      position: relative;
+    }
+    .recommendation-tag {
+      position: absolute;
+      top: -10px;
+      left: 18px;
+      background: var(--accent);
+      color: var(--on-accent);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- STICKY META / CONTROL BAR -->
+  <header class="meta-bar">
+    <div class="meta-brand">
+      <span>QUICKSHELL POLKIT</span>
+      <span class="badge">V2 REFINEMENTS (6 DESIGNS)</span>
+    </div>
+
+    <nav class="meta-nav">
+      <a href="#a1" class="active">A1. Quiet</a>
+      <a href="#a2">A2. Detail</a>
+      <a href="#a3">A3. Focus</a>
+      <a href="#b1">B1. Bare</a>
+      <a href="#b2">B2. Context</a>
+      <a href="#b3">B3. Expanding</a>
+      <a href="#matrix">Comparison</a>
+    </nav>
+
+    <div class="meta-controls">
+      <span class="control-label">MOCK STATE:</span>
+      <div class="pill-group" id="globalStatePicker">
+        <button class="state-btn active" data-state="prompt">Prompt</button>
+        <button class="state-btn" data-state="error">Error</button>
+        <button class="state-btn" data-state="identity">Identity Picker</button>
+        <button class="state-btn" data-state="verifying">Verifying</button>
+      </div>
+      <button class="toggle-btn" id="reducedMotionBtn" title="Simulate Quickshell reducedMotion token">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+        <span>Reduced Motion: OFF</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Intro header -->
+    <div class="doc-intro">
+      <div class="doc-eyebrow">Quickshell Polkit Agent Design Specification — Refinement Round 2</div>
+      <h1 class="doc-title">6 Refined Polkit Dialog Designs</h1>
+      <p class="doc-desc">
+        Deep explorations of the two directions selected from v1: <strong>Family A (The Sovereign Slab descendants)</strong>
+        exploring centered modal card variants with strict 9px radius and flat fills, and <strong>Family B (The Monoline Runner descendants)</strong>
+        exploring dense, keyboard-first runner designs without card padding. Completely free of drop shadows and backdrop blur.
+      </p>
+
+      <div class="swatches-bar">
+        <div class="swatch"><span class="swatch-color" style="background: #141118;"></span> bg/panel #141118</div>
+        <div class="swatch"><span class="swatch-color" style="background: #27222f;"></span> bgSecondary #27222f</div>
+        <div class="swatch"><span class="swatch-color" style="background: #282936;"></span> surface/border #282936</div>
+        <div class="swatch"><span class="swatch-color" style="background: #cac4d4;"></span> text #cac4d4</div>
+        <div class="swatch"><span class="swatch-color" style="background: #9d93ad;"></span> textSubtle #9d93ad</div>
+        <div class="swatch"><span class="swatch-color" style="background: #4f455f;"></span> textSecondary #4f455f</div>
+        <div class="swatch"><span class="swatch-color" style="background: #b4befe;"></span> accent #b4befe</div>
+        <div class="swatch"><span class="swatch-color" style="background: #ff5252;"></span> danger #ff5252</div>
+        <div class="swatch"><span class="swatch-color" style="background: #d7d370;"></span> warning #d7d370</div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         FAMILY A: DESCENDANTS OF DIRECTION 1 (THE SOVEREIGN SLAB)
+         ==================================================================== -->
+    <div class="design-family-header">
+      <div>
+        <span class="family-title">Family A — Descendants of "The Sovereign Slab"</span>
+      </div>
+      <span class="family-meta">Centered Modal Cards · Flat #141118 · 1px Hairline #282936 · Radius 9px</span>
+    </div>
+
+    <!-- A1: QUIET CARD -->
+    <section class="design-section" id="a1">
+      <div class="design-header">
+        <div>
+          <span class="design-num">A1</span>
+          <h2 class="design-title">Quiet Card</h2>
+          <span class="design-tagline">The leanest possible modal — no separate header strip, icon + title on one line, single accent pill</span>
+        </div>
+      </div>
+
+      <div class="workbench">
+        <div class="viewport-canvas">
+          <div class="sim-bar">
+            <div class="sim-bar-left">
+              <div class="sim-ws"><span class="sim-ws-pill active">1</span><span class="sim-ws-pill">2</span></div>
+              <span class="sim-title">alacritty: ~/src/kernel</span>
+            </div>
+            <div class="sim-bar-center"><span>23:38</span></div>
+            <div class="sim-bar-right"><span>BAT 84%</span></div>
+          </div>
+
+          <div class="scrim">
+            <!-- A1 Quiet Card -->
+            <div class="flat-card card-a1" id="a1-card">
+              <!-- Indeterminate progress bar (visible when busy) -->
+              <div class="progress-track" id="a1-progress" style="margin: -14px -14px 4px -14px;">
+                <div class="progress-bar-moving"></div>
+              </div>
+
+              <!-- Icon + Title on one line -->
+              <div class="a1-title-row">
+                <div class="a1-title-left">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  <span>Mount Volume</span>
+                </div>
+                <span class="a1-identity-toggle" id="a1-user-badge" onclick="toggleA1User()" title="Click to cycle identity">alexiz</span>
+              </div>
+
+              <!-- One line of context -->
+              <div class="a1-context">
+                Authentication is required to mount <strong>Samsung 990 PRO</strong>.
+              </div>
+
+              <!-- Identity Picker Section (Visible in identity state) -->
+              <div class="chip-list" id="a1-identities" style="display: none;">
+                <div class="id-chip selected" onclick="selectIdentityA(this, 'a1')">
+                  <div class="id-avatar">a</div>
+                  <span>alexiz</span>
+                  <span class="id-meta">1000</span>
+                </div>
+                <div class="id-chip" onclick="selectIdentityA(this, 'a1')">
+                  <div class="id-avatar">#</div>
+                  <span>root</span>
+                  <span class="id-meta">0</span>
+                </div>
+              </div>
+
+              <!-- Password Input with show/hide -->
+              <div class="input-wrapper">
+                <input type="password" class="auth-input" id="a1-password" placeholder="Passphrase for alexiz..." value="slabpass123">
+                <button class="input-icon-btn" onclick="togglePassVisibility('a1-password')" title="Toggle visibility">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+
+              <!-- Error message -->
+              <div class="error-banner" id="a1-error">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <span>Sorry, try again.</span>
+              </div>
+
+              <!-- Footer: lean keyboard escape hint + single accent pill -->
+              <div class="a1-footer">
+                <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); cursor: pointer;" onclick="simulateCancel('a1')" title="Esc to cancel">
+                  <span class="kbd-key">Esc</span> cancel
+                </span>
+                <button class="pill-btn primary" id="a1-auth-btn" onclick="simulateAuth('a1')">Authenticate</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-side">
+          <h4>A1 — Quiet Card Rationale</h4>
+          <p>
+            <strong>The leanest possible modal.</strong> Completely removes Direction 1's 34px dedicated header bar and background split,
+            collapsing the lock icon and dialog title onto a single integrated line at the top of the card.
+          </p>
+          <p>
+            Tighter vertical rhythm (360px wide, ~140px tall). Instead of dual Cancel/Authenticate button clutter, the action row features
+            a <em>single accent pill</em> with an inline <code>Esc</code> keycap hint, reducing visual noise to the bare minimum while preserving
+            standard modal clarity.
+          </p>
+          <h4>Token Mapping</h4>
+          <table class="token-table">
+            <tr><td>Surface</td><td><code>#141118</code> (100% flat, zero shadow)</td></tr>
+            <tr><td>Border</td><td>1px <code>#282936</code> hairline, radius 9px</td></tr>
+            <tr><td>Header</td><td>Eliminated; 14px title row with 15px icon</td></tr>
+            <tr><td>Action</td><td>Single <code>PillButton</code> primary (height 26px)</td></tr>
+          </table>
+          <h4>Reduced Motion</h4>
+          <p>
+            When enabled, error message appears instantly without slide/shake; busy progress bar freezes into a static accent indicator.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- A2: KEY DETAIL CARD -->
+    <section class="design-section" id="a2">
+      <div class="design-header">
+        <div>
+          <span class="design-num">A2</span>
+          <h2 class="design-title">Key Detail Card</h2>
+          <span class="design-tagline">The modal that shows its work — monospace request detail list &amp; identity chips docked under field</span>
+        </div>
+      </div>
+
+      <div class="workbench">
+        <div class="viewport-canvas">
+          <div class="sim-bar">
+            <div class="sim-bar-left">
+              <div class="sim-ws"><span class="sim-ws-pill active">1</span></div>
+              <span class="sim-title">thunar: /mnt</span>
+            </div>
+            <div class="sim-bar-center"><span>23:38</span></div>
+            <div class="sim-bar-right"><span>BAT 84%</span></div>
+          </div>
+
+          <div class="scrim">
+            <!-- A2 Key Detail Card -->
+            <div class="flat-card card-a2" id="a2-card">
+              <!-- Compact Header -->
+              <div class="a2-header">
+                <div style="display: flex; align-items: center; gap: 7px;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                  <span style="font-weight: 600; font-size: 13px; color: #ffffff;">Polkit Authorization</span>
+                </div>
+                <span style="font-family: var(--font-mono); font-size: 10px; color: var(--accent); background: var(--accent-dim); padding: 1px 6px; border-radius: 3px; border: 1px solid rgba(180, 190, 254, 0.2);">PRIVILEGED</span>
+              </div>
+
+              <!-- Indeterminate progress bar -->
+              <div class="progress-track" id="a2-progress">
+                <div class="progress-bar-moving"></div>
+              </div>
+
+              <div class="a2-body">
+                <div style="font-size: 13px; color: var(--text);">
+                  Authentication is required to mount <strong>Volume</strong>.
+                </div>
+
+                <!-- Structured Monospace Detail Spec Block -->
+                <div class="a2-spec-table">
+                  <div class="a2-spec-row">
+                    <span class="a2-spec-k">Action:</span>
+                    <span class="a2-spec-v" title="org.freedesktop.udisks2.filesystem-mount">org.freedesktop.udisks2.filesystem-mount</span>
+                  </div>
+                  <div class="a2-spec-row">
+                    <span class="a2-spec-k">Subject:</span>
+                    <span class="a2-spec-v">Samsung 990 PRO (nvme0n1p2)</span>
+                  </div>
+                  <div class="a2-spec-row">
+                    <span class="a2-spec-k">Caller:</span>
+                    <span class="a2-spec-v">org.xfce.FileManager [pid 4982]</span>
+                  </div>
+                </div>
+
+                <!-- Password Input -->
+                <div class="input-wrapper">
+                  <input type="password" class="auth-input" id="a2-password" placeholder="Enter passphrase for alexiz..." value="systemsecretpass">
+                  <button class="input-icon-btn" onclick="togglePassVisibility('a2-password')" title="Toggle visibility">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </button>
+                </div>
+
+                <!-- Identity chips placed UNDER the field -->
+                <div class="chip-list" id="a2-identities" style="display: flex;">
+                  <div class="id-chip selected" onclick="selectIdentityA(this, 'a2')">
+                    <div class="id-avatar">a</div>
+                    <span>alexiz</span>
+                    <span class="id-meta">wheel (1000)</span>
+                  </div>
+                  <div class="id-chip" onclick="selectIdentityA(this, 'a2')">
+                    <div class="id-avatar">#</div>
+                    <span>root</span>
+                    <span class="id-meta">admin (0)</span>
+                  </div>
+                </div>
+
+                <!-- Error message -->
+                <div class="error-banner" id="a2-error">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  <span>Sorry, authentication failed. Incorrect credentials.</span>
+                </div>
+              </div>
+
+              <!-- Footer with dual PillButtons -->
+              <div class="a2-footer">
+                <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary);">
+                  <span class="kbd-key" style="cursor: pointer;" onclick="simulateCancel('a2')">Esc</span> cancel · <span class="kbd-key" style="cursor: pointer;" onclick="simulateAuth('a2')">↵</span> submit
+                </span>
+                <div style="display: flex; gap: 6px;">
+                  <button class="pill-btn ghost" onclick="simulateCancel('a2')">Cancel</button>
+                  <button class="pill-btn primary" id="a2-auth-btn" onclick="simulateAuth('a2')">Authorize</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-side">
+          <h4>A2 — Key Detail Card Rationale</h4>
+          <p>
+            <strong>The modal that shows its work.</strong> Built specifically for security-conscious users who want complete visibility into
+            what D-Bus interface and caller process is requesting root privilege escalation before typing a secret.
+          </p>
+          <p>
+            Structural difference: Features an embedded 3-row monospace specification table (action id, subject device, caller PID) and anchors
+            the <strong>identity chips directly underneath the password field</strong> rather than tucked into the header, making identity switching
+            an immediate visual neighbor of the credential submission.
+          </p>
+          <h4>Token Mapping</h4>
+          <table class="token-table">
+            <tr><td>Container</td><td>400px width, slabRadius 9px, flat hairline</td></tr>
+            <tr><td>Spec Table</td><td><code>#27222f</code> fill, 1px hairline, 11px Iosevka mono</td></tr>
+            <tr><td>Identity Chips</td><td>Under field, dual <code>#27222f</code> tiles with UID badges</td></tr>
+            <tr><td>Actions</td><td>PillButton ghost + primary (height 26px)</td></tr>
+          </table>
+          <h4>Reduced Motion</h4>
+          <p>
+            Zero transition delays; spec table renders statically without accordion expand animation.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- A3: FOCUS-FORWARD CARD -->
+    <section class="design-section" id="a3">
+      <div class="design-header">
+        <div>
+          <span class="design-num">A3</span>
+          <h2 class="design-title">Focus-Forward Card</h2>
+          <span class="design-tagline">Field-first — large display title, action demoted to input caption, prominent glyph, progressive identity</span>
+        </div>
+      </div>
+
+      <div class="workbench">
+        <div class="viewport-canvas">
+          <div class="sim-bar">
+            <div class="sim-bar-left">
+              <div class="sim-ws"><span class="sim-ws-pill active">1</span></div>
+              <span class="sim-title">gparted</span>
+            </div>
+            <div class="sim-bar-center"><span>23:38</span></div>
+            <div class="sim-bar-right"><span>BAT 84%</span></div>
+          </div>
+
+          <div class="scrim">
+            <!-- A3 Focus-Forward Card -->
+            <div class="flat-card card-a3" id="a3-card">
+              <!-- Indeterminate progress bar -->
+              <div class="progress-track" id="a3-progress" style="margin: -16px -16px 2px -16px;">
+                <div class="progress-bar-moving"></div>
+              </div>
+
+              <!-- Hero Row: Large glyph + Display Title -->
+              <div class="a3-hero-row">
+                <div class="a3-lock-glyph">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="a3-display-title">Authentication Required</h3>
+                  <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); margin-top: 1px;">
+                    privileged policy escalation
+                  </div>
+                </div>
+              </div>
+
+              <!-- Field-First Block: Action message demoted to caption directly above field -->
+              <div>
+                <div class="a3-field-caption">
+                  Mount Volume: Samsung 990 PRO (nvme0n1p2)
+                </div>
+                <div class="input-wrapper">
+                  <input type="password" class="auth-input" id="a3-password" placeholder="Passphrase for alexiz..." value="focusfieldpass">
+                  <button class="input-icon-btn" onclick="togglePassVisibility('a3-password')" title="Toggle visibility">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Progressive Disclosure Identity Chips (Only shown when >1 user or toggled) -->
+              <div class="a3-progressive-chips" id="a3-identities">
+                <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-secondary); margin-bottom: 4px;">TARGET USER:</div>
+                <div class="chip-list">
+                  <div class="id-chip selected" onclick="selectIdentityA(this, 'a3')">
+                    <div class="id-avatar">a</div>
+                    <span>alexiz</span>
+                    <span class="id-meta">1000</span>
+                  </div>
+                  <div class="id-chip" onclick="selectIdentityA(this, 'a3')">
+                    <div class="id-avatar">#</div>
+                    <span>root</span>
+                    <span class="id-meta">0</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Error message -->
+              <div class="error-banner" id="a3-error">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <span>Sorry, try again.</span>
+              </div>
+
+              <!-- Footer with ghost cancel + accent authenticate -->
+              <div class="a3-footer">
+                <div style="display: flex; align-items: center; gap: 6px; cursor: pointer;" onclick="toggleA3Identities()">
+                  <span class="kbd-key">Tab</span>
+                  <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary);" id="a3-user-hint">user: alexiz ▾</span>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                  <button class="pill-btn ghost" onclick="simulateCancel('a3')">Cancel</button>
+                  <button class="pill-btn primary" id="a3-auth-btn" onclick="simulateAuth('a3')">Authenticate</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-side">
+          <h4>A3 — Focus-Forward Card Rationale</h4>
+          <p>
+            <strong>Field-first orientation.</strong> Prioritizes rapid typing muscle memory over narrative text. The action description
+            is demoted to a concise monospace caption docked directly to the input field's upper edge.
+          </p>
+          <p>
+            Structural difference: Features an integrated 28px square glyph container and 16px display header, while identity chips are
+            <strong>revealed progressively</strong> — remaining hidden when only one identity exists, and opening cleanly when multiple users
+            are detected or the identity state is selected.
+          </p>
+          <h4>Token Mapping</h4>
+          <table class="token-table">
+            <tr><td>Container</td><td>380px width, slabRadius 9px, flat #141118</td></tr>
+            <tr><td>Display Glyph</td><td>28x28px <code>#27222f</code> tile with 2.2px accent stroke</td></tr>
+            <tr><td>Input Caption</td><td>11px Iosevka mono in <code>--text-subtle</code></td></tr>
+            <tr><td>Progressive Tier</td><td>Collapsed by default, revealed on multi-identity</td></tr>
+          </table>
+          <h4>Reduced Motion</h4>
+          <p>
+            Progressive identity container toggles between display none and block without height-interpolation jerk.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         FAMILY B: DESCENDANTS OF DIRECTION 3 (THE MONOLINE RUNNER)
+         ==================================================================== -->
+    <div class="design-family-header" style="margin-top: 64px;">
+      <div>
+        <span class="family-title">Family B — Descendants of "The Monoline Runner"</span>
+      </div>
+      <span class="family-meta">Keyboard-First Runners · Dense · Zero Card Body Padding · Footers &amp; Accelerators</span>
+    </div>
+
+    <!-- B1: BARE RUNNER -->
+    <section class="design-section" id="b1">
+      <div class="design-header">
+        <div>
+          <span class="design-num">B1</span>
+          <h2 class="design-title">Bare Runner</h2>
+          <span class="design-tagline">Single row — prefix lock glyph, input, right-aligned shortcut hint. Zero fluff.</span>
+        </div>
+      </div>
+
+      <div class="workbench">
+        <div class="viewport-canvas">
+          <div class="sim-bar">
+            <div class="sim-bar-left">
+              <div class="sim-ws"><span class="sim-ws-pill active">1</span></div>
+              <span class="sim-title">nvim: agent.rs</span>
+            </div>
+            <div class="sim-bar-center"><span>23:38</span></div>
+            <div class="sim-bar-right"><span>BAT 84%</span></div>
+          </div>
+
+          <div class="scrim">
+            <!-- B1 Bare Runner Single Row -->
+            <div class="runner-b1" id="b1-card">
+              <!-- Indeterminate progress hairline along bottom edge -->
+              <div class="b1-progress-edge progress-track" id="b1-progress">
+                <div class="progress-bar-moving"></div>
+              </div>
+
+              <!-- Prefix lock glyph -->
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink: 0;" id="b1-glyph">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+
+              <!-- Single monoline input -->
+              <input type="password" class="b1-input" id="b1-password" placeholder="Mount Volume · Password for alexiz..." value="barerunnerpass">
+
+              <!-- Inline Identity Switcher Chips (Visible in identity state) -->
+              <div id="b1-identity-chips" style="display: none; align-items: center; gap: 4px;">
+                <span class="kbd-key" style="cursor: pointer; background: var(--accent); color: var(--on-accent); font-weight: 600;" onclick="selectB1UserDirect('alexiz')">alexiz</span>
+                <span class="kbd-key" style="cursor: pointer;" onclick="selectB1UserDirect('root')">root</span>
+              </div>
+
+              <!-- Inline Error Indicator (Visible in error state) -->
+              <span id="b1-inline-error" style="display: none; font-family: var(--font-mono); font-size: 11px; color: var(--danger); white-space: nowrap;">
+                Sorry, try again
+              </span>
+
+              <!-- Right-aligned shortcut hints -->
+              <div class="b1-hints" id="b1-hints">
+                <span class="kbd-key" id="b1-user-tag" onclick="toggleB1User()" style="cursor: pointer;" title="Click or Tab to switch user">alexiz</span>
+                <span class="kbd-key" style="cursor: pointer;" onclick="simulateAuth('b1')" title="Enter to authenticate">↵</span>
+                <span class="kbd-key" style="cursor: pointer;" onclick="simulateCancel('b1')" title="Esc to cancel">Esc</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-side">
+          <h4>B1 — Bare Runner Rationale</h4>
+          <p>
+            <strong>The absolute minimal command palette.</strong> Contains the entire polkit interaction within a single 38px horizontal strip.
+            No title banner, no explanatory prose, no button row.
+          </p>
+          <p>
+            Prefix lock glyph doubles as system identity and status indicator. The input placeholder conveys the action ("Mount Volume")
+            and current user. The right-aligned keyboard keycaps indicate submission, user switching, and cancellation.
+          </p>
+          <h4>Token Mapping</h4>
+          <table class="token-table">
+            <tr><td>Container</td><td>480px width, 38px fixed height, radius 9px</td></tr>
+            <tr><td>Background</td><td>Single flat <code>#141118</code> bar, 1px <code>#282936</code></td></tr>
+            <tr><td>Input Field</td><td>Borderless inline font, 13px mono, high contrast</td></tr>
+            <tr><td>Busy Progress</td><td>2px indeterminate hairline docked flush to bottom</td></tr>
+          </table>
+          <h4>Reduced Motion</h4>
+          <p>
+            Input autofocus is immediate; error state swaps the placeholder and highlights border without pulse animations.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- B2: CONTEXT RUNNER -->
+    <section class="design-section" id="b2">
+      <div class="design-header">
+        <div>
+          <span class="design-num">B2</span>
+          <h2 class="design-title">Context Runner</h2>
+          <span class="design-tagline">One meta line stating the action above one input row, footer accelerators. Still no card body.</span>
+        </div>
+      </div>
+
+      <div class="workbench">
+        <div class="viewport-canvas">
+          <div class="sim-bar">
+            <div class="sim-bar-left">
+              <div class="sim-ws"><span class="sim-ws-pill active">1</span><span class="sim-ws-pill">2</span></div>
+              <span class="sim-title">zsh: mount /dev/nvme0n1p2</span>
+            </div>
+            <div class="sim-bar-center"><span>23:38</span></div>
+            <div class="sim-bar-right"><span>BAT 84%</span></div>
+          </div>
+
+          <div class="scrim">
+            <!-- B2 Context Runner (3 tiers, no card padding) -->
+            <div class="runner-b2" id="b2-card">
+              <!-- Tier 1: Action Meta Line -->
+              <div class="b2-meta-row">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="color: var(--accent); font-weight: 600;">POLKIT</span>
+                  <span style="color: var(--text-subtle);">Authentication is required to mount Volume</span>
+                </div>
+                <span style="color: var(--text-secondary); font-size: 10px;">udisks2.filesystem-mount</span>
+              </div>
+
+              <!-- Indeterminate progress bar -->
+              <div class="progress-track" id="b2-progress">
+                <div class="progress-bar-moving"></div>
+              </div>
+
+              <!-- Tier 2: Input Row with Inline Unlock Pill -->
+              <div class="b2-input-row">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink: 0;">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input type="password" class="b1-input" id="b2-password" placeholder="Passphrase for alexiz..." value="contextrunner99">
+                <button class="pill-btn primary" id="b2-auth-btn" style="height: 24px; padding: 0 9px; font-size: 11px;" onclick="simulateAuth('b2')">Unlock</button>
+              </div>
+
+              <!-- Error row (if error state) -->
+              <div class="error-banner" id="b2-error" style="border-radius: 0; border-left: none; border-right: none; padding: 4px 10px;">
+                <span>Sorry, try again. Invalid password.</span>
+              </div>
+
+              <!-- Tier 3: Footer Accelerators -->
+              <div class="b2-accelerators">
+                <div style="display: flex; gap: 10px;">
+                  <span style="cursor: pointer;" onclick="simulateAuth('b2')"><span class="kbd-key">↵</span> unlock</span>
+                  <span style="cursor: pointer;" onclick="toggleB2User()" id="b2-user-badge"><span class="kbd-key">Tab</span> user: alexiz</span>
+                  <span style="cursor: pointer;" onclick="simulateCancel('b2')"><span class="kbd-key">Esc</span> cancel</span>
+                </div>
+                <span>PID: 4982 (udisksd)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-side">
+          <h4>B2 — Context Runner Rationale</h4>
+          <p>
+            <strong>The structured command palette.</strong> Adds exactly one line of metadata above the runner and one accelerator footer
+            below, without converting into a bulky dialog card.
+          </p>
+          <p>
+            Structural difference: 3-tier monolithic slab (26px meta bar, 36px input row, 24px footer) separated strictly by 1px hairlines.
+            Total height is only 86px. Zero interior padding ("no card body"), keeping screen real estate transparent and uncluttered.
+          </p>
+          <h4>Token Mapping</h4>
+          <table class="token-table">
+            <tr><td>Container</td><td>520px width, radius 9px, 3-tier slab</td></tr>
+            <tr><td>Meta Bar</td><td><code>#17141c</code> (subtle tone differentiation), 11px mono</td></tr>
+            <tr><td>Input Row</td><td><code>#141118</code> with inline 24px primary PillButton</td></tr>
+            <tr><td>Footer</td><td><code>#100e14</code>, 10px accelerator keycaps</td></tr>
+          </table>
+          <h4>Reduced Motion</h4>
+          <p>
+            Instant tier rendering; background tone shifts execute without color transition latency.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- B3: EXPANDING RUNNER -->
+    <section class="design-section" id="b3">
+      <div class="design-header">
+        <div>
+          <span class="design-num">B3</span>
+          <h2 class="design-title">Expanding Runner</h2>
+          <span class="design-tagline">Single-row runner plus a collapsible drawer for identity switching or error feedback; otherwise purely B1</span>
+        </div>
+      </div>
+
+      <div class="workbench">
+        <div class="viewport-canvas">
+          <div class="sim-bar">
+            <div class="sim-bar-left">
+              <div class="sim-ws"><span class="sim-ws-pill active">1</span></div>
+              <span class="sim-title">systemd: logind</span>
+            </div>
+            <div class="sim-bar-center"><span>23:38</span></div>
+            <div class="sim-bar-right"><span>BAT 84%</span></div>
+          </div>
+
+          <div class="scrim">
+            <!-- B3 Expanding Runner -->
+            <div class="runner-b3-container" id="b3-card">
+              <!-- Indeterminate progress bar (visible when busy) -->
+              <div class="progress-track" id="b3-progress">
+                <div class="progress-bar-moving"></div>
+              </div>
+
+              <!-- Main B1-Style Runner Row -->
+              <div class="b3-main-row">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink: 0;">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input type="password" class="b1-input" id="b3-password" placeholder="Mount Volume · Passphrase for alexiz..." value="expandingpass">
+                <div class="b1-hints">
+                  <span class="kbd-key" onclick="toggleB3Drawer('identity')" style="cursor: pointer;" title="Toggle Identity Drawer" id="b3-user-tag">alexiz ▾</span>
+                  <span class="kbd-key" style="cursor: pointer;" onclick="simulateAuth('b3')" title="Enter to authenticate">↵</span>
+                  <span class="kbd-key" style="cursor: pointer;" onclick="simulateCancel('b3')" title="Esc to cancel">Esc</span>
+                </div>
+              </div>
+
+              <!-- Collapsible Drawer (Revealed for Identity or Error) -->
+              <div class="b3-drawer" id="b3-drawer">
+                <!-- Identity Drawer Content -->
+                <div id="b3-identity-content" style="display: none;">
+                  <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); margin-bottom: 4px;">SELECT POLKIT IDENTITY:</div>
+                  <div class="chip-list">
+                    <div class="id-chip selected" onclick="selectIdentityB3(this, 'alexiz (1000)')">
+                      <div class="id-avatar">a</div>
+                      <span>alexiz</span>
+                      <span class="id-meta">1000</span>
+                    </div>
+                    <div class="id-chip" onclick="selectIdentityB3(this, 'root (0)')">
+                      <div class="id-avatar">#</div>
+                      <span>root</span>
+                      <span class="id-meta">0</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Error Drawer Content -->
+                <div id="b3-error-content" style="display: none;">
+                  <div style="display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--danger);">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    <span>Sorry, try again. Passphrase rejected by PAM.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-side">
+          <h4>B3 — Expanding Runner Rationale</h4>
+          <p>
+            <strong>The adaptive runner.</strong> In the nominal state, B3 is visually indistinguishable from the ultra-clean B1 runner.
+            It occupies only 38px of height and provides an uninterrupted single-line experience.
+          </p>
+          <p>
+            Structural difference: When an exceptional event occurs — an identity choice must be made, or an authentication attempt fails —
+            an integrated lower drawer unrolls flush with the runner. No layout shift or dialog pop-ups occur elsewhere; the runner simply
+            deepens to accommodate the required state, then re-collapses once resolved.
+          </p>
+          <h4>Token Mapping</h4>
+          <table class="token-table">
+            <tr><td>Baseline</td><td>500px width, 38px height (matches B1)</td></tr>
+            <tr><td>Drawer</td><td><code>#16121b</code> fill, 1px top border <code>#282936</code></td></tr>
+            <tr><td>Expansion</td><td>Dynamic height on identity/error; 0px collapsed</td></tr>
+            <tr><td>Progress Bar</td><td>2px hairline between runner and drawer</td></tr>
+          </table>
+          <h4>Reduced Motion</h4>
+          <p>
+            Drawer height transition drops to 0ms instantaneous repaint; no spring or accordion sliding.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         COMPARISON MATRIX & ARCHITECTURE EVALUATION
+         ==================================================================== -->
+    <section class="design-section" id="matrix" style="margin-top: 64px;">
+      <div class="design-header">
+        <div>
+          <span class="design-num">07</span>
+          <h2 class="design-title">Comparison Matrix &amp; Architectural Recommendation</h2>
+          <span class="design-tagline">Evaluating fit with the rice, discoverability, technical risk in Quickshell, and naming the single best pick</span>
+        </div>
+      </div>
+
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>Design</th>
+            <th>Family</th>
+            <th>Fit with Rice</th>
+            <th>Discoverability</th>
+            <th>Technical Risk (Quickshell)</th>
+            <th>Primary Strengths</th>
+            <th>Key Vulnerabilities</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>A1. Quiet Card</strong></td>
+            <td>Family A</td>
+            <td><span class="score-badge score-high">9.8 / 10</span></td>
+            <td><span class="score-badge score-high">9.5 / 10</span></td>
+            <td><span class="score-badge score-high">Low (Standard LayerShell)</span></td>
+            <td>Leanest modal card; zero header clutter; single accent pill; perfect visual balance.</td>
+            <td>Hides deep D-Bus metadata from technical power users.</td>
+          </tr>
+          <tr>
+            <td><strong>A2. Key Detail Card</strong></td>
+            <td>Family A</td>
+            <td><span class="score-badge score-high">9.2 / 10</span></td>
+            <td><span class="score-badge score-high">10 / 10</span></td>
+            <td><span class="score-badge score-high">Low (Standard LayerShell)</span></td>
+            <td>Highest security transparency; monospace spec table; identity chips docked under field.</td>
+            <td>Taller footprint; potentially overwhelming for routine flash-drive mounts.</td>
+          </tr>
+          <tr>
+            <td><strong>A3. Focus-Forward Card</strong></td>
+            <td>Family A</td>
+            <td><span class="score-badge score-high">9.4 / 10</span></td>
+            <td><span class="score-badge score-high">9.0 / 10</span></td>
+            <td><span class="score-badge score-high">Low (Standard LayerShell)</span></td>
+            <td>Immediate keyboard focus; bold glyph; progressive identity disclosure.</td>
+            <td>Multi-user identity selection requires an extra interaction if collapsed.</td>
+          </tr>
+          <tr>
+            <td><strong>B1. Bare Runner</strong></td>
+            <td>Family B</td>
+            <td><span class="score-badge score-med">8.6 / 10</span></td>
+            <td><span class="score-badge score-med">7.8 / 10</span></td>
+            <td><span class="score-badge score-high">Low (Compact Rectangle)</span></td>
+            <td>Fastest possible interaction; zero card padding; runner simplicity.</td>
+            <td>Less visual gravity for dangerous privilege escalations (e.g. wiping disks).</td>
+          </tr>
+          <tr>
+            <td><strong>B2. Context Runner</strong></td>
+            <td>Family B</td>
+            <td><span class="score-badge score-high">9.3 / 10</span></td>
+            <td><span class="score-badge score-med">8.7 / 10</span></td>
+            <td><span class="score-badge score-high">Low (Compact Rectangle)</span></td>
+            <td>3-tier runner without card bloat; clear accelerators; inline submit.</td>
+            <td>Header and footer text can feel dense on small laptop screens.</td>
+          </tr>
+          <tr>
+            <td><strong>B3. Expanding Runner</strong></td>
+            <td>Family B</td>
+            <td><span class="score-badge score-high">9.5 / 10</span></td>
+            <td><span class="score-badge score-high">9.0 / 10</span></td>
+            <td><span class="score-badge score-med">Low-Med (Dynamic Height in LayerShell)</span></td>
+            <td>Combines B1 speed with expandable error and identity drawers.</td>
+            <td>Requires LayerShell window size renegotiation if QML window expands dynamically.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Recommendation Card -->
+      <div class="recommendation-card">
+        <div class="recommendation-tag">RECOMMENDED PICK &amp; BUILD DECISION</div>
+        <h3 style="font-size: 16px; color: #ffffff; margin-bottom: 8px;">
+          Primary Recommendation: Variant A1 — "Quiet Card"
+        </h3>
+        <p style="color: var(--text); font-size: 13px; line-height: 1.6; margin-bottom: 10px;">
+          <strong>Difference from v1 recommendation:</strong> Whereas v1 recommended the heavier two-phase path (the bulky 380px Direction 1 with 34px header bar, followed by the complex SVG fillet under-bar junction Direction 2), <strong>v2 recommends A1 ("Quiet Card") as the singular ideal dialog</strong>: it completely discards the redundant 34px header bar, aligns the lock glyph and title onto a single integrated line, collapses button clutter down to a single accent pill with an <code>Esc</code> keycap, and eliminates all drop shadows and blur in favor of the shell's true flat <code>#141118</code> slab aesthetic.
+        </p>
+        <div style="color: var(--text-subtle); font-size: 12px; line-height: 1.5; margin-bottom: 8px;">
+          <strong>Why A1 outperforms the rest:</strong>
+          Polkit is an interruption by definition. A1 honors the user's focus by presenting the leanest possible modal card (360px wide, ~140px tall). It avoids the overbearing weight of A2's debug table while providing significantly more security gravity and prompt clarity than the one-line runners (B1–B3). For power users who want command palette ergonomics, <strong>B2 ("Context Runner")</strong> stands as the secondary candidate for a future config toggle.
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent);">
+          &check; Strict compliance: zero drop shadows, zero backdrop blur, flat 1px hairlines (#282936), flat #141118 fills, 9px slab radius cap, and genuine PillButton tokens.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- INTERACTIVE LOGIC (PURE INLINE JAVASCRIPT, NO EXTERNAL LIBS, FILE:// COMPATIBLE) -->
+  <script>
+    // Global State Management
+    let currentState = 'prompt';
+    let reducedMotion = false;
+    let currentUserIndex = 0;
+    const users = ['alexiz', 'root'];
+
+    const variants = ['a1', 'a2', 'a3', 'b1', 'b2', 'b3'];
+    const globalStatePicker = document.getElementById('globalStatePicker');
+    const reducedMotionBtn = document.getElementById('reducedMotionBtn');
+
+    // Apply global mock state across all six designs
+    function applyState(state) {
+      currentState = state;
+
+      // Update switcher button highlights
+      globalStatePicker.querySelectorAll('.state-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.state === state);
+      });
+
+      // 1. Progress Bar (Verifying State)
+      variants.forEach(v => {
+        const prog = document.getElementById(`${v}-progress`);
+        if (prog) prog.classList.toggle('visible', state === 'verifying');
+      });
+
+      // 2. Error Banners
+      variants.forEach(v => {
+        const err = document.getElementById(`${v}-error`);
+        if (err) err.classList.toggle('visible', state === 'error');
+      });
+
+      // Special B1 error indicator & identity switcher
+      const b1Err = document.getElementById('b1-inline-error');
+      const b1Hints = document.getElementById('b1-hints');
+      const b1Card = document.getElementById('b1-card');
+      const b1IdChips = document.getElementById('b1-identity-chips');
+      if (b1Err && b1Hints && b1Card) {
+        b1Err.style.display = (state === 'error') ? 'inline' : 'none';
+        b1Card.classList.toggle('has-error', state === 'error');
+        if (b1IdChips) {
+          b1IdChips.style.display = (state === 'identity') ? 'inline-flex' : 'none';
+        }
+        b1Hints.style.display = (state === 'error' || state === 'identity') ? 'none' : 'flex';
+      }
+
+      // Special B3 drawer logic
+      const b3Drawer = document.getElementById('b3-drawer');
+      const b3ErrContent = document.getElementById('b3-error-content');
+      const b3IdContent = document.getElementById('b3-identity-content');
+      if (b3Drawer && b3ErrContent && b3IdContent) {
+        if (state === 'error') {
+          b3Drawer.classList.add('visible');
+          b3ErrContent.style.display = 'block';
+          b3IdContent.style.display = 'none';
+        } else if (state === 'identity') {
+          b3Drawer.classList.add('visible');
+          b3ErrContent.style.display = 'none';
+          b3IdContent.style.display = 'block';
+        } else {
+          b3Drawer.classList.remove('visible');
+          b3ErrContent.style.display = 'none';
+          b3IdContent.style.display = 'none';
+        }
+      }
+
+      // 3. Inputs state
+      variants.forEach(v => {
+        const inp = document.getElementById(`${v}-password`);
+        if (inp) {
+          inp.disabled = (state === 'verifying');
+          inp.classList.toggle('has-error', state === 'error');
+        }
+      });
+
+      // 4. Buttons state
+      ['a1', 'a2', 'a3', 'b2'].forEach(v => {
+        const btn = document.getElementById(`${v}-auth-btn`);
+        if (btn) {
+          btn.disabled = (state === 'verifying');
+          if (state === 'verifying') {
+            btn.textContent = 'Verifying...';
+          } else {
+            btn.textContent = (v === 'a2') ? 'Authorize' : (v === 'b2') ? 'Unlock' : 'Authenticate';
+          }
+        }
+      });
+
+      // 5. Identities visibility
+      const a1Ids = document.getElementById('a1-identities');
+      if (a1Ids) a1Ids.style.display = (state === 'identity') ? 'flex' : 'none';
+
+      const a2Ids = document.getElementById('a2-identities');
+      if (a2Ids) a2Ids.style.display = 'flex'; // A2 shows work always under field
+
+      const a3Ids = document.getElementById('a3-identities');
+      if (a3Ids) a3Ids.style.display = (state === 'identity') ? 'block' : 'none';
+    }
+
+    // State picker clicks
+    globalStatePicker.addEventListener('click', e => {
+      if (e.target.classList.contains('state-btn')) {
+        applyState(e.target.dataset.state);
+      }
+    });
+
+    // Reduced motion toggle
+    reducedMotionBtn.addEventListener('click', () => {
+      reducedMotion = !reducedMotion;
+      document.body.classList.toggle('reduced-motion', reducedMotion);
+      reducedMotionBtn.classList.toggle('active', reducedMotion);
+      reducedMotionBtn.querySelector('span').textContent = `Reduced Motion: ${reducedMotion ? 'ON (Instant)' : 'OFF'}`;
+    });
+
+    // Toggle Password Visibility
+    function togglePassVisibility(inputId) {
+      const el = document.getElementById(inputId);
+      if (el) {
+        el.type = (el.type === 'password') ? 'text' : 'password';
+      }
+    }
+
+    // Identity Selection for Family A
+    function selectIdentityA(chip, variant) {
+      const container = chip.parentElement;
+      container.querySelectorAll('.id-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      const name = chip.querySelector('span').textContent;
+      const inp = document.getElementById(`${variant}-password`);
+      if (inp) {
+        inp.placeholder = `Passphrase for ${name}...`;
+      }
+      if (variant === 'a1') {
+        const badge = document.getElementById('a1-user-badge');
+        if (badge) badge.textContent = name;
+      }
+      if (variant === 'a3') {
+        const hint = document.getElementById('a3-user-hint');
+        if (hint) hint.textContent = `user: ${name} ▾`;
+      }
+    }
+
+    // Toggle User inline helpers
+    function toggleA1User() {
+      currentUserIndex = (currentUserIndex + 1) % users.length;
+      const name = users[currentUserIndex];
+      document.getElementById('a1-user-badge').textContent = name;
+      document.getElementById('a1-password').placeholder = `Passphrase for ${name}...`;
+    }
+
+    function toggleA3Identities() {
+      const el = document.getElementById('a3-identities');
+      if (el) {
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+      }
+    }
+
+    function toggleB1User() {
+      currentUserIndex = (currentUserIndex + 1) % users.length;
+      const name = users[currentUserIndex];
+      document.getElementById('b1-user-tag').textContent = name;
+      document.getElementById('b1-password').placeholder = `Mount Volume · Password for ${name}...`;
+    }
+
+    function selectB1UserDirect(name) {
+      document.getElementById('b1-user-tag').textContent = name;
+      document.getElementById('b1-password').placeholder = `Mount Volume · Password for ${name}...`;
+      applyState('prompt');
+    }
+
+    function toggleB2User() {
+      currentUserIndex = (currentUserIndex + 1) % users.length;
+      const name = users[currentUserIndex];
+      document.getElementById('b2-user-badge').innerHTML = `<span class="kbd-key">Tab</span> user: ${name}`;
+      document.getElementById('b2-password').placeholder = `Passphrase for ${name}...`;
+    }
+
+    function toggleB3Drawer(mode) {
+      const drawer = document.getElementById('b3-drawer');
+      const idContent = document.getElementById('b3-identity-content');
+      const errContent = document.getElementById('b3-error-content');
+      if (drawer.classList.contains('visible') && idContent.style.display === 'block') {
+        drawer.classList.remove('visible');
+        idContent.style.display = 'none';
+      } else {
+        drawer.classList.add('visible');
+        idContent.style.display = 'block';
+        errContent.style.display = 'none';
+      }
+    }
+
+    function selectIdentityB3(chip, userLabel) {
+      chip.parentElement.querySelectorAll('.id-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      const name = userLabel.split(' ')[0];
+      document.getElementById('b3-password').placeholder = `Mount Volume · Passphrase for ${name}...`;
+      document.getElementById('b3-user-tag').textContent = `${name} ▾`;
+      toggleB3Drawer('identity');
+    }
+
+    // Simulate Auth flow (verifying -> error simulation)
+    function simulateAuth(variant) {
+      applyState('verifying');
+      setTimeout(() => {
+        applyState('error');
+      }, 1200);
+    }
+
+    // Simulate Cancel flow (quick fade flash)
+    function simulateCancel(variant) {
+      const card = document.getElementById(`${variant}-card`);
+      if (card) {
+        card.style.opacity = '0.35';
+        setTimeout(() => {
+          card.style.opacity = '1';
+          applyState('prompt');
+        }, 220);
+      }
+    }
+
+    // Keyboard navigation simulation (Esc = prompt, Enter = submit)
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        applyState('prompt');
+      } else if (e.key === 'Enter') {
+        if (currentState !== 'verifying') {
+          simulateAuth('a1');
+        }
+      }
+    });
+
+    // Nav active sync
+    document.querySelectorAll('.meta-nav a').forEach(link => {
+      link.addEventListener('click', function() {
+        document.querySelectorAll('.meta-nav a').forEach(a => a.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -370,6 +370,10 @@ This ordering is a deliberate project style choice and intentionally overrides t
 ORD-1 rule of generic QML linters (which expect attached properties after plain
 assignments). Treat ORD-1 flags on `Layout.*` placement as false positives.
 
+- **`AuthFlow` reports a failed attempt through `failed`, not `supplementaryMessage`**: `completed(false)` sets `failed` and re-opens the session, while `supplementaryMessage` is only populated when PAM emits `show-error`. A PAM message row must show on `supplementaryMessage !== "" || failed`, and style it as an error only when `supplementaryIsError || failed` — PAM also sends informational notices (a faillock lockout) with `supplementaryIsError` false.
+- **A signal handler can read a stale binding**: `AuthFlow.failedChanged` fires before a sibling `hasMessage` binding re-evaluates, so a handler that guards on that binding sees the old value and the action silently never runs. Trigger on the property change directly (an `onHasMessageChanged`) and defer the work with `Qt.callLater`, which also coalesces the multiple triggers.
+- **`clip: true` is correct for a password field and a masked progress track**: `TextInput` scrolls its content but does not contain it, so an unclipped field paints a long value over its neighbours. The review linter's PRF-3 is a scene-graph batching advisory; bless a deliberate case with `scripts/lint-review.sh --update-baseline`.
+
 ---
 
 ## 5. Design Language for Panels and Plugins

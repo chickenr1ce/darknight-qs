@@ -160,5 +160,7 @@ ShellRoot {
 
     PowerCenter {}
 
+    PolkitDialog {}
+
     DevProbe {}
 }

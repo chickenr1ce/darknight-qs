@@ -45,3 +45,7 @@ Build only if it earns daily use.
 - Weather: dashboard block with city search. `docs/user/weather.md`.
 - Cpu module: deleted 2026-09-23; the bar slot went to cava. Restore from git
   history if a CPU readout earns daily use.
+- Polkit agent: a native Quickshell authentication dialog
+  (`services/PolkitService.qml` + `windows/PolkitDialog.qml`, B2 "Context
+  Runner"), replacing the external `polkit-kde-agent`. ADR 0015; the 2026-08-23
+  incident is closed in `docs/incidents/polkit-agent-incident.md`.

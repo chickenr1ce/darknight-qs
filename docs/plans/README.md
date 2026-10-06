@@ -23,6 +23,7 @@ inside these files still name their original `docs/plans/` locations.
 | **05** | [`archive/05-post-migration-roadmap.html`](archive/05-post-migration-roadmap.html) | ⚪ Archived (superseded by `docs/dev/roadmap.md`) | Post-migration roadmap: hotplug, weather, matugen themes, gates. Live items moved to `docs/dev/roadmap.md`. |
 | **06** | [`archive/06-architecture-review.html`](archive/06-architecture-review.html) | 🟢 Closed (2026-09-29) | Full codebase review plus eight deepening candidates. All items resolved or deferred; the status block records the per-item state. |
 | **07** | [`archive/07-deepening-plan.md`](archive/07-deepening-plan.md) | 🟢 Implemented | The four Strong deepening candidates: dead notification card, one notification collection, state-file module, panel registry as a list. Shipped in `8eac72f`. |
+| **08** | [`archive/08-polkit-agent-designs.html`](archive/08-polkit-agent-designs.html) | 🟢 Implemented | Polkit auth dialog exploration and the six-design refinement; the B2 "Context Runner" shipped as the native agent. ADR 0015. |
 
 ---
 
