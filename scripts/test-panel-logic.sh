@@ -1376,39 +1376,21 @@ fi
 
 # parseVisibility oracle: default all true, only an explicit false hides,
 # unknown keys ignored, malformed input falls back to defaults.
-python3 - <<'EOF'
-import json
-import sys
-
-def check(name, got, want):
-    if got != want:
-        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
-        sys.exit(1)
-
-KEYS = ["clock", "workspaces", "tray", "cava", "media", "audio", "notifications", "power"]
-
-# Mirror of BarVisibilityService.parseVisibility (services/BarVisibilityService.qml).
-def parse_visibility(text, keys=KEYS):
-    out = {key: True for key in keys}
-    try:
-        parsed = json.loads(text)
-    except Exception:
-        return out
-    if not isinstance(parsed, dict):
-        return out
-    for key in keys:
-        if parsed.get(key) is False:
-            out[key] = False
-    return out
-
-check("barvis/default", parse_visibility(""), {key: True for key in KEYS})
-check("barvis/malformed", parse_visibility("{nope"), {key: True for key in KEYS})
-check("barvis/list", parse_visibility("[1, 2]"), {key: True for key in KEYS})
-check("barvis/hide", parse_visibility('{"media": false}')["media"], False)
-check("barvis/kept", parse_visibility('{"media": false}')["clock"], True)
-check("barvis/unknown", parse_visibility('{"nope": false}'), {key: True for key in KEYS})
-check("barvis/nonbool", parse_visibility('{"clock": 0}')["clock"], True)
-EOF
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/StateParsers.js" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const sp = qmljs.load(process.argv[3]);
+const KEYS = ['clock', 'workspaces', 'tray', 'cava', 'media', 'audio', 'notifications', 'power'];
+const all = () => ({ clock: true, workspaces: true, tray: true, cava: true, media: true, audio: true, notifications: true, power: true });
+const barvis = text => sp.parseVisibility(text, KEYS);
+check('barvis/default', barvis(''), all());
+check('barvis/malformed', barvis('{nope'), all());
+check('barvis/list', barvis('[1, 2]'), all());
+check('barvis/hide', barvis('{"media": false}').media, false);
+check('barvis/kept', barvis('{"media": false}').clock, true);
+check('barvis/unknown', barvis('{"nope": false}'), all());
+check('barvis/nonbool', barvis('{"clock": 0}').clock, true);
+NODEEOF
 
 # --- 12. dev probe is opt-in and covers the live-verification surface ---
 PROBE="$ROOT/dev/DevProbe.qml"

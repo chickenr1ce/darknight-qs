@@ -143,3 +143,26 @@ function parseFontSettings(jsonText) {
     }
     return out;
 }
+
+function parseVisibility(jsonText, moduleKeys) {
+    const out = {};
+    for (let i = 0; i < moduleKeys.length; i++)
+        out[moduleKeys[i]] = true;
+    let parsed = null;
+    try
+    {
+        parsed = JSON.parse(jsonText);
+    }
+    catch (e)
+    {
+        return out;
+    }
+    if (!parsed || typeof parsed !== "object")
+        return out;
+    for (let i = 0; i < moduleKeys.length; i++) {
+        const key = moduleKeys[i];
+        if (parsed[key] === false)
+            out[key] = false;
+    }
+    return out;
+}
