@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import qs.config
 import qs.services
+import "MonitorLogic.js" as MonitorLogic
 
 Singleton {
     id: root
@@ -27,17 +28,7 @@ Singleton {
 
     readonly property int screenCount: Globals.screensByPosition.length
 
-    readonly property var orderedMonitors: {
-        const ordered = [];
-        if (Globals.primaryMonitor !== "")
-            ordered.push(Globals.primaryMonitor);
-        const rest = Globals.screensByPosition;
-        for (let i = 0; i < rest.length; i++) {
-            if (rest[i].name !== Globals.primaryMonitor)
-                ordered.push(rest[i].name);
-        }
-        return ordered;
-    }
+    readonly property var orderedMonitors: MonitorLogic.orderMonitors(Globals.primaryMonitor, root.screenNames)
 
     onScreenCountChanged: root.refreshMonitors()
 
@@ -116,17 +107,11 @@ Singleton {
     }
 
     function firstWorkspaceFor(monitorName: string): int {
-        const index = root.orderedMonitors.indexOf(monitorName);
-        if (index === -1)
-            return 1;
-        return index * root.workspacesPerMonitor + 1;
+        return MonitorLogic.firstWorkspaceFor(root.orderedMonitors, monitorName, root.workspacesPerMonitor);
     }
 
     function clampWorkspacesPerMonitor(value, fallback: int): int {
-        const count = Math.round(Number(value));
-        if (isNaN(count))
-            return fallback;
-        return Math.max(1, Math.min(20, count));
+        return MonitorLogic.clampWorkspacesPerMonitor(value, fallback);
     }
 
     function setWorkspacesPerMonitor(value): void {
@@ -181,29 +166,7 @@ Singleton {
     }
 
     function escapeLua(value: string): string {
-        return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
-    }
-
-    function modeFor(monitor): string {
-        const width = Math.round(Number(monitor.width));
-        const height = Math.round(Number(monitor.height));
-        const refresh = Math.round(Number(monitor.refreshRate));
-        if (!(width > 0) || !(height > 0) || !(refresh > 0))
-            return "preferred";
-        return width + "x" + height + "@" + refresh;
-    }
-
-    function positionFor(monitor): string {
-        const x = Math.round(Number(monitor.x));
-        const y = Math.round(Number(monitor.y));
-        if (isNaN(x) || isNaN(y))
-            return "auto";
-        return x + "x" + y;
-    }
-
-    function scaleFor(monitor): real {
-        const scale = Number(monitor.scale);
-        return scale > 0 ? scale : 1;
+        return MonitorLogic.escapeLua(value);
     }
 
     function applyMonitors(text: string): void {
@@ -229,9 +192,9 @@ Singleton {
                 description: typeof monitor.description === "string" ? monitor.description : "",
                 model: typeof monitor.model === "string" ? monitor.model : "",
                 disabled: monitor.disabled === true,
-                mode: root.modeFor(monitor),
-                position: root.positionFor(monitor),
-                scale: root.scaleFor(monitor)
+                mode: MonitorLogic.modeFor(monitor),
+                position: MonitorLogic.positionFor(monitor),
+                scale: MonitorLogic.scaleFor(monitor)
             });
         }
         const names = [];
@@ -251,15 +214,9 @@ Singleton {
         const monitor = root.monitorByName(name);
         if (!monitor)
             return;
-        if (monitor.disabled === !enabled)
+        const spec = MonitorLogic.setEnabledSpec(root.escapeLua(name), monitor, enabled, root.multiMonitor);
+        if (spec === null)
             return;
-        if (!enabled && !root.multiMonitor)
-            return;
-        const output = root.escapeLua(name);
-        let spec = "hl.monitor({ output = \"" + output + "\", disabled = " + (enabled ? "false" : "true");
-        if (enabled)
-            spec += ", mode = \"" + monitor.mode + "\", position = \"" + monitor.position + "\", scale = " + monitor.scale;
-        spec += " })";
         root.toggleEpoch += 1;
         root.settleGraceUsed = false;
         root.toggleSettling = true;
@@ -269,22 +226,13 @@ Singleton {
     }
 
     function applySettings(jsonText: string): void {
-        let parsed = null;
-        try
-        {
-            parsed = JSON.parse(jsonText);
-        }
-        catch (e)
-        {
+        const parsed = MonitorLogic.parseMonitorSettings(jsonText, root.workspacesPerMonitor);
+        if (!parsed)
             return;
-        }
-        if (!parsed || typeof parsed !== "object")
-            return;
-        if (typeof parsed.primary === "string" && parsed.primary !== Globals.primaryMonitorOverride)
+        if (parsed.primary !== null && parsed.primary !== Globals.primaryMonitorOverride)
             Globals.primaryMonitorOverride = parsed.primary;
-        const count = Number(parsed.workspacesPerMonitor);
-        if (!isNaN(count))
-            root.workspacesPerMonitor = root.clampWorkspacesPerMonitor(count, root.workspacesPerMonitor);
+        if (parsed.workspacesPerMonitor !== root.workspacesPerMonitor)
+            root.workspacesPerMonitor = parsed.workspacesPerMonitor;
     }
 
     function saveSettings(): void {

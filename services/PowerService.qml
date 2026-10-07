@@ -14,6 +14,8 @@ Singleton {
     property alias anchorCenterX: idPanelState.anchorCenterX
     readonly property PanelState panelState: idPanelState
 
+    property Item barAnchor: null
+
     property string armedAction: ""
     property string hostName: ""
     property string uptime: ""
@@ -42,6 +44,8 @@ Singleton {
         }
         return false;
     }
+
+    signal barAnchorToggleRequested()
 
     PanelState {
         id: idPanelState
@@ -81,6 +85,28 @@ Singleton {
 
     Process {
         id: idRunProcess
+    }
+
+    IpcHandler {
+        target: "power"
+
+        function toggle(): void {
+            if (root.barAnchor !== null)
+                root.barAnchorToggleRequested();
+        }
+
+        function close(): void {
+            root.closePowerFromOutside();
+        }
+    }
+
+    function registerBarAnchor(trigger) {
+        root.barAnchor = trigger;
+    }
+
+    function unregisterBarAnchor(trigger) {
+        if (root.barAnchor === trigger)
+            root.barAnchor = null;
     }
 
     function togglePowerAt(screen, centerX: real) {

@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
 import qs.services
+import "AudioLogic.js" as AudioLogic
 import "StateParsers.js" as StateParsers
 
 Singleton {
@@ -14,7 +15,7 @@ Singleton {
     property var hiddenKeys: []
     property var orderKeys: []
 
-    readonly property var sinkNodes: root.orderedNodes(root.discoveredSinkNodes)
+    readonly property var sinkNodes: root.orderedNodes(root.discoveredSinkNodes, root.orderKeys)
 
     readonly property var sinks: {
         const out = [];
@@ -60,19 +61,15 @@ Singleton {
     }
 
     function isSinkNode(node): bool {
-        return Boolean(node) && node.isSink && !node.isStream && Boolean(node.audio);
+        return AudioLogic.isSinkNode(node);
     }
 
     function keyFor(node): string {
-        if (!node)
-            return "";
-        return node.name || node.description || node.nickname || String(node.id);
+        return AudioLogic.keyFor(node);
     }
 
     function rawLabelFor(node): string {
-        if (!node)
-            return "";
-        return node.description || node.nickname || node.name || "";
+        return AudioLogic.rawLabelFor(node);
     }
 
     function isHidden(node): bool {
@@ -83,30 +80,8 @@ Singleton {
         return Boolean(node) && Boolean(root.defaultSink) && node.id === root.defaultSink.id;
     }
 
-    function orderedNodes(nodes): var {
-        const order = root.orderKeys;
-        const out = [];
-        for (let i = 0; i < order.length; i++) {
-            for (let j = 0; j < nodes.length; j++) {
-                if (root.keyFor(nodes[j]) === order[i]) {
-                    out.push(nodes[j]);
-                    break;
-                }
-            }
-        }
-        const rest = [];
-        for (let j = 0; j < nodes.length; j++) {
-            if (order.indexOf(root.keyFor(nodes[j])) === -1)
-                rest.push(nodes[j]);
-        }
-        rest.sort((a, b) => {
-            const left = root.rawLabelFor(a).toLowerCase();
-            const right = root.rawLabelFor(b).toLowerCase();
-            return left < right ? -1 : (left > right ? 1 : 0);
-        });
-        for (let j = 0; j < rest.length; j++)
-            out.push(rest[j]);
-        return out;
+    function orderedNodes(nodes, orderKeys): var {
+        return AudioLogic.orderedNodes(nodes, orderKeys);
     }
 
     function setHidden(node, hidden): void {
@@ -148,17 +123,11 @@ Singleton {
     }
 
     function percentForVolume(volume): int {
-        const value = Number(volume);
-        if (isNaN(value))
-            return 0;
-        return Math.round(Math.max(0, Math.min(1, value)) * 100);
+        return AudioLogic.percentForVolume(volume);
     }
 
     function volumeForPercent(percent): real {
-        const value = Number(percent);
-        if (isNaN(value))
-            return 0;
-        return Math.max(0, Math.min(100, value)) / 100;
+        return AudioLogic.volumeForPercent(percent);
     }
 
     function setVolume(node, percent): void {

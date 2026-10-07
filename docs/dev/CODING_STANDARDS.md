@@ -490,6 +490,22 @@ instance; it is the regression gate for the notification toast layer. A `pre-com
 `git config core.hooksPath .githooks`) runs the gate; bypass a single commit with
 `--no-verify`.
 
+### Pure QML logic and its tests
+
+Pure logic (parsing, formatting, ordering, clamping) lives in a `.pragma library`
+JS file beside its service: `services/WeatherLogic.js`, `SpotifyLogic.js`,
+`MprisLogic.js`, `MonitorLogic.js`, `SystemLogic.js`, `AudioLogic.js`, plus the
+shared `services/StateParsers.js` and `services/ThemeParsers.js`. The QML service
+imports it and keeps its public functions as one-line delegates; a binding that
+reads service state passes that state in as an argument so it stays reactive,
+and the delegating call site stays, because the tests assert it.
+
+Its tests run the real file under node through `tests/qmljs.js`, not a Python
+copy of the logic, so a broken shipped file fails the gate. Keep a Python oracle
+only for logic still bound to a QML timer, process, or type that node cannot
+load. `tests/mutation-probe.sh` plants one bug at a time and reports which checks
+catch it; run it by hand, it is not a gate.
+
 Review fanout: default to one spec pass plus one QML pass over the final diff,
 each starting from `git diff` and the ticket rather than re-reading the codebase,
 and verify any shell-semantics claim, and any Qt API claim through `qt-docs`,

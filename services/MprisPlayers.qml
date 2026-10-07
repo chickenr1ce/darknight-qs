@@ -4,12 +4,18 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Mpris
 import qs.services
+import "MprisLogic.js" as MprisLogic
 
 Singleton {
     id: root
 
-    readonly property var browserTokens: ["firefox", "firefox-esr", "waterfox", "floorp", "zen-browser", "chromium", "chrome", "brave", "vivaldi", "opera", "microsoft-edge", "thorium", "ladybird", "epiphany"]
-    readonly property var browserExact: ["zen"]
+    readonly property var loopStates: {
+        const states = {};
+        states["None"] = MprisLoopState.None;
+        states["Track"] = MprisLoopState.Track;
+        states["Playlist"] = MprisLoopState.Playlist;
+        return states;
+    }
     property var apps: ({})
     property int activeIndex: 0
 
@@ -67,13 +73,7 @@ Singleton {
     Component.onCompleted: root.rememberPlayers()
 
     function playerKey(player): string {
-        if (!player)
-            return "";
-        let key = (player.desktopEntry || player.identity || player.dbusName || "").toLowerCase().trim();
-        const instance = key.indexOf(".instance");
-        if (instance !== -1)
-            key = key.slice(0, instance);
-        return key;
+        return MprisLogic.playerKey(player);
     }
 
     function playerLabel(player): string {
@@ -83,15 +83,7 @@ Singleton {
     }
 
     function defaultAllowed(key: string): bool {
-        for (let i = 0; i < root.browserExact.length; i++) {
-            if (key === root.browserExact[i])
-                return false;
-        }
-        for (let i = 0; i < root.browserTokens.length; i++) {
-            if (key.indexOf(root.browserTokens[i]) !== -1)
-                return false;
-        }
-        return true;
+        return MprisLogic.defaultAllowed(key);
     }
 
     function entryFor(player): var {
@@ -159,55 +151,18 @@ Singleton {
     }
 
     function sameApps(a, b): bool {
-        const keys = Object.keys(a);
-        if (keys.length !== Object.keys(b).length)
-            return false;
-        for (let i = 0; i < keys.length; i++) {
-            const key = keys[i];
-            if (!(key in b))
-                return false;
-            if ((a[key].allowed !== false) !== (b[key].allowed !== false))
-                return false;
-            if (a[key].label !== b[key].label)
-                return false;
-        }
-        return true;
+        return MprisLogic.sameApps(a, b);
     }
 
     function parseApps(jsonText: string): var {
-        const out = {};
-        let parsed = null;
-        try {
-            parsed = JSON.parse(jsonText);
-        }
-        catch (e)
-        {
-            return out;
-        }
-        if (!parsed || typeof parsed !== "object" || !parsed.apps || typeof parsed.apps !== "object")
-            return out;
-        const stored = parsed.apps;
-        for (const key in stored) {
-            const entry = stored[key];
-            if (!entry || typeof entry !== "object")
-                continue;
-            const item = {};
-            item["label"] = typeof entry.label === "string" && entry.label !== "" ? entry.label : key;
-            item["allowed"] = entry.allowed !== false;
-            out[key.toLowerCase()] = item;
-        }
-        return out;
+        return MprisLogic.parseApps(jsonText);
     }
 
     function applyApps(jsonText: string): void {
-        const stored = root.parseApps(jsonText);
         const current = root.apps;
-        for (const key in current) {
-            if (!(key in stored))
-                stored[key] = current[key];
-        }
-        if (!root.sameApps(current, stored))
-            root.apps = stored;
+        const merged = MprisLogic.mergeApps(MprisLogic.parseApps(jsonText), current);
+        if (!root.sameApps(current, merged))
+            root.apps = merged;
     }
 
     function saveApps(): void {
@@ -235,11 +190,7 @@ Singleton {
     }
 
     function nextLoopState(current: int): int {
-        if (current === MprisLoopState.Playlist)
-            return MprisLoopState.Track;
-        if (current === MprisLoopState.Track)
-            return MprisLoopState.None;
-        return MprisLoopState.Playlist;
+        return MprisLogic.nextLoopState(current, root.loopStates);
     }
 
     function cycleRepeat(): void {
@@ -257,10 +208,7 @@ Singleton {
     }
 
     function formatTime(seconds: real): string {
-        const total = Math.max(0, Math.floor(Number(seconds) || 0));
-        const minutes = Math.floor(total / 60);
-        const secs = total % 60;
-        return minutes + ":" + (secs < 10 ? "0" : "") + secs;
+        return MprisLogic.formatTime(seconds);
     }
 
     StateFile {
