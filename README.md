@@ -116,6 +116,14 @@ The shell claims `org.freedesktop.Notifications` at startup. Stop `mako` or
 `dunst` and disable its autostart first, or the shell cannot own the bus. The
 installer warns when one holds it.
 
+### Polkit
+
+The shell registers its own polkit authentication agent, so privileged prompts
+are the shell's dialog and no external agent is needed. Stop and disable the
+other agents so the shell is the only one registered. The
+[polkit setup](docs/user/polkit.md) page covers that, the keys the dialog takes,
+and troubleshooting.
+
 ### Themes
 
 On a fresh install with no saved selection, the shell starts on the bundled
