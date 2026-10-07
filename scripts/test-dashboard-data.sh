@@ -219,10 +219,68 @@ grep -q 'function setAllowed' "$MPLAYERS" \
     || fail "MprisPlayers has no setAllowed"
 grep -q 'name: "mpris-players"' "$MPLAYERS" \
     || fail "MprisPlayers does not persist the app filter"
-grep -q 'property var browserTokens' "$MPLAYERS" \
+grep -q 'const BROWSER_TOKENS' "$ROOT/services/MprisLogic.js" \
     || fail "MprisPlayers does not seed the browsers as hidden"
 grep -q 'Mpris.players.values.filter' "$MPLAYERS" \
     || fail "MprisPlayers playerList does not filter by the app filter"
+
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/MprisLogic.js" <<'NODEEOF'
+// MprisLogic.playerKey lowercases and drops a .instance suffix;
+// defaultAllowed hides the browser seed by exact token or substring;
+// parseApps reads the persisted app map; sameApps compares label plus allowed;
+// mergeApps keeps in-memory entries the file does not know; formatTime renders
+// m:ss clamped at zero; nextLoopState cycles None -> Playlist -> Track -> None.
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('dashboard-data');
+const mpris = qmljs.load(process.argv[3]);
+
+const STATES = { None: 0, Track: 1, Playlist: 2 };
+const key = (desktopEntry, identity, dbusName) => mpris.playerKey({ desktopEntry, identity, dbusName });
+check('filter/key-desktop', key('Spotify', 'Spotify', ''), 'spotify');
+check('filter/key-identity', key('', 'Mozilla firefox', ''), 'mozilla firefox');
+check('filter/key-instance', key('', '', 'org.mpris.MediaPlayer2.firefox.instance_1_50'), 'org.mpris.mediaplayer2.firefox');
+check('filter/key-null', mpris.playerKey(null), '');
+
+check('filter/spotify', mpris.defaultAllowed('spotify'), true);
+check('filter/firefox', mpris.defaultAllowed('firefox'), false);
+check('filter/firefox-identity', mpris.defaultAllowed('mozilla firefox'), false);
+check('filter/zen', mpris.defaultAllowed('zen'), false);
+check('filter/zen-partial', mpris.defaultAllowed('citizen'), true);
+check('filter/vlc', mpris.defaultAllowed('vlc'), true);
+
+check('filter/parse-malformed', mpris.parseApps('{ not json'), {});
+check('filter/parse-empty', mpris.parseApps('{"apps": {}}'), {});
+check('filter/parse-label-fallback',
+      mpris.parseApps('{"apps": {"firefox": {"allowed": false}}}')["firefox"],
+      { label: 'firefox', allowed: false });
+check('filter/parse-strict-allowed',
+      mpris.parseApps('{"apps": {"vlc": {"label": "VLC", "allowed": 0}}}')["vlc"]["allowed"], true);
+check('filter/merge-keeps-current',
+      Object.keys(mpris.mergeApps(
+          mpris.parseApps('{"apps": {"firefox": {"label": "Mozilla firefox", "allowed": false}}}'),
+          { spotify: { label: 'Spotify', allowed: true } })).sort(),
+      ['firefox', 'spotify']);
+check('filter/merge-stored-wins',
+      mpris.mergeApps(
+          mpris.parseApps('{"apps": {"firefox": {"label": "Mozilla firefox", "allowed": false}}}'),
+          { firefox: { label: 'old', allowed: true } })["firefox"]["allowed"],
+      false);
+check('filter/same-apps', mpris.sameApps({ a: { label: 'A', allowed: true } }, { a: { label: 'A', allowed: 1 } }), true);
+check('filter/same-apps-allowed', mpris.sameApps({ a: { label: 'A', allowed: false } }, { a: { label: 'A', allowed: true } }), false);
+check('filter/same-apps-label', mpris.sameApps({ a: { label: 'A', allowed: true } }, { a: { label: 'B', allowed: true } }), false);
+check('filter/same-apps-keys', mpris.sameApps({ a: { label: 'A', allowed: true } }, {}), false);
+
+check('repeat/none', mpris.nextLoopState(0, STATES), 2);
+check('repeat/playlist', mpris.nextLoopState(2, STATES), 1);
+check('repeat/track', mpris.nextLoopState(1, STATES), 0);
+check('repeat/cycle', [0, 2, 1].map(v => mpris.nextLoopState(v, STATES)), [2, 1, 0]);
+
+check('time/zero', mpris.formatTime(0), '0:00');
+check('time/seconds', mpris.formatTime(74), '1:14');
+check('time/pad', mpris.formatTime(65), '1:05');
+check('time/negative', mpris.formatTime(-5), '0:00');
+check('time/long', mpris.formatTime(3725), '62:05');
+NODEEOF
 
 PBLOCK="$ROOT/windows/DashboardPlayerBlock.qml"
 grep -q 'MprisPlayers.activePlayer' "$PBLOCK" \
@@ -785,113 +843,6 @@ check("volume/nan", percent_for_volume("nope"), 0)
 check("volume/percent-clamp", volume_for_percent(140), 1.0)
 check("volume/percent-low", volume_for_percent(-10), 0.0)
 check("volume/round-trip", percent_for_volume(volume_for_percent(55)), 55)
-
-# Mirror of MprisPlayers.nextLoopState (services/MprisPlayers.qml):
-# None(0) -> Playlist(2) -> Track(1) -> None.
-def next_loop_state(current):
-    if current == 2:
-        return 1
-    if current == 1:
-        return 0
-    return 2
-
-check("repeat/none", next_loop_state(0), 2)
-check("repeat/playlist", next_loop_state(2), 1)
-check("repeat/track", next_loop_state(1), 0)
-check("repeat/cycle", [next_loop_state(v) for v in (0, 2, 1)], [2, 1, 0])
-
-# Mirror of MprisPlayers.toggleShuffle (services/MprisPlayers.qml): flip the
-# shuffle flag only while the player advertises shuffle support.
-def toggle_shuffle(shuffle, supported):
-    return (not shuffle) if supported else shuffle
-
-check("shuffle/on", toggle_shuffle(False, True), True)
-check("shuffle/off", toggle_shuffle(True, True), False)
-check("shuffle/unsupported", toggle_shuffle(True, False), True)
-
-# Mirror of MprisPlayers.formatTime (services/MprisPlayers.qml): the MPRIS
-# position/length in seconds render as m:ss, clamped at zero.
-def format_time(seconds):
-    total = max(0, math.floor(float(seconds or 0)))
-    return f"{total // 60}:{total % 60:02d}"
-
-check("time/zero", format_time(0), "0:00")
-check("time/seconds", format_time(74), "1:14")
-check("time/pad", format_time(65), "1:05")
-check("time/negative", format_time(-5), "0:00")
-check("time/long", format_time(3725), "62:05")
-
-# Mirror of MprisPlayers.defaultAllowed (services/MprisPlayers.qml): the browser
-# seed hides a known browser key by exact token or substring, everything else
-# stays allowed.
-BROWSER_TOKENS = ["firefox", "firefox-esr", "waterfox", "floorp", "zen-browser",
-                  "chromium", "chrome", "brave", "vivaldi", "opera",
-                  "microsoft-edge", "thorium", "ladybird", "epiphany"]
-BROWSER_EXACT = ["zen"]
-
-def default_allowed(key):
-    if key in BROWSER_EXACT:
-        return False
-    return not any(token in key for token in BROWSER_TOKENS)
-
-check("filter/spotify", default_allowed("spotify"), True)
-check("filter/firefox", default_allowed("firefox"), False)
-check("filter/firefox-identity", default_allowed("mozilla firefox"), False)
-check("filter/zen", default_allowed("zen"), False)
-check("filter/zen-partial", default_allowed("citizen"), True)
-check("filter/vlc", default_allowed("vlc"), True)
-
-# Mirror of MprisPlayers.playerKey/parseApps/applyApps (services/MprisPlayers.qml):
-# keys are lowercased and instance suffixes dropped; a malformed file parses to
-# no entries; a load keeps in-memory entries the file does not know.
-def player_key(desktop_entry, identity, dbus_name):
-    key = (desktop_entry or identity or dbus_name or "").lower().strip()
-    return key.split(".instance")[0]
-
-def parse_apps(text):
-    out = {}
-    try:
-        parsed = json.loads(text)
-    except Exception:
-        return out
-    if not isinstance(parsed, dict) or not isinstance(parsed.get("apps"), dict):
-        return out
-    for key, entry in parsed["apps"].items():
-        if not isinstance(entry, dict):
-            continue
-        label = entry.get("label")
-        out[key.lower()] = {
-            "label": label if isinstance(label, str) and label != "" else key,
-            "allowed": entry.get("allowed") is not False,
-        }
-    return out
-
-def apply_apps(current, text):
-    stored = parse_apps(text)
-    for key, value in current.items():
-        if key not in stored:
-            stored[key] = value
-    return stored
-
-check("filter/key-desktop", player_key("Spotify", "Spotify", ""), "spotify")
-check("filter/key-identity", player_key("", "Mozilla firefox", ""), "mozilla firefox")
-check("filter/key-instance", player_key("", "", "org.mpris.MediaPlayer2.firefox.instance_1_50"),
-      "org.mpris.mediaplayer2.firefox")
-check("filter/parse-malformed", parse_apps("{ not json"), {})
-check("filter/parse-empty", parse_apps('{"apps": {}}'), {})
-check("filter/parse-label-fallback",
-      parse_apps('{"apps": {"firefox": {"allowed": false}}}')["firefox"],
-      {"label": "firefox", "allowed": False})
-check("filter/parse-strict-allowed",
-      parse_apps('{"apps": {"vlc": {"label": "VLC", "allowed": 0}}}')["vlc"]["allowed"], True)
-check("filter/merge-keeps-current",
-      sorted(apply_apps({"spotify": {"label": "Spotify", "allowed": True}},
-                        '{"apps": {"firefox": {"label": "Mozilla firefox", "allowed": false}}}').keys()),
-      ["firefox", "spotify"])
-check("filter/merge-stored-wins",
-      apply_apps({"firefox": {"label": "old", "allowed": True}},
-                 '{"apps": {"firefox": {"label": "Mozilla firefox", "allowed": false}}}')["firefox"]["allowed"],
-      False)
 
 EOF
 
