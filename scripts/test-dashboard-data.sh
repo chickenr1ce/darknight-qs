@@ -267,6 +267,10 @@ grep -q 'function transferTo' "$SSVC" \
     || fail "SpotifyService has no transferTo"
 grep -q 'function parseResponse' "$SSVC" \
     || fail "SpotifyService has no parseResponse"
+grep -q 'import "SpotifyLogic.js" as SpotifyLogic' "$SSVC" \
+    || fail "SpotifyService does not import SpotifyLogic.js"
+grep -q 'SpotifyLogic.parseResponse(text)' "$SSVC" \
+    || fail "SpotifyService.parseResponse does not delegate to SpotifyLogic"
 grep -q '"--play"' "$SSVC" \
     || fail "SpotifyService transfer must ask for playback so the switch takes effect"
 grep -q 'DashboardService.dashboardVisible' "$SSVC" \
@@ -283,6 +287,7 @@ done
 
 # --- 6. weather fetch rides Open-Meteo with a last-good cache plus stale ---
 WSVC="$ROOT/services/WeatherService.qml"
+WLOGIC="$ROOT/services/WeatherLogic.js"
 grep -q 'api.open-meteo.com' "$WSVC" \
     || fail "WeatherService does not fetch Open-Meteo"
 grep -q '"curl"' "$WSVC" \
@@ -333,26 +338,22 @@ grep -q 'function saveCache' "$WSVC" \
     || fail "WeatherService has no saveCache"
 grep -q 'name: "weather.json"' "$WSVC" \
     || fail "WeatherService does not persist a weather.json cache"
-grep -q 'current.temperature_2m' "$WSVC" \
-    || fail "WeatherService does not map the current temperature"
-grep -q 'current.weather_code' "$WSVC" \
-    || fail "WeatherService does not map the weather code"
-grep -q 'precipitation_probability_max' "$WSVC" \
-    || fail "WeatherService does not map the rain probability"
-grep -q 'temperature_2m_max' "$WSVC" \
-    || fail "WeatherService does not map the daily high"
-grep -q 'temperature_2m_min' "$WSVC" \
-    || fail "WeatherService does not map the daily low"
-grep -q 'Icons.weatherCloudy' "$WSVC" \
-    || fail "WeatherService does not map cloudy codes"
-grep -q 'Icons.weatherRainy' "$WSVC" \
-    || fail "WeatherService does not map rainy codes"
-grep -q 'Icons.weatherSnowy' "$WSVC" \
-    || fail "WeatherService does not map snowy codes"
-grep -q 'Icons.weatherStorm' "$WSVC" \
-    || fail "WeatherService does not map storm codes"
-grep -q 'Icons.weatherFog' "$WSVC" \
-    || fail "WeatherService does not map fog codes"
+grep -q 'current.temperature_2m' "$WLOGIC" \
+    || fail "WeatherLogic does not map the current temperature"
+grep -q 'current.weather_code' "$WLOGIC" \
+    || fail "WeatherLogic does not map the weather code"
+grep -q 'precipitation_probability_max' "$WLOGIC" \
+    || fail "WeatherLogic does not map the rain probability"
+grep -q 'temperature_2m_max' "$WLOGIC" \
+    || fail "WeatherLogic does not map the daily high"
+grep -q 'temperature_2m_min' "$WLOGIC" \
+    || fail "WeatherLogic does not map the daily low"
+grep -q 'import "WeatherLogic.js" as WeatherLogic' "$WSVC" \
+    || fail "WeatherService does not import WeatherLogic.js"
+grep -q 'Icons\[WeatherLogic.glyphKeyFor' "$WSVC" \
+    || fail "WeatherService.glyphFor does not map through WeatherLogic.glyphKeyFor"
+grep -q 'WeatherLogic.isStale(nowMs, fetchedAtMs, failed, root.staleAfterMs)' "$WSVC" \
+    || fail "WeatherService.isStale does not pass the service stale threshold"
 grep -q '^import qs.services' "$WSVC" \
     || fail "WeatherService.qml is missing its qs.services self-import"
 grep -q 'geocoding-api.open-meteo.com' "$WSVC" \
@@ -892,180 +893,73 @@ check("filter/merge-stored-wins",
                  '{"apps": {"firefox": {"label": "Mozilla firefox", "allowed": false}}}')["firefox"]["allowed"],
       False)
 
-# Mirror of SpotifyService.parseResponse (services/SpotifyService.qml): the
-# backend prints one JSON object per call; ok gates the payload and a bad
-# stream falls back to an empty state instead of throwing.
-def parse_response(text):
-    out = {"ok": False, "error": "", "message": "", "devices": [], "activeId": ""}
-    try:
-        parsed = json.loads(text)
-    except Exception:
-        return out
-    if parsed is None or not isinstance(parsed, (dict, list)):
-        return out
-    if isinstance(parsed, dict):
-        out["ok"] = parsed.get("ok") is True
-        out["error"] = parsed.get("error") or ""
-        out["activeId"] = parsed.get("activeId") or ""
-        devices = parsed.get("devices")
-        out["devices"] = devices if isinstance(devices, list) else []
-    return out
-
-ok = parse_response('{"ok": true, "activeId": "d1", "devices": [{"id": "d1", "name": "PC"}]}')
-check("spotify/ok", ok["ok"], True)
-check("spotify/devices", ok["devices"], [{"id": "d1", "name": "PC"}])
-check("spotify/active", ok["activeId"], "d1")
-check("spotify/auth-missing", parse_response('{"ok": false, "error": "auth_missing"}')["error"], "auth_missing")
-check("spotify/garbage", parse_response("{nope")["ok"], False)
-check("spotify/devices-not-list", parse_response('{"ok": true, "devices": "x"}')["devices"], [])
-check("spotify/null", parse_response("null")["ok"], False)
-# Mirror of WeatherService.parseWeather (services/WeatherService.qml): the
-# Open-Meteo current block is required, the daily high/low plus rain
-# probability fall back to the current temperature and unknown.
-def parse_weather(text):
-    try:
-        parsed = json.loads(text)
-    except Exception:
-        return None
-    if not isinstance(parsed, dict):
-        return None
-    current = parsed.get("current")
-    if not isinstance(current, dict):
-        return None
-    try:
-        temperature = float(current.get("temperature_2m"))
-        code = round(float(current.get("weather_code")))
-    except (TypeError, ValueError):
-        return None
-    if math.isnan(temperature) or math.isnan(code):
-        return None
-    high = temperature
-    low = temperature
-    precip = -1
-    daily = parsed.get("daily")
-    if isinstance(daily, dict):
-        maxima = daily.get("temperature_2m_max")
-        if isinstance(maxima, list) and len(maxima) > 0:
-            try:
-                value = float(maxima[0])
-                if not math.isnan(value):
-                    high = value
-            except (TypeError, ValueError):
-                pass
-        minima = daily.get("temperature_2m_min")
-        if isinstance(minima, list) and len(minima) > 0:
-            try:
-                value = float(minima[0])
-                if not math.isnan(value):
-                    low = value
-            except (TypeError, ValueError):
-                pass
-        probs = daily.get("precipitation_probability_max")
-        if isinstance(probs, list) and len(probs) > 0:
-            try:
-                value = float(probs[0])
-                if not math.isnan(value):
-                    precip = value
-            except (TypeError, ValueError):
-                pass
-    return {"temperatureC": temperature, "weatherCode": code, "precipProb": precip, "highC": high, "lowC": low}
-
-weather_fixture = open(sys.argv[2]).read()
-check("weather/fixture", parse_weather(weather_fixture), {"temperatureC": 15.2, "weatherCode": 2, "precipProb": 10.0, "highC": 19.1, "lowC": 11.3})
-check("weather/malformed", parse_weather("{nope"), None)
-check("weather/not-object", parse_weather("[1, 2]"), None)
-check("weather/missing-current", parse_weather('{"daily": {}}'), None)
-check("weather/bad-temp", parse_weather('{"current": {"temperature_2m": "warm", "weather_code": 2}}'), None)
-check("weather/bad-code", parse_weather('{"current": {"temperature_2m": 15.2}}'), None)
-check("weather/no-daily", parse_weather('{"current": {"temperature_2m": 15.2, "weather_code": 0}}'), {"temperatureC": 15.2, "weatherCode": 0, "precipProb": -1, "highC": 15.2, "lowC": 15.2})
-
-# Mirror of WeatherService.formatTemp (services/WeatherService.qml): whole
-# degrees plus a degree sign, empty when the reading is missing.
-def format_temp(celsius):
-    try:
-        value = float(celsius)
-    except (TypeError, ValueError):
-        return ""
-    if math.isnan(value):
-        return ""
-    return f"{js_round(value)}°"
-
-check("temp/fixture", format_temp(15.2), "15°")
-check("temp/rounds", format_temp(-2.6), "-3°")
-check("temp/zero", format_temp(0), "0°")
-check("temp/missing", format_temp(float("nan")), "")
-
-# Mirror of WeatherService.formatPrecip (services/WeatherService.qml):
-# percent clamped to 0..100, empty while unknown (negative).
-def format_precip(percent):
-    try:
-        value = float(percent)
-    except (TypeError, ValueError):
-        return ""
-    if math.isnan(value) or value < 0:
-        return ""
-    return f"{js_round(max(0.0, min(100.0, value)))}%"
-
-check("precip/fixture", format_precip(10), "10%")
-check("precip/zero", format_precip(0), "0%")
-check("precip/clamp", format_precip(140), "100%")
-check("precip/unknown", format_precip(-1), "")
-check("precip/bad", format_precip("damp"), "")
-
-# Mirror of WeatherService.glyphFor (services/WeatherService.qml): WMO
-# weather codes bucketed onto the six Icons.qml weather glyphs.
-def glyph_for(code):
-    try:
-        c = round(float(code))
-    except (TypeError, ValueError):
-        return "cloudy"
-    if c in (0, 1):
-        return "sunny"
-    if c in (2, 3):
-        return "cloudy"
-    if c in (45, 48):
-        return "fog"
-    if (51 <= c <= 57) or (61 <= c <= 67) or (80 <= c <= 82):
-        return "rainy"
-    if (71 <= c <= 77) or c in (85, 86):
-        return "snowy"
-    if 95 <= c <= 99:
-        return "storm"
-    if c < 0:
-        return "sunny"
-    return "cloudy"
-
-check("glyph/clear", glyph_for(0), "sunny")
-check("glyph/mainly-clear", glyph_for(1), "sunny")
-check("glyph/partly-cloudy", glyph_for(2), "cloudy")
-check("glyph/overcast", glyph_for(3), "cloudy")
-check("glyph/fog", glyph_for(45), "fog")
-check("glyph/rime-fog", glyph_for(48), "fog")
-check("glyph/drizzle", glyph_for(53), "rainy")
-check("glyph/rain", glyph_for(63), "rainy")
-check("glyph/showers", glyph_for(81), "rainy")
-check("glyph/snow", glyph_for(73), "snowy")
-check("glyph/snow-showers", glyph_for(85), "snowy")
-check("glyph/storm", glyph_for(95), "storm")
-check("glyph/hail-storm", glyph_for(99), "storm")
-check("glyph/missing", glyph_for(-1), "sunny")
-
-# Mirror of WeatherService.isStale (services/WeatherService.qml): a failed
-# poll reads stale at once, otherwise the cache lapses after 60 minutes.
-STALE_AFTER_MS = 60 * 60 * 1000
-
-def is_stale(now_ms, fetched_at_ms, failed):
-    if failed:
-        return True
-    if not (fetched_at_ms > 0):
-        return False
-    return (now_ms - fetched_at_ms) > STALE_AFTER_MS
-
-NOW = 1800000000000
-check("stale/failed", is_stale(NOW, NOW, True), True)
-check("stale/never", is_stale(NOW, 0, False), False)
-check("stale/fresh", is_stale(NOW, NOW - 30 * 60 * 1000, False), False)
-check("stale/old", is_stale(NOW, NOW - 61 * 60 * 1000, False), True)
 EOF
+
+# --- 7b. weather plus spotify pure logic: node runs of the shipped modules ---
+# WeatherService and SpotifyService delegate to WeatherLogic.js and
+# SpotifyLogic.js; the real modules load under node through tests/qmljs.js,
+# so these cases fail on broken shipped code instead of a Python copy.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/WeatherLogic.js" "$ROOT/services/SpotifyLogic.js" "$ROOT/tests/fixtures/open-meteo-forecast.json" <<'NODEEOF'
+const fs = require('fs');
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('dashboard-data');
+const wl = qmljs.load(process.argv[3]);
+const sp = qmljs.load(process.argv[4]);
+
+const weatherFixture = fs.readFileSync(process.argv[5], 'utf8');
+check('weather/fixture', wl.parseWeather(weatherFixture),
+      { temperatureC: 15.2, weatherCode: 2, precipProb: 10.0, highC: 19.1, lowC: 11.3 });
+check('weather/malformed', wl.parseWeather('{nope'), null);
+check('weather/not-object', wl.parseWeather('[1, 2]'), null);
+check('weather/missing-current', wl.parseWeather('{"daily": {}}'), null);
+check('weather/bad-temp', wl.parseWeather('{"current": {"temperature_2m": "warm", "weather_code": 2}}'), null);
+check('weather/bad-code', wl.parseWeather('{"current": {"temperature_2m": 15.2}}'), null);
+check('weather/no-daily', wl.parseWeather('{"current": {"temperature_2m": 15.2, "weather_code": 0}}'),
+      { temperatureC: 15.2, weatherCode: 0, precipProb: -1, highC: 15.2, lowC: 15.2 });
+
+check('temp/fixture', wl.formatTemp(15.2), '15°');
+check('temp/rounds', wl.formatTemp(-2.6), '-3°');
+check('temp/rounds-up', wl.formatTemp(15.7), '16°');
+check('temp/zero', wl.formatTemp(0), '0°');
+check('temp/missing', wl.formatTemp(NaN), '');
+
+check('precip/fixture', wl.formatPrecip(10), '10%');
+check('precip/zero', wl.formatPrecip(0), '0%');
+check('precip/clamp', wl.formatPrecip(140), '100%');
+check('precip/unknown', wl.formatPrecip(-1), '');
+check('precip/bad', wl.formatPrecip('damp'), '');
+
+check('glyph/clear', wl.glyphKeyFor(0), 'weatherSunny');
+check('glyph/mainly-clear', wl.glyphKeyFor(1), 'weatherSunny');
+check('glyph/partly-cloudy', wl.glyphKeyFor(2), 'weatherCloudy');
+check('glyph/overcast', wl.glyphKeyFor(3), 'weatherCloudy');
+check('glyph/fog', wl.glyphKeyFor(45), 'weatherFog');
+check('glyph/rime-fog', wl.glyphKeyFor(48), 'weatherFog');
+check('glyph/drizzle', wl.glyphKeyFor(53), 'weatherRainy');
+check('glyph/rain', wl.glyphKeyFor(63), 'weatherRainy');
+check('glyph/showers', wl.glyphKeyFor(81), 'weatherRainy');
+check('glyph/snow', wl.glyphKeyFor(73), 'weatherSnowy');
+check('glyph/snow-showers', wl.glyphKeyFor(85), 'weatherSnowy');
+check('glyph/storm', wl.glyphKeyFor(95), 'weatherStorm');
+check('glyph/hail-storm', wl.glyphKeyFor(99), 'weatherStorm');
+check('glyph/missing', wl.glyphKeyFor(-1), 'weatherSunny');
+
+const STALE_AFTER_MS = 60 * 60 * 1000;
+const NOW = 1800000000000;
+check('stale/failed', wl.isStale(NOW, NOW, true, STALE_AFTER_MS), true);
+check('stale/never', wl.isStale(NOW, 0, false, STALE_AFTER_MS), false);
+check('stale/fresh', wl.isStale(NOW, NOW - 30 * 60 * 1000, false, STALE_AFTER_MS), false);
+check('stale/old', wl.isStale(NOW, NOW - 61 * 60 * 1000, false, STALE_AFTER_MS), true);
+
+const ok = sp.parseResponse('{"ok": true, "activeId": "d1", "devices": [{"id": "d1", "name": "PC"}]}');
+check('spotify/ok', ok.ok, true);
+check('spotify/devices', ok.devices, [{ id: 'd1', name: 'PC' }]);
+check('spotify/active', ok.activeId, 'd1');
+check('spotify/auth-missing', sp.parseResponse('{"ok": false, "error": "auth_missing"}').error, 'auth_missing');
+check('spotify/garbage', sp.parseResponse('{nope').ok, false);
+check('spotify/devices-not-list', sp.parseResponse('{"ok": true, "devices": "x"}').devices, []);
+check('spotify/null', sp.parseResponse('null').ok, false);
+check('spotify/truthy-not-true', sp.parseResponse('{"ok": 1}').ok, false);
+NODEEOF
 
 echo "dashboard-data: all ok"

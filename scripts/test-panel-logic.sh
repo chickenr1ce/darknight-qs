@@ -1254,79 +1254,29 @@ if grep -rn --include='*.qml' 'includes(root.filter' "$ROOT/windows" "$ROOT/serv
 fi
 
 # Zones plus feeds persist through the CalendarService state files; the parse
-# validation is unchanged. The Python block mirrors the WeatherService location
-# parsers; StateParsers runs under node after it.
-python3 - <<'EOF'
-import json
-import math
-import re
-import sys
+# validation is unchanged. WeatherService delegates its location parsers to
+# WeatherLogic.js, which runs under node here; StateParsers follows.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/WeatherLogic.js" <<'NODEEOF'
+// WeatherLogic.parseLocations: geocoding results map to name plus label plus
+// coordinates, capped at 5, dropping blank names and out-of-range coordinates.
+// isValidLocation is the validation applyLocation runs on a saved city.
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const wl = qmljs.load(process.argv[3]);
 
-def check(name, got, want):
-    if got != want:
-        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
-        sys.exit(1)
+const GEOCODE = '{"results": [{"name": "Berlin", "admin1": "Berlin", "country": "Germany", "latitude": 52.52, "longitude": 13.41}, {"name": "", "latitude": 0, "longitude": 0}, {"name": "Nowhere", "latitude": 91, "longitude": 0}]}';
+check('locations/fixture', wl.parseLocations(GEOCODE),
+      [{ name: 'Berlin', label: 'Berlin, Berlin (Germany)', latitude: 52.52, longitude: 13.41 }]);
+check('locations/malformed', wl.parseLocations('{nope'), []);
+check('locations/no-results', wl.parseLocations('{"results": []}'), []);
+check('locations/missing-results', wl.parseLocations('{}'), []);
 
-# Mirror of WeatherService.parseLocations (services/WeatherService.qml):
-# the geocoding results map to name plus label plus coordinates, capped at
-# 5, with blank names and out-of-range coordinates dropped.
-def parse_locations(text, cap=5):
-    try:
-        parsed = json.loads(text)
-    except Exception:
-        return []
-    if not isinstance(parsed, dict) or not isinstance(parsed.get("results"), list):
-        return []
-    out = []
-    for entry in parsed["results"]:
-        if len(out) >= cap:
-            break
-        if not isinstance(entry, dict):
-            continue
-        name = str(entry.get("name") or "").strip()
-        try:
-            latitude = float(entry.get("latitude"))
-            longitude = float(entry.get("longitude"))
-        except (TypeError, ValueError):
-            continue
-        if name == "" or math.isnan(latitude) or math.isnan(longitude):
-            continue
-        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
-            continue
-        region = str(entry.get("admin1") or "").strip()
-        country = str(entry.get("country") or "").strip()
-        label = name + (", " + region if region != "" else "") + (f" ({country})" if country != "" else "")
-        out.append({"name": name, "label": label, "latitude": latitude, "longitude": longitude})
-    return out
-
-GEOCODE = '{"results": [{"name": "Berlin", "admin1": "Berlin", "country": "Germany", "latitude": 52.52, "longitude": 13.41}, {"name": "", "latitude": 0, "longitude": 0}, {"name": "Nowhere", "latitude": 91, "longitude": 0}]}'
-
-check("locations/fixture", parse_locations(GEOCODE), [{"name": "Berlin", "label": "Berlin, Berlin (Germany)", "latitude": 52.52, "longitude": 13.41}])
-check("locations/malformed", parse_locations("{nope"), [])
-check("locations/no-results", parse_locations('{"results": []}'), [])
-check("locations/missing-results", parse_locations('{}'), [])
-
-# Mirror of WeatherService.applyLocation validation: a saved city needs a
-# name plus in-range coordinates, otherwise the live location is untouched.
-def apply_location_valid(payload):
-    if not isinstance(payload, dict):
-        return False
-    name = str(payload.get("name") or "").strip()
-    try:
-        latitude = float(payload.get("latitude"))
-        longitude = float(payload.get("longitude"))
-    except (TypeError, ValueError):
-        return False
-    if name == "" or math.isnan(latitude) or math.isnan(longitude):
-        return False
-    return -90 <= latitude <= 90 and -180 <= longitude <= 180
-
-check("location/valid", apply_location_valid({"name": "Paris", "latitude": 48.85, "longitude": 2.35}), True)
-check("location/blank-name", apply_location_valid({"name": "  ", "latitude": 48.85, "longitude": 2.35}), False)
-check("location/bad-lat", apply_location_valid({"name": "Paris", "latitude": 91, "longitude": 2.35}), False)
-check("location/bad-lon", apply_location_valid({"name": "Paris", "latitude": 48.85, "longitude": 200}), False)
-check("location/malformed", apply_location_valid({"name": "Paris"}), False)
-EOF
+check('location/valid', wl.isValidLocation({ name: 'Paris', latitude: 48.85, longitude: 2.35 }), true);
+check('location/blank-name', wl.isValidLocation({ name: '  ', latitude: 48.85, longitude: 2.35 }), false);
+check('location/bad-lat', wl.isValidLocation({ name: 'Paris', latitude: 91, longitude: 2.35 }), false);
+check('location/bad-lon', wl.isValidLocation({ name: 'Paris', latitude: 48.85, longitude: 200 }), false);
+check('location/malformed', wl.isValidLocation({ name: 'Paris' }), false);
+NODEEOF
 
 node - "$ROOT/tests/qmljs.js" "$ROOT/services/StateParsers.js" <<'NODEEOF'
 // StateParsers.parseZones: trim, reject names failing the regex, drop
