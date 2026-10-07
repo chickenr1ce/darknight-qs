@@ -47,7 +47,7 @@ is named by ADR 0013, so moving its comparator needs care and is left out.
 The claim is that tests stop passing over broken code. Speed is not the
 claim, and the migration will not make the suite faster.
 
-**Baseline, 2026-10-07** (`mutation-probe.sh` in this folder plants one
+**Baseline, 2026-10-07** (`tests/mutation-probe.sh` plants one
 bug at a time in a repo copy and runs both logic scripts):
 
 | Mutant (shipped code) | Caught today |

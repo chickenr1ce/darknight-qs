@@ -37,7 +37,7 @@ plain objects under node.
 
 ## Measurement
 
-- [x] `../mutation-probe.sh <repo>` reports `caught` for: the `AudioService.percentForVolume` and `BarVisibilityService.parseVisibility` mutants. Retarget a mutant at its new `*Logic.js` file when the function moves; add the test case it needs if the moved mirror cases do not expose it.
+- [x] `tests/mutation-probe.sh <repo>` reports `caught` for: the `AudioService.percentForVolume` and `BarVisibilityService.parseVisibility` mutants. Retarget a mutant at its new `*Logic.js` file when the function moves; add the test case it needs if the moved mirror cases do not expose it.
 - [x] `test-panel-logic.sh` plus `test-dashboard-data.sh` stay under 2.6 s combined (baseline 2.24 s); the commit message records the before and after probe result and timing.
 
 ## Amendments

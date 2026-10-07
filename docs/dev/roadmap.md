@@ -5,7 +5,7 @@ Planned work that is not done yet. Completed plan artifacts are frozen under
 work are in `docs/adr/`; domain terms in `CONTEXT.md`; coding rules in
 `docs/dev/CODING_STANDARDS.md`.
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-07.
 
 ## Open
 
@@ -16,6 +16,16 @@ run never happened. Source: the `Variants` block in `shell.qml`. Done when each
 output is unplugged and replugged, the bar recreates with no errors, and the
 date is recorded.
 
+### Persisted-settings schema
+
+Cava was the last service saving before its state file had loaded; the guard is
+uniform now. Decide whether `StateFile` should own a schema
+(`{ key: { default, clamp } }`) or a `saveJson` helper, or stay as it is. The
+services parse differently (`MprisPlayers` merges stored and live entries,
+`BarVisibilityService` accepts only `false`, `StateParsers.parseAudioSettings`
+filters two lists, Calendar writes newline lists), so a schema needs per-service
+parse hooks — worth it only if it earns the depth.
+
 ## Candidate
 
 Build only if it earns daily use.
@@ -25,6 +35,11 @@ Build only if it earns daily use.
 
 ## Done
 
+- Logic tests run the shipped code: pure parsing, formatting and ordering moved
+  into per-service `.pragma library` modules (`services/*Logic.js`, see
+  `CONTEXT.md`), tested under node through `tests/qmljs.js` instead of Python
+  copies. `tests/mutation-probe.sh` catches 15 planted bugs, up from 0; the Cava
+  settings save waits for the state file to load like the rest.
 - Displays: turn an output off or back on from Settings → Monitors through
   `hyprctl eval` plus the Lua `hl.monitor` API, with the last display guarded.
   ADR 0016.
