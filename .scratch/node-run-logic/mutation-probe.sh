@@ -20,8 +20,8 @@ mutants=(
 "services/MonitorService.qml|return Math.max(1, Math.min(20, count));|return Math.max(1, Math.min(30, count));|Monitor.clamp max 30"
 "services/SystemMonitor.qml|const iface = lines[i].slice(0, colon).trim();|const iface = lines[i].slice(0, colon);|SystemMonitor.parseNetSample untrimmed iface"
 "services/SystemInfo.qml|return (count / 1000).toFixed(1) + \"k\";|return (count / 1000).toFixed(0) + \"k\";|SystemInfo.formatPackages precision"
-"services/AudioService.qml|return Math.round(Math.max(0, Math.min(1, value)) * 100);|return Math.floor(Math.max(0, Math.min(1, value)) * 100);|Audio.percentForVolume round→floor"
-"services/BarVisibilityService.qml|if (parsed[key] === false)|if (!parsed[key])|BarVisibility.parseVisibility falsy hides"
+"services/AudioLogic.js|return Math.round(Math.max(0, Math.min(1, value)) * 100);|return Math.floor(Math.max(0, Math.min(1, value)) * 100);|Audio.percentForVolume round→floor"
+"services/StateParsers.js|if (parsed[key] === false)|if (!parsed[key])|BarVisibility.parseVisibility falsy hides"
 "services/StateParsers.js|return Math.max(range[0], Math.min(range[1], n));|return Math.max(range[0], n);|StateParsers.parseCavaSettings no upper clamp"
 "services/ThemeParsers.js|function isValidThemeName(name) {|function isValidThemeName(name) { return typeof name === \"string\" \&\& name !== \"\";|ThemeParsers.isValidThemeName accepts all (node-tested control)"
 )

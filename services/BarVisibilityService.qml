@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import qs.services
+import "StateParsers.js" as StateParsers
 
 Singleton {
     id: root
@@ -42,13 +43,6 @@ Singleton {
         return false;
     }
 
-    function defaultVisibility(): var {
-        const out = {};
-        for (let i = 0; i < root.modules.length; i++)
-            out[root.modules[i].key] = true;
-        return out;
-    }
-
     function isVisible(key: string): bool {
         return !(root.moduleVisible[key] === false);
     }
@@ -63,24 +57,10 @@ Singleton {
     }
 
     function parseVisibility(jsonText: string): var {
-        const out = root.defaultVisibility();
-        let parsed = null;
-        try
-        {
-            parsed = JSON.parse(jsonText);
-        }
-        catch (e)
-        {
-            return out;
-        }
-        if (!parsed || !(typeof parsed === "object"))
-            return out;
-        for (let i = 0; i < root.modules.length; i++) {
-            const key = root.modules[i].key;
-            if (parsed[key] === false)
-                out[key] = false;
-        }
-        return out;
+        const keys = [];
+        for (let i = 0; i < root.modules.length; i++)
+            keys.push(root.modules[i].key);
+        return StateParsers.parseVisibility(jsonText, keys);
     }
 
     function applyVisibility(jsonText: string): void {

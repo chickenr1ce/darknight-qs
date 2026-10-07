@@ -166,8 +166,8 @@ grep -q 'Pipewire.nodes.values' "$ASVC" \
     || fail "AudioService does not enumerate pipewire nodes"
 grep -q 'function isSinkNode' "$ASVC" \
     || fail "AudioService has no isSinkNode filter"
-grep -q 'node.isSink && !node.isStream' "$ASVC" \
-    || fail "AudioService keeps streams or sources in the sink list"
+grep -q 'AudioLogic.isSinkNode' "$ASVC" \
+    || fail "AudioService does not delegate the sink filter to AudioLogic"
 grep -q 'function keyFor' "$ASVC" \
     || fail "AudioService has no stable output key"
 grep -q 'function rawLabelFor' "$ASVC" \
@@ -700,90 +700,70 @@ check("format/rate-mb", format_rate(1572864), "1.5 MB/s")
 check("format/rate-kb", format_rate(2048), "2 KB/s")
 check("format/rate-b", format_rate(700), "700 B/s")
 
-# Mirror of AudioService output discovery (services/AudioService.qml): every
-# real sink is discovered at runtime, then a saved order and hidden set curate
-# it. A saved key orders first; outputs the user has not seen append after it
-# sorted by label, so a fresh install lists its own hardware.
-def is_sink_node(node):
-    return bool(node) and node.get("isSink", False) and not node.get("isStream", False) and node.get("audio") is not None
+EOF
 
-def key_for(node):
-    if not node:
-        return ""
-    return node.get("name") or node.get("description") or node.get("nickname") or str(node.get("id"))
+# AudioLogic mirrors the AudioService discovery pipeline: every real sink
+# (isSink, not a stream, non-null audio) is discovered, then a saved order
+# puts known keys first and the rest sort by label; hidden keys drop out.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/AudioLogic.js" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('dashboard-data');
+const al = qmljs.load(process.argv[3]);
 
-def raw_label_for(node):
-    if not node:
-        return ""
-    return node.get("description") or node.get("nickname") or node.get("name") or ""
+const HDMI = { isSink: true, isStream: false, audio: {}, description: 'Navi 48 HDMI/DP Audio Controller Digital Stereo (HDMI) [LG ULTRAGEAR]', name: 'alsa_output.pci-0000_28_00.1.hdmi-stereo' };
+const EASY = { isSink: true, isStream: false, audio: {}, description: 'Easy Effects Sink', name: 'easyeffects_sink' };
+const JADE = { isSink: true, isStream: false, audio: {}, description: 'JadeAudio JIEZI Analog Stereo', name: 'alsa_output.usb-JadeAudio_JIEZI-00.analog-stereo' };
+const PEBBLE = { isSink: true, isStream: false, audio: {}, description: 'Pebble V3 Analog Stereo', name: 'alsa_output.usb-Creative_Pebble_V3-00.analog-stereo' };
 
-def ordered_nodes(nodes, order):
-    out = []
-    for key in order:
-        for node in nodes:
-            if key_for(node) == key:
-                out.append(node)
-                break
-    rest = [node for node in nodes if key_for(node) not in order]
-    rest.sort(key=lambda node: raw_label_for(node).lower())
-    out.extend(rest)
-    return out
+check('sink/real', al.isSinkNode({ isSink: true, isStream: false, audio: {} }), true);
+check('sink/stream', al.isSinkNode({ isSink: true, isStream: true, audio: {} }), false);
+check('sink/source', al.isSinkNode({ isSink: false, isStream: false, audio: {} }), false);
+check('sink/no-audio', al.isSinkNode({ isSink: true, isStream: false, audio: null }), false);
+check('sink/key-prefers-name', al.keyFor(PEBBLE), PEBBLE.name);
+check('sink/key-falls-back', al.keyFor({ description: 'Fallback', id: 7 }), 'Fallback');
 
-def visible_sinks(nodes, hidden=None, order=None):
-    hidden = hidden or []
-    order = order or []
-    out = []
-    real = [node for node in nodes if is_sink_node(node)]
-    for node in ordered_nodes(real, order):
-        key = key_for(node)
-        if key in hidden:
-            continue
-        out.append({"key": key, "label": raw_label_for(node)})
-    return out
+// The service composes discovery + ordering + the hidden filter into sinks.
+function visibleSinks(nodes, hidden, order) {
+    hidden = hidden || [];
+    order = order || [];
+    const out = [];
+    const ordered = al.orderedNodes(nodes.filter(al.isSinkNode), order);
+    for (let i = 0; i < ordered.length; i++) {
+        const key = al.keyFor(ordered[i]);
+        if (hidden.indexOf(key) !== -1)
+            continue;
+        out.push({ key: key, label: al.rawLabelFor(ordered[i]) });
+    }
+    return out;
+}
+check('sink/discover-all', visibleSinks([PEBBLE, HDMI, JADE]).map(s => s.label), [JADE.description, HDMI.description, PEBBLE.description]);
+check('sink/hidden-drops', visibleSinks([JADE, EASY, PEBBLE], [al.keyFor(EASY)]).map(s => s.key), [al.keyFor(JADE), al.keyFor(PEBBLE)]);
+check('sink/saved-order', visibleSinks([JADE, PEBBLE, HDMI], [], [al.keyFor(PEBBLE), al.keyFor(JADE)]).map(s => s.key), [al.keyFor(PEBBLE), al.keyFor(JADE), al.keyFor(HDMI)]);
+check('sink/drops-non-sinks', visibleSinks([{ isSink: false, isStream: false, audio: {}, name: 'mic' }]), []);
 
-HDMI = {"isSink": True, "isStream": False, "audio": {}, "description": "Navi 48 HDMI/DP Audio Controller Digital Stereo (HDMI) [LG ULTRAGEAR]", "name": "alsa_output.pci-0000_28_00.1.hdmi-stereo"}
-EASY = {"isSink": True, "isStream": False, "audio": {}, "description": "Easy Effects Sink", "name": "easyeffects_sink"}
-JADE = {"isSink": True, "isStream": False, "audio": {}, "description": "JadeAudio JIEZI Analog Stereo", "name": "alsa_output.usb-JadeAudio_JIEZI-00.analog-stereo"}
-AB13X = {"isSink": True, "isStream": False, "audio": {}, "description": "AB13X Headset Adapter Analog Stereo", "name": "alsa_output.usb-AB13X-00.analog-stereo"}
-PEBBLE = {"isSink": True, "isStream": False, "audio": {}, "description": "Pebble V3 Analog Stereo", "name": "alsa_output.usb-Creative_Pebble_V3-00.analog-stereo"}
+check('volume/round-half-up', al.percentForVolume(0.555), 56);
+check('volume/clamp-high', al.percentForVolume(1.4), 100);
+check('volume/clamp-low', al.percentForVolume(-0.2), 0);
+check('volume/nan', al.percentForVolume('nope'), 0);
+check('volume/percent-clamp', al.volumeForPercent(140), 1.0);
+check('volume/percent-low', al.volumeForPercent(-10), 0.0);
+check('volume/round-trip', al.percentForVolume(al.volumeForPercent(55)), 55);
+NODEEOF
 
-check("sink/real", is_sink_node({"isSink": True, "isStream": False, "audio": {}}), True)
-check("sink/stream", is_sink_node({"isSink": True, "isStream": True, "audio": {}}), False)
-check("sink/source", is_sink_node({"isSink": False, "isStream": False, "audio": {}}), False)
-check("sink/no-audio", is_sink_node({"isSink": True, "isStream": False, "audio": None}), False)
-check("sink/key-prefers-name", key_for(PEBBLE), PEBBLE["name"])
-check("sink/key-falls-back", key_for({"description": "Fallback", "id": 7}), "Fallback")
-check("sink/discover-all", [s["label"] for s in visible_sinks([PEBBLE, HDMI, JADE])], [JADE["description"], HDMI["description"], PEBBLE["description"]])
-check("sink/hidden-drops", [s["key"] for s in visible_sinks([JADE, EASY, PEBBLE], hidden=[key_for(EASY)])], [key_for(JADE), key_for(PEBBLE)])
-check("sink/saved-order", [s["key"] for s in visible_sinks([JADE, PEBBLE, HDMI], order=[key_for(PEBBLE), key_for(JADE)])], [key_for(PEBBLE), key_for(JADE), key_for(HDMI)])
-check("sink/drops-non-sinks", visible_sinks([{"isSink": False, "isStream": False, "audio": {}, "name": "mic"}]), [])
+python3 - "$ROOT/tests/fixtures/fastfetch-summary.json" "$ROOT/tests/fixtures/open-meteo-forecast.json" <<'EOF'
+import json
+import math
+import sys
 
-# Mirror of AudioService.percentForVolume plus volumeForPercent.
-def percent_for_volume(volume):
-    try:
-        value = float(volume)
-    except (TypeError, ValueError):
-        return 0
-    if math.isnan(value):
-        return 0
-    return js_round(max(0.0, min(1.0, value)) * 100)
+def check(name, got, want):
+    if got != want:
+        print(f"dashboard-data FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
+        sys.exit(1)
 
-def volume_for_percent(percent):
-    try:
-        value = float(percent)
-    except (TypeError, ValueError):
-        return 0
-    if math.isnan(value):
-        return 0
-    return max(0.0, min(100.0, value)) / 100
+def js_round(value):
+    return math.floor(value + 0.5)
 
-check("volume/round-half-up", percent_for_volume(0.555), 56)
-check("volume/clamp-high", percent_for_volume(1.4), 100)
-check("volume/clamp-low", percent_for_volume(-0.2), 0)
-check("volume/nan", percent_for_volume("nope"), 0)
-check("volume/percent-clamp", volume_for_percent(140), 1.0)
-check("volume/percent-low", volume_for_percent(-10), 0.0)
-check("volume/round-trip", percent_for_volume(volume_for_percent(55)), 55)
+
 
 # Mirror of MprisPlayers.nextLoopState (services/MprisPlayers.qml):
 # None(0) -> Playlist(2) -> Track(1) -> None.
