@@ -6,7 +6,9 @@
 # retarget it at the new file when the ticket moves that function.
 set -u
 src="$1"
-work="${TMPDIR:-/tmp}/qs-mutation-probe"
+# Unique per process: two probes running at once must not overwrite each
+# other's repo copy.
+work="$(mktemp -d "${TMPDIR:-/tmp}/qs-mutation-probe.XXXXXX")"
 # file | exact original | mutated | label
 mutants=(
 "services/WeatherLogic.js|return Math.round(value) + \"°\";|return Math.floor(value) + \"°\";|Weather.formatTemp round→floor"
@@ -28,7 +30,7 @@ mutants=(
 printf '%-62s %-12s %-12s\n' "mutant" "panel-logic" "dash-data"
 for m in "${mutants[@]}"; do
   IFS='|' read -r file orig mut label <<<"$m"
-  rm -rf "$work"; cp -a "$src" "$work"; rm -rf "$work/.git"
+  rm -rf "$work"; mkdir -p "$work"; cp -a "$src/." "$work/"; rm -rf "$work/.git"
   python3 - "$work/$file" "$orig" "$mut" <<'PY' || { printf '%-62s %s\n' "$label" "NOT APPLIED"; continue; }
 import sys
 p, o, n = sys.argv[1:]
