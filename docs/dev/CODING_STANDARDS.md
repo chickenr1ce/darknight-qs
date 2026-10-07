@@ -484,8 +484,7 @@ Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`), style lint
 (`scripts/lint-review.sh`), shell lint (`scripts/lint-shell.sh`, skips when
 shellcheck is not installed), the headless `scripts/test-*.sh` gates, and
 `scripts/check-live-log.sh` (skips when no instance is running). The style
-linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company);
-`qt-qml-review` remains available as an optional deeper pass.
+linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company).
 `scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own
 instance; it is the regression gate for the notification toast layer. A `pre-commit` hook (`.githooks/`, enabled once per clone with
 `git config core.hooksPath .githooks`) runs the gate; bypass a single commit with
