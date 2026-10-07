@@ -7,12 +7,12 @@
 #      plus RAM poll, the per-sink volume list, the player transport, and
 #      the Open-Meteo weather fetch each live in one service the dashboard
 #      composes;
-#   2. python oracles mirroring the pure parsing plus mapping helpers
+#   2. node runs of the shipped pure parsing plus mapping helpers
 #      (fastfetch JSON, uptime format, /proc samples, MPRIS repeat cycle,
 #      sink volume percent, Open-Meteo JSON, temperature plus rain format,
-#      WMO code mapping, weather staleness) at their boundary values. Each
-#      oracle cites its QML source; change the source and update the mirror
-#      in the same commit.
+#      WMO code mapping, weather staleness). These load the real
+#      *Logic.js / *Parsers.js modules through tests/qmljs.js, so a change
+#      to the source is exercised directly; no mirror to keep in step.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -35,6 +35,10 @@ grep -q '"OS:WM:Kernel:Packages:Uptime"' "$SINFO" \
     || fail "SystemInfo does not ask fastfetch for OS, WM, Kernel, Packages and Uptime"
 grep -q '"--format", "json"' "$SINFO" \
     || fail "SystemInfo does not read fastfetch JSON"
+grep -q 'import "SystemLogic.js" as SystemLogic' "$SINFO" \
+    || fail "SystemInfo does not import SystemLogic.js"
+grep -q 'SystemLogic.parseFastfetch' "$SINFO" \
+    || fail "SystemInfo.parseFastfetch does not delegate to SystemLogic"
 grep -q 'function parseFastfetch' "$SINFO" \
     || fail "SystemInfo has no parseFastfetch"
 grep -q 'function formatKernel' "$SINFO" \
@@ -101,6 +105,10 @@ grep -q '"/proc/stat"' "$SMON" \
     || fail "SystemMonitor does not read /proc/stat"
 grep -q '"/proc/meminfo"' "$SMON" \
     || fail "SystemMonitor does not read /proc/meminfo"
+grep -q 'import "SystemLogic.js" as SystemLogic' "$SMON" \
+    || fail "SystemMonitor does not import SystemLogic.js"
+grep -q 'SystemLogic.parseCpuSample' "$SMON" \
+    || fail "SystemMonitor.parseCpuSample does not delegate to SystemLogic"
 grep -q 'function parseCpuSample' "$SMON" \
     || fail "SystemMonitor has no parseCpuSample"
 grep -q 'function parseRamPercent' "$SMON" \
@@ -158,6 +166,10 @@ grep -q 'function isSinkNode' "$ASVC" \
     || fail "AudioService has no isSinkNode filter"
 grep -q 'AudioLogic.isSinkNode' "$ASVC" \
     || fail "AudioService does not delegate the sink filter to AudioLogic"
+grep -q 'import "AudioLogic.js" as AudioLogic' "$ASVC" \
+    || fail "AudioService does not import AudioLogic.js"
+grep -q 'AudioLogic.percentForVolume' "$ASVC" \
+    || fail "AudioService does not convert volume through AudioLogic"
 grep -q 'function keyFor' "$ASVC" \
     || fail "AudioService has no stable output key"
 grep -q 'function rawLabelFor' "$ASVC" \
@@ -209,8 +221,16 @@ grep -q 'function setAllowed' "$MPLAYERS" \
     || fail "MprisPlayers has no setAllowed"
 grep -q 'name: "mpris-players"' "$MPLAYERS" \
     || fail "MprisPlayers does not persist the app filter"
+grep -q 'import "MprisLogic.js" as MprisLogic' "$MPLAYERS" \
+    || fail "MprisPlayers does not import MprisLogic.js"
+grep -q 'MprisLogic.playerKey' "$MPLAYERS" \
+    || fail "MprisPlayers.playerKey does not delegate to MprisLogic"
+grep -q 'MprisLogic.nextLoopState' "$MPLAYERS" \
+    || fail "MprisPlayers.nextLoopState does not delegate to MprisLogic"
+grep -q 'if (!player || !player.shuffleSupported)' "$MPLAYERS" \
+    || fail "MprisPlayers shuffles an unsupported player"
 grep -q 'const BROWSER_TOKENS' "$ROOT/services/MprisLogic.js" \
-    || fail "MprisPlayers does not seed the browsers as hidden"
+    || fail "MprisLogic does not seed the browsers as hidden"
 grep -q 'Mpris.players.values.filter' "$MPLAYERS" \
     || fail "MprisPlayers playerList does not filter by the app filter"
 
@@ -484,6 +504,7 @@ check('sink/real', al.isSinkNode({ isSink: true, isStream: false, audio: {} }), 
 check('sink/stream', al.isSinkNode({ isSink: true, isStream: true, audio: {} }), false);
 check('sink/source', al.isSinkNode({ isSink: false, isStream: false, audio: {} }), false);
 check('sink/no-audio', al.isSinkNode({ isSink: true, isStream: false, audio: null }), false);
+check('sink/no-flag', al.isSinkNode({ audio: {} }), false);
 check('sink/key-prefers-name', al.keyFor(PEBBLE), PEBBLE.name);
 check('sink/key-falls-back', al.keyFor({ description: 'Fallback', id: 7 }), 'Fallback');
 

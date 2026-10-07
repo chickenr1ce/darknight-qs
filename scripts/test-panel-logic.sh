@@ -6,12 +6,13 @@
 #   1. structural assertions over the QML: the one-panel rule, the monitor
 #      policy, the invoke path, and the cava formula each live in exactly
 #      one place, so the mesh cannot silently grow back;
-#   2. python oracles mirroring the pure QML helpers (stale, anchor clamp,
-#      monitor policy, debounce, focus queue) at their boundary values.
-#      Each oracle cites its QML source; change the source and update the
-#      mirror in the same commit. Logic already in a .pragma library JS file
-#      (ThemeParsers.js, StateParsers.js) runs for real under node through
-#      tests/qmljs.js instead of a mirror.
+#   2. python oracles mirroring the pure QML helpers that still live inline
+#      (anchor clamp, debounce, focus queue bound to timers) at their boundary
+#      values. Each oracle cites its QML source; change the source and update
+#      the mirror in the same commit. Pure logic in a .pragma library JS file
+#      (ThemeParsers.js, StateParsers.js, and the per-service *Logic.js
+#      modules) runs for real under node through tests/qmljs.js instead of a
+#      mirror.
 #
 # Section index: grep -n '^# --- ' scripts/test-panel-logic.sh
 set -euo pipefail
@@ -869,6 +870,14 @@ grep -q '"hyprctl", "eval"' "$MSVC" \
     || fail "MonitorService does not toggle through hyprctl eval"
 grep -q 'MonitorLogic.setEnabledSpec' "$MSVC" \
     || fail "MonitorService does not build the Lua monitor spec through MonitorLogic"
+grep -q 'import "MonitorLogic.js" as MonitorLogic' "$MSVC" \
+    || fail "MonitorService does not import MonitorLogic.js"
+grep -q 'MonitorLogic.orderMonitors' "$MSVC" \
+    || fail "MonitorService does not derive the monitor order from MonitorLogic"
+grep -q 'MonitorLogic.parseMonitorSettings' "$MSVC" \
+    || fail "MonitorService does not parse its settings through MonitorLogic"
+grep -q 'parsed.primary !== null' "$MSVC" \
+    || fail "MonitorService lost the non-string primary guard"
 if grep -q 'hyprctl", "keyword"' "$MSVC"; then
     fail "MonitorService uses hyprctl keyword, which the Lua config parser rejects"
 fi
@@ -1979,17 +1988,13 @@ test "$scan_out" = "$scan_want" \
 # colours the theme never applies. Run the real parseColors under node against
 # each listed fixture and compare the five roles the scan emits; a listed theme
 # parseColors rejects is a dead switch the scan should have dropped.
-node - "$TPARSE" "$CATDIR" "$scan_out" <<'NODEEOF'
+node - "$ROOT/tests/qmljs.js" "$TPARSE" "$CATDIR" "$scan_out" <<'NODEEOF'
 const fs = require('fs');
-const vm = require('vm');
 const path = require('path');
-const parserPath = process.argv[2];
-const catdir = process.argv[3];
-const scanOut = process.argv[4];
-const src = fs.readFileSync(parserPath, 'utf8').replace(/^\.pragma .*$/m, '');
-const ctx = { console };
-vm.createContext(ctx);
-vm.runInContext(src, ctx);
+const qmljs = require(process.argv[2]);
+const ctx = qmljs.load(process.argv[3]);
+const catdir = process.argv[4];
+const scanOut = process.argv[5];
 function fail(message) {
     console.error('panel-logic FAIL: ' + message);
     process.exit(1);
@@ -2520,8 +2525,6 @@ if grep -qnE '#[0-9a-fA-F]{3,8}' "$FONTVIEW" "$FONTROW"; then
     fail "fonts settings surface carries raw hex; palette tokens only"
 fi
 
-# Oracle for StateParsers.parseFontSettings: keep string families only, return
-# null for malformed or non-object payloads. Mirrors services/StateParsers.js.
 python3 - <<'EOF'
 import json
 import sys
@@ -2530,24 +2533,6 @@ def check(name, got, want):
     if got != want:
         print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
         sys.exit(1)
-
-def parse_font_settings(text):
-    try:
-        parsed = json.loads(text)
-    except Exception:
-        return None
-    if not isinstance(parsed, dict):
-        return None
-    out = {}
-    for key in ("uiFamily", "monoFamily", "iconFamily"):
-        if isinstance(parsed.get(key), str):
-            out[key] = parsed[key]
-    return out
-
-check("fonts/parse", parse_font_settings('{"uiFamily": "Geist", "monoFamily": 7, "iconFamily": "X"}'),
-      {"uiFamily": "Geist", "iconFamily": "X"})
-check("fonts/parse-malformed", parse_font_settings("{nope"), None)
-check("fonts/parse-nonobject", parse_font_settings('["a"]'), None)
 
 # Mirror of FontPickerRow.filtered: case-insensitive substring match, cap 40,
 # empty query shows the first page.

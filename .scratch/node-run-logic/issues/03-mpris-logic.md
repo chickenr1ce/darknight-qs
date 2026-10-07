@@ -38,3 +38,11 @@ Candidate 2 of the 2026-10-07 architecture review. See `../spec.md`.
 
 - [x] `../mutation-probe.sh <repo>` reports `caught` for: the `MprisPlayers.formatTime`, `nextLoopState` and `parseApps` mutants. Retarget a mutant at its new `*Logic.js` file when the function moves; add the test case it needs if the moved mirror cases do not expose it.
 - [x] `test-panel-logic.sh` plus `test-dashboard-data.sh` stay under 2.6 s combined (baseline 2.24 s); the commit message records the before and after probe result and timing.
+
+## Amendments
+
+2026-10-07. AC3 allowed the `toggleShuffle` mirror to go once the other MPRIS
+checks run under node, but `toggleShuffle` stays in QML (it writes a player
+property), so dropping its Python mirror left the "flip only while
+shuffleSupported" rule unchecked. A wiring grep now asserts the
+`if (!player || !player.shuffleSupported)` guard in `MprisPlayers.qml`.

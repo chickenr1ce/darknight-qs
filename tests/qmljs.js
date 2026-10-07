@@ -5,6 +5,9 @@ const vm = require("vm");
 
 function load(path, globals) {
     const src = fs.readFileSync(path, "utf8").replace(/^\.pragma .*$/m, "");
+    // qsTr is a QML global available to any JS loaded in QML, so a real file
+    // may call it. This stub covers the single-argument form; a file that
+    // chains qsTr("...%1").arg(x) needs a stub returning a chainable object.
     const ctx = Object.assign({ console, qsTr: text => text }, globals || {});
     vm.createContext(ctx);
     vm.runInContext(src, ctx, { filename: path });

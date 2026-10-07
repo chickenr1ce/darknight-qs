@@ -1,7 +1,9 @@
 .pragma library
 
 function isSinkNode(node) {
-    return Boolean(node) && node.isSink && !node.isStream && Boolean(node.audio);
+    // Wrapped in Boolean(): the QML declaration coerced the return to bool,
+    // so a truthy node with no isSink flag must read false, not undefined.
+    return Boolean(Boolean(node) && node.isSink && !node.isStream && Boolean(node.audio));
 }
 
 function keyFor(node) {

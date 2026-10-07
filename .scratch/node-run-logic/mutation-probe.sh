@@ -5,10 +5,25 @@
 # matches (because its function moved to a *Logic.js file) reports NOT APPLIED;
 # retarget it at the new file when the ticket moves that function.
 set -u
+if [ $# -lt 1 ]; then
+    echo "usage: $0 <repo>" >&2
+    exit 2
+fi
 src="$1"
 # Unique per process: two probes running at once must not overwrite each
 # other's repo copy.
 work="$(mktemp -d "${TMPDIR:-/tmp}/qs-mutation-probe.XXXXXX")"
+trap 'rm -rf "${work:?}"' EXIT
+
+# A mutant is only "caught" if the unmutated repo passes first; otherwise a
+# broken harness (missing node/python3, half-copied tree) would report every
+# mutant as caught.
+for script in scripts/test-panel-logic.sh scripts/test-dashboard-data.sh; do
+    if ! bash "$src/$script" >/dev/null 2>&1; then
+        echo "baseline $script fails on the unmutated repo; probe cannot judge" >&2
+        exit 1
+    fi
+done
 # file | exact original | mutated | label
 mutants=(
 "services/WeatherLogic.js|return Math.round(value) + \"°\";|return Math.floor(value) + \"°\";|Weather.formatTemp round→floor"
@@ -30,7 +45,7 @@ mutants=(
 printf '%-62s %-12s %-12s\n' "mutant" "panel-logic" "dash-data"
 for m in "${mutants[@]}"; do
   IFS='|' read -r file orig mut label <<<"$m"
-  rm -rf "$work"; mkdir -p "$work"; cp -a "$src/." "$work/"; rm -rf "$work/.git"
+  rm -rf "${work:?}"; mkdir -p "$work"; cp -a "$src/." "$work/"; rm -rf "${work:?}/.git"
   python3 - "$work/$file" "$orig" "$mut" <<'PY' || { printf '%-62s %s\n' "$label" "NOT APPLIED"; continue; }
 import sys
 p, o, n = sys.argv[1:]
@@ -43,4 +58,3 @@ PY
   r2=caught; bash "$work/scripts/test-dashboard-data.sh" >/dev/null 2>&1 && r2=MISSED
   printf '%-62s %-12s %-12s\n' "$label" "$r1" "$r2"
 done
-rm -rf "$work"
