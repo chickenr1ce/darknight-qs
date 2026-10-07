@@ -197,6 +197,14 @@ grep -q 'styleComponents\[CavaService.styleMode\]' "$ROOT/modules/Cava.qml" \
 if grep -q 'styleMode === 0 ?' "$ROOT/modules/Cava.qml"; then
     fail "style ternary is back in Cava.qml"
 fi
+CAVASVC="$ROOT/services/CavaService.qml"
+test "$(grep -c 'if (idSettingsState.loading || !idSettingsState.loaded)' "$CAVASVC")" -eq 5 \
+    || fail "CavaService does not guard all five change handlers on the StateFile loading/loaded flags"
+if grep -qE 'if \(idSettingsState\.loading\)' "$CAVASVC"; then
+    fail "CavaService has a change handler guarded on loading alone"
+fi
+grep -A1 'onBarCountChanged: {' "$CAVASVC" | grep -q 'root.levels = root.flatLevels();' \
+    || fail "CavaService onBarCountChanged no longer resets levels before the guard"
 
 # --- 6. python oracles for the pure helpers ---
 python3 - <<'EOF'

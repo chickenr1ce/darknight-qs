@@ -35,31 +35,31 @@ Singleton {
     readonly property PanelState panelState: idPanelState
 
     onSensitivityChanged: {
-        if (idSettingsState.loading)
+        if (idSettingsState.loading || !idSettingsState.loaded)
             return;
         root.saveSettings();
         root.requestEngineRestart();
     }
     onAutoSensitivityChanged: {
-        if (idSettingsState.loading)
+        if (idSettingsState.loading || !idSettingsState.loaded)
             return;
         root.saveSettings();
         root.requestEngineRestart();
     }
     onBarCountChanged: {
         root.levels = root.flatLevels();
-        if (idSettingsState.loading)
+        if (idSettingsState.loading || !idSettingsState.loaded)
             return;
         root.saveSettings();
         root.requestEngineRestart();
     }
     onStyleModeChanged: {
-        if (idSettingsState.loading)
+        if (idSettingsState.loading || !idSettingsState.loaded)
             return;
         root.saveSettings();
     }
     onMaxHeightChanged: {
-        if (idSettingsState.loading)
+        if (idSettingsState.loading || !idSettingsState.loaded)
             return;
         root.saveSettings();
     }

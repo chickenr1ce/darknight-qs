@@ -8,7 +8,7 @@ before `cava-settings` finishes loading cannot overwrite the saved file.
 
 **Blocked by:** None
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Origin
 
@@ -36,13 +36,13 @@ is harmless.
 
 ## Acceptance criteria
 
-- [ ] All five Cava change handlers return early on
+- [x] All five Cava change handlers return early on
       `idSettingsState.loading || !idSettingsState.loaded`, before
       `saveSettings()` and before `requestEngineRestart()`.
-- [ ] `onBarCountChanged` still resets `root.levels` before the guard, as it
+- [x] `onBarCountChanged` still resets `root.levels` before the guard, as it
       does today.
-- [ ] `scripts/test-panel-logic.sh` asserts the Cava guard includes `!loaded`
+- [x] `scripts/test-panel-logic.sh` asserts the Cava guard includes `!loaded`
       alongside the existing guard checks.
-- [ ] `scripts/check.sh` passes.
+- [x] `scripts/check.sh` passes.
 - [ ] Live check: changing a Cava setting in Settings still persists across
       `scripts/restart.sh`.
