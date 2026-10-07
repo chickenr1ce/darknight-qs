@@ -22,11 +22,7 @@ Singleton {
     property string activeTab: "dashboard"
     property int junctionRadius: Globals.junctionRadiusDefault
 
-    onJunctionRadiusChanged: {
-        if (idJunctionState.loading || !idJunctionState.loaded)
-            return;
-        root.saveJunctionRadius();
-    }
+    onJunctionRadiusChanged: root.saveJunctionRadius()
 
     PanelState {
         id: idPanelState
@@ -105,6 +101,6 @@ Singleton {
     function saveJunctionRadius(): void {
         const payload = {};
         payload["junctionRadius"] = root.junctionRadius;
-        idJunctionState.save(JSON.stringify(payload) + "\n");
+        idJunctionState.saveJson(payload);
     }
 }

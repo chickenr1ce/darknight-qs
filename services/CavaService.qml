@@ -165,7 +165,7 @@ Singleton {
         payload["barCount"] = root.barCount;
         payload["styleMode"] = root.styleMode;
         payload["maxHeight"] = root.maxHeight;
-        idSettingsState.save(JSON.stringify(payload) + "\n");
+        idSettingsState.saveJson(payload);
     }
 
     function setStyleMode(mode: int): void {

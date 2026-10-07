@@ -144,11 +144,9 @@ Singleton {
     }
 
     function persist(): void {
-        if (idAudioState.loading || !idAudioState.loaded)
-            return;
         const payload = {};
         payload["hidden"] = root.hiddenKeys;
         payload["order"] = root.orderKeys;
-        idAudioState.save(JSON.stringify(payload) + "\n");
+        idAudioState.saveJson(payload);
     }
 }

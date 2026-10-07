@@ -262,8 +262,6 @@ Singleton {
     }
 
     function saveSelection(): void {
-        if (idThemeState.loading || !idThemeState.loaded)
-            return;
         idThemeState.save(ThemeParsers.serializeSelection(root.activeTheme, root.backgroundsJson));
     }
 

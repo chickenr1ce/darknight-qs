@@ -60,11 +60,9 @@ Singleton {
     }
 
     function saveSettings(): void {
-        if (idMarginState.loading || !idMarginState.loaded)
-            return;
         const payload = {};
         payload["topMargin"] = Globals.barTopMargin;
         payload["sideMargin"] = Globals.barSideMargin;
-        idMarginState.save(JSON.stringify(payload) + "\n");
+        idMarginState.saveJson(payload);
     }
 }

@@ -21,11 +21,7 @@ Singleton {
 
     property var moduleVisible: ({})
 
-    onModuleVisibleChanged: {
-        if (idVisibilityState.loading || !idVisibilityState.loaded)
-            return;
-        root.saveVisibility();
-    }
+    onModuleVisibleChanged: root.saveVisibility()
 
     StateFile {
         id: idVisibilityState
@@ -76,7 +72,7 @@ Singleton {
             const key = root.modules[i].key;
             payload[key] = !(root.moduleVisible[key] === false);
         }
-        idVisibilityState.save(JSON.stringify(payload) + "\n");
+        idVisibilityState.saveJson(payload);
     }
 
     function setVisible(key: string, visible: bool): void {

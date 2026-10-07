@@ -95,12 +95,10 @@ Singleton {
     }
 
     function saveSettings(): void {
-        if (idFontState.loading || !idFontState.loaded)
-            return;
         const payload = {};
         payload["uiFamily"] = Globals.uiFontFamily;
         payload["monoFamily"] = Globals.fontFamily;
         payload["iconFamily"] = Globals.iconFontFamily;
-        idFontState.save(JSON.stringify(payload) + "\n");
+        idFontState.saveJson(payload);
     }
 }

@@ -236,11 +236,9 @@ Singleton {
     }
 
     function saveSettings(): void {
-        if (idMonitorState.loading || !idMonitorState.loaded)
-            return;
         const payload = {};
         payload["primary"] = Globals.primaryMonitorOverride;
         payload["workspacesPerMonitor"] = root.workspacesPerMonitor;
-        idMonitorState.save(JSON.stringify(payload) + "\n");
+        idMonitorState.saveJson(payload);
     }
 }

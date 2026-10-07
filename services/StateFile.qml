@@ -69,11 +69,17 @@ QtObject {
     }
 
     function save(contents: string): void {
+        if (!root.inCache && (root.loading || !root.loaded))
+            return;
         if (root.known && contents === root.knownText)
             return;
         root.knownText = contents;
         root.known = true;
         root.fileView.setText(contents);
+    }
+
+    function saveJson(payload): void {
+        root.save(JSON.stringify(payload) + "\n");
     }
 
     function applyLoaded(): void {

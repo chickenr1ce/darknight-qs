@@ -846,8 +846,14 @@ grep -q '^import qs.services' "$MSVC" \
     || fail "MonitorService.qml is missing its qs.services self-import"
 grep -q 'name: "monitor-settings"' "$MSVC" \
     || fail "MonitorService does not persist to the monitor-settings state file"
-grep -q 'idMonitorState.loading || !idMonitorState.loaded' "$MSVC" \
-    || fail "MonitorService does not guard saves on the StateFile loading/loaded flags"
+STATEFILE="$ROOT/services/StateFile.qml"
+grep -q 'if (!root.inCache && (root.loading || !root.loaded))' "$STATEFILE" \
+    && grep -q 'function saveJson' "$STATEFILE" \
+    || fail "StateFile does not own the save guard and the saveJson helper"
+if grep -rn --include='*.qml' '\.save(JSON\.stringify(' "$ROOT/services" \
+    | grep -v 'services/StateFile.qml' | grep -q .; then
+    fail "a service still serializes JSON inline instead of going through saveJson"
+fi
 grep -q 'function setPrimary' "$MSVC" \
     || fail "MonitorService has no setPrimary"
 grep -q 'function applySettings' "$MSVC" \
@@ -1001,8 +1007,6 @@ grep -qF 'MprisPlayers.seenPlayers.map' "$SSVC" \
     || fail "SettingsService media options do not derive from MprisPlayers.seenPlayers"
 grep -q 'name: "mpris-players"' "$MPLAYERS" \
     || fail "MprisPlayers does not persist the media filter behind a StateFile"
-grep -q 'idAppsState.loading || !idAppsState.loaded' "$MPLAYERS" \
-    || fail "MprisPlayers does not guard saves on the StateFile loading/loaded flags"
 grep -q 'const BROWSER_TOKENS' "$ROOT/services/MprisLogic.js" \
     || fail "MprisPlayers does not seed the browsers as hidden"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$MEDVIEW"; then
@@ -1035,8 +1039,6 @@ grep -qF 'qsTr("Seam radius")' "$SSVC" \
     || fail "SettingsService dashboard options do not list Seam radius"
 grep -q 'name: "dashboard-junction"' "$DJUNC" \
     || fail "DashboardService does not persist the junction radius behind a StateFile"
-grep -q 'idJunctionState.loading || !idJunctionState.loaded' "$DJUNC" \
-    || fail "DashboardService does not guard saves on the StateFile loading/loaded flags"
 grep -q 'function saveJunctionRadius' "$DJUNC" \
     || fail "DashboardService has no saveJunctionRadius"
 grep -q 'function clampJunctionRadius' "$DJUNC" \
@@ -1124,8 +1126,6 @@ grep -qF 'AudioService.sinkNodes.map' "$SSVC" \
     || fail "SettingsService audio options do not derive from the detected outputs"
 grep -q 'name: "audio-outputs"' "$AUDIOSVC" \
     || fail "AudioService does not persist curated outputs behind a StateFile"
-grep -q 'idAudioState.loading || !idAudioState.loaded' "$AUDIOSVC" \
-    || fail "AudioService does not guard saves on the StateFile loading/loaded flags"
 grep -q 'function setHidden' "$AUDIOSVC" \
     || fail "AudioService has no setHidden"
 grep -q 'function moveOutput' "$AUDIOSVC" \
@@ -1342,8 +1342,6 @@ for pair in \
 done
 grep -q 'StateFile {' "$BSVC" \
     || fail "BarVisibilityService does not compose StateFile"
-grep -q 'idVisibilityState.loading || !idVisibilityState.loaded' "$BSVC" \
-    || fail "BarVisibilityService does not guard saves on the StateFile loading/loaded flags"
 grep -q 'bar-visibility' "$BSVC" \
     || fail "BarVisibilityService does not persist to the bar-visibility state file"
 for pair in "clock:Clock" "workspaces:Workspaces" "tray:Tray" "cava:Cava" "media:Media" "audio:Audio" "notifications:Notifications" "power:Power"; do
@@ -1427,8 +1425,6 @@ grep -q '^singleton BarMarginService 1.0 BarMarginService.qml' "$ROOT/services/q
     || fail "BarMarginService is not registered in services/qmldir"
 grep -q 'name: "bar-margins"' "$BMSVC" \
     || fail "BarMarginService does not persist to the bar-margins state file"
-grep -q 'idMarginState.loading || !idMarginState.loaded' "$BMSVC" \
-    || fail "BarMarginService does not guard saves on the StateFile loading/loaded flags"
 grep -q 'function setMargin' "$BMSVC" \
     || fail "BarMarginService has no keyed setMargin"
 grep -q 'function valueFor' "$BMSVC" \
@@ -2581,8 +2577,6 @@ grep -q '^singleton FontService 1.0 FontService.qml' "$ROOT/services/qmldir" \
     || fail "FontService is not registered in services/qmldir"
 grep -q 'name: "font-settings"' "$FONTSVC" \
     || fail "FontService does not persist to the font-settings state file"
-grep -q 'idFontState.loading || !idFontState.loaded' "$FONTSVC" \
-    || fail "FontService does not guard saves on the StateFile loading/loaded flags"
 grep -q 'function applySettings' "$FONTSVC" \
     || fail "FontService has no applySettings"
 grep -q 'function saveSettings' "$FONTSVC" \

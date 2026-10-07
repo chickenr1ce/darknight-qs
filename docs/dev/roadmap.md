@@ -16,16 +16,6 @@ run never happened. Source: the `Variants` block in `shell.qml`. Done when each
 output is unplugged and replugged, the bar recreates with no errors, and the
 date is recorded.
 
-### Persisted-settings schema
-
-Cava was the last service saving before its state file had loaded; the guard is
-uniform now. Decide whether `StateFile` should own a schema
-(`{ key: { default, clamp } }`) or a `saveJson` helper, or stay as it is. The
-services parse differently (`MprisPlayers` merges stored and live entries,
-`BarVisibilityService` accepts only `false`, `StateParsers.parseAudioSettings`
-filters two lists, Calendar writes newline lists), so a schema needs per-service
-parse hooks — worth it only if it earns the depth.
-
 ## Candidate
 
 Build only if it earns daily use.
@@ -35,6 +25,9 @@ Build only if it earns daily use.
 
 ## Done
 
+- Persisted-settings schema: decided against a schema. `StateFile` owns the
+  load guard and a `saveJson(payload)` helper, so every JSON writer goes through
+  it; parsing stays per service.
 - Logic tests run the shipped code: pure parsing, formatting and ordering moved
   into per-service `.pragma library` modules (`services/*Logic.js`, see
   `CONTEXT.md`), tested under node through `tests/qmljs.js` instead of Python

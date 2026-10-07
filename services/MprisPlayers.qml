@@ -166,8 +166,6 @@ Singleton {
     }
 
     function saveApps(): void {
-        if (idAppsState.loading || !idAppsState.loaded)
-            return;
         const current = root.apps;
         const apps = {};
         for (const key in current) {
@@ -178,7 +176,7 @@ Singleton {
         }
         const payload = {};
         payload["apps"] = apps;
-        idAppsState.save(JSON.stringify(payload) + "\n");
+        idAppsState.saveJson(payload);
     }
 
     function selectPlayer(x: int) {

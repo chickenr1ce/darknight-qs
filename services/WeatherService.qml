@@ -201,7 +201,7 @@ Singleton {
         payload["precipProb"] = root.precipProb;
         payload["highC"] = root.highC;
         payload["lowC"] = root.lowC;
-        idWeatherState.save(JSON.stringify(payload) + "\n");
+        idWeatherState.saveJson(payload);
     }
 
     function geocodeUrl(query: string): string {
@@ -275,7 +275,7 @@ Singleton {
         payload["name"] = root.locationName;
         payload["latitude"] = root.latitude;
         payload["longitude"] = root.longitude;
-        idLocationState.save(JSON.stringify(payload) + "\n");
+        idLocationState.saveJson(payload);
     }
 
     function parseWeather(text: string): var {
