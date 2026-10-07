@@ -2,10 +2,9 @@
 
 A Quickshell-based Wayland status bar and desktop shell (QML): a multi-monitor
 panel with workspaces, system tray, media/audio/CPU modules, notifications and
-power menu, styled as a unified slab. The completed migration plan is archived
-at `docs/plans/archive/01-master-quickshell-migration.html`. Workflow and repo
-conventions for AI agents and contributors working in `~/.config/quickshell`;
-the documentation map is `docs/README.md`.
+power menu, styled as a unified slab. Workflow and repo conventions for AI
+agents and contributors working in `~/.config/quickshell`; the documentation map
+is `docs/README.md`.
 
 ## Always
 

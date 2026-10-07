@@ -21,10 +21,10 @@ it and `docs/agents/triage-labels.md` with no setup step.
 - When implementing a feature, work `.scratch/<feature>/issues/` pending tickets
   blockers-first
 - Flip `Status` and dependency headers freely as state changes
-- Commit messages cite their ticket as `#NN` (for example
-  `feat(notifications): toasts (#02)`); resolve it with `git log --grep "#NN"`.
-  Tickets describe commits in words only ("the ticket-02 feature commit") — raw
-  SHAs go stale under squash, ticket numbers don't
+- Reference direction: name the ticket in words (`feat(notifications): toasts
+  (ticket 02)`), never as `#NN` — GitHub resolves `#NN` against its own issue and
+  PR numbers, not this tracker. Tickets likewise name their commits in words
+  ("the ticket-02 feature commit"), not by raw SHA, which goes stale under squash
 - Any long-lived commit anchor (review fixed point, milestone) gets a lightweight
   git tag at creation time (e.g. `git tag review-base/<feature> <sha>`);
   documents and review invocations cite the tag
@@ -36,7 +36,7 @@ it and `docs/agents/triage-labels.md` with no setup step.
   the ticket file is what code-review's Spec axis judges against. A follow-up
   change to a done ticket gets a dated amendment under the original; do not
   reopen it for a UI tweak. Work discovered mid-ticket becomes a new ticket
-  noting its origin ("Discovered during #NN")
+  noting its origin ("Discovered during ticket 02")
 - Durable docs (`CONTEXT.md`, ADRs, `docs/`) describe a pending ticket in words
   rather than by its `.scratch/` path: the folder is deleted when the feature
   merges, so the path dangles
