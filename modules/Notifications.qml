@@ -22,7 +22,7 @@ ModuleBox {
             NotificationServer.toggleDnd();
         else {
             const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-            Panels.toggleCenterAt(root.triggerScreen, centerX);
+            Panels.toggleAt(NotificationServer.panelState, root.triggerScreen, centerX);
         }
     }
 

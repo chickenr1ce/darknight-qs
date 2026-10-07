@@ -29,9 +29,6 @@ Singleton {
     property var levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     property double lastFrameMs: 0
 
-    property alias cavaVisible: idPanelState.visible
-    property alias anchorScreen: idPanelState.anchorScreen
-    property alias anchorCenterX: idPanelState.anchorCenterX
     readonly property PanelState panelState: idPanelState
 
     onSensitivityChanged: {
@@ -185,18 +182,6 @@ Singleton {
 
     PanelState {
         id: idPanelState
-    }
-
-    function toggleCavaAt(screen, centerX: real): void {
-        idPanelState.toggleAt(screen, centerX)
-    }
-
-    function openCavaAt(screen, centerX: real): void {
-        idPanelState.openAt(screen, centerX)
-    }
-
-    function closeCavaFromOutside(): void {
-        idPanelState.closeFromOutside()
     }
 
     function flatLevels(): var {

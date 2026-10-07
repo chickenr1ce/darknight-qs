@@ -19,10 +19,7 @@ PanelShell {
     property bool editingZones: false
     property bool showingSettings: false
 
-    anchorScreen: CalendarService.anchorScreen
-    anchorCenterX: CalendarService.anchorCenterX
-    panelVisible: CalendarService.calendarVisible
-    onOutsideClicked: CalendarService.closeCalendarFromOutside()
+    panel: CalendarService.panelState
 
     PanelHeader {
         id: idCalendarHeader

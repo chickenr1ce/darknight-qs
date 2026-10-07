@@ -9,9 +9,6 @@ import qs.services
 Singleton {
     id: root
 
-    property alias powerVisible: idPanelState.visible
-    property alias anchorScreen: idPanelState.anchorScreen
-    property alias anchorCenterX: idPanelState.anchorCenterX
     readonly property PanelState panelState: idPanelState
 
     property Item barAnchor: null
@@ -49,6 +46,8 @@ Singleton {
 
     PanelState {
         id: idPanelState
+
+        onVisibleChanged: root.armedAction = ""
     }
 
     Timer {
@@ -96,7 +95,7 @@ Singleton {
         }
 
         function close(): void {
-            root.closePowerFromOutside();
+            idPanelState.closeFromOutside();
         }
     }
 
@@ -107,25 +106,6 @@ Singleton {
     function unregisterBarAnchor(trigger) {
         if (root.barAnchor === trigger)
             root.barAnchor = null;
-    }
-
-    function togglePowerAt(screen, centerX: real) {
-        const was = idPanelState.visible;
-        idPanelState.toggleAt(screen, centerX);
-        if (!(idPanelState.visible === was))
-            root.armedAction = "";
-    }
-
-    function openPowerAt(screen, centerX: real) {
-        const was = idPanelState.visible;
-        idPanelState.openAt(screen, centerX);
-        if (!(idPanelState.visible === was))
-            root.armedAction = "";
-    }
-
-    function closePowerFromOutside() {
-        idPanelState.closeFromOutside();
-        root.armedAction = "";
     }
 
     function arm(actionId: string) {

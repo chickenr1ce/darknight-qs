@@ -12,12 +12,7 @@ PanelShell {
     property var expandedGroups: ({})
     property string pendingScrollApp: ""
 
-    anchorScreen: NotificationServer.anchorScreen
-    anchorCenterX: NotificationServer.anchorCenterX
-
-    panelVisible: NotificationServer.centerVisible
-
-    onOutsideClicked: NotificationServer.closeCenterFromOutside()
+    panel: NotificationServer.panelState
 
     function toggleGroup(appName: string) {
         const expanding = root.expandedGroups[appName] !== true;

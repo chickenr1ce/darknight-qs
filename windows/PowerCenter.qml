@@ -23,10 +23,7 @@ PanelShell {
     readonly property int glyphOpticalNudge: 1
     readonly property int rowHeight: root.glyphBoxSize + 2 * Globals.cardPadding
 
-    anchorScreen: PowerService.anchorScreen
-    anchorCenterX: PowerService.anchorCenterX
-    panelVisible: PowerService.powerVisible
-    onOutsideClicked: PowerService.closePowerFromOutside()
+    panel: PowerService.panelState
 
     Shortcut {
         id: idPowerKey1

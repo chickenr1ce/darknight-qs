@@ -15,7 +15,7 @@ ModuleBox {
 
     onClicked: {
         const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-        Panels.toggleCalendarAt(root.triggerScreen, centerX);
+        Panels.toggleAt(CalendarService.panelState, root.triggerScreen, centerX);
     }
 
     Text {

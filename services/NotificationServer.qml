@@ -35,33 +35,17 @@ Singleton {
         return order.map(appName => ({ appName: appName, notifications: byName[appName] }));
     }
 
-    property alias centerVisible: idPanelState.visible
-
-    onCenterVisibleChanged: {
-        if (root.centerVisible)
-            root.toasts.clear();
-    }
-
-    property alias anchorScreen: idPanelState.anchorScreen
-    property alias anchorCenterX: idPanelState.anchorCenterX
     readonly property PanelState panelState: idPanelState
-
-    function toggleCenterAt(screen, centerX: real) {
-        idPanelState.toggleAt(screen, centerX)
-    }
-
-    function openCenterAt(screen, centerX: real) {
-        idPanelState.openAt(screen, centerX)
-    }
-
-    function closeCenterFromOutside() {
-        idPanelState.closeFromOutside()
-    }
 
     signal toastReceived(Notification notification)
 
     PanelState {
         id: idPanelState
+
+        onVisibleChanged: {
+            if (idPanelState.visible)
+                root.toasts.clear();
+        }
     }
 
     function toggleDnd() {
@@ -157,7 +141,7 @@ Singleton {
             notification.tracked = true;
             root.notifications.append({ notification: notification, arrivedAt: Date.now() });
 
-            if (!notification.lastGeneration && !root.dndEnabled && !root.centerVisible)
+            if (!notification.lastGeneration && !root.dndEnabled && !idPanelState.visible)
                 root.announceToast(notification);
 
             notification.closed.connect(() => {

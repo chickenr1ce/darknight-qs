@@ -12,11 +12,12 @@ import qs.services
 PanelWindow {
     id: root
 
-    required property bool panelVisible
+    property PanelState panel: null
+    property bool panelVisible: root.panel ? root.panel.visible : false
     default property alias content: idShellLayout.data
 
-    property ShellScreen anchorScreen: null
-    property real anchorCenterX: 0
+    property ShellScreen anchorScreen: root.panel ? root.panel.anchorScreen : null
+    property real anchorCenterX: root.panel ? root.panel.anchorCenterX : 0
     property real panelWidth: Globals.centerWidth
     property real panelMaxHeight: Globals.centerMaxHeight
     property bool attachedToBar: false
@@ -84,6 +85,11 @@ PanelWindow {
 
     Component.onCompleted: PanelGrab.register(root)
     Component.onDestruction: PanelGrab.unregister(root)
+
+    onOutsideClicked: {
+        if (root.panel)
+            root.panel.closeFromOutside();
+    }
 
     Shortcut {
         id: idEscapeShortcut

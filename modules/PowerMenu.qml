@@ -42,7 +42,7 @@ ModuleBox {
     }
 
     function toggleAtBar() {
-        Panels.togglePowerAt(root.triggerScreen, Globals.triggerCenterX(root, root.triggerScreen));
+        Panels.toggleAt(PowerService.panelState, root.triggerScreen, Globals.triggerCenterX(root, root.triggerScreen));
     }
 
     function syncAnchor() {

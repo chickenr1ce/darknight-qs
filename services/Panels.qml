@@ -22,46 +22,15 @@ Singleton {
             if (!(root.panels[i] === target))
                 root.panels[i].visible = false;
         }
-        PowerService.cancel();
     }
 
-    function toggleCalendarAt(screen, centerX: real) {
-        root.closeOtherPanels(CalendarService.panelState);
-        CalendarService.toggleCalendarAt(screen, centerX);
+    function toggleAt(panel, screen, centerX: real) {
+        root.closeOtherPanels(panel);
+        panel.toggleAt(screen, centerX);
     }
 
-    function toggleCenterAt(screen, centerX: real) {
-        root.closeOtherPanels(NotificationServer.panelState);
-        NotificationServer.toggleCenterAt(screen, centerX);
-    }
-
-    function toggleCavaAt(screen, centerX: real) {
-        root.closeOtherPanels(CavaService.panelState);
-        CavaService.toggleCavaAt(screen, centerX);
-    }
-
-    function togglePowerAt(screen, centerX: real) {
-        root.closeOtherPanels(PowerService.panelState);
-        PowerService.togglePowerAt(screen, centerX);
-    }
-
-    function openCalendarAt(screen, centerX: real) {
-        root.closeOtherPanels(CalendarService.panelState);
-        CalendarService.openCalendarAt(screen, centerX);
-    }
-
-    function openCenterAt(screen, centerX: real) {
-        root.closeOtherPanels(NotificationServer.panelState);
-        NotificationServer.openCenterAt(screen, centerX);
-    }
-
-    function openCavaAt(screen, centerX: real) {
-        root.closeOtherPanels(CavaService.panelState);
-        CavaService.openCavaAt(screen, centerX);
-    }
-
-    function openPowerAt(screen, centerX: real) {
-        root.closeOtherPanels(PowerService.panelState);
-        PowerService.openPowerAt(screen, centerX);
+    function openAt(panel, screen, centerX: real) {
+        root.closeOtherPanels(panel);
+        panel.openAt(screen, centerX);
     }
 }

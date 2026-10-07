@@ -9,9 +9,6 @@ import "StateParsers.js" as StateParsers
 Singleton {
     id: root
 
-    property alias calendarVisible: idPanelState.visible
-    property alias anchorScreen: idPanelState.anchorScreen
-    property alias anchorCenterX: idPanelState.anchorCenterX
     readonly property PanelState panelState: idPanelState
 
     readonly property int eventsPollMs: 15 * 60 * 1000
@@ -225,18 +222,6 @@ Singleton {
         id: idZoneListState
 
         path: root.zonesListPath
-    }
-
-    function toggleCalendarAt(screen, centerX: real) {
-        idPanelState.toggleAt(screen, centerX)
-    }
-
-    function openCalendarAt(screen, centerX: real) {
-        idPanelState.openAt(screen, centerX)
-    }
-
-    function closeCalendarFromOutside() {
-        idPanelState.closeFromOutside()
     }
 
     function isStale(nowMs: double, fetchedAtMs: double, failed: bool): bool {

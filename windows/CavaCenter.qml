@@ -9,10 +9,7 @@ import qs.services
 PanelShell {
     id: root
 
-    anchorScreen: CavaService.anchorScreen
-    anchorCenterX: CavaService.anchorCenterX
-    panelVisible: CavaService.cavaVisible
-    onOutsideClicked: CavaService.closeCavaFromOutside()
+    panel: CavaService.panelState
 
     PanelHeader {
         id: idCavaHeader

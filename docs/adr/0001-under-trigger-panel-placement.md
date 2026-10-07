@@ -59,6 +59,13 @@ panel on that point and clamps it inside the screen edges:
   call them, while the per-service plain `toggleX` wrappers and
   `*LastOutsideCloseAt` aliases were removed. Power arming still resets
   when its panel closes, via `PowerService.cancel()` from the registry.
+- 2026-10-07 (architecture review B): the four `toggle*At` entry points and
+  the per-service wrappers and aliases were replaced by
+  `Panels.toggleAt(panel, …)` / `Panels.openAt(panel, …)`, which operate on a
+  `PanelState` value; each service now exposes only `panelState`. `PanelShell`
+  takes the `PanelState` directly, and Power arming resets from its own
+  panel's visibility change rather than `PowerService.cancel()` in the
+  registry.
 
 ## Consequences and known limits
 

@@ -44,18 +44,20 @@ grep -q 'readonly property bool anyOpen' "$PANELS" \
 if ! grep -A8 'readonly property bool anyOpen' "$PANELS" | grep -q 'root\.panels'; then
     fail "anyOpen does not derive from the panel list"
 fi
-if grep -qE 'anyOpen:.*(calendarVisible|centerVisible|cavaVisible|powerVisible)' "$PANELS"; then
-    fail "anyOpen is hand-wired to the four visibility aliases, not the list"
+# The per-service panel API is gone: the four visibility aliases, the eight
+# toggle/open entry points, and the four outside-close wrappers no longer
+# exist, so the registry and PanelShell own the mesh.
+DEAD_PANEL_API="$(grep -rn --include='*.qml' -E '(calendarVisible|centerVisible|cavaVisible|powerVisible)|toggle(Calendar|Center|Cava|Power)At|open(Calendar|Center|Cava|Power)At|close(Calendar|Center|Cava|Power)FromOutside' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" "$ROOT/dev" || true)"
+test -z "$DEAD_PANEL_API" \
+    || fail "deleted per-service panel API is back: $DEAD_PANEL_API"
+grep -q 'function toggleAt(panel' "$PANELS" \
+    || fail "Panels has no generic toggleAt(panel, …)"
+grep -q 'function openAt(panel' "$PANELS" \
+    || fail "Panels has no generic openAt(panel, …)"
+if grep -q 'PowerService\.cancel' "$PANELS"; then
+    fail "Panels still cancels PowerService; power resets from its own panel visibility"
 fi
-# The registry closes through its list only: any per-panel alias write means
-# the pairwise mesh is coming back inside the file.
-if grep -nE '(calendarVisible|centerVisible|cavaVisible|powerVisible)[[:space:]]*=[^=]' "$PANELS" | grep -q .; then
-    fail "Panels writes a service visibility alias instead of its list"
-fi
-# No module, window, or sibling service assigns a panel visibility alias.
-CROSS_WRITES="$(grep -rn --include='*.qml' -E '(calendarVisible|centerVisible|cavaVisible|powerVisible)[[:space:]]*=[^=]' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" | grep -v 'services/Panels.qml' || true)"
-test -z "$CROSS_WRITES" \
-    || fail "panel visibility written outside services/Panels.qml: $CROSS_WRITES"
+# The registry is the only writer of a panel's PanelState visibility.
 if grep -rn --include='*.qml' -E 'panelState\.visible[[:space:]]*=' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" | grep -v 'services/Panels.qml' | grep -q .; then
     fail "a module, window, or sibling service writes a panel's PanelState visibility directly"
 fi
@@ -76,7 +78,7 @@ grep -q 'Panels.anyOpen' "$ROOT/windows/NotificationPopups.qml" \
     || fail "NotificationPopups does not gate on Panels.anyOpen"
 
 # Triggers call the registry instead of each other's services.
-for trigger in "Clock.qml:Panels.toggleCalendarAt" "Notifications.qml:Panels.toggleCenterAt" "Cava.qml:Panels.toggleCavaAt" "PowerMenu.qml:Panels.togglePowerAt"; do
+for trigger in "Clock.qml:Panels.toggleAt(CalendarService.panelState" "Notifications.qml:Panels.toggleAt(NotificationServer.panelState" "Cava.qml:Panels.toggleAt(CavaService.panelState" "PowerMenu.qml:Panels.toggleAt(PowerService.panelState"; do
     file="${trigger%%:*}"
     call="${trigger##*:}"
     grep -q "$call" "$ROOT/modules/$file" \
@@ -1599,6 +1601,29 @@ grep -q 'PanelGrab.unregisterBar(idPanelWindow)' "$ROOT/shell.qml" \
     || fail "shell.qml does not unregister the bar from the shared grab"
 grep -q 'barWindows.concat' "$PGRAB" \
     || fail "PanelGrab does not fold the always-visible bar into the grab"
+
+# Each quick panel hands PanelShell its PanelState, so the window binds one
+# property and PanelShell owns the outside-click close; the dashboard keeps
+# its explicit bindings with panel null.
+for pair in \
+    "windows/CavaCenter.qml:CavaService" \
+    "windows/CalendarCenter.qml:CalendarService" \
+    "windows/NotificationCenter.qml:NotificationServer" \
+    "windows/PowerCenter.qml:PowerService"; do
+    file="${pair%%:*}"
+    service="${pair##*:}"
+    grep -q "panel: $service.panelState" "$ROOT/$file" \
+        || fail "$file does not hand PanelShell $service.panelState"
+    if grep -qE '(cavaVisible|calendarVisible|centerVisible|powerVisible)' "$ROOT/$file"; then
+        fail "$file still binds a service visibility alias"
+    fi
+done
+grep -q 'property PanelState panel: null' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell does not take the panel's PanelState"
+grep -q 'root.panel.closeFromOutside()' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell does not close the panel from outside"
+grep -q 'onVisibleChanged: root.armedAction = ""' "$PSVC" \
+    || fail "PowerService does not reset the armed action when its panel toggles"
 
 # --- 14. theme service: palette model plus guarded colors.toml read ---
 # ThemeService answers "what is the palette right now" only. The palette is

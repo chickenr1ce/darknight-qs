@@ -198,7 +198,7 @@ ModuleBox {
     onClicked: mouse => {
         if (mouse.button === Qt.LeftButton) {
             const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-            Panels.toggleCavaAt(root.triggerScreen, centerX);
+            Panels.toggleAt(CavaService.panelState, root.triggerScreen, centerX);
         }
     }
 

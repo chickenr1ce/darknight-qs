@@ -33,10 +33,10 @@ Item {
                 screens: Quickshell.screens.map(screen => screen.name),
                 dashboard: DashboardService.dashboardVisible,
                 settings: DashboardService.dashboardVisible && DashboardService.activeTab === "settings",
-                calendar: CalendarService.calendarVisible,
-                cava: CavaService.cavaVisible,
-                center: NotificationServer.centerVisible,
-                power: PowerService.powerVisible,
+                calendar: CalendarService.panelState.visible,
+                cava: CavaService.panelState.visible,
+                center: NotificationServer.panelState.visible,
+                power: PowerService.panelState.visible,
                 dnd: NotificationServer.dndEnabled,
                 reducedMotion: Globals.reducedMotion,
                 zones: CalendarService.worldZones,
@@ -54,21 +54,21 @@ Item {
             else if (name === "settings")
                 DashboardService.dashboardVisible && DashboardService.activeTab === "settings" ? DashboardService.close() : DashboardService.openSettingsAt(screen, centerX, "");
             else if (name === "calendar")
-                CalendarService.calendarVisible ? CalendarService.closeCalendarFromOutside() : Panels.openCalendarAt(screen, centerX);
+                CalendarService.panelState.visible ? CalendarService.panelState.closeFromOutside() : Panels.openAt(CalendarService.panelState, screen, centerX);
             else if (name === "cava")
-                CavaService.cavaVisible ? CavaService.closeCavaFromOutside() : Panels.openCavaAt(screen, centerX);
+                CavaService.panelState.visible ? CavaService.panelState.closeFromOutside() : Panels.openAt(CavaService.panelState, screen, centerX);
             else if (name === "center")
-                NotificationServer.centerVisible ? NotificationServer.closeCenterFromOutside() : Panels.openCenterAt(screen, centerX);
+                NotificationServer.panelState.visible ? NotificationServer.panelState.closeFromOutside() : Panels.openAt(NotificationServer.panelState, screen, centerX);
             else if (name === "power")
-                PowerService.powerVisible ? PowerService.closePowerFromOutside() : Panels.openPowerAt(screen, centerX);
+                PowerService.panelState.visible ? PowerService.panelState.closeFromOutside() : Panels.openAt(PowerService.panelState, screen, centerX);
         }
 
         function closeAll(): void {
             DashboardService.close();
-            CalendarService.closeCalendarFromOutside();
-            CavaService.closeCavaFromOutside();
-            NotificationServer.closeCenterFromOutside();
-            PowerService.closePowerFromOutside();
+            CalendarService.panelState.closeFromOutside();
+            CavaService.panelState.closeFromOutside();
+            NotificationServer.panelState.closeFromOutside();
+            PowerService.panelState.closeFromOutside();
         }
 
         function toggleDnd(): void {
