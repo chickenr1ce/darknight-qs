@@ -33,7 +33,11 @@ Singleton {
         {
             key: "layout",
             title: qsTr("Layout"),
-            options: [qsTr("Bar visibility")].concat(BarVisibilityService.modules.map(module => module.title)),
+            options: [qsTr("Bar visibility")]
+                .concat(
+                    BarVisibilityService.modules.map(module => module.title),
+                    BarMarginService.rows.map(row => row.label)
+                ),
             comingSoon: false
         },
         {

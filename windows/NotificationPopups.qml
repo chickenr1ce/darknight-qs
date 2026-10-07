@@ -23,8 +23,8 @@ PanelWindow {
     }
 
     margins {
-        top: Globals.barHeight + Globals.moduleMargin + 8
-        right: Globals.horizontalBarMargin
+        top: Globals.barHeight + Globals.barTopMargin + 8
+        right: Globals.barSideMargin
     }
 
     visible: NotificationServer.toasts.count > 0 && !Panels.anyOpen

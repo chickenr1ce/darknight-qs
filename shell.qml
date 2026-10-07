@@ -27,7 +27,7 @@ ShellRoot {
 
             screen: modelData
 
-            implicitHeight: Globals.barHeight + Globals.moduleMargin
+            implicitHeight: Globals.barHeight + Globals.barTopMargin
             color: "transparent"
 
             Component.onCompleted: PanelGrab.registerBar(idPanelWindow)
@@ -46,9 +46,9 @@ ShellRoot {
                     top: parent.top
                     left: parent.left
                     right: parent.right
-                    topMargin: Globals.moduleMargin
-                    leftMargin: Globals.horizontalBarMargin
-                    rightMargin: Globals.horizontalBarMargin
+                    topMargin: Globals.barTopMargin
+                    leftMargin: Globals.barSideMargin
+                    rightMargin: Globals.barSideMargin
                 }
 
                 height: Globals.barHeight
@@ -94,7 +94,7 @@ ShellRoot {
                     fill: parent
                     leftMargin: Globals.slabInset
                     rightMargin: Globals.slabInset
-                    topMargin: Globals.moduleMargin
+                    topMargin: Globals.barTopMargin
                 }
 
                 Clock {
@@ -142,7 +142,7 @@ ShellRoot {
                 anchors {
                     horizontalCenter: parent.horizontalCenter
                     verticalCenter: parent.verticalCenter
-                    verticalCenterOffset: Globals.moduleMargin / 2
+                    verticalCenterOffset: Globals.barTopMargin / 2
                 }
             }
         }

@@ -29,4 +29,25 @@ ColumnLayout {
             onToggled: BarVisibilityService.setVisible(modelData.key, !value)
         }
     }
+
+    Repeater {
+        id: idMarginRows
+
+        model: BarMarginService.rows
+
+        delegate: SettingsSliderRow {
+            Layout.fillWidth: true
+
+            required property var modelData
+
+            visible: SettingsFilter.matches(root.filter, modelData.label)
+            label: modelData.label
+            hint: modelData.hint
+            from: 0
+            to: modelData.max
+            stepSize: 1
+            value: BarMarginService.valueFor(modelData.key)
+            onMoved: newValue => BarMarginService.setMargin(modelData.key, newValue)
+        }
+    }
 }

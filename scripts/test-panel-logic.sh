@@ -1417,6 +1417,122 @@ check('barvis/unknown', barvis('{"nope": false}'), all());
 check('barvis/nonbool', barvis('{"clock": 0}').clock, true);
 NODEEOF
 
+# Bar margins: two shared slider rows write the one BarMarginService, which
+# clamps to the Globals range and persists behind the StateFile load guard.
+# The shell reads the writable Globals tokens, not moduleMargin/horizontalBarMargin.
+BMSVC="$ROOT/services/BarMarginService.qml"
+test -f "$BMSVC" \
+    || fail "services/BarMarginService.qml is missing"
+grep -q '^singleton BarMarginService 1.0 BarMarginService.qml' "$ROOT/services/qmldir" \
+    || fail "BarMarginService is not registered in services/qmldir"
+grep -q 'name: "bar-margins"' "$BMSVC" \
+    || fail "BarMarginService does not persist to the bar-margins state file"
+grep -q 'idMarginState.loading || !idMarginState.loaded' "$BMSVC" \
+    || fail "BarMarginService does not guard saves on the StateFile loading/loaded flags"
+grep -q 'function setMargin' "$BMSVC" \
+    || fail "BarMarginService has no keyed setMargin"
+grep -q 'function valueFor' "$BMSVC" \
+    || fail "BarMarginService has no valueFor"
+grep -q 'function maximumFor' "$BMSVC" \
+    || fail "BarMarginService has no maximumFor"
+grep -q 'function clampMargin' "$BMSVC" \
+    || fail "BarMarginService has no keyed clampMargin"
+grep -q 'readonly property var rows' "$BMSVC" \
+    || fail "BarMarginService exposes no rows list"
+grep -qF 'qsTr("Top margin")' "$BMSVC" \
+    || fail "BarMarginService rows do not list Top margin"
+grep -qF 'qsTr("Side margin")' "$BMSVC" \
+    || fail "BarMarginService rows do not list Side margin"
+grep -q 'function applySettings' "$BMSVC" \
+    || fail "BarMarginService has no applySettings"
+grep -q 'function saveSettings' "$BMSVC" \
+    || fail "BarMarginService has no saveSettings"
+grep -q 'StateParsers.parseBarMargins' "$BMSVC" \
+    || fail "BarMarginService does not delegate parseBarMargins to StateParsers"
+grep -q 'Globals.barTopMarginMax' "$BMSVC" \
+    || fail "BarMarginService does not clamp the top margin to the Globals range"
+grep -q 'Globals.barSideMarginMax' "$BMSVC" \
+    || fail "BarMarginService does not clamp the side margin to the Globals range"
+grep -q '^import qs.config' "$BMSVC" \
+    || fail "BarMarginService does not import qs.config for the Globals tokens"
+grep -q '^import qs.services' "$BMSVC" \
+    || fail "BarMarginService is missing its qs.services self-import"
+
+# Globals: writable margins with ranges; the derived insets follow the side
+# margin so the bar interior and panel edge stay aligned with the slab.
+grep -q 'property int barTopMargin' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no writable barTopMargin"
+grep -q 'property int barSideMargin' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no writable barSideMargin"
+grep -q 'property int barTopMarginMax' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no barTopMarginMax"
+grep -q 'property int barSideMarginMax' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no barSideMarginMax"
+grep -q 'panelEdgeMargin: root.barSideMargin' "$ROOT/config/Globals.qml" \
+    || fail "Globals panelEdgeMargin does not follow the side margin"
+grep -q 'slabInset: root.barSideMargin' "$ROOT/config/Globals.qml" \
+    || fail "Globals slabInset does not follow the side margin"
+if grep -q 'horizontalBarMargin' "$ROOT/config/Globals.qml"; then
+    fail "horizontalBarMargin is back; barSideMargin is the single side token"
+fi
+
+# Shell: the slab, the window height, and the layout read the writable margins.
+grep -q 'Globals.barHeight + Globals.barTopMargin' "$ROOT/shell.qml" \
+    || fail "shell bar window height does not follow the top margin"
+grep -q 'topMargin: Globals.barTopMargin' "$ROOT/shell.qml" \
+    || fail "shell slab does not follow the top margin"
+grep -q 'leftMargin: Globals.barSideMargin' "$ROOT/shell.qml" \
+    || fail "shell slab does not follow the side margin"
+grep -q 'rightMargin: Globals.barSideMargin' "$ROOT/shell.qml" \
+    || fail "shell slab does not follow the side margin"
+if grep -q 'Globals.moduleMargin' "$ROOT/shell.qml"; then
+    fail "shell still places the bar with moduleMargin; the outer margin is barTopMargin"
+fi
+grep -q 'Globals.barSideMargin' "$ROOT/windows/NotificationPopups.qml" \
+    || fail "NotificationPopups does not follow the side margin"
+grep -q 'Globals.barHeight + Globals.barTopMargin' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell does not offset panels by the top margin, so panels detach from a moved bar"
+if grep -q 'Globals.moduleMargin' "$ROOT/components/PanelShell.qml"; then
+    fail "PanelShell still offsets panels with moduleMargin; the bar top gap is barTopMargin"
+fi
+if grep -q 'horizontalBarMargin' "$ROOT/shell.qml" "$ROOT/windows/NotificationPopups.qml"; then
+    fail "horizontalBarMargin survives; barSideMargin is the single side token"
+fi
+
+# Layout view: one shared slider row per margin, driven by the service rows so
+# the search labels derive from the same list the registry registers.
+grep -q 'SettingsSliderRow' "$BVIEW" \
+    || fail "LayoutSettingsView does not compose the shared slider row for margins"
+grep -q 'model: BarMarginService.rows' "$BVIEW" \
+    || fail "LayoutSettingsView does not render the margin rows from the service list"
+grep -q 'SettingsFilter.matches(root.filter, modelData.label)' "$BVIEW" \
+    || fail "LayoutSettingsView does not filter the margin rows by their label"
+grep -q 'to: modelData.max' "$BVIEW" \
+    || fail "LayoutSettingsView margin slider does not span the service range"
+grep -q 'BarMarginService.valueFor(modelData.key)' "$BVIEW" \
+    || fail "LayoutSettingsView margin slider does not read the shared value"
+grep -q 'BarMarginService.setMargin(modelData.key, newValue)' "$BVIEW" \
+    || fail "LayoutSettingsView margin slider does not write through BarMarginService"
+grep -q 'BarMarginService.rows.map' "$SSVC" \
+    || fail "SettingsService layout options do not derive from the margin rows"
+
+# parseBarMargins oracle: only numeric margins survive, malformed input falls
+# back to null, and the service clamps the survivors into their range.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/StateParsers.js" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const sp = qmljs.load(process.argv[3]);
+const margins = text => sp.parseBarMargins(text);
+check('barmargins/all', margins('{"topMargin": 8, "sideMargin": 20}'), { topMargin: 8, sideMargin: 20 });
+check('barmargins/partial', margins('{"topMargin": 0}'), { topMargin: 0 });
+check('barmargins/drops-non-number', margins('{"topMargin": "8", "sideMargin": true}'), {});
+check('barmargins/unknown-keys', margins('{"topMargin": 8, "other": 3}'), { topMargin: 8 });
+check('barmargins/empty', margins('{}'), {});
+check('barmargins/array', margins('[1, 2]'), null);
+check('barmargins/null', margins('null'), null);
+check('barmargins/malformed', margins('{nope'), null);
+NODEEOF
+
 # --- 12. dev probe is opt-in and covers the live-verification surface ---
 PROBE="$ROOT/dev/DevProbe.qml"
 test -f "$PROBE" \

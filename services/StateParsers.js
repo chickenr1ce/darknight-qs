@@ -144,6 +144,26 @@ function parseFontSettings(jsonText) {
     return out;
 }
 
+function parseBarMargins(jsonText) {
+    let parsed = null;
+    try
+    {
+        parsed = JSON.parse(jsonText);
+    }
+    catch (e)
+    {
+        return null;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        return null;
+    const out = {};
+    if (typeof parsed.topMargin === "number")
+        out["topMargin"] = parsed.topMargin;
+    if (typeof parsed.sideMargin === "number")
+        out["sideMargin"] = parsed.sideMargin;
+    return out;
+}
+
 function parseVisibility(jsonText, moduleKeys) {
     const out = {};
     for (let i = 0; i < moduleKeys.length; i++)

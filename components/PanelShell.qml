@@ -74,7 +74,7 @@ PanelWindow {
     }
 
     margins {
-        top: Globals.barHeight + Globals.moduleMargin + (root.attachedToBar ? -Globals.panelSeamOverlap : Globals.panelTopGap)
+        top: Globals.barHeight + Globals.barTopMargin + (root.attachedToBar ? -Globals.panelSeamOverlap : Globals.panelTopGap)
         left: root.windowLeft
     }
 

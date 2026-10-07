@@ -9,7 +9,10 @@ QtObject {
     readonly property int spacing: 10
     readonly property int modulePadding: 12
     readonly property int moduleMargin: 4
-    readonly property int horizontalBarMargin: 10
+    property int barTopMargin: 4
+    property int barSideMargin: 10
+    readonly property int barTopMarginMax: 24
+    readonly property int barSideMarginMax: 48
     readonly property int radius: 5
     readonly property int slabRadius: 9
     readonly property int fontPixelSize: 16
@@ -50,7 +53,7 @@ QtObject {
     readonly property int settingsBodyMaxHeight: 320
 
     readonly property int panelTopGap: 8
-    readonly property int panelEdgeMargin: horizontalBarMargin
+    readonly property int panelEdgeMargin: root.barSideMargin
     readonly property int panelSeamOverlap: 1
     readonly property int junctionRadiusDefault: 16
     readonly property int junctionRadiusMax: 32
@@ -72,7 +75,7 @@ QtObject {
 
     property bool reducedMotion: false
 
-    readonly property int slabInset: horizontalBarMargin + slabEdgePadding
+    readonly property int slabInset: root.barSideMargin + slabEdgePadding
     readonly property int slabEdgePadding: 6
     readonly property int hairlineVerticalInset: 8
 
