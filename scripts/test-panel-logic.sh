@@ -9,7 +9,9 @@
 #   2. python oracles mirroring the pure QML helpers (stale, anchor clamp,
 #      monitor policy, debounce, focus queue) at their boundary values.
 #      Each oracle cites its QML source; change the source and update the
-#      mirror in the same commit.
+#      mirror in the same commit. Logic already in a .pragma library JS file
+#      (ThemeParsers.js, StateParsers.js) runs for real under node through
+#      tests/qmljs.js instead of a mirror.
 #
 # Section index: grep -n '^# --- ' scripts/test-panel-logic.sh
 set -euo pipefail
@@ -1252,7 +1254,8 @@ if grep -rn --include='*.qml' 'includes(root.filter' "$ROOT/windows" "$ROOT/serv
 fi
 
 # Zones plus feeds persist through the CalendarService state files; the parse
-# validation is unchanged. Oracle mirrors CalendarService.parseZones.
+# validation is unchanged. The Python block mirrors the WeatherService location
+# parsers; StateParsers runs under node after it.
 python3 - <<'EOF'
 import json
 import math
@@ -1263,24 +1266,6 @@ def check(name, got, want):
     if got != want:
         print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
         sys.exit(1)
-
-# Mirror of StateParsers.parseZones (services/StateParsers.js): trim,
-# reject names failing the regex, drop duplicates, cap at maxZones = 6.
-def parse_zones(text, max_zones=6):
-    zones = []
-    lines = text.split("\n")
-    i = 0
-    while i < len(lines) and len(zones) < max_zones:
-        name = lines[i].strip()
-        if name != "" and re.fullmatch(r"[A-Za-z0-9_\-+/]+", name) and name not in zones:
-            zones.append(name)
-        i += 1
-    return zones
-
-check("zones/trim-dedupe", parse_zones(" UTC \nUTC\nEurope/Berlin\n"), ["UTC", "Europe/Berlin"])
-check("zones/reject-invalid", parse_zones("UTC\nbad name\nAsia/Tokyo\n"), ["UTC", "Asia/Tokyo"])
-check("zones/cap", parse_zones("\n".join(f"Z{i}" for i in range(10))), ["Z0", "Z1", "Z2", "Z3", "Z4", "Z5"])
-check("zones/empty", parse_zones(""), [])
 
 # Mirror of WeatherService.parseLocations (services/WeatherService.qml):
 # the geocoding results map to name plus label plus coordinates, capped at
@@ -1342,6 +1327,62 @@ check("location/bad-lat", apply_location_valid({"name": "Paris", "latitude": 91,
 check("location/bad-lon", apply_location_valid({"name": "Paris", "latitude": 48.85, "longitude": 200}), False)
 check("location/malformed", apply_location_valid({"name": "Paris"}), False)
 EOF
+
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/StateParsers.js" <<'NODEEOF'
+// StateParsers.parseZones: trim, reject names failing the regex, drop
+// duplicates, cap at CalendarService.maxZones = 6. parseCavaSettings clamps
+// each setting into the [min, max, fallback] range CavaService passes;
+// parseAudioSettings and parseFontSettings keep only well-typed fields.
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const sp = qmljs.load(process.argv[3]);
+const zones = text => sp.parseZones(text, 6);
+check('zones/trim-dedupe', zones(' UTC \nUTC\nEurope/Berlin\n'), ['UTC', 'Europe/Berlin']);
+check('zones/reject-invalid', zones('UTC\nbad name\nAsia/Tokyo\n'), ['UTC', 'Asia/Tokyo']);
+check('zones/cap', zones(Array.from({ length: 10 }, (_, i) => 'Z' + i).join('\n')), ['Z0', 'Z1', 'Z2', 'Z3', 'Z4', 'Z5']);
+check('zones/empty', zones(''), []);
+
+const LIMITS = {
+    sensitivity: [100, 5000, 1200],
+    barCount: [4, 32, 14],
+    styleMode: [0, 5, 0],
+    maxHeight: [6, 20, 20]
+};
+const cava = value => sp.parseCavaSettings(typeof value === 'string' ? value : JSON.stringify(value), LIMITS);
+check('cava/in-range', cava({ sensitivity: 800, autoSensitivity: true, barCount: 20, styleMode: 3, maxHeight: 12 }),
+      { sensitivity: 800, autoSensitivity: true, barCount: 20, styleMode: 3, maxHeight: 12 });
+check('cava/upper-clamp', cava({ sensitivity: 9999, barCount: 99, styleMode: 9, maxHeight: 50 }),
+      { sensitivity: 5000, autoSensitivity: false, barCount: 32, styleMode: 5, maxHeight: 20 });
+check('cava/lower-clamp', cava({ sensitivity: 1, barCount: 0, styleMode: -3, maxHeight: 1 }),
+      { sensitivity: 100, autoSensitivity: false, barCount: 4, styleMode: 0, maxHeight: 6 });
+check('cava/missing-falls-back', cava({}),
+      { sensitivity: 1200, autoSensitivity: false, barCount: 14, styleMode: 0, maxHeight: 20 });
+check('cava/non-numeric-falls-back', cava({ sensitivity: 'loud', barCount: 'many' }).barCount, 14);
+check('cava/rounds', cava({ barCount: 13.6 }).barCount, 14);
+check('cava/numeric-string', cava({ sensitivity: '900' }).sensitivity, 900);
+check('cava/auto-one', cava({ autoSensitivity: 1 }).autoSensitivity, true);
+check('cava/auto-string', cava({ autoSensitivity: 'true' }).autoSensitivity, false);
+check('cava/malformed', cava('{nope'), null);
+check('cava/null', cava('null'), null);
+check('cava/number', cava('5'), null);
+
+const audio = text => sp.parseAudioSettings(text);
+check('audio/lists', audio('{"hidden": ["a", 1, "b"], "order": ["c", null]}'), { hidden: ['a', 'b'], order: ['c'] });
+check('audio/missing', audio('{}'), { hidden: [], order: [] });
+check('audio/not-a-list', audio('{"hidden": "a", "order": {"x": 1}}'), { hidden: [], order: [] });
+check('audio/array', audio('["a"]'), null);
+check('audio/malformed', audio('{nope'), null);
+check('audio/null', audio('null'), null);
+
+const font = text => sp.parseFontSettings(text);
+check('font/all', font('{"uiFamily": "Geist", "monoFamily": "Iosevka", "iconFamily": "Symbols"}'),
+      { uiFamily: 'Geist', monoFamily: 'Iosevka', iconFamily: 'Symbols' });
+check('font/drops-non-string-and-unknown', font('{"uiFamily": 3, "monoFamily": "Iosevka", "other": "x"}'),
+      { monoFamily: 'Iosevka' });
+check('font/empty', font('{}'), {});
+check('font/array', font('["Geist"]'), null);
+check('font/malformed', font('{nope'), null);
+NODEEOF
 
 # --- 11. bar module visibility: one switch per module, persisted ---
 BSVC="$ROOT/services/BarVisibilityService.qml"
@@ -1601,241 +1642,26 @@ grep -q 'backgroundQueuedPath' "$TSVC" \
 grep -q 'render-theme.sh exited non-zero' "$TSVC" \
     || fail "a non-zero renderer exit is not logged (L4)"
 
-python3 - <<'EOF'
-import json
-import re
-import sys
-
-def check(name, got, want):
-    if got != want:
-        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
-        sys.exit(1)
-
-# Mirror of ThemeParsers.parseColors and its tables (services/ThemeParsers.js).
-# The guaranteed color keys are the spec's v4 set; mode is a string, and the
-# four optional keys are the only extras carried through.
-REQUIRED_KEYS = [
-    "accent", "selection", "muted",
-    "background", "dark_background", "darker_background", "lighter_background",
-    "foreground", "dark_foreground", "light_foreground", "bright_foreground",
-    "red", "yellow", "green", "cyan", "blue", "magenta",
-    "bright_red", "bright_yellow", "bright_green", "bright_cyan",
-    "bright_blue", "bright_magenta",
-]
-OPTIONAL_KEYS = ["orange", "brown", "hyprland_active_border", "hyprland_inactive_border"]
-BORDER_KEYS = ["hyprland_active_border", "hyprland_inactive_border"]
-MAX_BYTES = 262144
-
-def is_color(value):
-    return isinstance(value, str) and re.fullmatch(
-        r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})",
-        value,
-    ) is not None
-
-# Required roles (and the orange and brown aliases) reach QML, where an
-# eight-digit value is #aarrggbb, while a theme value is #rrggbbaa. They are
-# restricted to opaque forms so QML cannot read the wrong channel order; only
-# the two border roles, consumed by render-theme.sh, keep the eight-digit form.
-def is_opaque_color(value):
-    return isinstance(value, str) and re.fullmatch(
-        r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})",
-        value,
-    ) is not None
-
-def parse_toml_string(raw):
-    text = raw.strip()
-    if len(text) >= 2 and text[0] in "\"'":
-        end = text.find(text[0], 1)
-        if end > 0:
-            return text[1:end]
-    parts = text.split(None, 1)
-    return parts[0] if parts else ""
-
-ANSI_KEYS = [f"color{i}" for i in range(16)]
-LEGACY_SHORT_NAMES = {
-    "background": "bg",
-    "dark_background": "dark_bg",
-    "darker_background": "darker_bg",
-    "lighter_background": "lighter_bg",
-    "foreground": "fg",
-    "dark_foreground": "dark_fg",
-    "light_foreground": "light_fg",
-    "bright_foreground": "bright_fg",
+# Run the shipped parser under node: ThemeParsers.parseColors and its cascade,
+# isTrustedStat, and parseSelection / serializeSelection, then the B1
+# regression, which feeds parseSelection the state values a tampered state file
+# could hold. B1 shipped in the real file while a Python copy of it passed.
+node - "$ROOT/tests/qmljs.js" "$TPARSE" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const ctx = qmljs.load(process.argv[3]);
+function fail(message) {
+    console.error('panel-logic FAIL: ' + message);
+    process.exit(1);
 }
-ANSI_ROLES = {
-    "red": "color1", "green": "color2", "yellow": "color3", "blue": "color4",
-    "magenta": "color5", "cyan": "color6",
-    "bright_red": "color9", "bright_green": "color10", "bright_yellow": "color11",
-    "bright_blue": "color12", "bright_magenta": "color13", "bright_cyan": "color14",
-}
-COLOR_KEYS = set(REQUIRED_KEYS) | set(OPTIONAL_KEYS) | {
-    "selection_background", "selection_foreground", "cursor", "purple", "bright_purple",
-} | set(ANSI_KEYS) | set(LEGACY_SHORT_NAMES.values())
+const parseColors = (text, hint) => ctx.parseColors(text, hint);
+const drop = (text, prefix) => text.split('\n').filter(line => !line.startsWith(prefix)).join('\n');
 
-def normalize_color(value):
-    if not isinstance(value, str):
-        return ""
-    text = value.strip()
-    match = re.fullmatch(r"#([0-9a-fA-F]{3})", text)
-    if match:
-        h = match.group(1)
-        return ("#" + h[0] * 2 + h[1] * 2 + h[2] * 2).lower()
-    match = re.fullmatch(r"#([0-9a-fA-F]{4})", text)
-    if match:
-        h = match.group(1)
-        return ("#" + h[0] * 2 + h[1] * 2 + h[2] * 2 + h[3] * 2).lower()
-    if re.fullmatch(r"#[0-9a-fA-F]{6}", text) or re.fullmatch(r"#[0-9a-fA-F]{8}", text):
-        return text.lower()
-    return ""
-
-def rgb_of(hex_value):
-    h = hex_value.replace("#", "")
-    return [int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)]
-
-def to_hex(r, g, b):
-    clamp = lambda c: max(0, min(255, c))
-    return "#" + "".join(f"{clamp(c):02x}" for c in (r, g, b))
-
-def mix_color(start, end, amount):
-    a = normalize_color(start)
-    b = normalize_color(end)
-    if a == "" or b == "":
-        return ""
-    src = rgb_of(a)
-    dst = rgb_of(b)
-    t = max(0.0, min(1.0, amount))
-    channel = lambda x, y: int(x * (1 - t) + y * t + 0.5)
-    return to_hex(channel(src[0], dst[0]), channel(src[1], dst[1]), channel(src[2], dst[2]))
-
-def luminance_mode(background):
-    if not isinstance(background, str) or re.fullmatch(r"#[0-9a-fA-F]{6}", background) is None:
-        return "dark"
-    return "light" if sum(rgb_of(background.lower())) > 382 else "dark"
-
-def resolve_mode(declared, hint, background_raw):
-    if declared.get("mode") in ("dark", "light"):
-        return declared["mode"]
-    if declared.get("theme_type") in ("dark", "light"):
-        return declared["theme_type"]
-    if hint in ("dark", "light"):
-        return hint
-    return luminance_mode(background_raw)
-
-# Mirror of ThemeParsers.parseColors and its cascade (services/ThemeParsers.js):
-# a canonical file resolves to itself; a pre-semantic ANSI file is filled in via
-# omarchy-theme-color's aliases, ANSI bridge, derived fills, and mixed shades.
-# mode resolves as `mode` -> `theme_type` -> hint -> background luminance -> dark.
-def parse_colors(toml_text, mode_hint=None):
-    if not isinstance(toml_text, str):
-        return None
-    colors = {}
-    raw_colors = {}
-    declared = {}
-    for line in toml_text.split("\n"):
-        line = line.strip()
-        if line == "" or line[0] in "#[":
-            continue
-        eq = line.find("=")
-        if eq <= 0:
-            continue
-        key = line[:eq].strip()
-        decoded = parse_toml_string(line[eq + 1:])
-        if key in ("mode", "theme_type"):
-            declared[key] = decoded
-            continue
-        if key not in COLOR_KEYS:
-            continue
-        raw_colors[key] = decoded
-        value = normalize_color(decoded)
-        if value != "":
-            colors[key] = value
-
-    for canonical, legacy in LEGACY_SHORT_NAMES.items():
-        if canonical not in colors and legacy in colors:
-            colors[canonical] = colors[legacy]
-    if "background" not in colors and "color0" in colors:
-        colors["background"] = colors["color0"]
-    if "foreground" not in colors and "color7" in colors:
-        colors["foreground"] = colors["color7"]
-    if "background" in colors:
-        colors["color0"] = colors["background"]
-    if "foreground" in colors:
-        colors["color7"] = colors["foreground"]
-    for role, ansi in ANSI_ROLES.items():
-        if role not in colors and ansi in colors:
-            colors[role] = colors[ansi]
-    if "magenta" not in colors and "purple" in colors:
-        colors["magenta"] = colors["purple"]
-    if "bright_magenta" not in colors and "bright_purple" in colors:
-        colors["bright_magenta"] = colors["bright_purple"]
-    if "light_foreground" not in colors:
-        colors["light_foreground"] = colors.get("color7") or colors.get("foreground")
-    if "bright_foreground" not in colors:
-        colors["bright_foreground"] = colors.get("color15") or colors.get("foreground")
-    colors["cursor"] = colors.get("bright_foreground")
-    if "lighter_background" not in colors:
-        colors["lighter_background"] = colors.get("color0") or colors.get("background")
-    if "dark_foreground" not in colors:
-        colors["dark_foreground"] = colors.get("color8") or colors.get("foreground")
-    if "muted" not in colors:
-        colors["muted"] = colors.get("color8") or colors.get("dark_foreground")
-    if "selection" not in colors:
-        colors["selection"] = colors.get("selection_background") or colors.get("color8") or colors.get("color0") or colors.get("background")
-    if "selection_background" not in colors:
-        colors["selection_background"] = colors.get("selection")
-    if "selection_foreground" not in colors:
-        colors["selection_foreground"] = colors.get("bright_foreground")
-    if "orange" not in colors:
-        colors["orange"] = colors.get("yellow")
-    if "brown" not in colors:
-        colors["brown"] = mix_color(colors.get("orange"), "#000000", 0.5)
-    if "dark_background" not in colors:
-        colors["dark_background"] = mix_color(colors.get("background"), "#000000", 0.25)
-    if "darker_background" not in colors:
-        colors["darker_background"] = mix_color(colors.get("background"), "#000000", 0.5)
-    if "bright_red" not in colors:
-        colors["bright_red"] = mix_color(colors.get("red"), "#ffffff", 0.2)
-    if "bright_yellow" not in colors:
-        colors["bright_yellow"] = mix_color(colors.get("yellow"), "#ffffff", 0.2)
-    if "bright_green" not in colors:
-        colors["bright_green"] = mix_color(colors.get("green"), "#ffffff", 0.2)
-    if "bright_cyan" not in colors:
-        colors["bright_cyan"] = mix_color(colors.get("cyan"), "#ffffff", 0.2)
-    if "bright_blue" not in colors:
-        colors["bright_blue"] = mix_color(colors.get("blue"), "#ffffff", 0.2)
-    if "bright_magenta" not in colors:
-        colors["bright_magenta"] = mix_color(colors.get("magenta"), "#ffffff", 0.2)
-
-    # A degenerate lighter_background (color0 equals background) would make every
-    # surface and border token vanish; step it toward the foreground instead.
-    if colors.get("lighter_background") == colors.get("background"):
-        step = mix_color(colors.get("background"), colors.get("foreground"), 0.2)
-        if step != "" and step != colors.get("background"):
-            colors["lighter_background"] = step
-        elif "dark_background" in colors:
-            colors["lighter_background"] = colors["dark_background"]
-
-    palette = {}
-    for key in REQUIRED_KEYS:
-        value = colors.get(key)
-        if not is_opaque_color(value):
-            return None
-        palette[key] = value.lower()
-    for key in OPTIONAL_KEYS:
-        value = colors.get(key)
-        valid = is_color(value) if key in BORDER_KEYS else is_opaque_color(value)
-        if valid:
-            palette[key] = value.lower()
-    if "background" in raw_colors:
-        background_raw = raw_colors["background"]
-    elif "bg" in raw_colors:
-        background_raw = raw_colors["bg"]
-    else:
-        background_raw = raw_colors.get("color0")
-    palette["mode"] = resolve_mode(declared, mode_hint, background_raw)
-    return palette
-
-VALID = """
+// parseColors: a canonical file resolves to itself; a pre-semantic ANSI file is
+// filled in via omarchy-theme-color's aliases, ANSI bridge, derived fills, and
+// mixed shades. mode resolves as `mode` -> `theme_type` -> hint -> background
+// luminance -> dark.
+const VALID = `
 mode = "dark"
 
 accent = "#7aa2f7"
@@ -1867,37 +1693,36 @@ bright_green = "#b9f27c"
 bright_cyan = "#0db9d7"
 bright_blue = "#7da6ff"
 bright_magenta = "#bb9af7"
-"""
+`;
 
-palette = parse_colors(VALID)
-check("colors/mode", palette["mode"], "dark")
-check("colors/background", palette["background"], "#1a1b26")
-check("colors/lighter_background-kept", palette["lighter_background"], "#24283b")
-check("colors/red", palette["red"], "#f7768e")
-check("colors/optional-orange", palette["orange"], "#eb927b")
-check("colors/no-urgent-role", "urgent" in palette, False)
-check("colors/uppercase-lowered", parse_colors(VALID.replace("#1A1B26", "#1A1B26"))["background"], "#1a1b26")
+const palette = parseColors(VALID);
+check('colors/mode', palette.mode, 'dark');
+check('colors/background', palette.background, '#1a1b26');
+check('colors/lighter_background-kept', palette.lighter_background, '#24283b');
+check('colors/red', palette.red, '#f7768e');
+check('colors/optional-orange', palette.orange, '#eb927b');
+check('colors/no-urgent-role', 'urgent' in palette, false);
+check('colors/uppercase-lowered', parseColors(VALID.replaceAll('#1a1b26', '#1A1B26')).background, '#1a1b26');
 
-# red is the urgent role; an explicit `urgent` key is ignored, not carried.
-urgent = parse_colors(VALID + '\nurgent = "#ff0000"\n')
-check("colors/urgent-ignored", "urgent" in urgent, False)
-check("colors/red-kept", urgent["red"], "#f7768e")
+// red is the urgent role; an explicit `urgent` key is ignored, not carried.
+const urgent = parseColors(VALID + '\nurgent = "#ff0000"\n');
+check('colors/urgent-ignored', 'urgent' in urgent, false);
+check('colors/red-kept', urgent.red, '#f7768e');
 
-# Eight digits are #rrggbbaa for the border roles only; a required role with
-# eight digits is rejected rather than handed to QML, which reads #aarrggbb.
-check("colors/required-8-digit-rejected", parse_colors(
-    VALID.replace('accent = "#7aa2f7"', 'accent = "#7aa2f7aa"')), None)
-check("colors/border-8-digit-kept", parse_colors(
-    VALID + '\nhyprland_inactive_border = "#00ff0080"\n')["hyprland_inactive_border"], "#00ff0080")
-check("colors/alias-8-digit-dropped", "orange" in parse_colors(
-    VALID.replace('orange = "#eb927b"', 'orange = "#eb927baa"')), False)
+// Eight digits are #rrggbbaa for the border roles only; a required role with
+// eight digits is rejected rather than handed to QML, which reads #aarrggbb.
+check('colors/required-8-digit-rejected', parseColors(
+    VALID.replaceAll('accent = "#7aa2f7"', 'accent = "#7aa2f7aa"')), null);
+check('colors/border-8-digit-kept', parseColors(
+    VALID + '\nhyprland_inactive_border = "#00ff0080"\n').hyprland_inactive_border, '#00ff0080');
+check('colors/alias-8-digit-dropped', 'orange' in parseColors(
+    VALID.replaceAll('orange = "#eb927b"', 'orange = "#eb927baa"')), false);
 
-# A light theme flips mode.
-check("colors/light", parse_colors(VALID.replace('mode = "dark"', 'mode = "light"'))["mode"], "light")
+check('colors/light', parseColors(VALID.replaceAll('mode = "dark"', 'mode = "light"')).mode, 'light');
 
-# A pre-semantic theme (harbor's shape): ANSI color0-15 plus named accent,
-# foreground, background, selection_*. The resolver fills the semantic roles.
-HARBOR = """
+// A pre-semantic theme (harbor's shape): ANSI color0-15 plus named accent,
+// foreground, background, selection_*. The resolver fills the semantic roles.
+const HARBOR = `
 accent = "#5e81ac"
 foreground = "#1c2d28"
 background = "#dfe4c4"
@@ -1920,35 +1745,35 @@ color12 = "#4c6c94"
 color13 = "#8a5b81"
 color14 = "#3d727d"
 color15 = "#1c2d28"
-"""
-harbor = parse_colors(HARBOR, "light")
-check("colors/presemantic/resolves", harbor is not None, True)
-check("colors/presemantic/mode-hint", harbor["mode"], "light")
-check("colors/presemantic/mode-luminance", parse_colors(HARBOR)["mode"], "light")
-check("colors/presemantic/red", harbor["red"], "#b14752")
-check("colors/presemantic/muted", harbor["muted"], "#7d8794")
-check("colors/presemantic/selection", harbor["selection"], "#5e81ac")
-check("colors/presemantic/light_foreground", harbor["light_foreground"], "#1c2d28")
-check("colors/presemantic/bright_foreground", harbor["bright_foreground"], "#1c2d28")
-check("colors/presemantic/dark_background", harbor["dark_background"], "#a7ab93")
-# color0 equals background, so the degenerate lighter_background steps toward
-# the foreground instead of vanishing into the background.
-check("colors/presemantic/lighter_background-stepped", harbor["lighter_background"], "#b8bfa5")
-# color9 is present, so bright_red aliases it rather than mixing.
-check("colors/presemantic/bright_red-aliased", harbor["bright_red"], "#b14752")
+`;
+const harbor = parseColors(HARBOR, 'light');
+check('colors/presemantic/resolves', harbor !== null, true);
+check('colors/presemantic/mode-hint', harbor.mode, 'light');
+check('colors/presemantic/mode-luminance', parseColors(HARBOR).mode, 'light');
+check('colors/presemantic/red', harbor.red, '#b14752');
+check('colors/presemantic/muted', harbor.muted, '#7d8794');
+check('colors/presemantic/selection', harbor.selection, '#5e81ac');
+check('colors/presemantic/light_foreground', harbor.light_foreground, '#1c2d28');
+check('colors/presemantic/bright_foreground', harbor.bright_foreground, '#1c2d28');
+check('colors/presemantic/dark_background', harbor.dark_background, '#a7ab93');
+// color0 equals background, so the degenerate lighter_background steps toward
+// the foreground instead of vanishing into the background.
+check('colors/presemantic/lighter_background-stepped', harbor.lighter_background, '#b8bfa5');
+// color9 is present, so bright_red aliases it rather than mixing.
+check('colors/presemantic/bright_red-aliased', harbor.bright_red, '#b14752');
 
-# Without color9-14 the bright roles are mixed from the base colors.
-MIXED = HARBOR
-for _slot in ("color9", "color10", "color11", "color12", "color13", "color14"):
-    MIXED = "\n".join(line for line in MIXED.split("\n") if not line.startswith(_slot + " = "))
-check("colors/presemantic/mixed-bright-red", parse_colors(MIXED)["bright_red"], "#c16c75")
+// Without color9-14 the bright roles are mixed from the base colors.
+let MIXED = HARBOR;
+for (const slot of ['color9', 'color10', 'color11', 'color12', 'color13', 'color14'])
+    MIXED = drop(MIXED, slot + ' = ');
+check('colors/presemantic/mixed-bright-red', parseColors(MIXED).bright_red, '#c16c75');
 
-# magenta falls back to purple when color5 is absent.
-PURPLE = "\n".join(line for line in HARBOR.split("\n") if not line.startswith("color5 = ")) + 'purple = "#123456"\n'
-check("colors/presemantic/purple-alias", parse_colors(PURPLE)["magenta"], "#123456")
+// magenta falls back to purple when color5 is absent.
+const PURPLE = drop(HARBOR, 'color5 = ') + 'purple = "#123456"\n';
+check('colors/presemantic/purple-alias', parseColors(PURPLE).magenta, '#123456');
 
-# ANSI-only dark: no marker, no mode key, luminance decides.
-DARK = """
+// ANSI-only dark: no marker, no mode key, luminance decides.
+const DARK = `
 accent = "#5e81ac"
 foreground = "#e0e0e0"
 background = "#121212"
@@ -1960,139 +1785,65 @@ color4 = "#4c6c94"
 color5 = "#8a5b81"
 color6 = "#3d727d"
 color7 = "#e0e0e0"
-"""
-check("colors/presemantic/dark-mode", parse_colors(DARK)["mode"], "dark")
+`;
+check('colors/presemantic/dark-mode', parseColors(DARK).mode, 'dark');
 
-# A canonical value wins over its legacy form, and theme_type is the legacy mode.
-BOTH = VALID.replace('background = "#1a1b26"', 'background = "#1a1b26"\nbg = "#000000"')
-check("colors/canonical-over-legacy", parse_colors(BOTH)["background"], "#1a1b26")
-check("colors/theme-type", parse_colors(
-    VALID.replace('mode = "dark"', 'theme_type = "light"'))["mode"], "light")
+// A canonical value wins over its legacy form, and theme_type is the legacy mode.
+const BOTH = VALID.replaceAll('background = "#1a1b26"', 'background = "#1a1b26"\nbg = "#000000"');
+check('colors/canonical-over-legacy', parseColors(BOTH).background, '#1a1b26');
+check('colors/theme-type', parseColors(
+    VALID.replaceAll('mode = "dark"', 'theme_type = "light"')).mode, 'light');
 
-NO_MODE = "\n".join(line for line in VALID.split("\n") if not line.startswith("mode = "))
-check("colors/mode-hint-wins", parse_colors(NO_MODE, "light")["mode"], "light")
+check('colors/mode-hint-wins', parseColors(drop(VALID, 'mode = '), 'light').mode, 'light');
+check('colors/short-hex', parseColors(VALID.replaceAll('#1a1b26', '#123')).background, '#112233');
+check('colors/missing-key', parseColors(drop(VALID, 'red = ')), null);
+check('colors/missing-mode', parseColors(drop(VALID, 'mode = ')).mode, 'dark');
+check('colors/empty', parseColors(''), null);
+check('colors/comments-only', parseColors('# just a comment\n'), null);
 
-# Short hex expands to six digits before the opaque check.
-check("colors/short-hex", parse_colors(VALID.replace("#1a1b26", "#123"))["background"], "#112233")
+// isTrustedStat: the stat output is the raw mode in hex plus the byte size.
+// Only a regular file (mode type 0x8000) at or below the 256 KB cap is
+// readable; a symlink, a directory, a missing path, and an empty field are
+// all refused.
+const MAX_BYTES = 262144;
+check('stat/max-bytes', ctx.themeMaxBytes(), MAX_BYTES);
+check('stat/regular', ctx.isTrustedStat('81a4|512'), true);
+check('stat/at-cap', ctx.isTrustedStat('81a4|' + MAX_BYTES), true);
+check('stat/oversized', ctx.isTrustedStat('81a4|' + (MAX_BYTES + 1)), false);
+check('stat/symlink', ctx.isTrustedStat('a1ff|9'), false);
+check('stat/directory', ctx.isTrustedStat('41ed|4096'), false);
+check('stat/missing', ctx.isTrustedStat(''), false);
+check('stat/executable', ctx.isTrustedStat('81ed|14'), true);
+check('stat/truncated-size', ctx.isTrustedStat('81a4|'), false);
+check('stat/missing-mode', ctx.isTrustedStat('|512'), false);
 
-# A missing guaranteed key rejects the whole palette.
-check("colors/missing-key", parse_colors("\n".join(
-    line for line in VALID.split("\n") if not line.startswith("red = "))), None)
+// parseSelection / serializeSelection: the theme name is validated as one plain
+// path segment before it can become a path, a malformed or non-object file
+// falls back to no active theme with an empty background map, and a round trip
+// preserves both.
+const sel = text => ctx.parseSelection(text);
+const none = { theme: '', backgrounds: {} };
+check('selection/round-trip',
+      sel(ctx.serializeSelection('tokyo-night', '{"tokyo-night": "2-swirl-buck.webp"}')),
+      { theme: 'tokyo-night', backgrounds: { 'tokyo-night': '2-swirl-buck.webp' } });
+check('selection/default-empty', sel(''), none);
+check('selection/malformed', sel('{nope'), none);
+check('selection/list', sel('[1, 2]'), none);
+check('selection/keeps-backgrounds', sel('{"backgrounds": {"a": "b.jpg"}}'), { theme: '', backgrounds: { a: 'b.jpg' } });
+check('selection/select-rewrites-theme-keeps-backgrounds',
+      sel(ctx.serializeSelection('daylight', '{"tokyo-night": "2-swirl-buck.webp"}')),
+      { theme: 'daylight', backgrounds: { 'tokyo-night': '2-swirl-buck.webp' } });
+check('selection/traversal', sel('{"theme": "../../etc"}'), none);
+check('selection/slash', sel('{"theme": "a/b"}'), none);
+check('selection/backslash', sel(JSON.stringify({ theme: 'a\\b' })), none);
+check('selection/dot', sel('{"theme": "."}'), none);
+check('selection/dotdot', sel('{"theme": ".."}'), none);
+check('selection/fragment', sel('{"theme": "a#b"}'), none);
+check('selection/query', sel('{"theme": "a?b"}'), none);
+check('selection/control', sel(JSON.stringify({ theme: 'evil\nname' })), none);
+check('selection/valid', sel('{"theme": "tokyo-night"}'), { theme: 'tokyo-night', backgrounds: {} });
 
-# mode is no longer required: a canonical file without it resolves by luminance.
-check("colors/missing-mode", parse_colors("\n".join(
-    line for line in VALID.split("\n") if not line.startswith("mode = ")))["mode"], "dark")
-
-# An empty file has no palette.
-check("colors/empty", parse_colors(""), None)
-check("colors/comments-only", parse_colors("# just a comment\n"), None)
-
-# Mirror of ThemeParsers.isTrustedStat (services/ThemeParsers.js): the stat
-# output is the raw mode in hex plus the byte size, so the check never reads a
-# localized file-type string. Only a regular file (mode type 0x8000) at or
-# below the 256 KB cap is readable; a symlink, a directory, and a missing path
-# are all refused.
-def is_trusted_stat(output):
-    if not isinstance(output, str):
-        return False
-    parts = output.strip().split("|")
-    if len(parts) != 2:
-        return False
-    mode_text, size_text = parts[0].strip(), parts[1].strip()
-    # An empty field must fail rather than coerce: Number("") is 0, which would
-    # trust a truncated stat line.
-    if re.fullmatch(r"[0-9a-fA-F]+", mode_text) is None:
-        return False
-    if re.fullmatch(r"[0-9]+", size_text) is None:
-        return False
-    mode = int(mode_text, 16)
-    size = int(size_text)
-    return (mode & 0xF000) == 0x8000 and size <= MAX_BYTES
-
-check("stat/regular", is_trusted_stat("81a4|512"), True)
-check("stat/at-cap", is_trusted_stat(f"81a4|{MAX_BYTES}"), True)
-check("stat/oversized", is_trusted_stat(f"81a4|{MAX_BYTES + 1}"), False)
-check("stat/symlink", is_trusted_stat("a1ff|9"), False)
-check("stat/directory", is_trusted_stat("41ed|4096"), False)
-check("stat/missing", is_trusted_stat(""), False)
-check("stat/executable", is_trusted_stat("81ed|14"), True)
-check("stat/truncated-size", is_trusted_stat("81a4|"), False)
-check("stat/missing-mode", is_trusted_stat("|512"), False)
-
-# Mirror of ThemeParsers.parseSelection / serializeSelection
-# (services/ThemeParsers.js): the theme name is validated as one plain path
-# segment before it can become a path, a malformed or non-object file falls back
-# to no active theme with an empty background map, and a round trip preserves
-# both.
-CONTROL = re.compile(r"[\x00-\x1f\x7f]")
-
-def valid_theme_name(name):
-    if not isinstance(name, str):
-        return False
-    if name in ("", ".", ".."):
-        return False
-    if any(sep in name for sep in "/\\|#?"):
-        return False
-    return CONTROL.search(name) is None
-
-def parse_selection(json_text):
-    try:
-        parsed = json.loads(json_text)
-    except Exception:
-        return {"theme": "", "backgrounds": {}}
-    if not isinstance(parsed, dict):
-        return {"theme": "", "backgrounds": {}}
-    theme = parsed.get("theme") if valid_theme_name(parsed.get("theme")) else ""
-    backgrounds = parsed.get("backgrounds")
-    if not isinstance(backgrounds, dict):
-        backgrounds = {}
-    return {"theme": theme, "backgrounds": backgrounds}
-
-def serialize_selection(theme, backgrounds_json):
-    try:
-        backgrounds = json.loads(backgrounds_json)
-    except Exception:
-        backgrounds = {}
-    if not isinstance(backgrounds, dict):
-        backgrounds = {}
-    return json.dumps({"theme": theme, "backgrounds": backgrounds}) + "\n"
-
-check("selection/round-trip",
-      parse_selection(serialize_selection("tokyo-night", '{"tokyo-night": "2-swirl-buck.webp"}')),
-      {"theme": "tokyo-night", "backgrounds": {"tokyo-night": "2-swirl-buck.webp"}})
-check("selection/default-empty", parse_selection(""), {"theme": "", "backgrounds": {}})
-check("selection/malformed", parse_selection("{nope"), {"theme": "", "backgrounds": {}})
-check("selection/list", parse_selection("[1, 2]"), {"theme": "", "backgrounds": {}})
-check("selection/keeps-backgrounds", parse_selection('{"backgrounds": {"a": "b.jpg"}}'),
-      {"theme": "", "backgrounds": {"a": "b.jpg"}})
-check("selection/select-rewrites-theme-keeps-backgrounds",
-      parse_selection(serialize_selection("daylight", '{"tokyo-night": "2-swirl-buck.webp"}')),
-      {"theme": "daylight", "backgrounds": {"tokyo-night": "2-swirl-buck.webp"}})
-check("selection/traversal", parse_selection('{"theme": "../../etc"}'), {"theme": "", "backgrounds": {}})
-check("selection/slash", parse_selection('{"theme": "a/b"}'), {"theme": "", "backgrounds": {}})
-check("selection/backslash", parse_selection(json.dumps({"theme": "a\\b"})), {"theme": "", "backgrounds": {}})
-check("selection/dot", parse_selection('{"theme": "."}'), {"theme": "", "backgrounds": {}})
-check("selection/dotdot", parse_selection('{"theme": ".."}'), {"theme": "", "backgrounds": {}})
-check("selection/fragment", parse_selection('{"theme": "a#b"}'), {"theme": "", "backgrounds": {}})
-check("selection/query", parse_selection('{"theme": "a?b"}'), {"theme": "", "backgrounds": {}})
-check("selection/control", parse_selection(json.dumps({"theme": "evil\nname"})), {"theme": "", "backgrounds": {}})
-check("selection/valid", parse_selection('{"theme": "tokyo-night"}'), {"theme": "tokyo-night", "backgrounds": {}})
-EOF
-
-# B1 regression: run the shipped parser under node and feed it the state values
-# a tampered state file could hold. The Python mirror above states the intent;
-# this checks the real file, which is where B1 shipped unvalidated.
-node - "$TPARSE" <<'NODEEOF'
-const fs = require('fs');
-const vm = require('vm');
-const src = fs.readFileSync(process.argv[2], 'utf8').replace(/^\.pragma .*$/m, '');
-const ctx = { console };
-vm.createContext(ctx);
-vm.runInContext(src, ctx);
-function fail(message) {
-    console.error('panel-logic FAIL: ' + message);
-    process.exit(1);
-}
+// B1 regression.
 function selection(theme) {
     return ctx.parseSelection(JSON.stringify({ theme: theme })).theme;
 }
@@ -2250,7 +2001,7 @@ grep -q 'ThemeParsers.themeMaxBytes' "$TSVC" \
 CATDIR="$(mktemp -d /tmp/opencode/theme-catalog-XXXXXX)"
 # The scan lists a theme only when colors.toml carries the full v4 palette, not
 # merely a mode line, so the catalog cannot offer a switch that yields no
-# palette (M4). The palette text mirrors the JS/Python oracle above.
+# palette (M4). The palette text matches the parseColors node checks above.
 write_palette_theme() {
     mkdir -p "$1"
     sed "s/^mode = \"dark\"/mode = \"$2\"/" "$ROOT/tests/fixtures/theme-palette.toml" > "$1/colors.toml"
@@ -2366,119 +2117,53 @@ for (const line of scanOut.split('\n')) {
 NODEEOF
 rm -rf "$CATDIR"
 
-python3 - <<'EOF'
-import re
-import sys
-
-def check(name, got, want):
-    if got != want:
-        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
-        sys.exit(1)
-
-# Mirror of ThemeParsers.displayName (services/ThemeParsers.js): split on runs
-# of - or _, drop empty segments, uppercase each segment's first character, and
-# join with single spaces.
-def display_name(name):
-    words = []
-    for word in re.split(r"[-_]+", name):
-        if word == "":
-            continue
-        words.append(word[0].upper() + word[1:])
-    return " ".join(words)
-
-check("catalog/display-kebab", display_name("tokyo-night"), "Tokyo Night")
-check("catalog/display-snake", display_name("rose_pine"), "Rose Pine")
-check("catalog/display-single", display_name("nord"), "Nord")
-check("catalog/display-runs", display_name("a--b__c"), "A B C")
-check("catalog/display-lead-trail", display_name("-lead-trail-"), "Lead Trail")
-check("catalog/display-digits", display_name("123abc"), "123abc")
-check("catalog/display-empty", display_name(""), "")
-
-# Mirror of ThemeParsers.parseTomlString (services/ThemeParsers.js): a quoted
-# value ends at its closing quote, an unquoted value at the first space.
-def parse_toml_string(raw):
-    text = raw.strip()
-    if len(text) >= 2 and text[0] in "\"'":
-        end = text.find(text[0], 1)
-        if end > 0:
-            return text[1:end]
-    parts = text.split(None, 1)
-    return parts[0] if parts else ""
-
-# Mirror of ThemeParsers.parseCatalog (services/ThemeParsers.js): one
-# `name|raw mode|<preview roles>` record per line from the scan; the raw value
-# goes through parseTomlString, a valid mode and name are required, the trailing
-# roles are normalized to lowercase opaque hex, and entries sort by display name
-# then slug and are located under the theme root.
-def parse_catalog(output, root):
-    entries = []
-    for line in output.split("\n"):
-        if line == "":
-            continue
-        parts = line.split("|")
-        if len(parts) < 2:
-            continue
-        name = parts[0]
-        mode = parse_toml_string(parts[1])
-        if mode not in ("dark", "light"):
-            continue
-        if not is_valid_name(name):
-            continue
-        entries.append({"name": name, "displayName": display_name(name),
-                        "dir": root + "/" + name, "mode": mode,
-                        "swatches": [normalize(part) for part in parts[2:] if normalize(part)]})
-    entries.sort(key=lambda entry: (entry["displayName"], entry["name"]))
-    return entries
-
-
-def is_valid_name(name):
-    if name in ("", ".", ".."):
-        return False
-    if any(ch in name for ch in "/\\|#?"):
-        return False
-    return not any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in name)
-
-
-def is_opaque(value):
-    if not re.fullmatch(r"#[0-9a-fA-F]+", value or ""):
-        return False
-    return len(value) - 1 in (3, 6)
-
-
-def normalize(value):
-    if not is_opaque(value):
-        return ""
-    h = value[1:].lower()
-    if len(h) == 3:
-        h = h[0] * 2 + h[1] * 2 + h[2] * 2
-    return "#" + h
-
-
-TEXT = 'tokyo-night|"dark"\ndaylight|"light"\nnord|light\n'
-check("catalog/order", [e["name"] for e in parse_catalog(TEXT, "/r")],
-      ["daylight", "nord", "tokyo-night"])
-check("catalog/dir", parse_catalog(TEXT, "/r")[0]["dir"], "/r/daylight")
-check("catalog/display", parse_catalog(TEXT, "/r")[2]["displayName"], "Tokyo Night")
-check("catalog/single-quotes", parse_catalog("quoted|'light'\n", "/r")[0]["mode"], "light")
-check("catalog/trailing-comment", parse_catalog('commented|"dark" # dark\n', "/r")[0]["mode"], "dark")
-check("catalog/order-by-display", [e["name"] for e in parse_catalog("Zebra|dark\nalpha|light\n", "/r")],
-      ["alpha", "Zebra"])
-check("catalog/drop-bad-mode", [e["name"] for e in parse_catalog("bad|purple\ngood|dark\n", "/r")], ["good"])
-check("catalog/drop-no-sep", parse_catalog("noseparator\n", "/r"), [])
-check("catalog/drop-path", parse_catalog("a/b|dark\n", "/r"), [])
-check("catalog/drop-hash-name", parse_catalog("a#b|dark\n", "/r"), [])
-check("catalog/drop-quest-name", parse_catalog("a?b|dark\n", "/r"), [])
-check("catalog/empty", parse_catalog("", "/r"), [])
-check("catalog/trailing-newline-ok", [e["name"] for e in parse_catalog("good|dark\n", "/r")], ["good"])
-check("catalog/preview-roles", parse_catalog("tokyo-night|dark|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26\n", "/r")[0]["swatches"],
-      ["#7aa2f7", "#ad8ee6", "#a9b1d6", "#24283b", "#1a1b26"])
-check("catalog/preview-short-hex", parse_catalog("x|dark|#ABC|#ad8ee6\n", "/r")[0]["swatches"],
-      ["#aabbcc", "#ad8ee6"])
-check("catalog/preview-drops-invalid", parse_catalog("x|dark|#7aa2f7|notacolor|#ad8ee6\n", "/r")[0]["swatches"],
-      ["#7aa2f7", "#ad8ee6"])
-check("catalog/preview-drops-alpha", parse_catalog("x|dark|#7aa2f7ff\n", "/r")[0]["swatches"], [])
-check("catalog/no-preview", parse_catalog("x|dark\n", "/r")[0]["swatches"], [])
-EOF
+node - "$ROOT/tests/qmljs.js" "$TPARSE" <<'NODEEOF'
+// ThemeParsers.displayName: split on runs of - or _, drop empty segments,
+// uppercase each segment's first character, and join with single spaces.
+// ThemeParsers.parseCatalog: one `name|raw mode|<preview roles>` record per line
+// from the scan; the raw value goes through parseTomlString (a quoted value ends
+// at its closing quote, an unquoted value at the first space), a valid mode and
+// name are required, the trailing roles are normalized to lowercase opaque hex,
+// and entries sort by display name then slug and are located under the theme
+// root.
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const tp = qmljs.load(process.argv[3]);
+check('catalog/display-kebab', tp.displayName('tokyo-night'), 'Tokyo Night');
+check('catalog/display-snake', tp.displayName('rose_pine'), 'Rose Pine');
+check('catalog/display-single', tp.displayName('nord'), 'Nord');
+check('catalog/display-runs', tp.displayName('a--b__c'), 'A B C');
+check('catalog/display-lead-trail', tp.displayName('-lead-trail-'), 'Lead Trail');
+check('catalog/display-digits', tp.displayName('123abc'), '123abc');
+check('catalog/display-empty', tp.displayName(''), '');
+check('toml/double-quoted', tp.parseTomlString(' "dark" # comment'), 'dark');
+check('toml/single-quoted', tp.parseTomlString("'light'"), 'light');
+check('toml/unquoted', tp.parseTomlString('dark trailing'), 'dark');
+check('toml/empty', tp.parseTomlString('   '), '');
+const catalog = (output, root) => tp.parseCatalog(output, root);
+const catalogNames = (output, root) => catalog(output, root).map(e => e.name);
+const TEXT = 'tokyo-night|"dark"\ndaylight|"light"\nnord|light\n';
+check('catalog/order', catalogNames(TEXT, '/r'), ['daylight', 'nord', 'tokyo-night']);
+check('catalog/dir', catalog(TEXT, '/r')[0].dir, '/r/daylight');
+check('catalog/display', catalog(TEXT, '/r')[2].displayName, 'Tokyo Night');
+check('catalog/single-quotes', catalog("quoted|'light'\n", '/r')[0].mode, 'light');
+check('catalog/trailing-comment', catalog('commented|"dark" # dark\n', '/r')[0].mode, 'dark');
+check('catalog/order-by-display', catalogNames('Zebra|dark\nalpha|light\n', '/r'), ['alpha', 'Zebra']);
+check('catalog/drop-bad-mode', catalogNames('bad|purple\ngood|dark\n', '/r'), ['good']);
+check('catalog/drop-no-sep', catalog('noseparator\n', '/r'), []);
+check('catalog/drop-path', catalog('a/b|dark\n', '/r'), []);
+check('catalog/drop-hash-name', catalog('a#b|dark\n', '/r'), []);
+check('catalog/drop-quest-name', catalog('a?b|dark\n', '/r'), []);
+check('catalog/empty', catalog('', '/r'), []);
+check('catalog/trailing-newline-ok', catalogNames('good|dark\n', '/r'), ['good']);
+check('catalog/preview-roles', catalog('tokyo-night|dark|#7aa2f7|#ad8ee6|#a9b1d6|#24283b|#1a1b26\n', '/r')[0].swatches,
+      ['#7aa2f7', '#ad8ee6', '#a9b1d6', '#24283b', '#1a1b26']);
+check('catalog/preview-short-hex', catalog('x|dark|#ABC|#ad8ee6\n', '/r')[0].swatches, ['#aabbcc', '#ad8ee6']);
+check('catalog/preview-drops-invalid', catalog('x|dark|#7aa2f7|notacolor|#ad8ee6\n', '/r')[0].swatches,
+      ['#7aa2f7', '#ad8ee6']);
+check('catalog/preview-drops-alpha', catalog('x|dark|#7aa2f7ff\n', '/r')[0].swatches, []);
+check('catalog/no-preview', catalog('x|dark\n', '/r')[0].swatches, []);
+NODEEOF
 
 # --- 17. desktop retint: the renderer writes repo-owned templates ---
 # scripts/render-theme.sh substitutes the resolved palette into the templates
@@ -2818,81 +2503,34 @@ test -z "$bg_link_out" \
     || fail "background scan followed a symlinked backgrounds directory"
 rm -rf "$BG_DIR" "$BG_LINK"
 
-python3 - <<'EOF'
-import re
-import sys
-import urllib.parse
-
-def check(name, got, want):
-    if got != want:
-        print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
-        sys.exit(1)
-
-# Mirror of ThemeParsers.backgroundMaxBytes, encodePath, and parseBackgroundList
-# (services/ThemeParsers.js): the scan output is one file name per line; a line is
-# kept only when it is a bare allowed-extension image name, resolved under the
-# backgrounds directory, and the list sorts by name so the picker order is stable.
-# The url is the path percent-encoded per segment, so a name holding # or ? cannot
-# be read as a URL fragment or query by the thumbnail.
-BACKGROUND_MAX_BYTES = 33554432
-SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".bmp")
-CONTROL = re.compile(r"[\u0000-\u001f\u007f]")
-
-def background_name(value):
-    if not isinstance(value, str):
-        return ""
-    text = value.strip()
-    slash = max(text.rfind("/"), text.rfind("\\"))
-    base = text[slash + 1:] if slash >= 0 else text
-    if base == "" or base[0] == "." or ".." in base or "|" in base:
-        return ""
-    if CONTROL.search(base):
-        return ""
-    dot = base.rfind(".")
-    if dot <= 0:
-        return ""
-    if base[dot:].lower() not in SUFFIXES:
-        return ""
-    return base
-
-def encode_path(path):
-    if not isinstance(path, str) or path == "":
-        return ""
-    return "/".join(urllib.parse.quote(part, safe="!'()*-._~") for part in path.split("/"))
-
-def parse_background_list(output, directory):
-    if not isinstance(output, str):
-        return []
-    base = directory if isinstance(directory, str) else ""
-    entries = []
-    for name in output.split("\n"):
-        if name in ("", ".", "..") or "/" in name:
-            continue
-        if CONTROL.search(name) or background_name(name) != name:
-            continue
-        path = name if base == "" else base + "/" + name
-        entries.append({"name": name, "path": path, "url": "file://" + encode_path(path)})
-    entries.sort(key=lambda entry: entry["name"])
-    return entries
-
-check("backgrounds/max-bytes", BACKGROUND_MAX_BYTES, 33554432)
-check("backgrounds/names", [e["name"] for e in parse_background_list("b.png\na.JPG\nnotes.txt\nbig.webp\n", "/bg")],
-      ["a.JPG", "b.png", "big.webp"])
-check("backgrounds/order-stable", [e["name"] for e in parse_background_list("z.png\na.png\nm.png", "/bg")],
-      ["a.png", "m.png", "z.png"])
-check("backgrounds/path", parse_background_list("a.png\n", "/bg")[0]["path"], "/bg/a.png")
-check("backgrounds/empty-dir", parse_background_list("a.png\n", "")[0]["path"], "a.png")
-check("backgrounds/url-encoded", parse_background_list("a#b.png\n", "/bg")[0]["url"], "file:///bg/a%23b.png")
-check("backgrounds/url-space", parse_background_list("a b.png\n", "/bg")[0]["url"], "file:///bg/a%20b.png")
-check("backgrounds/drop-extension", [e["name"] for e in parse_background_list("a.gif\nb.PNG\n", "/bg")], ["b.PNG"])
-check("backgrounds/drop-path", parse_background_list("a/b.png\n", "/bg"), [])
-check("backgrounds/drop-dotdot", parse_background_list("..\n.\n", "/bg"), [])
-check("backgrounds/drop-pipe", parse_background_list("a|b.png\n", "/bg"), [])
-check("backgrounds/drop-control", parse_background_list("a\tb.png\n", "/bg"), [])
-check("backgrounds/drop-hidden", parse_background_list(".hidden.png\n", "/bg"), [])
-check("backgrounds/empty", parse_background_list("", "/bg"), [])
-check("backgrounds/non-string", parse_background_list(None, "/bg"), [])
-EOF
+node - "$ROOT/tests/qmljs.js" "$TPARSE" <<'NODEEOF'
+// ThemeParsers.backgroundMaxBytes, encodePath, and parseBackgroundList: the scan
+// output is one file name per line; a line is kept only when it is a bare
+// allowed-extension image name, resolved under the backgrounds directory, and
+// the list sorts by name so the picker order is stable. The url is the path
+// percent-encoded per segment, so a name holding # or ? cannot be read as a URL
+// fragment or query by the thumbnail.
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const tp = qmljs.load(process.argv[3]);
+const list = (output, dir) => tp.parseBackgroundList(output, dir);
+const names = (output, dir) => list(output, dir).map(e => e.name);
+check('backgrounds/max-bytes', tp.backgroundMaxBytes(), 33554432);
+check('backgrounds/names', names('b.png\na.JPG\nnotes.txt\nbig.webp\n', '/bg'), ['a.JPG', 'b.png', 'big.webp']);
+check('backgrounds/order-stable', names('z.png\na.png\nm.png', '/bg'), ['a.png', 'm.png', 'z.png']);
+check('backgrounds/path', list('a.png\n', '/bg')[0].path, '/bg/a.png');
+check('backgrounds/empty-dir', list('a.png\n', '')[0].path, 'a.png');
+check('backgrounds/url-encoded', list('a#b.png\n', '/bg')[0].url, 'file:///bg/a%23b.png');
+check('backgrounds/url-space', list('a b.png\n', '/bg')[0].url, 'file:///bg/a%20b.png');
+check('backgrounds/drop-extension', names('a.gif\nb.PNG\n', '/bg'), ['b.PNG']);
+check('backgrounds/drop-path', list('a/b.png\n', '/bg'), []);
+check('backgrounds/drop-dotdot', list('..\n.\n', '/bg'), []);
+check('backgrounds/drop-pipe', list('a|b.png\n', '/bg'), []);
+check('backgrounds/drop-control', list('a\tb.png\n', '/bg'), []);
+check('backgrounds/drop-hidden', list('.hidden.png\n', '/bg'), []);
+check('backgrounds/empty', list('', '/bg'), []);
+check('backgrounds/non-string', list(null, '/bg'), []);
+NODEEOF
 
 # --- 20. fonts: one picker per role, one service, persisted ---
 FONTSVC="$ROOT/services/FontService.qml"
