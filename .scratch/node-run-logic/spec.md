@@ -79,9 +79,30 @@ code is not enough: each ticket adds the missing cases.
 0.18 s; `scripts/check.sh` 10.4 s. Python start-up is ~10 ms and node
 ~25 ms, so the mirrors are not where the time goes.
 
-**Targets:** every mutant for a ticket's domain reports `caught` once that
-ticket lands; the two logic scripts together stay under 2.6 s (baseline
-2.24 s plus a 0.35 s budget for node start-ups).
+**Result, 2026-10-07** (all tickets merged): every mutant reports `caught`,
+each in the script that owns its domain.
+
+| Mutant (shipped code) | Caught by |
+| --- | --- |
+| `WeatherService.formatTemp` round → floor | dashboard-data |
+| `WeatherService.isStale` threshold doubled | dashboard-data |
+| `WeatherService.glyphFor` fog → cloudy | dashboard-data (behaviour) |
+| `SpotifyService.parseResponse` truthy `ok` | dashboard-data |
+| `MprisPlayers.formatTime` drops zero pad | dashboard-data |
+| `MprisPlayers.nextLoopState` Track → Playlist | dashboard-data |
+| `MprisPlayers.parseApps` default not allowed | dashboard-data |
+| `MonitorService.firstWorkspaceFor` off by one | panel-logic |
+| `MonitorService.clampWorkspacesPerMonitor` max 30 | panel-logic |
+| `SystemMonitor.parseNetSample` untrimmed iface | dashboard-data |
+| `SystemInfo.formatPackages` precision | dashboard-data |
+| `AudioService.percentForVolume` round → floor | dashboard-data |
+| `BarVisibilityService.parseVisibility` falsy hides | panel-logic |
+| `StateParsers.parseCavaSettings` no upper clamp | panel-logic |
+| control: `ThemeParsers.isValidThemeName` accepts all | panel-logic |
+
+**Runtime, after** (5 runs each): `test-panel-logic.sh` 2.16–2.17 s,
+`test-dashboard-data.sh` 0.27 s, combined ~2.44 s, under the 2.6 s target.
+The dashboard script grew from 0.18 s to 0.27 s for the extra node runs.
 
 ## Out of scope
 
