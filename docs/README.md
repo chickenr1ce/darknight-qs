@@ -1,6 +1,9 @@
 # Documentation
 
-Docs are organized by audience.
+Docs are organized by audience, and a new doc goes in the folder matching its
+reader. `user/` holds end-user setup and how-to pages (linked from the README's
+Optional integrations); `dev/` holds agent and contributor reference.
+Cross-cutting records — ADRs, the glossary, plans — stay at the root.
 
 ## User docs — [`user/`](user/)
 
@@ -17,8 +20,7 @@ its Optional integrations section.
 
 Reference for contributors and agents.
 
-- [`dev/coding-conventions.md`](dev/coding-conventions.md) — QML style rules; read before writing or reviewing QML.
-- [`dev/shell-scripts.md`](dev/shell-scripts.md) — shell script rules; read before changing `scripts/*.sh`.
+- [`dev/CODING_STANDARDS.md`](dev/CODING_STANDARDS.md) — QML + shell rules; read before writing or reviewing code.
 - [`dev/debugging-quickshell.md`](dev/debugging-quickshell.md) — live debugging: instance pid/log, geometry, IPC probing.
 - [`dev/quickshell-io-notes.md`](dev/quickshell-io-notes.md) — IO polling and file-cache behavior.
 - [`dev/settings-sections.md`](dev/settings-sections.md) — adding a settings section.

@@ -1440,8 +1440,8 @@ test -f "$ROOT/docs/dev/settings-sections.md" \
     || fail "docs/dev/settings-sections.md is missing"
 grep -q 'settings-sections.md' "$ROOT/AGENTS.md" \
     || fail "AGENTS.md does not point at docs/dev/settings-sections.md"
-grep -q 'SettingsToggleRow' "$ROOT/docs/dev/coding-conventions.md" \
-    || fail "coding conventions do not require shared settings rows"
+grep -q 'SettingsToggleRow' "$ROOT/docs/dev/CODING_STANDARDS.md" \
+    || fail "coding standards do not require shared settings rows"
 
 # --- 13. one shared focus grab across the panel shells ---
 # The dashboard and a quick panel are separate windows; two HyprlandFocusGrabs
