@@ -4,10 +4,12 @@ const fs = require("fs");
 const vm = require("vm");
 
 function load(path, globals) {
-    const src = fs.readFileSync(path, "utf8").replace(/^\.pragma .*$/m, "");
+    // Drop every `.pragma` line, not just the first.
+    const src = fs.readFileSync(path, "utf8").replace(/^\.pragma .*$/gm, "");
     // qsTr is a QML global available to any JS loaded in QML, so a real file
-    // may call it. This stub covers the single-argument form; a file that
-    // chains qsTr("...%1").arg(x) needs a stub returning a chainable object.
+    // may call it. This stub covers the single-argument form only; a file that
+    // chains qsTr("...%1").arg(x), calls qsTrId/qsTranslate, or uses a QML-JS
+    // `.import` directive needs a richer stub.
     const ctx = Object.assign({ console, qsTr: text => text }, globals || {});
     vm.createContext(ctx);
     vm.runInContext(src, ctx, { filename: path });

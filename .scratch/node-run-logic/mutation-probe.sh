@@ -16,8 +16,7 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/qs-mutation-probe.XXXXXX")"
 trap 'rm -rf "${work:?}"' EXIT
 
 # A mutant is only "caught" if the unmutated repo passes first; otherwise a
-# broken harness (missing node/python3, half-copied tree) would report every
-# mutant as caught.
+# broken harness (missing node or python3) would report every mutant as caught.
 for script in scripts/test-panel-logic.sh scripts/test-dashboard-data.sh; do
     if ! bash "$src/$script" >/dev/null 2>&1; then
         echo "baseline $script fails on the unmutated repo; probe cannot judge" >&2
@@ -46,6 +45,9 @@ printf '%-62s %-12s %-12s\n' "mutant" "panel-logic" "dash-data"
 for m in "${mutants[@]}"; do
   IFS='|' read -r file orig mut label <<<"$m"
   rm -rf "${work:?}"; mkdir -p "$work"; cp -a "$src/." "$work/"; rm -rf "${work:?}/.git"
+  # A half-finished copy would make the suite under test fail and read as a
+  # false "caught"; assert the tree landed.
+  test -f "$work/scripts/test-panel-logic.sh" || { echo "copy failed for $label" >&2; exit 1; }
   python3 - "$work/$file" "$orig" "$mut" <<'PY' || { printf '%-62s %s\n' "$label" "NOT APPLIED"; continue; }
 import sys
 p, o, n = sys.argv[1:]

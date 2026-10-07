@@ -1324,6 +1324,22 @@ grep -q 'function setVisible' "$BSVC" \
     || fail "BarVisibilityService has no setVisible"
 grep -q 'function parseVisibility' "$BSVC" \
     || fail "BarVisibilityService has no parseVisibility"
+# The node runs below exercise StateParsers.js directly, so each service that
+# delegates to it must keep the call site; otherwise a re-inlined copy passes.
+grep -q 'StateParsers.parseVisibility' "$BSVC" \
+    || fail "BarVisibilityService does not delegate parseVisibility to StateParsers"
+for pair in \
+    "services/AudioService.qml:StateParsers.parseAudioSettings" \
+    "services/FontService.qml:StateParsers.parseFontSettings" \
+    "services/CavaService.qml:StateParsers.parseCavaSettings" \
+    "services/CalendarService.qml:StateParsers.parseZones" \
+    "services/CalendarService.qml:StateParsers.parseZoneList" \
+    "services/CalendarService.qml:StateParsers.isValidZoneName"; do
+    file="${pair%%:*}"
+    call="${pair#*:}"
+    grep -q "$call" "$ROOT/$file" \
+        || fail "$file does not delegate $call to StateParsers"
+done
 grep -q 'StateFile {' "$BSVC" \
     || fail "BarVisibilityService does not compose StateFile"
 grep -q 'idVisibilityState.loading || !idVisibilityState.loaded' "$BSVC" \

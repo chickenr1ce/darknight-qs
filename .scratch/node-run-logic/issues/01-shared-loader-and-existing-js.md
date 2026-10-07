@@ -20,7 +20,7 @@ Candidate 2 of the 2026-10-07 architecture review. See `../spec.md`.
       the `.pragma` line, creates a `vm` context with `console`, an identity
       `qsTr`, and any `globals` passed, runs the file, returns the context.
 - [x] The two existing node blocks in `scripts/test-panel-logic.sh` (B1
-      regression near :2077, catalog cross-check near :2326) load through
+      regression and catalog cross-check; grep for `NODEEOF`) load through
       `tests/qmljs.js` instead of their own inline `vm` setup.
 - [x] The eight `ThemeParsers.js` mirrors in `scripts/test-panel-logic.sh`
       (`parseColors` tables and cascade, `isTrustedStat`,
