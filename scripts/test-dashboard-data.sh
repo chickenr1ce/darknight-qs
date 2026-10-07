@@ -47,16 +47,6 @@ grep -q 'function formatUptime' "$SINFO" \
     || fail "SystemInfo has no formatUptime"
 grep -q 'function refresh' "$SINFO" \
     || fail "SystemInfo has no refresh"
-grep -q 'entry.type === "OS"' "$SINFO" \
-    || fail "SystemInfo does not map the OS module"
-grep -q 'entry.type === "WM"' "$SINFO" \
-    || fail "SystemInfo does not map the WM module"
-grep -q 'entry.type === "Kernel"' "$SINFO" \
-    || fail "SystemInfo does not map the Kernel module"
-grep -q 'entry.type === "Packages"' "$SINFO" \
-    || fail "SystemInfo does not map the Packages module"
-grep -q 'entry.type === "Uptime"' "$SINFO" \
-    || fail "SystemInfo does not map the Uptime module"
 
 DCENTER="$ROOT/windows/DashboardCenter.qml"
 grep -q 'SystemInfo.refresh()' "$DCENTER" \
@@ -432,274 +422,6 @@ def check(name, got, want):
 def js_round(value):
     return math.floor(value + 0.5)
 
-fixture = open(sys.argv[1]).read()
-
-# Mirror of SystemInfo.parseFastfetch (services/SystemInfo.qml).
-def parse_fastfetch(text):
-    out = {"distro": "", "compositor": "", "kernel": "", "packages": 0, "uptimeMs": 0}
-    try:
-        parsed = json.loads(text)
-    except Exception:
-        return out
-    if not isinstance(parsed, list):
-        return out
-    for entry in parsed:
-        if not isinstance(entry, dict) or not entry.get("result"):
-            continue
-        result = entry["result"]
-        if entry.get("type") == "OS":
-            out["distro"] = result.get("prettyName") or result.get("name") or ""
-        elif entry.get("type") == "WM":
-            out["compositor"] = result.get("prettyName") or result.get("processName") or ""
-        elif entry.get("type") == "Kernel":
-            out["kernel"] = result.get("release") or ""
-        elif entry.get("type") == "Packages":
-            out["packages"] = int(result.get("all") or 0)
-        elif entry.get("type") == "Uptime":
-            out["uptimeMs"] = float(result.get("uptime") or 0)
-    return out
-
-parsed = parse_fastfetch(fixture)
-check("fastfetch/fixture", parsed, {"distro": "Arch Linux", "compositor": "Hyprland", "kernel": "6.13.4-arch1-1", "packages": 942, "uptimeMs": 4980000.0})
-check("fastfetch/malformed", parse_fastfetch("{nope"), {"distro": "", "compositor": "", "kernel": "", "packages": 0, "uptimeMs": 0})
-check("fastfetch/not-list", parse_fastfetch('{"type": "OS"}'), {"distro": "", "compositor": "", "kernel": "", "packages": 0, "uptimeMs": 0})
-check("fastfetch/missing-result", parse_fastfetch('[{"type": "WM"}]'), {"distro": "", "compositor": "", "kernel": "", "packages": 0, "uptimeMs": 0})
-check("fastfetch/name-fallback", parse_fastfetch('[{"type": "OS", "result": {"name": "Fixtures"}}]')["distro"], "Fixtures")
-check("fastfetch/process-fallback", parse_fastfetch('[{"type": "WM", "result": {"processName": "niri"}}]')["compositor"], "niri")
-check("fastfetch/kernel", parse_fastfetch(fixture)["kernel"], "6.13.4-arch1-1")
-check("fastfetch/packages-missing", parse_fastfetch('[{"type": "Packages", "result": {}}]')["packages"], 0)
-
-# Mirror of SystemInfo.formatKernel (services/SystemInfo.qml). The release keeps
-# its version up to the first dash; the distro suffix is dropped.
-def format_kernel(release):
-    if release == "":
-        return ""
-    return release.split("-", 1)[0]
-
-check("kernel/dash-suffix", format_kernel("6.13.4-arch1-1"), "6.13.4")
-check("kernel/cachy", format_kernel("7.2.8-1-cachyos"), "7.2.8")
-check("kernel/bare", format_kernel("6.13.4"), "6.13.4")
-check("kernel/empty", format_kernel(""), "")
-
-# Mirror of SystemInfo.formatShell (services/SystemInfo.qml). The shell comes
-# from $SHELL, so the value is the executable's basename.
-def format_shell(path):
-    if path == "":
-        return ""
-    return path.rsplit("/", 1)[-1]
-
-check("shell/absolute", format_shell("/usr/bin/fish"), "fish")
-check("shell/bin", format_shell("/bin/zsh"), "zsh")
-check("shell/bare", format_shell("bash"), "bash")
-check("shell/empty", format_shell(""), "")
-
-# Mirror of SystemInfo.formatPackages (services/SystemInfo.qml). Counts under
-# 1000 stay exact; larger counts collapse to one decimal and a k suffix.
-def format_packages(count):
-    if count <= 0:
-        return ""
-    if count < 1000:
-        return f"{count}"
-    return f"{count / 1000:.1f}k"
-
-check("packages/fixture", format_packages(942), "942")
-check("packages/zero", format_packages(0), "")
-check("packages/thousand", format_packages(1000), "1.0k")
-check("packages/rounded", format_packages(1819), "1.8k")
-
-# Mirror of SystemInfo.formatUptime (services/SystemInfo.qml).
-def format_uptime(ms):
-    total = math.floor((ms or 0) / 60000)
-    if total <= 0:
-        return ""
-    days = total // 1440
-    hours = (total % 1440) // 60
-    minutes = total % 60
-    if days > 0:
-        return f"{days}d {hours}h"
-    if hours > 0:
-        return f"{hours}h {minutes}m"
-    return f"{minutes}m"
-
-check("uptime/fixture", format_uptime(4980000), "1h 23m")
-check("uptime/zero", format_uptime(0), "")
-check("uptime/minutes", format_uptime(45 * 60000), "45m")
-check("uptime/days", format_uptime(93600000), "1d 2h")
-
-# Mirror of SystemMonitor.parseCpuSample plus the delta in applyCpuSample
-# (services/SystemMonitor.qml). idle includes iowait.
-def parse_cpu_sample(text):
-    lines = str(text).split("\n")
-    if not lines:
-        return None
-    raw = lines[0].strip().split()[1:]
-    fields = []
-    for item in raw:
-        try:
-            fields.append(float(item))
-        except ValueError:
-            fields.append(float("nan"))
-    if len(fields) < 4:
-        return None
-    total = sum(field for field in fields if not math.isnan(field))
-    idle = fields[3] + (0 if len(fields) < 5 or math.isnan(fields[4]) else fields[4])
-    return {"total": total, "idle": idle}
-
-def cpu_usage(previous, sample):
-    if sample is None:
-        return None
-    if previous is None:
-        return None
-    delta_total = sample["total"] - previous["total"]
-    delta_idle = sample["idle"] - previous["idle"]
-    if delta_total <= 0:
-        return None
-    return max(0.0, min(100.0, (1 - delta_idle / delta_total) * 100))
-
-first = parse_cpu_sample("cpu  100 0 100 800 0 0 0 0 0 0\ncpu0 1 2 3 4")
-check("cpu/parse", first, {"total": 1000.0, "idle": 800.0})
-check("cpu/first-no-usage", cpu_usage(None, first), None)
-second = parse_cpu_sample("cpu  200 0 200 1600 0 0 0 0 0 0")
-check("cpu/second-usage", round(cpu_usage(first, second), 6), 20.0)
-check("cpu/short", parse_cpu_sample("cpu 1 2 3"), None)
-
-# Mirror of SystemMonitor.parseRamPercent (services/SystemMonitor.qml).
-def parse_ram_percent(text):
-    total = 0
-    available = -1
-    for line in str(text).split("\n"):
-        parts = line.split(":")
-        if len(parts) < 2:
-            continue
-        key = parts[0].strip()
-        try:
-            value = int(parts[1].strip().split()[0])
-        except ValueError:
-            continue
-        if key == "MemTotal":
-            total = value
-        elif key == "MemAvailable":
-            available = value
-    if total <= 0 or available < 0:
-        return 0
-    return max(0.0, min(100.0, (total - available) / total * 100))
-
-check("ram/fixture", parse_ram_percent("MemTotal: 1000 kB\nMemAvailable: 250 kB\n"), 75.0)
-check("ram/missing-available", parse_ram_percent("MemTotal: 1000 kB\n"), 0)
-check("ram/zero-total", parse_ram_percent("MemTotal: 0 kB\nMemAvailable: 0 kB\n"), 0)
-
-# Mirror of SystemMonitor.parseRamSample plus applyRamSample
-# (services/SystemMonitor.qml): kB -> bytes, used = total - available.
-def parse_ram_sample(text):
-    total = 0
-    available = -1
-    for line in str(text).split("\n"):
-        parts = line.split(":")
-        if len(parts) < 2:
-            continue
-        key = parts[0].strip()
-        try:
-            value = int(parts[1].strip().split()[0])
-        except ValueError:
-            continue
-        if key == "MemTotal":
-            total = value
-        elif key == "MemAvailable":
-            available = value
-    if total <= 0 or available < 0:
-        return {"usedBytes": 0, "totalBytes": 0}
-    return {"usedBytes": (total - available) * 1024, "totalBytes": total * 1024}
-
-check("ram-sample/fixture", parse_ram_sample("MemTotal: 1000 kB\nMemAvailable: 250 kB\n"), {"usedBytes": 750 * 1024, "totalBytes": 1000 * 1024})
-check("ram-sample/missing", parse_ram_sample("MemTotal: 1000 kB\n"), {"usedBytes": 0, "totalBytes": 0})
-
-# Mirror of SystemMonitor.parsePercent (services/SystemMonitor.qml): the GPU
-# busy percent is a plain integer in sysfs, clamped to 0..100.
-def parse_percent(text):
-    try:
-        value = float(str(text).strip())
-    except ValueError:
-        return 0
-    return max(0.0, min(100.0, value))
-
-check("percent/gpu", parse_percent("37\n"), 37.0)
-check("percent/clamp", parse_percent("140"), 100.0)
-check("percent/bad", parse_percent("nope"), 0)
-
-# Mirror of SystemMonitor.parseTemp (services/SystemMonitor.qml): hwmon temps
-# arrive in millidegrees; a missing or non-positive value reads as 0.
-def parse_temp(text):
-    try:
-        value = float(str(text).strip())
-    except ValueError:
-        return 0
-    return value / 1000 if value > 0 else 0
-
-check("temp/edge", parse_temp("48000\n"), 48.0)
-check("temp/zero", parse_temp("0"), 0)
-check("temp/bad", parse_temp("nope"), 0)
-
-# Mirror of SystemMonitor.parseNetSample plus applyNetSample
-# (services/SystemMonitor.qml): sum rx/tx bytes over every non-loopback
-# interface, then divide the delta by the poll interval in seconds.
-NET_DEV = """Inter-|   Receive                                                |  Transmit
- face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
-    lo: 1000 10 0 0 0 0 0 0 2000 20 0 0 0 0 0 0
-enp35s0: 5000 50 0 0 0 0 0 0 8000 80 0 0 0 0 0 0
-docker0: 700 7 0 0 0 0 0 0 300 3 0 0 0 0 0 0
-"""
-
-def parse_net_sample(text):
-    rx = 0
-    tx = 0
-    for line in str(text).split("\n"):
-        colon = line.find(":")
-        if colon < 0:
-            continue
-        iface = line[:colon].strip()
-        if iface == "" or iface == "lo":
-            continue
-        fields = line[colon + 1:].split()
-        if len(fields) < 9:
-            continue
-        try:
-            rx += int(fields[0])
-            tx += int(fields[8])
-        except ValueError:
-            continue
-    return {"rx": rx, "tx": tx}
-
-def net_rates(previous, sample, seconds):
-    if previous is None:
-        return {"rx": 0.0, "tx": 0.0}
-    return {"rx": max(0.0, (sample["rx"] - previous["rx"]) / seconds),
-            "tx": max(0.0, (sample["tx"] - previous["tx"]) / seconds)}
-
-net_first = parse_net_sample(NET_DEV)
-check("net/sum", net_first, {"rx": 5700, "tx": 8300})
-check("net/first-no-rate", net_rates(None, net_first, 2.0), {"rx": 0.0, "tx": 0.0})
-net_second = parse_net_sample(NET_DEV.replace("5000", "6200").replace("8000", "8400"))
-check("net/rates", net_rates(net_first, net_second, 2.0), {"rx": 600.0, "tx": 200.0})
-
-# Mirror of SystemMonitor.formatGib plus formatRate (services/SystemMonitor.qml).
-def format_gib(nbytes):
-    gib = float(nbytes or 0) / (1024 ** 3)
-    return str(round(gib)) if gib >= 10 else f"{gib:.1f}"
-
-def format_rate(bps):
-    value = float(bps or 0)
-    if value >= 1024 * 1024:
-        return f"{value / (1024 * 1024):.1f} MB/s"
-    if value >= 1024:
-        return f"{round(value / 1024)} KB/s"
-    return f"{round(value)} B/s"
-
-check("format/gib-large", format_gib(16 * 1024 ** 3), "16")
-check("format/gib-small", format_gib(6 * 1024 ** 3), "6.0")
-check("format/rate-mb", format_rate(1572864), "1.5 MB/s")
-check("format/rate-kb", format_rate(2048), "2 KB/s")
-check("format/rate-b", format_rate(700), "700 B/s")
-
 # Mirror of AudioService output discovery (services/AudioService.qml): every
 # real sink is discovered at runtime, then a saved order and hidden set curate
 # it. A saved key orders first; outputs the user has not seen append after it
@@ -1067,5 +789,87 @@ check("stale/never", is_stale(NOW, 0, False), False)
 check("stale/fresh", is_stale(NOW, NOW - 30 * 60 * 1000, False), False)
 check("stale/old", is_stale(NOW, NOW - 61 * 60 * 1000, False), True)
 EOF
+
+# Run the shipped SystemInfo/SystemMonitor parsers and formatters under node.
+# The twelve mirrors (five SystemInfo, seven SystemMonitor) are gone; every
+# case they checked runs against services/SystemLogic.js, plus the cpu/net
+# delta math pulled out of applyCpuSample and applyNetSample.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/SystemLogic.js" "$ROOT/tests/fixtures/fastfetch-summary.json" <<'NODEEOF'
+const fs = require('fs');
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('dashboard-data');
+const sl = qmljs.load(process.argv[3]);
+const fixture = fs.readFileSync(process.argv[4], 'utf8');
+
+const parsed = sl.parseFastfetch(fixture);
+check('fastfetch/fixture', parsed, { distro: 'Arch Linux', compositor: 'Hyprland', kernel: '6.13.4-arch1-1', packages: 942, uptimeMs: 4980000 });
+check('fastfetch/malformed', sl.parseFastfetch('{nope'), { distro: '', compositor: '', kernel: '', packages: 0, uptimeMs: 0 });
+check('fastfetch/not-list', sl.parseFastfetch('{"type": "OS"}'), { distro: '', compositor: '', kernel: '', packages: 0, uptimeMs: 0 });
+check('fastfetch/missing-result', sl.parseFastfetch('[{"type": "WM"}]'), { distro: '', compositor: '', kernel: '', packages: 0, uptimeMs: 0 });
+check('fastfetch/name-fallback', sl.parseFastfetch('[{"type": "OS", "result": {"name": "Fixtures"}}]').distro, 'Fixtures');
+check('fastfetch/process-fallback', sl.parseFastfetch('[{"type": "WM", "result": {"processName": "niri"}}]').compositor, 'niri');
+check('fastfetch/kernel', sl.parseFastfetch(fixture).kernel, '6.13.4-arch1-1');
+check('fastfetch/packages-missing', sl.parseFastfetch('[{"type": "Packages", "result": {}}]').packages, 0);
+
+check('kernel/dash-suffix', sl.formatKernel('6.13.4-arch1-1'), '6.13.4');
+check('kernel/cachy', sl.formatKernel('7.2.8-1-cachyos'), '7.2.8');
+check('kernel/bare', sl.formatKernel('6.13.4'), '6.13.4');
+check('kernel/empty', sl.formatKernel(''), '');
+
+check('shell/absolute', sl.formatShell('/usr/bin/fish'), 'fish');
+check('shell/bin', sl.formatShell('/bin/zsh'), 'zsh');
+check('shell/bare', sl.formatShell('bash'), 'bash');
+check('shell/empty', sl.formatShell(''), '');
+
+check('packages/fixture', sl.formatPackages(942), '942');
+check('packages/zero', sl.formatPackages(0), '');
+check('packages/thousand', sl.formatPackages(1000), '1.0k');
+check('packages/rounded', sl.formatPackages(1819), '1.8k');
+
+check('uptime/fixture', sl.formatUptime(4980000), '1h 23m');
+check('uptime/zero', sl.formatUptime(0), '');
+check('uptime/minutes', sl.formatUptime(45 * 60000), '45m');
+check('uptime/days', sl.formatUptime(93600000), '1d 2h');
+
+const cpuFirst = sl.parseCpuSample('cpu  100 0 100 800 0 0 0 0 0 0\ncpu0 1 2 3 4');
+check('cpu/parse', cpuFirst, { total: 1000, idle: 800 });
+check('cpu/first-no-usage', sl.cpuPercent(-1, 0, cpuFirst), null);
+const cpuSecond = sl.parseCpuSample('cpu  200 0 200 1600 0 0 0 0 0 0');
+check('cpu/second-usage', Math.round(sl.cpuPercent(cpuFirst.total, cpuFirst.idle, cpuSecond) * 1e6) / 1e6, 20);
+check('cpu/short', sl.parseCpuSample('cpu 1 2 3'), null);
+
+check('ram/fixture', sl.parseRamPercent('MemTotal: 1000 kB\nMemAvailable: 250 kB\n'), 75);
+check('ram/missing-available', sl.parseRamPercent('MemTotal: 1000 kB\n'), 0);
+check('ram/zero-total', sl.parseRamPercent('MemTotal: 0 kB\nMemAvailable: 0 kB\n'), 0);
+
+check('ram-sample/fixture', sl.parseRamSample('MemTotal: 1000 kB\nMemAvailable: 250 kB\n'), { usedBytes: 750 * 1024, totalBytes: 1000 * 1024 });
+check('ram-sample/missing', sl.parseRamSample('MemTotal: 1000 kB\n'), { usedBytes: 0, totalBytes: 0 });
+
+check('percent/gpu', sl.parsePercent('37\n'), 37);
+check('percent/clamp', sl.parsePercent('140'), 100);
+check('percent/bad', sl.parsePercent('nope'), 0);
+
+check('temp/edge', sl.parseTemp('48000\n'), 48);
+check('temp/zero', sl.parseTemp('0'), 0);
+check('temp/bad', sl.parseTemp('nope'), 0);
+
+const NET_DEV = `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo: 1000 10 0 0 0 0 0 0 2000 20 0 0 0 0 0 0
+enp35s0: 5000 50 0 0 0 0 0 0 8000 80 0 0 0 0 0 0
+docker0: 700 7 0 0 0 0 0 0 300 3 0 0 0 0 0 0
+`;
+const netFirst = sl.parseNetSample(NET_DEV);
+check('net/sum', netFirst, { rx: 5700, tx: 8300 });
+check('net/first-no-rate', sl.netRates(-1, -1, netFirst, 2), null);
+const netSecond = sl.parseNetSample(NET_DEV.replace('5000', '6200').replace('8000', '8400'));
+check('net/rates', sl.netRates(netFirst.rx, netFirst.tx, netSecond, 2), { rx: 600, tx: 200 });
+
+check('format/gib-large', sl.formatGib(16 * 1024 ** 3), '16');
+check('format/gib-small', sl.formatGib(6 * 1024 ** 3), '6.0');
+check('format/rate-mb', sl.formatRate(1572864), '1.5 MB/s');
+check('format/rate-kb', sl.formatRate(2048), '2 KB/s');
+check('format/rate-b', sl.formatRate(700), '700 B/s');
+NODEEOF
 
 echo "dashboard-data: all ok"

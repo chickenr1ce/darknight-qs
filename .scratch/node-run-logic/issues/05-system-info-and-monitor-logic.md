@@ -8,7 +8,7 @@ hwmon parsers and the formatters now inline in `SystemInfo.qml` and
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Origin
 
@@ -22,19 +22,19 @@ service state, and the delta math inside them can take that state as input.
 
 ## Acceptance criteria
 
-- [ ] `SystemLogic.js` exports the thirteen functions above unchanged in
+- [x] `SystemLogic.js` exports the thirteen functions above unchanged in
       behaviour, plus `cpuPercent(prevTotal, prevIdle, sample)` and
       `netRates(prevRx, prevTx, sample, seconds)` for the delta math now in
       `applyCpuSample` and `applyNetSample`.
-- [ ] `SystemInfo.qml` and `SystemMonitor.qml` delegate to it and keep their
+- [x] `SystemInfo.qml` and `SystemMonitor.qml` delegate to it and keep their
       public function names; the `apply*` functions still own the property
       writes and the `previous*` bookkeeping.
-- [ ] The twelve `SystemInfo`/`SystemMonitor` mirrors (five and seven) in
+- [x] The twelve `SystemInfo`/`SystemMonitor` mirrors (five and seven) in
       `test-dashboard-data.sh` become node runs; the Python copies are deleted.
-- [ ] `scripts/check.sh` passes; live check: the dashboard system and CPU
-      blocks still show live values.
+- [x] `scripts/check.sh` passes.
+- [ ] Live check: the dashboard system and CPU blocks still show live values.
 
 ## Measurement
 
-- [ ] `../mutation-probe.sh <repo>` reports `caught` for: the `SystemMonitor.parseNetSample` and `SystemInfo.formatPackages` mutants. Retarget a mutant at its new `*Logic.js` file when the function moves; add the test case it needs if the moved mirror cases do not expose it.
-- [ ] `test-panel-logic.sh` plus `test-dashboard-data.sh` stay under 2.6 s combined (baseline 2.24 s); the commit message records the before and after probe result and timing.
+- [x] `../mutation-probe.sh <repo>` reports `caught` for: the `SystemMonitor.parseNetSample` and `SystemInfo.formatPackages` mutants. Retarget a mutant at its new `*Logic.js` file when the function moves; add the test case it needs if the moved mirror cases do not expose it.
+- [x] `test-panel-logic.sh` plus `test-dashboard-data.sh` stay under 2.6 s combined (baseline 2.24 s); the commit message records the before and after probe result and timing.

@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "SystemLogic.js" as SystemLogic
 
 Singleton {
     id: root
@@ -47,69 +48,22 @@ Singleton {
     }
 
     function parseFastfetch(text: string): var {
-        const out = { distro: "", compositor: "", kernel: "", packages: 0, uptimeMs: 0 };
-        let parsed = null;
-        try
-        {
-            parsed = JSON.parse(text);
-        }
-        catch (e)
-        {
-            return out;
-        }
-        if (!parsed || !Array.isArray(parsed))
-            return out;
-        for (let i = 0; i < parsed.length; i++) {
-            const entry = parsed[i];
-            if (!entry || !entry.result)
-                continue;
-            if (entry.type === "OS")
-                out.distro = entry.result.prettyName || entry.result.name || "";
-            else if (entry.type === "WM")
-                out.compositor = entry.result.prettyName || entry.result.processName || "";
-            else if (entry.type === "Kernel")
-                out.kernel = entry.result.release || "";
-            else if (entry.type === "Packages")
-                out.packages = Number(entry.result.all) || 0;
-            else if (entry.type === "Uptime")
-                out.uptimeMs = Number(entry.result.uptime) || 0;
-        }
-        return out;
+        return SystemLogic.parseFastfetch(text);
     }
 
     function formatKernel(release: string): string {
-        if (release === "")
-            return "";
-        const suffix = release.indexOf("-");
-        return suffix >= 0 ? release.substring(0, suffix) : release;
+        return SystemLogic.formatKernel(release);
     }
 
     function formatShell(path: string): string {
-        if (path === "")
-            return "";
-        const slash = path.lastIndexOf("/");
-        return slash >= 0 ? path.substring(slash + 1) : path;
+        return SystemLogic.formatShell(path);
     }
 
     function formatPackages(count: int): string {
-        if (count <= 0)
-            return "";
-        if (count < 1000)
-            return `${count}`;
-        return (count / 1000).toFixed(1) + "k";
+        return SystemLogic.formatPackages(count);
     }
 
     function formatUptime(ms: real): string {
-        const totalMinutes = Math.floor((Number(ms) || 0) / 60000);
-        if (totalMinutes <= 0)
-            return "";
-        const days = Math.floor(totalMinutes / 1440);
-        const hours = Math.floor((totalMinutes % 1440) / 60);
-        const minutes = totalMinutes % 60;
-        if (days > 0)
-            return `${days}d ${hours}h`;
-        if (hours > 0)
-            return `${hours}h ${minutes}m`;
-        return `${minutes}m`;
+        return SystemLogic.formatUptime(ms);
     }
 }
