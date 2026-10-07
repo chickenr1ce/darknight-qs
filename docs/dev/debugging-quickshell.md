@@ -2,6 +2,10 @@
 
 How to observe the running daily instance without disrupting it.
 
+Verify QML behavior against a live instance; the standalone `qml` runtime's
+logging is broken in this environment. When the daily shell already runs this
+worktree, drive it with `quickshell ipc --pid <pid>`.
+
 ## Logs
 
 - Every instance logs under `$XDG_RUNTIME_DIR/quickshell/by-id/<id>/`, and
@@ -98,13 +102,25 @@ one-off handler.
   revert races the reload reader and fails intermittently on module
   resolution.
 
+## Booting this worktree
+
+`scripts/restart.sh --probe <worktree>` stops the running shell (the daily
+instance included) and starts `quickshell -p <worktree>` detached, for
+live-testing unmerged changes. It takes `org.freedesktop.Notifications` from the
+daily shell; `scripts/restart.sh` with no `--probe` brings the daily one back,
+and `scripts/instance.sh log` tails the new boot's errors.
+
 ## Visual iteration loop
 
 Taste questions converge only side by side: render variants as A/B captures
 before asking, never sequential single passes. Drive the loop without the
 pointer: open surfaces through `quickshell ipc --pid <pid> call`
 (devprobe `toggle` plus `geom` for numbers), capture with `grim -g` to
-`/tmp/opencode/`, and compare captures with pixel reads. Read the surface's
+`/tmp/opencode/`, and compare captures with pixel reads. Capture regions with
+`grim -g "x,y WxH"` instead of full-screen grabs. Launch persistent daemons with
+`setsid` so they outlive the invoking shell. Screenshots pasted into chat are not
+measurable: never call alignment from them. A visual verdict needs the capture
+saved to disk (`grim` to `/tmp`) plus a pixel or geometry reading. Read the surface's
 geometry from the devprobe `geom` snapshot immediately before `grim`; the
 dashboard and its tabs are layer surfaces, so `hyprctl clients` does not list
 them. Confirm a clean reload afterward

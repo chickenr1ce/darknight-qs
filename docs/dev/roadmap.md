@@ -3,7 +3,7 @@
 Planned work that is not done yet. Completed plan artifacts are frozen under
 `docs/plans/archive/` (index: `docs/plans/README.md`). Decisions behind shipped
 work are in `docs/adr/`; domain terms in `CONTEXT.md`; coding rules in
-`docs/dev/coding-conventions.md`.
+`docs/dev/CODING_STANDARDS.md`.
 
 Last updated: 2026-10-03.
 

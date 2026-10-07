@@ -36,5 +36,5 @@ inside these files still name their original `docs/plans/` locations.
   ordering.
 - **Frozen records**: once a design session concludes and its work ships,
   settled decisions are promoted to `docs/adr/`, `CONTEXT.md`, or
-  `docs/dev/coding-conventions.md`, then the artifact is moved to `archive/`. Git
+  `docs/dev/CODING_STANDARDS.md`, then the artifact is moved to `archive/`. Git
   history keeps anything dropped; deletion loses nothing that has been promoted.
