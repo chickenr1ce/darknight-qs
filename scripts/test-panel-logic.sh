@@ -261,13 +261,6 @@ def resolve_primary(screens, override):
         return override
     return names[0] if names else ""
 
-# Mirror of MonitorService.applySettings (services/MonitorService.qml): the
-# persisted primary is kept verbatim, even when that screen is away. Only
-# setPrimary validates against the connected names, so a choice survives a
-# disconnect and the bar falls back to the first screen until it returns.
-def apply_primary(stored, parsed):
-    return parsed if isinstance(parsed, str) else stored
-
 def on_primary(monitor, primary):
     return monitor == "" or monitor == primary
 
@@ -289,112 +282,8 @@ check("monitor/other-hides", on_primary("DP-1", resolve_primary(SCREENS, "DP-2")
 # A stored override for a screen that is away is kept, not cleared; the bar
 # falls back to the first screen and the choice returns on reconnect.
 RECONNECTED = SCREENS + [{"name": "HDMI-A-1", "x": 3840, "y": 0}]
-check("monitor/override-kept-disconnected", apply_primary("", "HDMI-A-1"), "HDMI-A-1")
 check("monitor/override-falls-back", resolve_primary(SCREENS, "HDMI-A-1"), "DP-1")
 check("monitor/override-returns", resolve_primary(RECONNECTED, "HDMI-A-1"), "HDMI-A-1")
-check("monitor/override-nonstring-ignored", apply_primary("DP-2", 7), "DP-2")
-
-# Mirror of MonitorService.orderedMonitors and firstWorkspaceFor
-# (services/MonitorService.qml): the primary leads, the rest of
-# Globals.screensByPosition follows, and each monitor owns a contiguous block
-# of workspacesPerMonitor workspaces starting at 1. An empty or unknown name
-# yields 1.
-def ordered_monitors(screens, primary):
-    names = [s["name"] for s in sorted(screens, key=lambda s: (s["x"], s["y"], s["name"]))]
-    ordered = []
-    if primary != "":
-        ordered.append(primary)
-    for name in names:
-        if name != primary:
-            ordered.append(name)
-    return ordered
-
-def first_workspace_for(screens, primary, per_monitor, monitor):
-    ordered = ordered_monitors(screens, primary)
-    if monitor not in ordered:
-        return 1
-    return ordered.index(monitor) * per_monitor + 1
-
-THREE = [
-    {"name": "DP-3", "x": 3840, "y": 0},
-    {"name": "DP-1", "x": 0, "y": 0},
-    {"name": "DP-2", "x": 1920, "y": 0},
-]
-check("workspaces/order-primary", ordered_monitors(THREE, "DP-1"), ["DP-1", "DP-2", "DP-3"])
-check("workspaces/first-primary", first_workspace_for(THREE, "DP-1", 5, "DP-1"), 1)
-check("workspaces/first-second", first_workspace_for(THREE, "DP-1", 5, "DP-2"), 6)
-check("workspaces/first-third", first_workspace_for(THREE, "DP-1", 5, "DP-3"), 11)
-check("workspaces/first-unknown", first_workspace_for(THREE, "DP-1", 5, "HDMI-A-1"), 1)
-check("workspaces/first-empty", first_workspace_for(THREE, "DP-1", 5, ""), 1)
-check("workspaces/count-three", first_workspace_for(THREE, "DP-1", 3, "DP-3"), 7)
-check("workspaces/override-order", first_workspace_for(THREE, "DP-2", 5, "DP-1"), 6)
-
-# Mirror of MonitorService.modeFor/positionFor/scaleFor/escapeLua/setEnabled
-# (services/MonitorService.qml): a disabled output keeps its geometry in
-# `hyprctl monitors all -j`, so the mode and position rebuild from
-# width/height/refreshRate and x/y for the re-enable spec; missing geometry
-# falls back to preferred/auto/1. setEnabled refuses a no-op and refuses to
-# disable when it would leave no display on, and always routes through the
-# Lua `hl.monitor` API.
-def js_round(value):
-    return int(value + 0.5) if value >= 0 else -int(-value + 0.5)
-
-def monitor_mode(m):
-    if not (m.get("width", 0) > 0 and m.get("height", 0) > 0 and m.get("refreshRate", 0) > 0):
-        return "preferred"
-    return f"{js_round(m['width'])}x{js_round(m['height'])}@{js_round(m['refreshRate'])}"
-
-def monitor_position(m):
-    if m.get("x") is None or m.get("y") is None:
-        return "auto"
-    return f"{js_round(m['x'])}x{js_round(m['y'])}"
-
-def monitor_scale(m):
-    scale = m.get("scale")
-    return scale if scale and scale > 0 else 1
-
-def escape_lua(value):
-    return value.replace("\\", "\\\\").replace('"', '\\"')
-
-def enabled_count(monitors):
-    return len([m for m in monitors if not m["disabled"]])
-
-def set_enabled_spec(monitors, name, enabled):
-    m = next((x for x in monitors if x["name"] == name), None)
-    if m is None:
-        return None
-    if m["disabled"] == (not enabled):
-        return None
-    if not enabled and enabled_count(monitors) <= 1:
-        return None
-    spec = f'hl.monitor({{ output = "{escape_lua(name)}", disabled = {"false" if enabled else "true"}'
-    if enabled:
-        spec += f', mode = "{monitor_mode(m)}", position = "{monitor_position(m)}", scale = {monitor_scale(m)}'
-    return spec + " })"
-
-TWO = [
-    {"name": "DP-1", "disabled": False, "x": 0, "y": 0, "width": 2560, "height": 1440, "refreshRate": 179.96, "scale": 1},
-    {"name": "DP-2", "disabled": False, "x": 2560, "y": 100, "width": 1920, "height": 1080, "refreshRate": 165.003, "scale": 1},
-]
-ONE = [dict(TWO[0])]
-OFF = [dict(TWO[0]), dict(TWO[1], disabled=True)]
-NODATA = [{"name": "DP-9", "disabled": False, "width": 0, "height": 0, "refreshRate": 0, "scale": 0}]
-check("display/mode-rounds", monitor_mode(TWO[0]), "2560x1440@180")
-check("display/mode-disabled-kept", monitor_mode(OFF[1]), "1920x1080@165")
-check("display/mode-half-up", monitor_mode({"width": 100, "height": 50, "refreshRate": 59.5}), "100x50@60")
-check("display/mode-no-geometry", monitor_mode(NODATA[0]), "preferred")
-check("display/position", monitor_position(OFF[1]), "2560x100")
-check("display/position-missing", monitor_position(NODATA[0]), "auto")
-check("display/scale-fallback", monitor_scale(NODATA[0]), 1)
-check("display/escape", escape_lua('DP"1'), 'DP\\"1')
-check("display/disable-spec", set_enabled_spec(TWO, "DP-1", False),
-      'hl.monitor({ output = "DP-1", disabled = true })')
-check("display/enable-spec", set_enabled_spec(OFF, "DP-2", True),
-      'hl.monitor({ output = "DP-2", disabled = false, mode = "1920x1080@165", position = "2560x100", scale = 1 })')
-check("display/refuse-last", set_enabled_spec(ONE, "DP-1", False), None)
-check("display/refuse-noop-off", set_enabled_spec(OFF, "DP-2", False), None)
-check("display/refuse-noop-on", set_enabled_spec(TWO, "DP-1", True), None)
-check("display/refuse-unknown", set_enabled_spec(TWO, "HDMI-A-1", True), None)
 
 # Mirror of PanelState.toggle debounce (services/PanelState.qml): 300 ms.
 def toggle(visible, last_close_at, now):
@@ -449,6 +338,82 @@ check("focus/reverse-dns-last", class_matches("spectacle", "org.kde.spectacle"),
 check("focus/reverse-dns-prefix-guard", class_matches("org.kde.okular", "org.kde.spectacle"), False)
 check("focus/no-match", class_matches("firefox", "spotify"), False)
 EOF
+
+# Monitor logic runs under node: MonitorLogic.parseMonitorSettings and
+# clampWorkspacesPerMonitor keep a string primary verbatim (a disconnected
+# choice survives), ignore a non-string one, and clamp the count to 1..20.
+# orderMonitors and firstWorkspaceFor give the primary the first block; modeFor,
+# positionFor and scaleFor rebuild a disabled output's geometry; setEnabledSpec
+# returns no spec for a no-op, a last display or an unknown output.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/MonitorLogic.js" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const ml = qmljs.load(process.argv[3]);
+
+check('settings/primary-kept', ml.parseMonitorSettings('{"primary":"HDMI-A-1"}', 5).primary, 'HDMI-A-1');
+check('settings/primary-nonstring', ml.parseMonitorSettings('{"primary":7}', 5).primary, null);
+check('settings/count-kept', ml.parseMonitorSettings('{"primary":"DP-2"}', 5).workspacesPerMonitor, 5);
+check('settings/count-clamped', ml.parseMonitorSettings('{"workspacesPerMonitor":50}', 5).workspacesPerMonitor, 20);
+check('settings/count-low', ml.parseMonitorSettings('{"workspacesPerMonitor":0}', 5).workspacesPerMonitor, 1);
+check('settings/count-rounds', ml.parseMonitorSettings('{"workspacesPerMonitor":7.5}', 5).workspacesPerMonitor, 8);
+check('settings/malformed', ml.parseMonitorSettings('{nope', 5), null);
+check('settings/null', ml.parseMonitorSettings('null', 5), null);
+check('settings/number', ml.parseMonitorSettings('5', 5), null);
+check('settings/array-ignores', ml.parseMonitorSettings('[1,2]', 5), { primary: null, workspacesPerMonitor: 5 });
+
+check('clamp/high', ml.clampWorkspacesPerMonitor(50, 5), 20);
+check('clamp/low', ml.clampWorkspacesPerMonitor(0, 5), 1);
+check('clamp/round', ml.clampWorkspacesPerMonitor(7.5, 5), 8);
+check('clamp/numeric-text', ml.clampWorkspacesPerMonitor('12', 5), 12);
+check('clamp/text', ml.clampWorkspacesPerMonitor('nope', 5), 5);
+check('clamp/missing', ml.clampWorkspacesPerMonitor(undefined, 5), 5);
+
+check('order/primary', ml.orderMonitors('DP-1', ['DP-1', 'DP-2', 'DP-3']), ['DP-1', 'DP-2', 'DP-3']);
+check('order/override', ml.orderMonitors('DP-2', ['DP-1', 'DP-2', 'DP-3']), ['DP-2', 'DP-1', 'DP-3']);
+check('order/auto', ml.orderMonitors('', ['DP-1', 'DP-2']), ['DP-1', 'DP-2']);
+check('order/disconnected-primary', ml.orderMonitors('HDMI-A-1', ['DP-1', 'DP-2']), ['HDMI-A-1', 'DP-1', 'DP-2']);
+
+const ordered = ['DP-1', 'DP-2', 'DP-3'];
+check('workspaces/first-primary', ml.firstWorkspaceFor(ordered, 'DP-1', 5), 1);
+check('workspaces/first-second', ml.firstWorkspaceFor(ordered, 'DP-2', 5), 6);
+check('workspaces/first-third', ml.firstWorkspaceFor(ordered, 'DP-3', 5), 11);
+check('workspaces/first-unknown', ml.firstWorkspaceFor(ordered, 'HDMI-A-1', 5), 1);
+check('workspaces/first-empty', ml.firstWorkspaceFor(ordered, '', 5), 1);
+check('workspaces/count-three', ml.firstWorkspaceFor(ordered, 'DP-3', 3), 7);
+check('workspaces/override-order', ml.firstWorkspaceFor(ml.orderMonitors('DP-2', ['DP-1', 'DP-2', 'DP-3']), 'DP-1', 5), 6);
+
+const norm = m => ({
+    name: m.name,
+    disabled: m.disabled === true,
+    mode: ml.modeFor(m),
+    position: ml.positionFor(m),
+    scale: ml.scaleFor(m)
+});
+const TWO = [
+    { name: 'DP-1', disabled: false, x: 0, y: 0, width: 2560, height: 1440, refreshRate: 179.96, scale: 1 },
+    { name: 'DP-2', disabled: false, x: 2560, y: 100, width: 1920, height: 1080, refreshRate: 165.003, scale: 1 }
+];
+const ONE = [TWO[0]];
+const OFF = [TWO[0], Object.assign({}, TWO[1], { disabled: true })];
+const NODATA = { name: 'DP-9', disabled: false, width: 0, height: 0, refreshRate: 0, scale: 0 };
+
+check('display/mode-rounds', ml.modeFor(TWO[0]), '2560x1440@180');
+check('display/mode-disabled-kept', ml.modeFor(OFF[1]), '1920x1080@165');
+check('display/mode-half-up', ml.modeFor({ width: 100, height: 50, refreshRate: 59.5 }), '100x50@60');
+check('display/mode-no-geometry', ml.modeFor(NODATA), 'preferred');
+check('display/position', ml.positionFor(OFF[1]), '2560x100');
+check('display/position-missing', ml.positionFor(NODATA), 'auto');
+check('display/scale-fallback', ml.scaleFor(NODATA), 1);
+check('display/escape', ml.escapeLua('DP"1'), 'DP\\"1');
+check('display/disable-spec', ml.setEnabledSpec(ml.escapeLua('DP-1'), norm(TWO[0]), false, true),
+      'hl.monitor({ output = "DP-1", disabled = true })');
+check('display/enable-spec', ml.setEnabledSpec(ml.escapeLua('DP-2'), norm(OFF[1]), true, true),
+      'hl.monitor({ output = "DP-2", disabled = false, mode = "1920x1080@165", position = "2560x100", scale = 1 })');
+check('display/refuse-last', ml.setEnabledSpec(ml.escapeLua('DP-1'), norm(ONE[0]), false, false), null);
+check('display/refuse-noop-off', ml.setEnabledSpec(ml.escapeLua('DP-2'), norm(OFF[1]), false, true), null);
+check('display/refuse-noop-on', ml.setEnabledSpec(ml.escapeLua('DP-1'), norm(TWO[0]), true, true), null);
+check('display/refuse-unknown', ml.setEnabledSpec(ml.escapeLua('HDMI-A-1'), null, true, true), null);
+NODEEOF
 
 # --- 7. power confirm loop:.argv mapping verified without firing ---
 # Destructive commands never run in CI; assert the mapping statically.
@@ -902,8 +867,8 @@ grep -q '"monitors", "all", "-j"' "$MSVC" \
     || fail "MonitorService does not read the full hyprctl monitor list"
 grep -q '"hyprctl", "eval"' "$MSVC" \
     || fail "MonitorService does not toggle through hyprctl eval"
-grep -q 'hl.monitor' "$MSVC" \
-    || fail "MonitorService does not use the Lua monitor API"
+grep -q 'MonitorLogic.setEnabledSpec' "$MSVC" \
+    || fail "MonitorService does not build the Lua monitor spec through MonitorLogic"
 if grep -q 'hyprctl", "keyword"' "$MSVC"; then
     fail "MonitorService uses hyprctl keyword, which the Lua config parser rejects"
 fi
