@@ -1029,7 +1029,7 @@ grep -q 'name: "mpris-players"' "$MPLAYERS" \
     || fail "MprisPlayers does not persist the media filter behind a StateFile"
 grep -q 'idAppsState.loading || !idAppsState.loaded' "$MPLAYERS" \
     || fail "MprisPlayers does not guard saves on the StateFile loading/loaded flags"
-grep -q 'property var browserTokens' "$MPLAYERS" \
+grep -q 'const BROWSER_TOKENS' "$ROOT/services/MprisLogic.js" \
     || fail "MprisPlayers does not seed the browsers as hidden"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$MEDVIEW"; then
     fail "media settings surface carries raw hex; palette tokens only"
