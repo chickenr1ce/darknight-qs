@@ -26,6 +26,8 @@ PanelWindow {
     readonly property string messageText: root.supplementary !== "" ? root.supplementary : qsTr("Authentication failed. Try again.")
     readonly property bool verifying: root.flow !== null && !root.responseRequired
 
+    property int focusRetries: 0
+
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     visible: PolkitService.isActive
@@ -44,7 +46,8 @@ PanelWindow {
         if (root.visible) {
             idPasswordInput.clear();
             idRunnerEntrance.restart();
-            idPasswordInput.forceActiveFocus();
+            root.focusRetries = 0;
+            Qt.callLater(root.focusInput);
         } else {
             idPasswordInput.clear();
         }
@@ -68,6 +71,18 @@ PanelWindow {
     function runShake(): void {
         if (root.hasMessage && !Globals.reducedMotion)
             idErrorShake.restart();
+    }
+
+    function focusInput(): void {
+        if (!root.visible || !root.responseRequired)
+            return;
+        idPasswordInput.forceActiveFocus();
+        if (idPasswordInput.activeFocus)
+            return;
+        if (root.focusRetries < 3) {
+            root.focusRetries++;
+            idFocusRetryTimer.restart();
+        }
     }
 
     Shortcut {
@@ -115,7 +130,8 @@ PanelWindow {
             if (!root.responseRequired)
                 return;
             idPasswordInput.clear();
-            idPasswordInput.forceActiveFocus();
+            root.focusRetries = 0;
+            Qt.callLater(root.focusInput);
             root.shakeIfMessage();
         }
 
@@ -132,6 +148,13 @@ PanelWindow {
         }
     }
 
+    Timer {
+        id: idFocusRetryTimer
+
+        interval: 50
+        onTriggered: root.focusInput()
+    }
+
     Rectangle {
         id: idScrim
 
@@ -142,7 +165,7 @@ PanelWindow {
             id: idScrimMouseArea
 
             anchors.fill: parent
-            onClicked: PolkitService.cancel()
+            onClicked: root.focusInput()
         }
     }
 

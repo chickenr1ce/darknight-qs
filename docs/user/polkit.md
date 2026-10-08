@@ -16,8 +16,8 @@ package is needed.
   names the action, the identity authenticating, the PAM prompt or message, and
   the key hints. When polkit offers more than one identity, the dialog can
   switch between them.
-- Cancels the request on Esc or a click outside the dialog, so an abandoned
-  conversation does not linger.
+- Cancels the request on Esc, so an abandoned conversation does not linger.
+  Clicking outside the dialog no longer cancels; only Esc does.
 
 | Key | Action |
 | --- | --- |
@@ -67,7 +67,10 @@ systemctl --user is-enabled hyprpolkitagent.service
 `polkit-agent-helper@.service` is part of polkitd's PAM flow. Leave both alone.
 
 The shell has no agent while it is stopped or restarting, so a `pkexec` in that
-window fails. Start the shell again and it re-registers.
+window fails. Start the shell again and it re-registers. `scripts/restart.sh`
+keeps that window clean: it refuses to start a second instance until the old one
+has exited, and fails loudly if the new agent cannot register ("An
+authentication agent already exists").
 
 ## Check that it works
 
@@ -84,9 +87,27 @@ reports "Not authorized", check that the shell is running with
 `pgrep -x quickshell`, then read the run's log, covered in
 `docs/dev/debugging-quickshell.md`.
 
-Do not test with repeated failures. Each cancel or wrong password records a
-`polkit-1` failure with PAM `faillock`, and a few in a row lock the account. The
-section below has the details.
+### Lockouts while testing
+
+Every cancel (Esc) or wrong password records a `polkit-1` failure with PAM
+`faillock`; three in a row lock the account, and a locked account rejects `sudo`
+too because `pam_faillock` blocks before `pam_unix`. This is the PAM stack's
+policy, not the shell's: the agent cannot stop a cancel from counting. Reset the
+tally between `pkexec /bin/true` attempts:
+
+```sh
+faillock --user "$USER" --reset
+```
+
+The tally file is owned by your user, so the reset needs no `sudo`. To make
+testing less punishing, edit `/etc/security/faillock.conf` as root and raise
+`deny` or lower `unlock_time`; this is optional and changes lockout behavior
+system-wide:
+
+```
+deny = 10
+unlock_time = 60
+```
 
 ## Troubleshooting
 
@@ -97,10 +118,11 @@ section below has the details.
 - **The wrong dialog appears.** Another agent is registered. Stop it with the
   commands above so the shell is the only one.
 - **The account is locked out.** Cancelled and failed attempts add a PAM
-  `faillock` entry. `faillock --user <you>` lists them, and
-  `sudo faillock --user <you> --reset` clears the count. Otherwise wait out the
-  system's `unlock_time`, 10 minutes by default.
+  `faillock` entry — the `polkit-1` entries come from cancelled or failed polkit
+  prompts. `faillock --user "$USER"` lists them, and
+  `faillock --user "$USER" --reset` clears the count; the tally file is owned by
+  your user, so no `sudo` (which is blocked while locked) is needed. Otherwise
+  wait out the system's `unlock_time`, 10 minutes by default.
 - **A stuck helper.** A dialog that is neither submitted nor cancelled can leave
-  a `polkit-agent-helper@*` unit behind. Cancel the request with Esc or a click
-  outside, then clear a stuck unit with
-  `sudo systemctl stop 'polkit-agent-helper@*'`.
+  a `polkit-agent-helper@*` unit behind. Cancel the request with Esc, then clear
+  a stuck unit with `sudo systemctl stop 'polkit-agent-helper@*'`.

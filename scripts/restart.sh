@@ -2,6 +2,7 @@
 # restart.sh — restart the quickshell instance (SUPER + CTRL + Q).
 # Same shape as the old waybar launcher: stop what's running, start detached,
 # then wait for the new instance's log and report whether the config loaded.
+# Guarantees one polkit agent: an old instance must exit before a new one starts, and a failed registration fails the run.
 # With --probe DIR, boot that worktree's config (`quickshell -p DIR`) instead
 # of the daily one, for live-testing unmerged changes.
 # Usage: scripts/restart.sh [--probe DIR] [--timeout SECONDS]
@@ -50,12 +51,26 @@ fi
 
 pkill -x quickshell 2>/dev/null || true
 
-# Wait for the old instance to exit so the new one can claim
-# the notification bus and layer surfaces.
-for _ in $(seq 1 20); do
+# Wait for the old instance to exit so the new one can claim the notification
+# bus, layer surfaces, and the polkit agent. A surviving process still owns the
+# agent, so escalate to KILL before refusing to start a second instance.
+for _ in $(seq 1 50); do
     pgrep -x quickshell >/dev/null 2>&1 || break
     sleep 0.1
 done
+
+if pgrep -x quickshell >/dev/null 2>&1; then
+    pkill -KILL -x quickshell 2>/dev/null || true
+    for _ in $(seq 1 20); do
+        pgrep -x quickshell >/dev/null 2>&1 || break
+        sleep 0.1
+    done
+fi
+
+if pgrep -x quickshell >/dev/null 2>&1; then
+    echo "restart: old quickshell instance did not exit; not starting a second one" >&2
+    exit 1
+fi
 
 if [[ -n "$PROBE" ]]; then
     setsid quickshell -p "$PROBE" >/dev/null 2>&1 < /dev/null &
@@ -84,6 +99,23 @@ if grep -q 'Failed to load configuration' "$LOG"; then
     exit 1
 fi
 if grep -q 'Configuration Loaded' "$LOG"; then
+    # Give the polkit agent its registration window; a stale agent makes the
+    # new registration fail, which would leave polkit prompts unanswered.
+    for _ in $(seq 1 20); do
+        if grep -qF 'failed to register listener' "$LOG"; then
+            break
+        fi
+        sleep 0.1
+        LOG_NEW="$("$SCRIPT_DIR/instance.sh" log --config "$VERIFY_CONFIG" 2>/dev/null || true)"
+        if [[ -n "$LOG_NEW" ]]; then
+            LOG="$LOG_NEW"
+        fi
+    done
+    if grep -qF 'failed to register listener' "$LOG"; then
+        echo "restart: polkit agent failed to register (another agent already owns the session); polkit prompts will not appear" >&2
+        grep -F 'failed to register listener' "$LOG" | sed 's/^/restart: /' >&2
+        exit 1
+    fi
     echo "restart: $VERIFY_CONFIG loaded"
     exit 0
 fi
