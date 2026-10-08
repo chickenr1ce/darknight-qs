@@ -280,19 +280,24 @@ Timer { id: idMediaTimer }
   `lint.sh` with `Failed to open file` and exit 255 (verified 2026-09-23).
 - **Files in a `qmldir` module never see siblings implicitly**: a service file
   naming a sibling type needs `import qs.services` (its own module) and the
-  sibling needs a `qmldir` entry. `qmllint` resolves the sibling anyway, so
-  only a live `quickshell -p` boot catches the missing import (`... is not a
-  type`, verified 2026-09-23).
+  sibling needs a `qmldir` entry. `qmllint` still resolves the sibling by its
+  directory, so `scripts/lint.sh` does not catch the missing import; only a live
+  `quickshell -p` boot does (`... is not a type`, verified 2026-09-23, and
+  unchanged by the shim import root of 2026-10-08).
 - **A directory without a `qmldir` is an implicit module**: `components/`,
   `config/`, `modules/`, and `windows/` need no `qmldir` and resolve through
   `qs.components`, `qs.config`, `qs.modules`, and `qs.windows`. Only
   `services/` and `dev/` carry a `qmldir`, because they declare singletons.
-- **`qmllint` cannot resolve `qs.*`-rooted sibling types**: a file whose root
-  type comes from an import path qmllint lacks (e.g. a `Card` from
-  `qs.components`) fails as a type everywhere it is used, cascading
-  `unresolved-type` noise across importers while the gate still exits 0.
-  Existing files warn the same way, so a live `quickshell -p` boot is the
-  authority on whether a type resolves (verified 2026-09-25).
+- **`scripts/lint.sh` shims `qs.*` for `qmllint`**: Quickshell resolves
+  `import qs.<dir>` to `<config>/<dir>`, which `qmllint` cannot, so with no shim
+  every `qs.*` type reads as `was not found` and a real miss hides in that
+  noise. The lint builds a temp import root (one directory per module, its
+  `.qml` files symlinked in, a generated `qmldir`) and fails on a `was not
+  found` tagged `[import]`, the class the runtime rejects as `<Type> is not a
+  type`. A missing `import Quickshell.Io` fails the gate this way; a missing
+  sibling module import does not (see above), so a live boot stays the
+  authority for it. The `[signal-handler-parameters]` `QProcess::ExitStatus`
+  warnings are a `qmllint` quirk the lint ignores (verified 2026-10-08).
 - **A binding that reads and writes the same property loops**: memoizing
   inside the binding (read the cached text, write it back) registers the
   memo as a dependency of itself — startup logs `Binding loop detected`.
@@ -480,15 +485,20 @@ so run a new git-using check through the gate rather than on its own.
 
 ## 7. Verification and review
 
-Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`), style lint
-(`scripts/lint-review.sh`), shell lint (`scripts/lint-shell.sh`, skips when
-shellcheck is not installed), the headless `scripts/test-*.sh` gates, and
-`scripts/check-live-log.sh` (skips when no instance is running). The style
-linter is vendored at `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company).
-`scripts/smoke-toasts.sh` is a separate deliberate run because it boots its own
-instance; it is the regression gate for the notification toast layer. A `pre-commit` hook (`.githooks/`, enabled once per clone with
-`git config core.hooksPath .githooks`) runs the gate; bypass a single commit with
-`--no-verify`.
+Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`, which fails on
+an unresolved type name), style lint (`scripts/lint-review.sh`), shell lint
+(`scripts/lint-shell.sh`, skips when shellcheck is not installed), the headless
+`scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no
+instance is running). The style linter is vendored at
+`scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company). `scripts/check.sh`
+never boots an instance, so a change the shell loads also needs
+`scripts/boot-check.sh <config>`: it boots the config in a throwaway instance
+under a private D-Bus session and fails unless the log shows
+`Configuration Loaded` with no error signatures. `scripts/smoke-toasts.sh` is a
+separate deliberate run because it boots its own instance and sends toasts; it
+is the regression gate for the notification toast layer. A `pre-commit` hook
+(`.githooks/`, enabled once per clone with `git config core.hooksPath .githooks`)
+runs the gate; bypass a single commit with `--no-verify`.
 
 ### Pure QML logic and its tests
 

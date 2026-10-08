@@ -23,6 +23,11 @@ worktree, drive it with `quickshell ipc --pid <pid>`.
   and line. The config auto-reloads on save, so watch this file after edits.
   A test shell booted with `quickshell -p` logs here too; redirecting its
   stderr to a file keeps one grepable stream per run.
+- `scripts/boot-check.sh <config>` does that redirect for you: it boots a
+  throwaway instance under a private D-Bus session (so it does not take the
+  notification bus), waits for `Configuration Loaded`, fails on the error
+  signatures above, then stops the instance. Run it after any change the shell
+  loads, because `scripts/check.sh` never boots.
 - Binary log: the sibling `log.qslog` is not grepable directly; pipe it
   through strings first: `strings <log.qslog> | grep <pattern>`.
 - `console.log` lines appear in the text log prefixed with `DEBUG qml:`.
@@ -178,9 +183,11 @@ address, title, appId, and IPC object for every toplevel.
 
 ## Lint entry points
 
-- `scripts/lint.sh` runs the Qt6 qmllint over tracked QML files. Never
-  use the bare `qmllint` on PATH; that binary is Qt5 and dies with a
-  silent exit 255 on Quickshell imports.
+- `scripts/lint.sh` runs the Qt6 qmllint over tracked QML files. It shims the
+  `qs.*` modules into a temp import root and fails on an unresolved type name
+  (`... was not found ... [import]`), the class the runtime rejects as
+  `<Type> is not a type`. Never use the bare `qmllint` on PATH; that binary is
+  Qt5 and dies with a silent exit 255 on Quickshell imports.
 - `scripts/lint-review.sh` runs the style linter and reports only
   findings not in the checked-in baseline
   (`scripts/lint-review-baseline.txt`). Regenerate the baseline with

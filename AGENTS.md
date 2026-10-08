@@ -11,10 +11,12 @@ is `docs/README.md`.
 - Worktrees: feature work happens under `$HOME/worktrees/`
   (`git worktree add $HOME/worktrees/quickshell-<topic>`); remove it once merged,
   deleting stray untracked files first.
-- Verify with `scripts/check.sh`; the gate and review rules live in
-  `docs/dev/CODING_STANDARDS.md`.
-- Live-test hand-off: after any change the shell loads (`.qml`, `qmldir`,
-  settings), end the reply with a paste-ready `bash` block booting *this*
+- Verify with `scripts/check.sh` (the headless gate) and, for any change the
+  shell loads (`.qml`, `qmldir`, settings), `scripts/boot-check.sh <worktree>`;
+  the gate and review rules live in `docs/dev/CODING_STANDARDS.md`.
+- Live-test hand-off: after any change the shell loads, run
+  `scripts/boot-check.sh <worktree>` and confirm it reports `loaded` before
+  ending the reply, then end with a paste-ready `bash` block booting *this*
   worktree via `scripts/restart.sh --probe <worktree>`, without being asked.
   Mechanics (bus takeover, restore, log) are in
   `docs/dev/debugging-quickshell.md`.

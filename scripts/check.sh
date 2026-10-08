@@ -35,6 +35,7 @@ run() {
 run "type lint" ./scripts/lint.sh
 run "review lint" ./scripts/lint-review.sh
 run "shell lint" ./scripts/lint-shell.sh
+run "lint imports" ./scripts/test-lint-imports.sh
 run "panel logic" ./scripts/test-panel-logic.sh
 run "qs-theme" ./scripts/test-qs-theme.sh
 run "seed-themes" ./scripts/test-seed-themes.sh
@@ -45,6 +46,8 @@ run "calendar clock" ./scripts/test-calendar-clock.sh
 run "calendar fetch" ./scripts/test-calendar-fetch.sh
 run "instance" ./scripts/test-instance.sh
 run "live-log test" ./scripts/test-live-log.sh
+run "restart" ./scripts/test-restart.sh
+run "boot check" ./scripts/test-boot-check.sh
 run "live log" ./scripts/check-live-log.sh
 
 echo
