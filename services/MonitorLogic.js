@@ -40,6 +40,14 @@ function firstWorkspaceFor(ordered, monitorName, perMonitor) {
     return index * perMonitor + 1;
 }
 
+function pickScreenName(focusedName, primaryName, names) {
+    if (names.indexOf(focusedName) !== -1)
+        return focusedName;
+    if (names.indexOf(primaryName) !== -1)
+        return primaryName;
+    return names.length > 0 ? names[0] : "";
+}
+
 function escapeLua(value) {
     return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
 }

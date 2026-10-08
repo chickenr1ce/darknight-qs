@@ -16,6 +16,7 @@ its Optional integrations section.
 - [`user/theme-desktop-setup.md`](user/theme-desktop-setup.md) — retint Hyprland, kitty, hyprlock, starship, yazi, and btop from the active theme.
 - [`user/qs-theme.md`](user/qs-theme.md) — the `qs-theme` CLI: install, switch, and manage themes and backgrounds.
 - [`user/polkit.md`](user/polkit.md): keep the shell the only polkit authentication agent, and troubleshoot prompts, lockouts, and stuck helpers.
+- [`user/ipc.md`](user/ipc.md) — the shell's IPC targets (`power`, `calendar`, `notifications`, `dashboard`, `dnd`, `volume`): functions, placement, and Lua keybind examples.
 
 ## Dev docs — [`dev/`](dev/)
 

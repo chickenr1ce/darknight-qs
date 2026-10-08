@@ -12,8 +12,21 @@ ColumnLayout {
     property string filter: ""
 
     readonly property bool outputsRelevant: SettingsFilter.matches(root.filter, qsTr("Audio outputs"))
+    readonly property bool osdRelevant: SettingsFilter.matches(root.filter, qsTr("Volume OSD"))
 
     spacing: Globals.spacing
+
+    SettingsToggleRow {
+        id: idVolumeOsdRow
+
+        Layout.fillWidth: true
+
+        visible: root.osdRelevant
+        label: qsTr("Volume OSD")
+        hint: qsTr("Show the volume level on screen when it changes.")
+        value: AudioService.osdEnabled
+        onToggled: AudioService.setOsdEnabled(!AudioService.osdEnabled)
+    }
 
     Text {
         id: idAudioHint

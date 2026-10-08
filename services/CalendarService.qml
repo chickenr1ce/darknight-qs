@@ -11,6 +11,8 @@ Singleton {
 
     readonly property PanelState panelState: idPanelState
 
+    readonly property BarAnchor barAnchor: idBarAnchor
+
     readonly property int eventsPollMs: 15 * 60 * 1000
     readonly property int eventsStaleAfterMs: 30 * 60 * 1000
     readonly property string eventsUrlFile: idEventsState.stateFile("calendar-url")
@@ -103,6 +105,23 @@ Singleton {
 
     PanelState {
         id: idPanelState
+    }
+
+    BarAnchor {
+        id: idBarAnchor
+    }
+
+    IpcHandler {
+        target: "calendar"
+
+        function toggle(): string {
+            return idBarAnchor.requestToggle() ? "ok" : "error: clock module is hidden";
+        }
+
+        function close(): string {
+            idPanelState.closeFromOutside();
+            return "ok";
+        }
     }
 
     Timer {

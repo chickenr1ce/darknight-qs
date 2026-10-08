@@ -11,7 +11,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 fail() { echo "live-log FAIL: $*" >&2; exit 1; }
 
-TMP="$(mktemp -d /tmp/opencode/live-log-XXXXXX)"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/qs-live-log-XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 export XDG_RUNTIME_DIR="$TMP/run"

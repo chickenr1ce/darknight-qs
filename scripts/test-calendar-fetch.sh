@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FETCH="$ROOT/scripts/calendar-fetch.py"
 FIXTURE="$ROOT/tests/fixtures/calendar-basic.ics"
 EXPECTED="$ROOT/tests/fixtures/calendar-basic.expected.json"
-WORK="$(mktemp -d /tmp/opencode/calendar-test-XXXXXX)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/qs-calendar-test-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 export TZ=UTC

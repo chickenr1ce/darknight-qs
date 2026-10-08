@@ -21,7 +21,7 @@ Singleton {
         {
             key: "audio",
             title: qsTr("Audio"),
-            options: [qsTr("Audio outputs")].concat(AudioService.sinkNodes.map(node => AudioService.rawLabelFor(node))),
+            options: [qsTr("Audio outputs"), qsTr("Volume OSD")].concat(AudioService.sinkNodes.map(node => AudioService.rawLabelFor(node))),
             comingSoon: false
         },
         {

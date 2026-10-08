@@ -2,6 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import qs.config
 import qs.services
@@ -108,6 +109,19 @@ Singleton {
 
     function firstWorkspaceFor(monitorName: string): int {
         return MonitorLogic.firstWorkspaceFor(root.orderedMonitors, monitorName, root.workspacesPerMonitor);
+    }
+
+    function focusedScreen(): var {
+        const screens = Quickshell.screens;
+        const names = [];
+        for (let i = 0; i < screens.length; i++)
+            names.push(screens[i].name);
+        const name = MonitorLogic.pickScreenName(Hyprland.focusedMonitor?.name ?? "", Globals.primaryMonitor, names);
+        for (let i = 0; i < screens.length; i++) {
+            if (screens[i].name === name)
+                return screens[i];
+        }
+        return null;
     }
 
     function clampWorkspacesPerMonitor(value, fallback: int): int {

@@ -120,6 +120,7 @@ function parseAudioSettings(jsonText) {
     const out = {};
     out["hidden"] = stringList(parsed.hidden);
     out["order"] = stringList(parsed.order);
+    out["osdEnabled"] = parsed.osdEnabled !== false;
     return out;
 }
 
@@ -186,3 +187,19 @@ function parseVisibility(jsonText, moduleKeys) {
     }
     return out;
 }
+
+function parseNotificationSettings(jsonText) {
+    let parsed = null;
+    try
+    {
+        parsed = JSON.parse(jsonText);
+    }
+    catch (e)
+    {
+        return null;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        return null;
+    return { dnd: parsed.dnd === true };
+}
+

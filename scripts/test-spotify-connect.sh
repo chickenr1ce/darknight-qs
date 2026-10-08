@@ -11,7 +11,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONNECT="$ROOT/scripts/spotify-connect.py"
 AUTH="$ROOT/scripts/spotify-auth.py"
 FIXTURE="$ROOT/tests/fixtures/spotify-devices.json"
-WORK="$(mktemp -d /tmp/opencode/spotify-test-XXXXXX)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/qs-spotify-test-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 fail() { echo "spotify-connect FAIL: $*" >&2; exit 1; }

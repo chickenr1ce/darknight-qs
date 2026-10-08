@@ -11,7 +11,7 @@ Singleton {
 
     readonly property PanelState panelState: idPanelState
 
-    property Item barAnchor: null
+    readonly property BarAnchor barAnchor: idBarAnchor
 
     property string armedAction: ""
     property string hostName: ""
@@ -42,12 +42,14 @@ Singleton {
         return false;
     }
 
-    signal barAnchorToggleRequested()
-
     PanelState {
         id: idPanelState
 
         onVisibleChanged: root.armedAction = ""
+    }
+
+    BarAnchor {
+        id: idBarAnchor
     }
 
     Timer {
@@ -90,22 +92,12 @@ Singleton {
         target: "power"
 
         function toggle(): void {
-            if (root.barAnchor !== null)
-                root.barAnchorToggleRequested();
+            idBarAnchor.requestToggle();
         }
 
         function close(): void {
             idPanelState.closeFromOutside();
         }
-    }
-
-    function registerBarAnchor(trigger) {
-        root.barAnchor = trigger;
-    }
-
-    function unregisterBarAnchor(trigger) {
-        if (root.barAnchor === trigger)
-            root.barAnchor = null;
     }
 
     function arm(actionId: string) {

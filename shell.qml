@@ -150,6 +150,8 @@ ShellRoot {
 
     NotificationPopups {}
 
+    VolumeOsd {}
+
     DashboardCenter {}
 
     NotificationCenter {}

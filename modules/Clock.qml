@@ -11,12 +11,14 @@ ModuleBox {
     property string monitorName: ""
     property ShellScreen triggerScreen: null
 
+    readonly property bool anchorActive: root.visible && Globals.onPrimaryMonitor(root.monitorName)
+
     visible: BarVisibilityService.isVisible("clock")
 
-    onClicked: {
-        const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-        Panels.toggleAt(CalendarService.panelState, root.triggerScreen, centerX);
-    }
+    onClicked: root.toggleAtBar()
+    onAnchorActiveChanged: root.syncAnchor()
+    Component.onCompleted: root.syncAnchor()
+    Component.onDestruction: CalendarService.barAnchor.unregister(root)
 
     Text {
         id: idClockLabel
@@ -39,5 +41,25 @@ ModuleBox {
         running: true
         repeat: true
         onTriggered: idClockLabel.text = Qt.formatDateTime(new Date(), "dd.MM HH:mm")
+    }
+
+    Connections {
+        target: CalendarService.barAnchor
+
+        function onToggleRequested() {
+            if (root.anchorActive)
+                root.toggleAtBar();
+        }
+    }
+
+    function toggleAtBar() {
+        Panels.toggleAt(CalendarService.panelState, root.triggerScreen, Globals.triggerCenterX(root, root.triggerScreen));
+    }
+
+    function syncAnchor() {
+        if (root.anchorActive)
+            CalendarService.barAnchor.register(root);
+        else
+            CalendarService.barAnchor.unregister(root);
     }
 }

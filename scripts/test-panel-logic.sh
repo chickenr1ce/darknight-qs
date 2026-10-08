@@ -416,6 +416,13 @@ check('display/refuse-last', ml.setEnabledSpec(ml.escapeLua('DP-1'), norm(ONE[0]
 check('display/refuse-noop-off', ml.setEnabledSpec(ml.escapeLua('DP-2'), norm(OFF[1]), false, true), null);
 check('display/refuse-noop-on', ml.setEnabledSpec(ml.escapeLua('DP-1'), norm(TWO[0]), true, true), null);
 check('display/refuse-unknown', ml.setEnabledSpec(ml.escapeLua('HDMI-A-1'), null, true, true), null);
+
+check('screen/focused', ml.pickScreenName('DP-2', 'DP-1', ['DP-1', 'DP-2']), 'DP-2');
+check('screen/no-focus-primary', ml.pickScreenName('', 'DP-2', ['DP-1', 'DP-2']), 'DP-2');
+check('screen/focused-missing-primary', ml.pickScreenName('HDMI-A-1', 'DP-1', ['DP-1', 'DP-2']), 'DP-1');
+check('screen/both-missing-first', ml.pickScreenName('HDMI-A-1', 'HDMI-A-2', ['DP-1', 'DP-2']), 'DP-1');
+check('screen/disconnected-primary-first', ml.pickScreenName('HDMI-A-2', 'HDMI-A-1', ['DP-1', 'DP-2']), 'DP-1');
+check('screen/empty', ml.pickScreenName('DP-1', 'DP-1', []), '');
 NODEEOF
 
 # --- 7. power confirm loop:.argv mapping verified without firing ---
@@ -1139,6 +1146,31 @@ grep -q 'function persist' "$AUDIOSVC" \
 if grep -q 'function setLabel\|labelOverrides' "$AUDIOSVC"; then
     fail "AudioService still carries rename state"
 fi
+
+# Volume OSD: one switch on AudioService, filtered and registered, read by the
+# OSD window and written back with the same persist path as the output state.
+grep -q 'property bool osdEnabled' "$AUDIOSVC" \
+    || fail "AudioService has no osdEnabled state"
+grep -q 'function setOsdEnabled' "$AUDIOSVC" \
+    || fail "AudioService has no setOsdEnabled"
+grep -q 'payload\["osdEnabled"\]' "$AUDIOSVC" \
+    || fail "AudioService does not persist osdEnabled"
+grep -q 'AudioService.osdEnabled' "$AUDIOVIEW" \
+    || fail "AudioSettingsView does not bind AudioService.osdEnabled"
+grep -q 'AudioService.setOsdEnabled' "$AUDIOVIEW" \
+    || fail "AudioSettingsView cannot toggle the volume OSD"
+grep -q 'SettingsToggleRow' "$AUDIOVIEW" \
+    || fail "AudioSettingsView does not compose the shared toggle row"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Volume OSD"))' "$AUDIOVIEW" \
+    || fail "AudioSettingsView does not match its Volume OSD search label, so searching it shows an empty body"
+grep -qF 'qsTr("Volume OSD")' "$SSVC" \
+    || fail "SettingsService audio options do not list Volume OSD"
+grep -q 'AudioService.osdEnabled' "$ROOT/windows/VolumeOsd.qml" \
+    || fail "VolumeOsd does not check AudioService.osdEnabled"
+osd_off="$(awk '/function onOsdEnabledChanged/,/^        }$/' "$ROOT/windows/VolumeOsd.qml")"
+test -n "$osd_off" || fail "VolumeOsd does not react to the Volume OSD setting turning off"
+printf '%s\n' "$osd_off" | grep -q 'root.shown = false' \
+    || fail "VolumeOsd does not hide when the Volume OSD setting turns off"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$AUDIOVIEW" "$AUDIOSVC"; then
     fail "audio settings surface carries raw hex; palette tokens only"
 fi
@@ -1293,9 +1325,14 @@ check('cava/null', cava('null'), null);
 check('cava/number', cava('5'), null);
 
 const audio = text => sp.parseAudioSettings(text);
-check('audio/lists', audio('{"hidden": ["a", 1, "b"], "order": ["c", null]}'), { hidden: ['a', 'b'], order: ['c'] });
-check('audio/missing', audio('{}'), { hidden: [], order: [] });
-check('audio/not-a-list', audio('{"hidden": "a", "order": {"x": 1}}'), { hidden: [], order: [] });
+check('audio/lists', audio('{"hidden": ["a", 1, "b"], "order": ["c", null]}'), { hidden: ['a', 'b'], order: ['c'], osdEnabled: true });
+check('audio/missing', audio('{}'), { hidden: [], order: [], osdEnabled: true });
+check('audio/not-a-list', audio('{"hidden": "a", "order": {"x": 1}}'), { hidden: [], order: [], osdEnabled: true });
+check('audio/osd-missing', audio('{}').osdEnabled, true);
+check('audio/osd-false', audio('{"osdEnabled": false}').osdEnabled, false);
+check('audio/osd-true', audio('{"osdEnabled": true}').osdEnabled, true);
+check('audio/osd-non-bool', audio('{"osdEnabled": "no"}').osdEnabled, true);
+check('audio/osd-existing-shape', audio('{"hidden": ["a"], "order": ["b"]}'), { hidden: ['a'], order: ['b'], osdEnabled: true });
 check('audio/array', audio('["a"]'), null);
 check('audio/malformed', audio('{nope'), null);
 check('audio/null', audio('null'), null);
@@ -1308,6 +1345,20 @@ check('font/drops-non-string-and-unknown', font('{"uiFamily": 3, "monoFamily": "
 check('font/empty', font('{}'), {});
 check('font/array', font('["Geist"]'), null);
 check('font/malformed', font('{nope'), null);
+
+// parseNotificationSettings: a missing or non-bool dnd counts as off (the
+// default), while malformed input and non-objects return null so the caller
+// keeps its current state.
+const notify = text => sp.parseNotificationSettings(text);
+check('notify/true', notify('{"dnd": true}'), { dnd: true });
+check('notify/false', notify('{"dnd": false}'), { dnd: false });
+check('notify/missing-key', notify('{}'), { dnd: false });
+check('notify/non-bool', notify('{"dnd": "yes"}'), { dnd: false });
+check('notify/null-value', notify('{"dnd": null}'), { dnd: false });
+check('notify/malformed', notify('{nope'), null);
+check('notify/null', notify('null'), null);
+check('notify/array', notify('[true]'), null);
+check('notify/number', notify('5'), null);
 NODEEOF
 
 # --- 11. bar module visibility: one switch per module, persisted ---
@@ -2057,7 +2108,7 @@ grep -q 'theme-catalog-scan.sh' "$TSVC" \
 grep -q 'ThemeParsers.themeMaxBytes' "$TSVC" \
     || fail "ThemeService does not pass the palette byte cap to the scan"
 
-CATDIR="$(mktemp -d /tmp/opencode/theme-catalog-XXXXXX)"
+CATDIR="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-catalog-XXXXXX")"
 # The scan lists a theme only when colors.toml carries the full v4 palette, not
 # merely a mode line, so the catalog cannot offer a switch that yields no
 # palette (M4). The palette text matches the parseColors node checks above.
@@ -2247,7 +2298,7 @@ if grep -q 'colors.toml' "$RENDER"; then
     fail "render-theme.sh names colors.toml; it must consume only the resolved palette"
 fi
 
-RENDER_HOME="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_HOME="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE='{"accent":"#7aa2f7","selection":"#33467c","muted":"#565f89","background":"#1a1b26","dark_background":"#16161e","darker_background":"#101014","lighter_background":"#292e42","foreground":"#c0caf5","dark_foreground":"#a9b1d6","light_foreground":"#d5d6db","bright_foreground":"#ffffff","red":"#f7768e","yellow":"#e0af68","green":"#9ece6a","cyan":"#7dcfff","blue":"#7aa2f7","magenta":"#bb9af7","bright_red":"#ff7a93","bright_yellow":"#ff9e64","bright_green":"#b9f27c","bright_cyan":"#7ff7ff","bright_blue":"#7aa2ff","bright_magenta":"#c7a9ff"}'
 XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
 test -f "$RENDER_HOME/hypr/theme.lua" \
@@ -2336,7 +2387,7 @@ test "$before_btop" = "$(cat "$RENDER_HOME/btop/themes/theme.theme")" \
 test "$stamp" = "$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")" \
     || fail "renderer rewrote an unchanged file"
 
-RENDER_HOME2="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_HOME2="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE2="$(printf '%s' "$RENDER_PALETTE" | sed 's/}$/,"hyprland_active_border":"#ff0000","hyprland_inactive_border":"#00ff0080"}/')"
 XDG_CONFIG_HOME="$RENDER_HOME2" sh "$RENDER" "$RENDER_PALETTE2"
 grep -q 'rgba(ff0000ff)' "$RENDER_HOME2/hypr/theme.lua" \
@@ -2347,7 +2398,7 @@ grep -q 'rgba(00ff0080)' "$RENDER_HOME2/hypr/theme.lua" \
 # An empty palette is the no-active-theme case: the renderer writes its built-in
 # default so the bar's fallback and the desktop files agree (M1). A palette that
 # is present but missing required roles is still a no-op.
-RENDER_HOME3="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_HOME3="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 XDG_CONFIG_HOME="$RENDER_HOME3" sh "$RENDER" ""
 test -f "$RENDER_HOME3/hypr/theme.lua" \
     || fail "renderer wrote no default theme.lua for an empty palette"
@@ -2366,12 +2417,12 @@ grep -q 'theme\[main_bg\]="#141118"' "$RENDER_HOME3/btop/themes/theme.theme" \
 grep -q 'theme\[hi_fg\]="#b4befe"' "$RENDER_HOME3/btop/themes/theme.theme" \
     || fail "the empty-palette default does not use the fallback accent for btop"
 
-RENDER_HOME3B="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_HOME3B="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
 test -z "$(find "$RENDER_HOME3B" -type f)" \
     || fail "renderer wrote files for a palette missing required roles"
 
-RENDER_HOME4="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_HOME4="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE4="$(printf '%s' "$RENDER_PALETTE" | sed 's/}$/,"hyprland_active_border":"not-a-color"}/')"
 XDG_CONFIG_HOME="$RENDER_HOME4" sh "$RENDER" "$RENDER_PALETTE4"
 test -f "$RENDER_HOME4/hypr/theme.lua" \
@@ -2381,7 +2432,7 @@ grep -q 'rgba(7aa2f7ff)' "$RENDER_HOME4/hypr/theme.lua" \
 
 # A three-digit #rgb is expanded to six digits for the raw kitty tokens, so
 # kitty reads the same colour hypr and hyprlock get.
-RENDER_HOME5="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_HOME5="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE5="$(printf '%s' "$RENDER_PALETTE" | sed 's/"accent":"#7aa2f7"/"accent":"#abc"/')"
 XDG_CONFIG_HOME="$RENDER_HOME5" sh "$RENDER" "$RENDER_PALETTE5"
 grep -q 'cursor *#aabbcc' "$RENDER_HOME5/kitty/theme.conf" \
@@ -2399,7 +2450,7 @@ grep -q 'theme\[hi_fg\]="#aabbcc"' "$RENDER_HOME5/btop/themes/theme.theme" \
 # hues clear the contrast threshold, so each falls back to a black-or-white ink
 # chosen against selection. This is the harbor case; the fixture above proves
 # a theme that already contrasts is untouched.
-RENDER_HOME6="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_HOME6="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE6="$(printf '%s' "$RENDER_PALETTE" | sed \
     -e 's/"selection":"#33467c"/"selection":"#5e81ac"/' \
     -e 's/"accent":"#7aa2f7"/"accent":"#5e81ac"/' \
@@ -2419,7 +2470,7 @@ grep -q 'fg:text_blue' "$RENDER_HOME6/starship.toml" \
 # A light background with a mid-tone hue: the body text keeps the hue only when
 # it clears the contrast threshold, and otherwise falls back to the black or
 # white ink chosen against the background.
-RENDER_HOME7="$(mktemp -d /tmp/opencode/theme-render-XXXXXX)"
+RENDER_HOME7="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE7="$(printf '%s' "$RENDER_PALETTE" | sed \
     -e 's/"background":"#1a1b26"/"background":"#f5f5f5"/' \
     -e 's/"dark_background":"#16161e"/"dark_background":"#e6e6e6"/' \
@@ -2534,7 +2585,7 @@ if grep -q 'Process' "$DBLOCK"; then
     fail "DashboardThemeBlock spawns its own process; ThemeService owns the apply"
 fi
 
-BG_DIR="$(mktemp -d /tmp/opencode/theme-backgrounds-XXXXXX)"
+BG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-backgrounds-XXXXXX")"
 mkdir -p "$BG_DIR/nested"
 printf 'a' > "$BG_DIR/a.png"
 printf 'b' > "$BG_DIR/b.JPG"
@@ -2551,7 +2602,7 @@ bg_out="$(sh "$BSCAN" "$BG_DIR" 33554432 | LC_ALL=C sort)"
 bg_want="$(printf 'a.png\nb.JPG\nc.webp\n')"
 test "$bg_out" = "$bg_want" \
     || fail "background scan listed the wrong files: got [$bg_out] want [$bg_want]"
-BG_LINK="$(mktemp -d /tmp/opencode/theme-backgrounds-XXXXXX)"
+BG_LINK="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-backgrounds-XXXXXX")"
 ln -s "$BG_DIR" "$BG_LINK/backgrounds"
 bg_link_out="$(sh "$BSCAN" "$BG_LINK/backgrounds" 33554432)"
 test -z "$bg_link_out" \
@@ -2701,5 +2752,310 @@ check("fonts/filter-empty-caps", filter_fonts([f"F{i}" for i in range(50)], ""),
 check("fonts/filter-match", filter_fonts(["Geist", "Iosevka", "GeistMono"], "geist"), ["Geist", "GeistMono"])
 check("fonts/filter-none", filter_fonts(["Geist"], "nope"), [])
 EOF
+
+# --- 21. cava restart backoff: exponential, capped, crash-only ---
+# restartDelayMs doubles per attempt and clamps at cavaRestartMaxMs; a missing
+# cava exits 0 and never enters the loop, and an intentional restartAnalyser
+# stop is excluded from the backoff counter so it cannot inflate the delay.
+CAVALOGIC="$ROOT/services/CavaLogic.js"
+CAVASVC="$ROOT/services/CavaService.qml"
+CAVAGLOBALS="$ROOT/config/Globals.qml"
+
+grep -q 'readonly property int cavaRestartBaseMs: 1500' "$CAVAGLOBALS" \
+    || fail "Globals.cavaRestartBaseMs is not the 1500ms base"
+grep -q 'readonly property int cavaRestartMaxMs: 30000' "$CAVAGLOBALS" \
+    || fail "Globals.cavaRestartMaxMs is not the 30000ms cap"
+grep -q 'import "CavaLogic.js" as CavaLogic' "$CAVASVC" \
+    || fail "CavaService does not import CavaLogic.js"
+grep -q 'CavaLogic.restartDelayMs' "$CAVASVC" \
+    || fail "CavaService does not compute the restart delay through CavaLogic"
+grep -q 'property int restartIntervalMs: Globals.cavaRestartBaseMs' "$CAVASVC" \
+    || fail "CavaService does not seed its restart interval from Globals"
+grep -q 'interval: root.restartIntervalMs' "$CAVASVC" \
+    || fail "CavaService restart timer does not read the backoff interval"
+if grep -q 'interval: 1500' "$CAVASVC"; then
+    fail "CavaService still hardcodes the 1500ms restart interval"
+fi
+grep -q 'property bool intentionalStop' "$CAVASVC" \
+    || fail "CavaService has no intentionalStop flag"
+grep -q 'root.intentionalStop = true' "$CAVASVC" \
+    || fail "restartAnalyser does not mark its stop intentional"
+# The intentional-exit branch must clear the flag and return before the backoff
+# scheduling, so a deliberate restart never enters the crash timer. Extract the
+# handler body by indentation instead of a fixed -A count.
+onexit_body="$(awk '/^        onExited: exitCode =>/,/^        }$/' "$CAVASVC")"
+test -n "$onexit_body" || fail "could not extract CavaService onExited"
+intentional_branch="$(printf '%s\n' "$onexit_body" | awk '/if \(root.intentionalStop\)/,/^            }$/')"
+printf '%s\n' "$intentional_branch" | grep -q 'root.intentionalStop = false' \
+    || fail "onExited intentional branch does not clear the flag"
+printf '%s\n' "$intentional_branch" | grep -q 'return;' \
+    || fail "onExited intentional branch does not return before the backoff"
+if printf '%s\n' "$intentional_branch" | grep -q 'idCavaRestartTimer'; then
+    fail "onExited intentional branch schedules the restart timer"
+fi
+# restartAnalyser's deferred block must set running=true with no !running guard:
+# under Quickshell 0.3.1 running=false only SIGTERMs, so the pointer is still
+# alive when the deferred block runs and a guard would skip the replacement.
+restart_body="$(awk '/^    function restartAnalyser/,/^    }$/' "$CAVASVC")"
+test -n "$restart_body" || fail "could not extract CavaService restartAnalyser"
+deferred="$(printf '%s\n' "$restart_body" | awk '/Qt\.callLater/,/^        }\);$/')"
+printf '%s\n' "$deferred" | grep -q 'idCavaProcess.running = true' \
+    || fail "restartAnalyser does not relaunch cava after the stop"
+if printf '%s\n' "$deferred" | grep -q '!idCavaProcess.running'; then
+    fail "restartAnalyser guards the relaunch on !running; it skips while the old process is alive"
+fi
+grep -q 'root.restartAttempts = 0' "$CAVASVC" \
+    || fail "handleFrame does not reset restartAttempts on a live frame"
+
+node - "$ROOT/tests/qmljs.js" "$CAVALOGIC" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const cl = qmljs.load(process.argv[3]);
+
+const BASE = 1500;
+const MAX = 30000;
+const want = [1500, 3000, 6000, 12000, 24000, 30000, 30000];
+for (let i = 0; i < want.length; i++)
+    check('cava/delay-' + i, cl.restartDelayMs(i, BASE, MAX), want[i]);
+
+check('cava/negative', cl.restartDelayMs(-1, BASE, MAX), 1500);
+check('cava/nan', cl.restartDelayMs(NaN, BASE, MAX), 1500);
+check('cava/non-integer-floor', cl.restartDelayMs(3.9, BASE, MAX), 12000);
+check('cava/huge', cl.restartDelayMs(1000, BASE, MAX), 30000);
+NODEEOF
+
+# --- 22. bar anchor: one registered trigger per panel, IPC toggles it ---
+# PowerService's anchor plumbing (a property plus two functions plus a signal)
+# was private per panel; BarAnchor owns it once and each service composes one,
+# exposing it as barAnchor, so a keybind lands a panel exactly where its
+# trigger sits. The IPC toggle reports a miss when the trigger module is
+# hidden instead of silently doing nothing.
+BARANCHOR="$ROOT/services/BarAnchor.qml"
+test -f "$BARANCHOR" \
+    || fail "services/BarAnchor.qml is missing"
+grep -q '^BarAnchor 1.0 BarAnchor.qml' "$ROOT/services/qmldir" \
+    || fail "BarAnchor is not registered as a non-singleton in services/qmldir"
+grep -q 'id: root' "$BARANCHOR" \
+    || fail "BarAnchor's file root is not id: root"
+grep -q 'property Item anchor: null' "$BARANCHOR" \
+    || fail "BarAnchor has no anchor property"
+grep -q 'signal toggleRequested' "$BARANCHOR" \
+    || fail "BarAnchor has no toggleRequested signal"
+for fn in 'function register(trigger: Item)' 'function unregister(trigger: Item)' 'function requestToggle(): bool'; do
+    grep -q "$fn" "$BARANCHOR" \
+        || fail "BarAnchor has no $fn"
+done
+# unregister only clears its own trigger, and requestToggle reports whether an
+# anchor answered so the IPC target can tell a miss from a toggle.
+unregister_body="$(awk '/^    function unregister\(trigger: Item\)/,/^    }$/' "$BARANCHOR")"
+test -n "$unregister_body" || fail "could not extract BarAnchor.unregister"
+printf '%s\n' "$unregister_body" | grep -q 'root.anchor === trigger' \
+    || fail "BarAnchor.unregister does not guard on its own trigger"
+request_body="$(awk '/^    function requestToggle/,/^    }$/' "$BARANCHOR")"
+test -n "$request_body" || fail "could not extract BarAnchor.requestToggle"
+printf '%s\n' "$request_body" | grep -q 'root.toggleRequested()' \
+    || fail "BarAnchor.requestToggle does not emit toggleRequested"
+printf '%s\n' "$request_body" | grep -q 'return true' \
+    || fail "BarAnchor.requestToggle does not return true on a live anchor"
+printf '%s\n' "$request_body" | grep -q 'return false' \
+    || fail "BarAnchor.requestToggle does not return false without an anchor"
+# Each panel service composes one and exposes it under the same name.
+for svc in PowerService CalendarService NotificationServer; do
+    grep -q 'BarAnchor {' "$ROOT/services/$svc.qml" \
+        || fail "$svc does not compose a BarAnchor"
+    grep -q 'readonly property BarAnchor barAnchor: idBarAnchor' "$ROOT/services/$svc.qml" \
+        || fail "$svc does not expose barAnchor"
+done
+# The three IPC targets each route toggle through the anchor; the quick panel
+# targets return a status string in the theme target's style.
+for target in power:PowerService calendar:CalendarService notifications:NotificationServer; do
+    name="${target%%:*}"
+    svc="${target##*:}"
+    grep -q "target: \"$name\"" "$ROOT/services/$svc.qml" \
+        || fail "$svc has no IpcHandler target \"$name\""
+    grep -q 'idBarAnchor.requestToggle()' "$ROOT/services/$svc.qml" \
+        || fail "$svc's $name toggle does not route through the anchor"
+done
+grep -q '"error: clock module is hidden"' "$ROOT/services/CalendarService.qml" \
+    || fail "Calendar's toggle does not report a hidden clock"
+grep -q '"error: notifications module is hidden"' "$ROOT/services/NotificationServer.qml" \
+    || fail "Notifications' toggle does not report a hidden module"
+# Each trigger module registers while anchored and answers the toggle signal.
+for pair in PowerMenu:PowerService Clock:CalendarService Notifications:NotificationServer; do
+    mod="${pair%%:*}"
+    svc="${pair##*:}"
+    grep -q "$svc.barAnchor.register(" "$ROOT/modules/$mod.qml" \
+        || fail "$mod does not register with $svc.barAnchor"
+    grep -q 'onToggleRequested' "$ROOT/modules/$mod.qml" \
+        || fail "$mod does not handle the anchor's toggleRequested"
+done
+# The handler body must guard on the module's own state: with a Clock on every
+# bar, an unguarded handler toggles the calendar once per monitor on one IPC
+# request (open then close).
+clock_toggle="$(awk '/^        function onToggleRequested\(\)/,/^        \}$/' "$ROOT/modules/Clock.qml")"
+test -n "$clock_toggle" || fail "could not extract Clock.onToggleRequested"
+printf '%s\n' "$clock_toggle" | grep -q 'root.anchorActive' \
+    || fail "Clock.onToggleRequested does not guard on its primary-only anchor"
+for mod in Notifications PowerMenu; do
+    toggle_body="$(awk '/^        function onToggleRequested\(\)/,/^        \}$/' "$ROOT/modules/$mod.qml")"
+    test -n "$toggle_body" || fail "could not extract $mod.onToggleRequested"
+    printf '%s\n' "$toggle_body" | grep -q 'root.visible' \
+        || fail "$mod.onToggleRequested does not guard on visibility"
+done
+# Clock lives on every bar; only the primary one anchors, and its sync follows
+# both visibility and the resolved primary through one binding.
+clock_gate="$(grep 'property bool anchorActive' "$ROOT/modules/Clock.qml")"
+test -n "$clock_gate" || fail "Clock has no anchorActive gate"
+printf '%s\n' "$clock_gate" | grep -q 'root.visible' \
+    || fail "Clock's anchor gate ignores visibility"
+printf '%s\n' "$clock_gate" | grep -q 'Globals.onPrimaryMonitor(root.monitorName)' \
+    || fail "Clock's anchor gate ignores the primary monitor"
+clock_sync="$(awk '/^    function syncAnchor/,/^    }$/' "$ROOT/modules/Clock.qml")"
+test -n "$clock_sync" || fail "could not extract Clock.syncAnchor"
+printf '%s\n' "$clock_sync" | grep -q 'root.anchorActive' \
+    || fail "Clock.syncAnchor ignores its primary-only gate"
+printf '%s\n' "$clock_sync" | grep -q 'CalendarService.barAnchor.register(' \
+    || fail "Clock.syncAnchor does not register its trigger"
+
+# --- 23. IPC targets: dashboard, dnd, and volume ---
+# The dashboard opens on the focused screen at its center; dnd persists through
+# the notifications state file; volume reports the sink's raw percent. Each
+# handler body is extracted by its target so a re-inlined copy cannot pass.
+DASHSVC="$ROOT/services/DashboardService.qml"
+NOTIFSVC="$ROOT/services/NotificationServer.qml"
+AUDIOSVC="$ROOT/services/AudioService.qml"
+MONITORSVC="$ROOT/services/MonitorService.qml"
+
+for pair in "dashboard:$DASHSVC" "dnd:$NOTIFSVC" "volume:$AUDIOSVC"; do
+    name="${pair%%:*}"
+    svc="${pair##*:}"
+    grep -q "target: \"$name\"" "$svc" \
+        || fail "$(basename "$svc") has no IpcHandler target \"$name\""
+done
+
+dashboard_ipc="$(awk '/target: "dashboard"/,/^    }$/' "$DASHSVC")"
+test -n "$dashboard_ipc" || fail "could not extract the dashboard IPC handler"
+for fn in 'function toggle(): string' 'function open(): string' 'function close(): string' 'function settings(section: string): string'; do
+    printf '%s\n' "$dashboard_ipc" | grep -q "$fn" \
+        || fail "dashboard IPC has no $fn"
+done
+printf '%s\n' "$dashboard_ipc" | grep -q 'MonitorService.focusedScreen()' \
+    || fail "dashboard IPC does not resolve the focused screen"
+test "$(printf '%s\n' "$dashboard_ipc" | grep -c 'screen.width / 2')" -ge 3 \
+    || fail "dashboard IPC does not center each open on the focused screen"
+for call in 'root.toggleDashboardAt' 'root.openDashboardAt' 'root.openSettingsAt'; do
+    printf '%s\n' "$dashboard_ipc" | grep -q "$call" \
+        || fail "dashboard IPC does not delegate $call"
+done
+printf '%s\n' "$dashboard_ipc" | grep -q 'SettingsService.sectionRegistry' \
+    || fail "dashboard settings IPC does not validate the section key"
+printf '%s\n' "$dashboard_ipc" | grep -q '"error: no screen"' \
+    || fail "dashboard IPC does not report a missing screen"
+printf '%s\n' "$dashboard_ipc" | grep -q '"error: no section "' \
+    || fail "dashboard IPC does not report an unknown section"
+test "$(printf '%s\n' "$dashboard_ipc" | grep -c 'return "ok";')" -ge 3 \
+    || fail "dashboard IPC toggle, open and close do not return \"ok\""
+printf '%s\n' "$dashboard_ipc" | grep -q 'return "ok: " + section;' \
+    || fail "dashboard IPC settings does not echo the opened section"
+printf '%s\n' "$dashboard_ipc" | grep -q 'root.closeDashboardFromOutside()' \
+    || fail "dashboard IPC close does not close like the other panel targets"
+
+volume_ipc="$(awk '/target: "volume"/,/^    }$/' "$AUDIOSVC")"
+test -n "$volume_ipc" || fail "could not extract the volume IPC handler"
+for fn in 'function up(): string' 'function down(): string' 'function set(percent: int): string' 'function mute(): string' 'function status(): string'; do
+    printf '%s\n' "$volume_ipc" | grep -q "$fn" \
+        || fail "volume IPC has no $fn"
+done
+for call in 'root.stepVolume' 'root.setVolume' 'root.toggleMute'; do
+    printf '%s\n' "$volume_ipc" | grep -q "$call" \
+        || fail "volume IPC does not delegate $call"
+done
+grep -q 'AudioLogic.statusText' "$AUDIOSVC" \
+    || fail "volume IPC does not report through AudioLogic.statusText"
+grep -q '"error: no sink"' "$AUDIOSVC" \
+    || fail "volume IPC does not report a missing sink"
+
+dnd_ipc="$(awk '/target: "dnd"/,/^    }$/' "$NOTIFSVC")"
+test -n "$dnd_ipc" || fail "could not extract the dnd IPC handler"
+for fn in 'function toggle(): string' 'function on(): string' 'function off(): string' 'function status(): string'; do
+    printf '%s\n' "$dnd_ipc" | grep -q "$fn" \
+        || fail "dnd IPC has no $fn"
+done
+printf '%s\n' "$dnd_ipc" | grep -q 'root.dndEnabled' \
+    || fail "dnd IPC does not report the persisted state"
+test "$(printf '%s\n' "$dnd_ipc" | grep -c '"on"')" -ge 3 \
+    || fail "dnd IPC does not return \"on\" from toggle, on and status"
+test "$(printf '%s\n' "$dnd_ipc" | grep -c '"off"')" -ge 3 \
+    || fail "dnd IPC does not return \"off\" from toggle, off and status"
+grep -q 'name: "notifications"' "$NOTIFSVC" \
+    || fail "NotificationServer does not persist to the notifications state file"
+grep -q 'StateParsers.parseNotificationSettings' "$NOTIFSVC" \
+    || fail "NotificationServer does not parse its settings through StateParsers"
+grep -q 'onDndEnabledChanged: root.saveNotificationSettings' "$NOTIFSVC" \
+    || fail "NotificationServer does not save DND on change"
+
+grep -q 'Hyprland.focusedMonitor' "$MONITORSVC" \
+    || fail "MonitorService.focusedScreen does not read the Hyprland focused monitor"
+grep -q 'MonitorLogic.pickScreenName' "$MONITORSVC" \
+    || fail "MonitorService.focusedScreen does not resolve the name through MonitorLogic"
+
+# --- 24. volume OSD: transient click-through layer on the focused monitor ---
+# The OSD reacts to PipeWire property changes (not the volume IPC), sits
+# bottom-center on the focused monitor, and never steals input. windows/ is an
+# implicit module with no qmldir, so lint.sh and lint-review.sh pick the new
+# file up through their tracked-plus-untracked QML glob.
+OSD="$ROOT/windows/VolumeOsd.qml"
+test -f "$OSD" \
+    || fail "windows/VolumeOsd.qml is missing"
+grep -q 'VolumeOsd {}' "$ROOT/shell.qml" \
+    || fail "shell.qml does not instantiate VolumeOsd"
+grep -q 'ExclusionMode.Ignore' "$OSD" \
+    || fail "VolumeOsd does not ignore exclusive zones"
+grep -q 'mask: Region {}' "$OSD" \
+    || fail "VolumeOsd does not mask an empty Region; it would steal input"
+grep -q 'MonitorService.focusedScreen()' "$OSD" \
+    || fail "VolumeOsd does not place itself on the focused screen"
+grep -q 'Globals.osdHoldMs' "$OSD" \
+    || fail "VolumeOsd does not hold for Globals.osdHoldMs"
+grep -q 'Globals.osdArmMs' "$OSD" \
+    || fail "VolumeOsd does not guard startup with Globals.osdArmMs"
+grep -q 'Globals.reducedMotion' "$OSD" \
+    || fail "VolumeOsd ignores Globals.reducedMotion"
+for handler in onVolumesChanged onMutedChanged; do
+    grep -q "function $handler" "$OSD" \
+        || fail "VolumeOsd does not handle $handler"
+done
+# PwNodeAudio.volume declares its NOTIFY as volumesChanged; binding the
+# auto-named onVolumeChanged would never fire (installed 0.3.1 qmltypes).
+if grep -q 'onVolumeChanged' "$OSD"; then
+    fail "VolumeOsd binds onVolumeChanged, which PwNodeAudio does not emit"
+fi
+grep -q 'AudioService.defaultSink ? AudioService.defaultSink.audio : null' "$OSD" \
+    || fail "VolumeOsd does not target the default sink's PwNodeAudio"
+grep -q 'Icons.volumeOff' "$OSD" \
+    || fail "VolumeOsd misses the no-sink glyph"
+grep -q 'Icons.volumeMute' "$OSD" \
+    || fail "VolumeOsd misses the muted glyph"
+grep -q 'Icons.volumeHigh' "$OSD" \
+    || fail "VolumeOsd misses the audible glyph"
+grep -q 'AudioService.percentText' "$OSD" \
+    || fail "VolumeOsd does not use the AudioLogic percent rounding"
+grep -q 'TextMetrics' "$OSD" \
+    || fail "VolumeOsd does not reserve the percent width with TextMetrics"
+# No literal ms/px for the window timing or canvas: every value is a token.
+if grep -qE 'interval: [0-9]' "$OSD"; then
+    fail "VolumeOsd hardcodes a timer interval instead of a Globals token"
+fi
+for prop in implicitWidth implicitHeight; do
+    if grep -qE "$prop: [0-9]" "$OSD"; then
+        fail "VolumeOsd hardcodes $prop instead of a Globals token"
+    fi
+done
+for token in osdHoldMs osdArmMs osdWidth osdHeight osdBottomMargin; do
+    grep -q "property int $token" "$ROOT/config/Globals.qml" \
+        || fail "Globals has no $token token"
+done
+test -f "$ROOT/docs/adr/0017-volume-osd.md" \
+    || fail "docs/adr/0017-volume-osd.md is missing"
 
 echo "panel-logic: all ok"

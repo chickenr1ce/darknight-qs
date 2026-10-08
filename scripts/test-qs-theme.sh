@@ -19,7 +19,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CLI="$ROOT/scripts/qs-theme.sh"
 SVC="$ROOT/services/ThemeService.qml"
 PARSE="$ROOT/services/ThemeParsers.js"
-WORK="$(mktemp -d /tmp/opencode/qs-theme-XXXXXX)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/qs-qs-theme-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 fail() { echo "qs-theme FAIL: $*" >&2; exit 1; }

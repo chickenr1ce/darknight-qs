@@ -2,7 +2,9 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pipewire
+import qs.config
 import qs.services
 import "AudioLogic.js" as AudioLogic
 import "StateParsers.js" as StateParsers
@@ -14,6 +16,7 @@ Singleton {
 
     property var hiddenKeys: []
     property var orderKeys: []
+    property bool osdEnabled: true
 
     readonly property var sinkNodes: root.orderedNodes(root.discoveredSinkNodes, root.orderKeys)
 
@@ -47,6 +50,7 @@ Singleton {
 
     onHiddenKeysChanged: root.persist()
     onOrderKeysChanged: root.persist()
+    onOsdEnabledChanged: root.persist()
 
     StateFile {
         id: idAudioState
@@ -58,6 +62,34 @@ Singleton {
 
     PwObjectTracker {
         objects: root.sinkNodes
+    }
+
+    IpcHandler {
+        target: "volume"
+
+        function up(): string {
+            root.stepVolume(root.defaultSink, 1);
+            return root.volumeStatus();
+        }
+
+        function down(): string {
+            root.stepVolume(root.defaultSink, -1);
+            return root.volumeStatus();
+        }
+
+        function set(percent: int): string {
+            root.setVolume(root.defaultSink, percent);
+            return root.volumeStatus();
+        }
+
+        function mute(): string {
+            root.toggleMute(root.defaultSink);
+            return root.volumeStatus();
+        }
+
+        function status(): string {
+            return root.volumeStatus();
+        }
     }
 
     function isSinkNode(node): bool {
@@ -130,9 +162,34 @@ Singleton {
         return AudioLogic.volumeForPercent(percent);
     }
 
+    function percentText(volume): string {
+        return AudioLogic.percentText(volume);
+    }
+
+    function volumeFraction(volume): real {
+        return AudioLogic.volumeFraction(volume);
+    }
+
     function setVolume(node, percent): void {
         if (node && node.audio)
             node.audio.volume = root.volumeForPercent(percent);
+    }
+
+    function stepVolume(node, direction: int): void {
+        if (!node || !node.audio)
+            return;
+        node.audio.volume = AudioLogic.stepPercent(node.audio.volume * 100, direction, Globals.volumeStep) / 100;
+    }
+
+    function toggleMute(node): void {
+        if (node && node.audio)
+            node.audio.muted = !node.audio.muted;
+    }
+
+    function volumeStatus(): string {
+        if (!root.defaultSink || !root.defaultSink.audio)
+            return "error: no sink";
+        return AudioLogic.statusText(root.defaultSink.audio.volume, root.defaultSink.audio.muted);
     }
 
     function applySettings(jsonText: string): void {
@@ -141,12 +198,20 @@ Singleton {
             return;
         root.hiddenKeys = parsed.hidden;
         root.orderKeys = parsed.order;
+        root.osdEnabled = parsed.osdEnabled;
     }
 
     function persist(): void {
         const payload = {};
         payload["hidden"] = root.hiddenKeys;
         payload["order"] = root.orderKeys;
+        payload["osdEnabled"] = root.osdEnabled;
         idAudioState.saveJson(payload);
+    }
+
+    function setOsdEnabled(enabled: bool): void {
+        if (root.osdEnabled === enabled)
+            return;
+        root.osdEnabled = enabled;
     }
 }

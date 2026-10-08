@@ -2,8 +2,10 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Notifications
 import qs.services
+import "StateParsers.js" as StateParsers
 
 Singleton {
     id: root
@@ -37,7 +39,11 @@ Singleton {
 
     readonly property PanelState panelState: idPanelState
 
+    readonly property BarAnchor barAnchor: idBarAnchor
+
     signal toastReceived(Notification notification)
+
+    onDndEnabledChanged: root.saveNotificationSettings()
 
     PanelState {
         id: idPanelState
@@ -48,8 +54,69 @@ Singleton {
         }
     }
 
+    BarAnchor {
+        id: idBarAnchor
+    }
+
+    StateFile {
+        id: idNotificationState
+
+        name: "notifications"
+        createDir: true
+        onParsed: text => root.applyNotificationSettings(text)
+    }
+
+    IpcHandler {
+        target: "notifications"
+
+        function toggle(): string {
+            return idBarAnchor.requestToggle() ? "ok" : "error: notifications module is hidden";
+        }
+
+        function close(): string {
+            idPanelState.closeFromOutside();
+            return "ok";
+        }
+    }
+
+    IpcHandler {
+        target: "dnd"
+
+        function toggle(): string {
+            root.toggleDnd();
+            return root.dndEnabled ? "on" : "off";
+        }
+
+        function on(): string {
+            root.dndEnabled = true;
+            return "on";
+        }
+
+        function off(): string {
+            root.dndEnabled = false;
+            return "off";
+        }
+
+        function status(): string {
+            return root.dndEnabled ? "on" : "off";
+        }
+    }
+
     function toggleDnd() {
         root.dndEnabled = !root.dndEnabled;
+    }
+
+    function applyNotificationSettings(jsonText: string): void {
+        const parsed = StateParsers.parseNotificationSettings(jsonText);
+        if (parsed === null)
+            return;
+        root.dndEnabled = parsed.dnd;
+    }
+
+    function saveNotificationSettings(): void {
+        const payload = {};
+        payload["dnd"] = root.dndEnabled;
+        idNotificationState.saveJson(payload);
     }
 
     function dismissAll() {

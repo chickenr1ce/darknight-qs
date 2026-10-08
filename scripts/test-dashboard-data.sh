@@ -186,6 +186,14 @@ grep -q 'function volumeForPercent' "$ASVC" \
     || fail "AudioService has no volumeForPercent"
 grep -q 'function setVolume' "$ASVC" \
     || fail "AudioService has no setVolume"
+grep -q 'function stepVolume' "$ASVC" \
+    || fail "AudioService has no stepVolume"
+grep -q 'function toggleMute' "$ASVC" \
+    || fail "AudioService has no toggleMute"
+grep -q 'AudioLogic.stepPercent' "$ASVC" \
+    || fail "AudioService does not step volume through AudioLogic"
+grep -q 'Globals.volumeStep' "$ASVC" \
+    || fail "AudioService does not use the shared volume step token"
 grep -q 'name: "audio-outputs"' "$ASVC" \
     || fail "AudioService does not persist curated outputs behind a StateFile"
 if grep -q 'function setLabel\|labelOverrides' "$ASVC"; then
@@ -198,6 +206,11 @@ grep -q 'AudioService.sinks' "$ROOT/modules/Audio.qml" \
     || fail "the bar Audio module does not read the live sink list"
 grep -q 'AudioService.rawLabelFor' "$ROOT/modules/Audio.qml" \
     || fail "the bar Audio module does not use the output label"
+grep -q 'AudioService.stepVolume' "$ROOT/modules/Audio.qml" \
+    || fail "the bar Audio module does not step volume through AudioService"
+if grep -qE 'audio\.volume *=' "$ROOT/modules/Audio.qml"; then
+    fail "the bar Audio module still carries the inline wheel math"
+fi
 
 VBLOCK="$ROOT/windows/DashboardVolumeBlock.qml"
 grep -q 'AudioService.sinks' "$VBLOCK" \
@@ -534,6 +547,44 @@ check('volume/nan', al.percentForVolume('nope'), 0);
 check('volume/percent-clamp', al.volumeForPercent(140), 1.0);
 check('volume/percent-low', al.volumeForPercent(-10), 0.0);
 check('volume/round-trip', al.percentForVolume(al.volumeForPercent(55)), 55);
+
+check('step/up-47', al.stepPercent(47, 1, 5), 50);
+check('step/up-50', al.stepPercent(50, 1, 5), 55);
+check('step/up-100', al.stepPercent(100, 1, 5), 100);
+check('step/up-120', al.stepPercent(120, 1, 5), 120);
+check('step/down-53', al.stepPercent(53, -1, 5), 50);
+check('step/down-50', al.stepPercent(50, -1, 5), 45);
+check('step/down-3', al.stepPercent(3, -1, 5), 0);
+check('step/down-0', al.stepPercent(0, -1, 5), 0);
+check('step/down-120', al.stepPercent(120, -1, 5), 115);
+check('step/nan', al.stepPercent(NaN, 1, 5), 5);
+check('step/zero', al.stepPercent(42, 0, 5), 42);
+check('step/round-first', al.stepPercent(47.6, 1, 5), 50);
+
+// statusText reports the raw rounded percent for the IPC readout: it is not
+// clamped to 100 (amplified sinks read 120), NaN reads 0, and muted wins.
+check('status/percent', al.statusText(0.55, false), '55');
+check('status/round-half-up', al.statusText(0.555, false), '56');
+check('status/over-100', al.statusText(1.2, false), '120');
+check('status/zero', al.statusText(0, false), '0');
+check('status/nan', al.statusText('nope', false), '0');
+check('status/muted', al.statusText(0.55, true), 'muted');
+check('status/muted-wins', al.statusText('nope', true), 'muted');
+
+// percentText is the OSD's raw readout: same rounding as statusText without the
+// mute branch, so an amplified sink still reads its real number.
+check('percent/basic', al.percentText(0.55), '55');
+check('percent/round-half-up', al.percentText(0.555), '56');
+check('percent/over-100', al.percentText(1.2), '120');
+check('percent/zero', al.percentText(0), '0');
+check('percent/nan', al.percentText('nope'), '0');
+
+// volumeFraction is the level-bar fill: clamped to 0..1, NaN reads empty.
+check('fraction/mid', al.volumeFraction(0.55), 0.55);
+check('fraction/full', al.volumeFraction(1), 1);
+check('fraction/clamp-high', al.volumeFraction(1.4), 1);
+check('fraction/clamp-low', al.volumeFraction(-0.2), 0);
+check('fraction/nan', al.volumeFraction('nope'), 0);
 NODEEOF
 
 # --- 7b. weather plus spotify pure logic: node runs of the shipped modules ---

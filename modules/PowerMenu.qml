@@ -16,7 +16,7 @@ ModuleBox {
     onClicked: root.toggleAtBar()
     onVisibleChanged: root.syncAnchor()
     Component.onCompleted: root.syncAnchor()
-    Component.onDestruction: PowerService.unregisterBarAnchor(root)
+    Component.onDestruction: PowerService.barAnchor.unregister(root)
 
     Text {
         id: idPowerMenuIcon
@@ -33,9 +33,9 @@ ModuleBox {
     }
 
     Connections {
-        target: PowerService
+        target: PowerService.barAnchor
 
-        function onBarAnchorToggleRequested() {
+        function onToggleRequested() {
             if (root.visible)
                 root.toggleAtBar();
         }
@@ -47,8 +47,8 @@ ModuleBox {
 
     function syncAnchor() {
         if (root.visible)
-            PowerService.registerBarAnchor(root);
+            PowerService.barAnchor.register(root);
         else
-            PowerService.unregisterBarAnchor(root);
+            PowerService.barAnchor.unregister(root);
     }
 }

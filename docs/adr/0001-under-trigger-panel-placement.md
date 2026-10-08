@@ -66,6 +66,14 @@ panel on that point and clamps it inside the screen edges:
   takes the `PanelState` directly, and Power arming resets from its own
   panel's visibility change rather than `PowerService.cancel()` in the
   registry.
+- 2026-10-08 (bar anchor): the trigger-anchor wiring moved out of the panel
+  services into `services/BarAnchor.qml`, a small `QtObject` holding the
+  registered trigger item with `register()` / `unregister()` and a
+  `requestToggle()`. Power, Calendar, and Notification each compose one as
+  `barAnchor`, their bar modules register themselves while visible on the primary bar, and the
+  `power` / `calendar` / `notifications` IPC toggles call `requestToggle()`, so
+  an IPC toggle opens the panel under the same trigger the click uses and is a
+  no-op or an error when the module is hidden. See `docs/user/ipc.md`.
 
 ## Consequences and known limits
 

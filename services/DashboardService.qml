@@ -2,6 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.config
 import qs.services
 
@@ -34,6 +35,50 @@ Singleton {
         name: "dashboard-junction"
         createDir: true
         onParsed: text => root.applyJunctionRadius(text)
+    }
+
+    IpcHandler {
+        target: "dashboard"
+
+        function toggle(): string {
+            const screen = MonitorService.focusedScreen();
+            if (screen === null)
+                return "error: no screen";
+            root.toggleDashboardAt(screen, screen.width / 2);
+            return "ok";
+        }
+
+        function open(): string {
+            const screen = MonitorService.focusedScreen();
+            if (screen === null)
+                return "error: no screen";
+            root.openDashboardAt(screen, screen.width / 2);
+            return "ok";
+        }
+
+        function close(): string {
+            root.closeDashboardFromOutside();
+            return "ok";
+        }
+
+        function settings(section: string): string {
+            const safe = /^[a-z0-9-]{1,32}$/.test(section) ? section : "?";
+            const registry = SettingsService.sectionRegistry;
+            let known = false;
+            for (let i = 0; i < registry.length; i++) {
+                if (registry[i].key === section) {
+                    known = true;
+                    break;
+                }
+            }
+            if (!known)
+                return "error: no section " + safe;
+            const screen = MonitorService.focusedScreen();
+            if (screen === null)
+                return "error: no screen";
+            root.openSettingsAt(screen, screen.width / 2, section);
+            return "ok: " + section;
+        }
     }
 
     function toggleDashboardAt(screen, centerX: real): void {

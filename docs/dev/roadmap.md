@@ -5,7 +5,7 @@ Planned work that is not done yet. Completed plan artifacts are frozen under
 work are in `docs/adr/`; domain terms in `CONTEXT.md`; coding rules in
 `docs/dev/CODING_STANDARDS.md`.
 
-Last updated: 2026-10-07.
+Last updated: 2026-10-08.
 
 ## Open
 
@@ -60,3 +60,16 @@ Build only if it earns daily use.
   (`services/PolkitService.qml` + `windows/PolkitDialog.qml`, B2 "Context
   Runner"), replacing the external `polkit-kde-agent`. ADR 0015; the 2026-08-23
   incident is closed in `docs/incidents/polkit-agent-incident.md`.
+- IPC targets: `power`, `calendar`, `notifications`, `dashboard`, `dnd`, and
+  `volume` `IpcHandler`s, with the bar-anchor wiring extracted into
+  `services/BarAnchor.qml` so an IPC toggle reuses the click path. DND state
+  persists in the `notifications` state file. User page `docs/user/ipc.md`.
+- Volume OSD: an event-driven level readout (`windows/VolumeOsd.qml`) raised by
+  PipeWire volume or mute changes from any source, bottom-center on the focused
+  monitor, click-through, and off-switchable in Settings → Audio. ADR 0017.
+- Cava restart backoff: a repeatedly crashing cava process retries at 1.5 s,
+  doubling to a 30 s ceiling, and a settings-driven restart does not count as a
+  crash (`services/CavaLogic.js`).
+- Portable scratch dirs: scripts create temp dirs under `${TMPDIR:-/tmp}`
+  instead of a fixed path, and `scripts/lint-shell.sh` guards against
+  reintroducing the old one.

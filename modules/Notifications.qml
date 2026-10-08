@@ -20,11 +20,12 @@ ModuleBox {
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton || mouse.button === Qt.MiddleButton)
             NotificationServer.toggleDnd();
-        else {
-            const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-            Panels.toggleAt(NotificationServer.panelState, root.triggerScreen, centerX);
-        }
+        else
+            root.toggleAtBar();
     }
+    onVisibleChanged: root.syncAnchor()
+    Component.onCompleted: root.syncAnchor()
+    Component.onDestruction: NotificationServer.barAnchor.unregister(root)
 
     TextMetrics {
         id: idNotificationsBellEmptyMetrics
@@ -65,5 +66,25 @@ ModuleBox {
             pixelSize: Globals.fontPixelSize
             weight: Font.DemiBold
         }
+    }
+
+    Connections {
+        target: NotificationServer.barAnchor
+
+        function onToggleRequested() {
+            if (root.visible)
+                root.toggleAtBar();
+        }
+    }
+
+    function toggleAtBar() {
+        Panels.toggleAt(NotificationServer.panelState, root.triggerScreen, Globals.triggerCenterX(root, root.triggerScreen));
+    }
+
+    function syncAnchor() {
+        if (root.visible)
+            NotificationServer.barAnchor.register(root);
+        else
+            NotificationServer.barAnchor.unregister(root);
     }
 }

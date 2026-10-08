@@ -64,10 +64,18 @@ QtObject {
 
     readonly property int toastMs: 180
     readonly property int toastStickyClampMs: 30000
+    readonly property int osdHoldMs: 1400
+    readonly property int osdArmMs: 500
+    readonly property int osdWidth: 280
+    readonly property int osdHeight: 56
+    readonly property int osdBottomMargin: 48
+    readonly property int osdBarHeight: 4
     readonly property int focusWatchdogMs: 1000
     readonly property int focusRetryMs: 250
     readonly property int focusRetryTicks: 12
     readonly property int panelSettleMs: 20
+    readonly property int cavaRestartBaseMs: 1500
+    readonly property int cavaRestartMaxMs: 30000
 
     readonly property real pressScaleModule: 0.94
     readonly property real pressScalePill: 0.86
@@ -100,6 +108,7 @@ QtObject {
     readonly property int agendaTimeWidth: 44
     readonly property int volumeLabelWidth: 84
     readonly property int volumeValueWidth: 40
+    readonly property int volumeStep: 5
     readonly property int usageDetailWidth: 68
     readonly property int listSpacing: 6
     readonly property int rowSpacing: 8

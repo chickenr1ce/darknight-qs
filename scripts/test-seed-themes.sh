@@ -9,7 +9,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SEED="$ROOT/scripts/seed-themes.sh"
-WORK="$(mktemp -d /tmp/opencode/seed-themes-XXXXXX)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/qs-seed-themes-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 fail() { echo "seed-themes FAIL: $*" >&2; exit 1; }

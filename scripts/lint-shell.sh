@@ -4,10 +4,30 @@
 # rest of scripts/check.sh still runs. Install it with `pacman -S shellcheck`.
 # Only warnings and errors fail the gate; shellcheck's notes (SC2016 and the
 # rest, mostly intentional single-quoted snippets) do not.
+#
+# The hardcoded-scratch-root guard runs before the shellcheck check, so it still
+# runs where shellcheck is absent. A fixed scratch root that only CI created
+# breaks every script that names it.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 2
+
+# CI used a fixed scratch root under /tmp that no other machine creates.
+# Derive scratch paths from "${TMPDIR:-/tmp}". Build the pattern from two
+# pieces so this guard does not match its own text.
+STALE='/tmp/'"opencode"
+# git grep skips ignored artifacts (__pycache__); exit 1 is "no match", >1 an error.
+rc=0
+HITS="$(git grep -n --untracked -F -e "$STALE" -- scripts .github)" || rc=$?
+if [ "$rc" -eq 0 ]; then
+    echo "lint-shell: hardcoded $STALE scratch path(s):" >&2
+    echo "$HITS" >&2
+    exit 1
+elif [ "$rc" -gt 1 ]; then
+    echo "lint-shell: scratch-path guard could not scan scripts/ and .github/" >&2
+    exit 2
+fi
 
 if ! command -v shellcheck >/dev/null 2>&1; then
     echo "lint-shell: shellcheck not installed, skipping (install package: shellcheck)"

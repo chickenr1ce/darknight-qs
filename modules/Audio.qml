@@ -31,19 +31,9 @@ ModuleBox {
     }
 
     onWheelMoved: wheel => {
-        if (!root.defaultSink || !root.defaultSink.audio)
+        if (wheel.angleDelta.y === 0)
             return;
-
-        const audio = root.defaultSink.audio;
-        const currentPercent = Math.round(audio.volume * 100);
-
-        if (wheel.angleDelta.y > 0) {
-            const nextPercent = Math.min(100, Math.floor(currentPercent / 5) * 5 + 5);
-            audio.volume = nextPercent / 100;
-        } else if (wheel.angleDelta.y < 0) {
-            const prevPercent = Math.max(0, Math.ceil(currentPercent / 5) * 5 - 5);
-            audio.volume = prevPercent / 100;
-        }
+        AudioService.stepVolume(root.defaultSink, wheel.angleDelta.y > 0 ? 1 : -1);
     }
 
     onIsHoveredChanged: {

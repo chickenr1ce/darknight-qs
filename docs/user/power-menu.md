@@ -15,5 +15,7 @@ uses, so a keybind and a click place it identically. `quickshell ipc call
 power close` closes it. The keybind does nothing while the power module is
 hidden in the bar, since there is no icon to anchor under.
 
-The `theme` target and the opt-in `devprobe` surface are the shell's other IPC
-targets; `docs/dev/debugging-quickshell.md` covers them.
+The power target is one of several; [IPC targets](ipc.md) covers the rest,
+including the calendar, notifications, dashboard, Do Not Disturb, and volume
+targets. The opt-in `devprobe` surface is documented separately in
+`docs/dev/debugging-quickshell.md`.

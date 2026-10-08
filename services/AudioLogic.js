@@ -57,3 +57,33 @@ function volumeForPercent(percent) {
         return 0;
     return Math.max(0, Math.min(100, value)) / 100;
 }
+
+function percentText(volume) {
+    const value = Number(volume);
+    if (isNaN(value))
+        return "0";
+    return String(Math.round(value * 100));
+}
+
+function volumeFraction(volume) {
+    const value = Number(volume);
+    if (isNaN(value))
+        return 0;
+    return Math.max(0, Math.min(1, value));
+}
+
+function statusText(volume, muted) {
+    if (muted)
+        return "muted";
+    return percentText(volume);
+}
+
+function stepPercent(current, direction, step) {
+    const value = Number(current);
+    const p = isNaN(value) ? 0 : Math.round(value);
+    if (direction > 0)
+        return Math.max(p, Math.min(100, Math.floor(p / step) * step + step));
+    if (direction < 0)
+        return Math.max(0, Math.ceil(p / step) * step - step);
+    return p;
+}

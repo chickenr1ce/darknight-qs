@@ -174,7 +174,9 @@ Each of these is optional; the shell runs without it.
 - [qs-theme](docs/user/qs-theme.md) (optional) — install and switch omarchy v4
   themes, and manage backgrounds, from the CLI.
 - [Power menu keybind](docs/user/power-menu.md) (optional) — open the power
-  menu from a Hyprland keybind through the shell's `power` IPC target.
+  menu from a Hyprland keybind through the shell's `power` IPC target. The
+  [IPC targets](docs/user/ipc.md) page covers that target and the rest
+  (calendar, notifications, dashboard, DND, and volume).
 
 ## Trademarks and third-party notices
 

@@ -11,7 +11,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 fail() { echo "instance FAIL: $*" >&2; exit 1; }
 
-TMP="$(mktemp -d /tmp/opencode/instance-XXXXXX)"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/qs-instance-XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 export XDG_RUNTIME_DIR="$TMP/run"

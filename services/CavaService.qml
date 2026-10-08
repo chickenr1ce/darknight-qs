@@ -3,7 +3,9 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.config
 import qs.services
+import "CavaLogic.js" as CavaLogic
 import "StateParsers.js" as StateParsers
 
 Singleton {
@@ -28,6 +30,9 @@ Singleton {
 
     property var levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     property double lastFrameMs: 0
+    property int restartAttempts: 0
+    property int restartIntervalMs: Globals.cavaRestartBaseMs
+    property bool intentionalStop: false
 
     readonly property PanelState panelState: idPanelState
 
@@ -79,15 +84,22 @@ Singleton {
         }
 
         onExited: exitCode => {
-            if (exitCode !== 0 && !idCavaRestartTimer.running)
+            if (root.intentionalStop) {
+                root.intentionalStop = false;
+                return;
+            }
+            if (exitCode !== 0 && !idCavaRestartTimer.running) {
+                root.restartIntervalMs = CavaLogic.restartDelayMs(root.restartAttempts, Globals.cavaRestartBaseMs, Globals.cavaRestartMaxMs);
+                root.restartAttempts++;
                 idCavaRestartTimer.restart();
+            }
         }
     }
 
     Timer {
         id: idCavaRestartTimer
 
-        interval: 1500
+        interval: root.restartIntervalMs
         onTriggered: {
             if (!idCavaProcess.running)
                 idCavaProcess.running = true;
@@ -126,11 +138,13 @@ Singleton {
     }
 
     function restartAnalyser(): void {
-        if (idCavaProcess.running)
+        if (idCavaProcess.running) {
+            root.intentionalStop = true;
             idCavaProcess.running = false;
+        }
         Qt.callLater(() => {
-            if (!idCavaProcess.running)
-                idCavaProcess.running = true;
+            // Unconditional: running=false only SIGTERMs, so the old process is still alive and onFinished launches the armed replacement.
+            idCavaProcess.running = true;
         });
     }
 
@@ -202,5 +216,7 @@ Singleton {
         }
         root.levels = next;
         root.lastFrameMs = Date.now();
+        if (root.restartAttempts !== 0)
+            root.restartAttempts = 0;
     }
 }

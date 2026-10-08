@@ -15,7 +15,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 2
 
 FAILED=()
-TMP="$(mktemp -d /tmp/opencode/check-XXXXXX)"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/qs-check-XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 run() {

@@ -19,5 +19,4 @@ jobs:
 
       - name: Run the gate
         run: |
-          mkdir -p /tmp/opencode
           ./scripts/check.sh

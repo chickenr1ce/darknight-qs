@@ -41,8 +41,8 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
     mapfile -t FILES < <(cd "$ROOT" && { git ls-files '*.qml'; git ls-files --others --exclude-standard '*.qml'; } | sort -u)
 fi
 
-RAW="$(mktemp /tmp/opencode/lint-review-XXXXXX)"
-CURRENT="$(mktemp /tmp/opencode/lint-review-XXXXXX)"
+RAW="$(mktemp "${TMPDIR:-/tmp}/qs-lint-review-XXXXXX")"
+CURRENT="$(mktemp "${TMPDIR:-/tmp}/qs-lint-review-XXXXXX")"
 trap 'rm -f "$RAW" "$CURRENT"' EXIT
 
 # Exit 1 means findings, not failure; an empty file means clean.
@@ -68,7 +68,7 @@ if [[ ! -f "$BASELINE" ]]; then
     exit 2
 fi
 
-NEW="$(mktemp /tmp/opencode/lint-review-XXXXXX)"
+NEW="$(mktemp "${TMPDIR:-/tmp}/qs-lint-review-XXXXXX")"
 trap 'rm -f "$RAW" "$CURRENT" "$NEW"' EXIT
 # Multiset difference: report each current occurrence beyond the count the
 # baseline accepted. grep/comm can't express this (sort -u erased counts).
