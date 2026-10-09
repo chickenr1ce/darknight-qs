@@ -14,10 +14,13 @@ PanelShell {
     anchorCenterX: DashboardService.anchorCenterX
     panelVisible: DashboardService.dashboardVisible
     panelWidth: Globals.dashboardWidth
-    panelMaxHeight: DashboardService.activeTab === "apps"
-        ? Math.max(Globals.dashboardMaxHeight, Math.round(Globals.dashboardAppsMaxFraction
+    readonly property real appsMaxHeight: Math.max(Globals.dashboardMaxHeight,
+        Math.round(Globals.dashboardAppsMaxFraction
             * (DashboardService.anchorScreen ? DashboardService.anchorScreen.height : 0)))
+    panelMaxHeight: DashboardService.activeTab === "apps"
+        ? root.appsMaxHeight
         : Globals.dashboardMaxHeight
+    windowHeight: root.appsMaxHeight
     attachedToBar: true
     junctionRadius: DashboardService.junctionRadius
     onOutsideClicked: DashboardService.closeDashboardFromOutside()
