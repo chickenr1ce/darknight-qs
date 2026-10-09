@@ -80,7 +80,7 @@ Singleton {
             for (let j = 0; j < sourceActions.length; j++) {
                 const action = sourceActions[j];
                 if (action)
-                    actions.push({ name: action.name, icon: action.icon });
+                    actions.push({ name: action.name, icon: action.icon, index: j });
             }
             plain.push({
                 id: entry.id,

@@ -242,3 +242,38 @@ QML stack via `qt_v4StackTraceForEngine`.
   both closed and open; no stall was logged. Before this ticket the same
   sampler logged 5.7–6.7 s stalls whose QML frames were `compareNames`,
   `AppLogic.sections`, and the `AppService.entries` sort.
+- 2026-10-09 — **Review fixes.** Six findings from the ticket 11 review:
+  1. the idle gate no longer greps the file for `DashboardService.dashboardVisible`
+     (an unrelated `Connections` handler satisfied it); it extracts the
+     `launcherActive` declaration line and requires both `root.visible` and
+     `DashboardService.dashboardVisible`, and requires `listRows` to return an
+     empty list on `!root.launcherActive` before `AppService.sections`;
+  2. the delegate check requires `info.record` and forbids `info.entry`, and a
+     structural check requires `listRows` app rows to carry `record:
+     section.items[i]`;
+  3. the pure-logic hash maps indexed by user-derived ids
+     (`runningCounts` `byKey`/`hit`/`out`, `sections` and `resolveHidden`
+     `byId`) are `Object.create(null)`, so an id like `org.example.constructor`
+     (whose last key segment is `constructor`) no longer hits `Object.prototype`
+     and throws `byKey[key].push is not a function`; node tests cover
+     `org.example.constructor` and `__proto__`;
+  4. a desktop action descriptor carries its original index
+     (`buildRecords` sets `index: j`, `makeActions` preserves it, `menuItems`
+     emits `actionIndex` from it) so a menu index maps back to the uncompacted
+     `entry.actions[index]` even when a null action was dropped; a node test
+     covers a sparse actions list;
+  5. `rowHovered` is now a `Binding` on the row `MouseArea`'s `containsMouse`
+     inside the content component, so a reused row under a stationary pointer
+     keeps its hover; `ListView.onReused` resets only `killTipShown`, and the
+     gate asserts the reset is inside that handler and that the binding exists;
+  6. `bench()` returns `{"found": false, "reason": ...}` when the launcher is
+     inactive, and `DevProbe.appsBench` does the same when `probeScreen` is
+     null or the view is unregistered, restoring the dashboard's prior
+     open/closed state and tab when it opened the Apps tab. Documented in
+     `docs/dev/debugging-quickshell.md`.
+  Each gate fix was verified by mutation (mutate → `app-launcher FAIL` → revert):
+  the declaration check, the `return rows` check, `info.entry`, the
+  prototype-less `byKey`, the dropped `index: j`, the `onReused` hover reset,
+  the missing hover binding, and the missing bench reason each fail the gate.
+  `scripts/check.sh` prints all gates ok; `scripts/boot-check.sh <worktree>`
+  reports loaded.

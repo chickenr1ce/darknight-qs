@@ -46,7 +46,8 @@ function makeActions(actions) {
         const action = list[i];
         out.push({
             name: action && action.name != null ? String(action.name) : "",
-            icon: action && action.icon != null ? String(action.icon) : ""
+            icon: action && action.icon != null ? String(action.icon) : "",
+            index: action && typeof action.index === "number" ? action.index : i
         });
     }
     return out;
@@ -242,7 +243,7 @@ function visibleEntries(entries, hiddenIds) {
 function resolveHidden(entries, hiddenIds) {
     const list = entries || [];
     const ids = hiddenIds || [];
-    const byId = {};
+    const byId = Object.create(null);
     for (let i = 0; i < list.length; i++)
         byId[list[i].id] = list[i];
     const out = [];
@@ -363,12 +364,12 @@ function windowIndexesFor(keys, toplevelClassLists) {
 }
 
 function runningCounts(records, toplevelClassLists) {
-    const out = {};
+    const out = Object.create(null);
     const list = records || [];
     const lists = toplevelClassLists || [];
     if (list.length === 0 || lists.length === 0)
         return out;
-    const byKey = {};
+    const byKey = Object.create(null);
     for (let i = 0; i < list.length; i++) {
         const keys = list[i].keys || [];
         for (let k = 0; k < keys.length; k++) {
@@ -382,7 +383,7 @@ function runningCounts(records, toplevelClassLists) {
     }
     for (let w = 0; w < lists.length; w++) {
         const sources = lists[w] || [];
-        const hit = {};
+        const hit = Object.create(null);
         for (let s = 0; s < sources.length; s++) {
             const matches = byKey[normalizeKey(sources[s])];
             if (!matches)
@@ -429,7 +430,7 @@ function menuItems(entry, pinned, isRun, runningCount, workspaceItems) {
                 id: "action:" + i,
                 text: action && action.name ? action.name : "",
                 image: action && action.icon ? action.icon : "",
-                actionIndex: i
+                actionIndex: action && typeof action.index === "number" ? action.index : i
             }));
         }
     }
@@ -508,7 +509,7 @@ function workspaceMenu(firstWorkspace, perMonitor, activeWorkspace, occupiedIds)
 function sections(entries, pinnedIds, recentIds, query) {
     const list = entries || [];
     const q = (query || "").trim().toLowerCase();
-    const byId = {};
+    const byId = Object.create(null);
     for (let i = 0; i < list.length; i++)
         byId[list[i].id] = list[i];
     if (q !== "") {

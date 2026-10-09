@@ -141,8 +141,22 @@ grep -q 'reuseItems: true' "$VIEW" \
     || fail "the app list does not reuse delegates"
 grep -q 'ListView.onReused' "$VIEW" \
     || fail "reused delegates do not reset their per-row state"
-grep -q 'idAppRow.killTipShown = false' "$VIEW" \
-    || fail "reuse does not reset the kill tooltip state"
+REUSED_BLOCK="$(awk '/ListView.onReused/{flag=1} flag{print} flag && /^[[:space:]]*\}$/{exit}' "$VIEW")"
+test -n "$REUSED_BLOCK" || fail "could not extract the ListView.onReused handler"
+echo "$REUSED_BLOCK" | grep -q 'idAppRow.killTipShown = false' \
+    || fail "the onReused handler does not reset the kill tooltip state"
+if echo "$REUSED_BLOCK" | grep -q 'rowHovered'; then
+    fail "the onReused handler clears rowHovered instead of following the pointer"
+fi
+grep -q 'value: idAppRowMouse.containsMouse' "$VIEW" \
+    || fail "row hover is not derived from the row MouseArea's containsMouse"
+grep -q 'info.record' "$VIEW" \
+    || fail "the delegate does not read the row record"
+if grep -q 'info\.entry' "$VIEW"; then
+    fail "the delegate still reads the removed info.entry"
+fi
+grep -q 'record: section.items\[i\]' "$VIEW" \
+    || fail "listRows app rows do not carry the record"
 
 # --- 4d. shared context menu plus launcher wiring ---
 CTX="$ROOT/components/ContextMenu.qml"
@@ -262,6 +276,10 @@ grep -q 'AppLogic.makeRecords' "$SVC" \
     || fail "AppService does not snapshot entries through AppLogic.makeRecords"
 grep -q 'AppLogic.runningCounts' "$SVC" \
     || fail "AppService does not count running windows through AppLogic.runningCounts"
+BUILDRECORDS_BLOCK="$(awk '/^    function buildRecords/{flag=1} flag{print} flag && /^    \}$/{exit}' "$SVC")"
+test -n "$BUILDRECORDS_BLOCK" || fail "could not extract AppService.buildRecords"
+echo "$BUILDRECORDS_BLOCK" | grep -q 'index: j' \
+    || fail "AppService drops the desktop action's original index"
 grep -q 'AppLogic.windowIndexesFor' "$SVC" \
     || fail "AppService does not match windows through AppLogic"
 grep -q 'HyprlandFocus.focusAddress' "$SVC" \
@@ -523,13 +541,17 @@ grep -q 'Globals.pillHPadding + Globals.scrollbarWidth' "$CTX" \
     || fail "menu rows do not reserve the scrollbar width"
 
 # --- 4k. idle-tab cost, icon load, and the apps bench ---
-grep -q 'root.launcherActive' "$VIEW" \
-    || fail "the Apps view has no active-tab gate for its rows"
-grep -q 'DashboardService.dashboardVisible' "$VIEW" \
-    || fail "the Apps row gate ignores dashboard visibility"
+LAUNCHER_DECL="$(grep 'readonly property bool launcherActive' "$VIEW")"
+test -n "$LAUNCHER_DECL" || fail "the Apps view has no active-tab gate property"
+echo "$LAUNCHER_DECL" | grep -q 'root.visible' \
+    || fail "launcherActive ignores the view visibility"
+echo "$LAUNCHER_DECL" | grep -q 'DashboardService.dashboardVisible' \
+    || fail "launcherActive ignores dashboard visibility"
 LISTROWS_GATE="$(awk '/readonly property var listRows/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
 echo "$LISTROWS_GATE" | grep -q 'if (!root.launcherActive)' \
     || fail "listRows does not return early while the tab is not visible"
+echo "$LISTROWS_GATE" | grep -A1 'if (!root.launcherActive)' | grep -qE 'return (rows|\[\]);' \
+    || fail "the listRows active gate does not return an empty row list"
 echo "$LISTROWS_GATE" | grep -q 'AppService.sections' \
     || fail "listRows does not build from AppService.sections"
 if echo "$LISTROWS_GATE" | grep -q 'AppService.sections' \
@@ -547,6 +569,12 @@ grep -q 'function appsBench(): string' "$ROOT/dev/DevProbe.qml" \
     || fail "DevProbe has no appsBench"
 grep -q 'view.bench()' "$ROOT/dev/DevProbe.qml" \
     || fail "DevProbe appsBench does not call the view's bench"
+grep -q 'found: false, reason:' "$ROOT/dev/DevProbe.qml" \
+    || fail "appsBench does not report why it found no launcher"
+grep -q 'DashboardService.selectTab(priorTab)' "$ROOT/dev/DevProbe.qml" \
+    || fail "appsBench does not restore the dashboard tab it changed"
+grep -q 'found: false, reason:' "$VIEW" \
+    || fail "the apps bench does not report an inactive launcher"
 grep -q 'DevGeometry.register("dashboard.apps", root)' "$VIEW" \
     || fail "the Apps view does not register itself for the bench"
 for part in snapshotMs emptyMs stepsMs clearMs runningMapMs; do
@@ -622,7 +650,7 @@ check('records/nameLower', records[0].nameLower, 'firefox');
 check('records/meta', records[0].meta, 'web browser web browser org.mozilla.firefox');
 check('records/keys', records[0].keys, ['firefox', 'org.mozilla.firefox']);
 check('records/terminal', records[0].runInTerminal, true);
-check('records/actions', records[0].actions, [{ name: 'New Window', icon: 'window-new' }]);
+check('records/actions', records[0].actions, [{ name: 'New Window', icon: 'window-new', index: 0 }]);
 check('records/entry', records[1].entry, handles);
 check('records/icon', records[0].icon, '');
 check('records/no-entry', records[0].entry, null);
@@ -737,6 +765,16 @@ check('hidden/stale',
 check('hidden/empty', al.resolveHidden(ENTRIES, []), []);
 check('hidden/undefined', al.resolveHidden(ENTRIES, undefined), []);
 
+// The byId maps are prototype-less too, so a `__proto__` id resolves to its
+// record instead of mutating the map's prototype.
+const protoRecords = al.makeRecords([{ id: '__proto__', name: 'Proto' }]);
+check('sections/proto-id',
+      al.sections(protoRecords, ['__proto__'], [], '').find(s => s.key === 'pinned').items.map(e => e.name),
+      ['Proto']);
+check('hidden/proto-id',
+      al.resolveHidden(protoRecords, ['__proto__']).map(r => r.id + ':' + (r.entry ? r.entry.name : 'null')),
+      ['__proto__:Proto']);
+
 // recordLaunch: prepend the new id, dedup the old copy, cap the tail.
 check('recent/new', al.recordLaunch(['b', 'c'], 'a', 8), ['a', 'b', 'c']);
 check('recent/dedup', al.recordLaunch(['b', 'a', 'c'], 'a', 8), ['a', 'b', 'c']);
@@ -807,6 +845,20 @@ check('menu/actions-image',
 check('menu/actions-iconless',
       actionMenu.find(i => i.id === 'action:1').image,
       '');
+
+// A record can drop a null desktop action; its surviving descriptors carry the
+// original list index, and the menu emits that index so launchAction maps back
+// to the uncompacted entry.actions.
+const sparseActions = al.makeRecords([{ id: 'sparse.desktop', name: 'Sparse', actions: [
+  { name: 'First', icon: '', index: 0 },
+  { name: 'Third', icon: '', index: 2 },
+] }])[0];
+check('menu/actions-sparse-text',
+      al.menuItems(sparseActions, false, false).filter(i => i.id.indexOf('action:') === 0).map(i => i.text),
+      ['First', 'Third']);
+check('menu/actions-sparse-index',
+      al.menuItems(sparseActions, false, false).filter(i => i.id.indexOf('action:') === 0).map(i => i.actionIndex),
+      [0, 2]);
 
 check('menu/run-kinds',
       al.menuItems(null, false, true).map(i => i.kind),
@@ -911,6 +963,20 @@ check('run/bg3-no-unity',
       {});
 check('run/no-records', al.runningCounts([], [['firefox']]), {});
 check('run/no-windows', al.runningCounts(ffRec, []), {});
+
+// A user-derived id can collide with Object.prototype keys. The hash maps are
+// prototype-less, so `constructor` does not resolve to the Object constructor
+// (which made a later `.push` throw) and `__proto__` is an own key.
+const ctorCounts = al.runningCounts(
+    al.makeRecords([{ id: 'org.example.constructor', name: 'Ctor', startupClass: 'org.example.constructor' }]),
+    [['constructor']]);
+check('run/proto-constructor', ctorCounts['org.example.constructor'], 1);
+const protoCounts = al.runningCounts(
+    al.makeRecords([{ id: '__proto__', name: 'Proto' }]),
+    [['__proto__']]);
+check('run/proto-key',
+      Object.prototype.hasOwnProperty.call(protoCounts, '__proto__') && protoCounts['__proto__'],
+      1);
 
 // menuItems with a running count keeps the spec order — Open, Open on
 // workspace (only when workspace items exist), Open, keep dashboard, Focus

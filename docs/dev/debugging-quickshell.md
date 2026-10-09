@@ -91,7 +91,11 @@ shell (`scripts/reload.sh`). The file must be non-empty: `DevProbe.qml` tests
   record snapshot, `listRows` with an empty query, five one-character query
   extensions (`f`, `fi`, `fir`, `fire`, `firef`, each followed by a forced
   layout), clearing the query, and a forced `runningMap` recompute. Opens the
-  Apps tab first if it is not already showing and leaves the query empty.
+  Apps tab first if it is not already showing, then restores the dashboard to
+  its prior open/closed state and tab once it is done. Leaves the query empty.
+  Answers `{"found": false, "reason": "..."}` when there is no screen, the
+  Apps view is not registered, or the launcher stays inactive, instead of
+  reporting near-zero timings.
 
 ```
 quickshell ipc --pid <pid> call devprobe toggle calendar

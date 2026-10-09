@@ -105,12 +105,24 @@ Item {
 
         function appsBench(): string {
             const screen = root.probeScreen;
-            if (screen !== null && !(DashboardService.dashboardVisible && DashboardService.activeTab === "apps"))
+            if (screen === null)
+                return JSON.stringify({ found: false, reason: "no probe screen" });
+            const wasOpen = DashboardService.dashboardVisible;
+            const priorTab = DashboardService.activeTab;
+            const needOpen = !(wasOpen && priorTab === "apps");
+            if (needOpen)
                 DashboardService.openAppsAt(screen, screen.width / 2);
             const view = DevGeometry.targets["dashboard.apps"];
-            if (view === undefined || view === null)
-                return JSON.stringify({ found: false });
-            return JSON.stringify(view.bench());
+            const result = (view === undefined || view === null)
+                ? { found: false, reason: "dashboard.apps not registered" }
+                : view.bench();
+            if (needOpen) {
+                if (!wasOpen)
+                    DashboardService.close();
+                if (priorTab !== "apps")
+                    DashboardService.selectTab(priorTab);
+            }
+            return JSON.stringify(result);
         }
 
         function toplevels(): string {

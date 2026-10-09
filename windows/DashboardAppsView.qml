@@ -237,7 +237,6 @@ Item {
                             idAppRow.killTipShown = false;
                     }
                     ListView.onReused: {
-                        idAppRow.rowHovered = false;
                         idAppRow.killTipShown = false;
                     }
 
@@ -507,11 +506,9 @@ Item {
                                 cursorShape: Qt.PointingHandCursor
 
                                 onEntered: {
-                                    idAppRow.rowHovered = true;
                                     if (!idAppRow.isHeader)
                                         idAppsList.selectedIndex = idAppRow.info.appIndex;
                                 }
-                                onExited: idAppRow.rowHovered = false
                                 onClicked: mouse => {
                                     if (idAppRow.isHeader)
                                         return;
@@ -525,6 +522,12 @@ Item {
                                         root.openMenuAt(idAppRow.info, idAppRowMouse.mapToItem(root, mouse.x, mouse.y));
                                     else
                                         root.activateRow(idAppRow.info, mouse.button === Qt.MiddleButton);
+                                }
+
+                                Binding {
+                                    target: idAppRow
+                                    property: "rowHovered"
+                                    value: idAppRowMouse.containsMouse
                                 }
 
                                 Loader {
@@ -995,7 +998,9 @@ Item {
     }
 
     function bench(): var {
-        const out = {};
+        if (!root.launcherActive)
+            return { found: false, reason: "launcher inactive" };
+        const out = { found: true };
 
         let started = Date.now();
         AppService.buildRecords();
