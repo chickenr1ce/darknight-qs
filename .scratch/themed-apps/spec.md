@@ -54,5 +54,6 @@ line, so the target tickets never collide on prose.
 
 Vesktop, Zen, Chromium, Steam, GTK, and icon themes. Per-theme app files, where a
 theme directory supplies its own `vencord.theme.css` or `firefox.css`. Any
-automatic edit of a user-owned file (`userChrome.css`, `settings.json`, an
-existing `user.js`, `config-xpui.ini`).
+automatic edit of a user-owned file (`userChrome.css`, `settings.json`,
+`config-xpui.ini`, or any line of an existing `user.js` outside the shell's
+marker-delimited block).

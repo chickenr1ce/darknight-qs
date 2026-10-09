@@ -34,7 +34,8 @@ Facts gathered before deciding:
 The renderer writes a fixed set of themed apps. Each app has a template under
 `assets/templates/`, a render case, and an on/off flag in a `theme-targets`
 state file. A new Themed apps settings section lists every app as a toggle.
-Firefox and Vencord join the six existing apps.
+Firefox and Vencord join the six existing apps (Spicetify follows in the
+amendment below).
 
 A disabled app is not deleted from the pipeline. The renderer writes a valid
 unthemed layer for it: a comment-only file where that is safe, or the built-in
@@ -47,8 +48,9 @@ theme directory, which keeps ADR 0010 and ADR 0011 intact: only `colors.toml` an
 `backgrounds/` are read.
 
 Firefox is themed at the chrome. The renderer discovers the default profile from
-`installs.ini`, writes a generated `chrome/shell-palette.css` holding `:root`
-variables through the profile path, and manages the legacy-sheets pref as a
+`installs.ini`, writes a generated `chrome/shell-palette.css` through the profile path,
+holding the palette as `:root` variables and the rules that map them onto
+Firefox's own chrome variables, and manages the legacy-sheets pref as a
 marker-delimited block in `user.js`, so a hand-written `user.js` keeps its other
 lines. The user's own `userChrome.css` imports the generated file.
 There is no `userContent.css` target, so pages are untouched, and the change
@@ -130,3 +132,8 @@ braces, so CSS braces in a template do not trip it.
   `spicetify refresh`, never `spicetify apply`, which is version-gated on this
   machine and force-restarts the client. Disabled, the color option is rendered
   from the theme's own default values rather than removed.
+- 2026-10-10 (Spicetify selection): "selects once" above is unconfirmed. Whether
+  a plain `spicetify refresh` picks up the theme and color-option selection, or
+  the user must run a version-gated `spicetify restore backup apply` (repeated
+  after every Spotify update), is settled live by the Spicetify ticket before
+  the user docs describe the step.

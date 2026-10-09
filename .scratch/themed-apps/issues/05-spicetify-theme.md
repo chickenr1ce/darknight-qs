@@ -29,7 +29,8 @@ palette-built option.
 2. The `[Quickshell]` section sets every key the default options use, and no
    others; the test asserts its key set equals the union of the default sections'
    key sets, so drift in the vendored file fails the gate. It uses
-   `{{role}}_hex` placeholders (bare hex, no leading `#`). Map to mode-safe roles
+   `{{<role>_hex}}` placeholders such as `{{accent_hex}}` (bare hex, no leading
+   `#`; `{{accent}}_hex` would render `#rrggbb_hex`). Map to mode-safe roles
    so a light shell theme does not produce white-on-light or dark slabs: `text`
    foreground, `subtext` muted, `main` background, `highlight` selection,
    `header` muted, `banner` accent, `accent` accent, `accent-active` accent,

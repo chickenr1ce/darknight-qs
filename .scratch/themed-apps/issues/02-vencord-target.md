@@ -67,11 +67,11 @@ layout and its derived colors.
    theme's plain `:root` block.
 
 6. The renderer writes it under the target key `vencord` to
-   `$XDG_CONFIG_HOME/Vencord/themes/quickshell.theme.css`, defaulting to
-   `~/.config/Vencord/themes/quickshell.theme.css`. The renderer never reads or
+   `${XDG_CONFIG_HOME:-$HOME/.config}/Vencord/themes/quickshell.theme.css`. The renderer never reads or
    writes `settings.json`; enablement and ordering stay manual (assert that no
-   `settings.json` path appears in the render case). When `~/.config/Vencord` is
-   absent, log `vencord: not installed`, write nothing, and skip as success, so
+   `settings.json` path appears in the render case). When
+   `${XDG_CONFIG_HOME:-$HOME/.config}/Vencord` is absent (the same root as the
+   destination), log `vencord: not installed`, write nothing, and skip as success, so
    the retint does not create a directory for a Discord that is not installed.
 
 7. Disabled, the destination keeps the banner and metadata header but carries no

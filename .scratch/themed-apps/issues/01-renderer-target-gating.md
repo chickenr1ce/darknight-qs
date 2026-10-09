@@ -119,7 +119,9 @@ renderer core (criteria 1-4, 7-8) from the QML state and tests (5-6, 9-11).
    `onThemeTargetEnabledChanged` re-renders through the same deferred
    `renderDesktop` path the palette change uses (`services/ThemeService.qml:101`).
    Gate the first render until both the palette and `theme-targets` have resolved
-   once (a `targetsLoaded` flag). Without it, startup renders all-enabled from the
+   once (a `targetsLoaded` flag). An absent `theme-targets` file (a fresh
+   install) counts as resolved, all targets enabled; otherwise the first render
+   never runs. Without the gate, startup renders all-enabled from the
    palette path before the state file parses, then re-renders the disabled
    layers: Vencord's watcher would flash the themed file, and Spicetify would run
    `refresh` twice per startup.

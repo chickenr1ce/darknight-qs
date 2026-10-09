@@ -6,7 +6,7 @@
 
 ## Objective
 
-Give the user a per-app picker in Settings, and document the two new targets and
+Give the user a per-app picker in Settings, and document the three new targets and
 their one-time wiring. This is the capstone: it is the only ticket that edits
 `docs/user/theme-desktop-setup.md` and the `CONTEXT.md` retint line, so the
 target tickets never collide on prose.
@@ -77,7 +77,8 @@ target tickets never collide on prose.
      skipped, the rest still write, the script exits non-zero), and notes that
      the Firefox root follows `${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox`,
      falling back to `$HOME/.mozilla/firefox`;
-   - the "Verify" `grep` list gains the three new files, with the two Firefox
+   - the "Verify" `grep` list gains the five new files (two Firefox, one Vencord, two
+     Spicetify), with the two Firefox
      paths expressed profile-relative (a glob or an explicit profile dir), since
      they are not fixed XDG paths.
 
