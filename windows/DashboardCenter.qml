@@ -171,6 +171,7 @@ PanelShell {
         id: idDashboardAppsView
 
         Layout.fillWidth: true
+        Layout.fillHeight: true
 
         visible: DashboardService.activeTab === "apps"
     }

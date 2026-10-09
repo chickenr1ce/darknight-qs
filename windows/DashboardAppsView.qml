@@ -5,6 +5,7 @@ import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import qs.components
 import qs.config
+import qs.dev
 import qs.services
 
 Item {
@@ -91,8 +92,11 @@ Item {
         else
             idAppsContextMenu.closeMenu();
     }
-    Component.onCompleted: if (root.visible)
-        root.focusSearch()
+    Component.onCompleted: {
+        DevGeometry.register("dashboard.apps.list", idAppsList);
+        if (root.visible)
+            root.focusSearch();
+    }
     onQueryChanged: {
         idAppsList.selectedIndex = 0;
         root.clampSelection();
@@ -113,11 +117,7 @@ Item {
     ColumnLayout {
         id: idAppsLayout
 
-        anchors {
-            top: parent.top
-            left: parent.left
-            right: parent.right
-        }
+        anchors.fill: parent
 
         spacing: Globals.spacing
 

@@ -361,6 +361,23 @@ for token in 'property real dashboardAppsMaxFraction: 0.8' 'property int scrollb
         || fail "Globals has no $token token"
 done
 
+# --- 4j. the Apps view is bounded by PanelShell, so the list scrolls ---
+APPS_MOUNT="$(awk '/^    DashboardAppsView \{/{flag=1} flag{print} flag && /^    \}$/{exit}' "$DCENTER")"
+test -n "$APPS_MOUNT" || fail "could not extract the DashboardAppsView mount"
+echo "$APPS_MOUNT" | grep -q 'Layout.fillHeight: true' \
+    || fail "DashboardCenter does not let the Apps view fill the height it is given"
+echo "$APPS_MOUNT" | grep -q 'Layout.fillWidth: true' \
+    || fail "DashboardCenter does not let the Apps view fill the width"
+APPS_LAYOUT="$(awk '/^    ColumnLayout \{/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+echo "$APPS_LAYOUT" | grep -q 'id: idAppsLayout' \
+    || fail "could not extract the idAppsLayout ColumnLayout"
+# Only the layout's own (8-space) properties count, not nested children.
+echo "$APPS_LAYOUT" | grep -qx '        anchors.fill: parent' \
+    || fail "idAppsLayout does not fill the Apps view root"
+if echo "$APPS_LAYOUT" | grep -qE '^        anchors( \{$|\.(top|left|right|bottom):)'; then
+    fail "idAppsLayout still anchors edge by edge, so the list is never bounded"
+fi
+
 SCROLLBAR="$ROOT/components/ScrollBar.qml"
 test -f "$SCROLLBAR" \
     || fail "components/ScrollBar.qml is missing"
