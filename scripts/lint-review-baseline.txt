@@ -25,6 +25,7 @@ modules/Tray.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, o
 modules/Tray.qml STY-3 3 anchor.* properties using dot notation -- use group notation: anchor { ... }
 modules/Workspaces.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 services/AppService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/AppService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/AudioService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/AudioService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/BarVisibilityService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety

@@ -34,6 +34,7 @@ PanelShell {
         DevGeometry.register("dashboard.cpu", idDashboardCpu);
         DevGeometry.register("dashboard.volume", idDashboardVolume);
         DevGeometry.register("dashboard.settings", idDashboardSettingsView);
+        idDashboardAppsView.registerProbe();
     }
 
     readonly property real halfBlockWidth: (Globals.dashboardWidth - 2 * Globals.panelPadding - Math.round(Globals.dashboardWidth * 0.27) - 2 * Globals.rowSpacing) / 2

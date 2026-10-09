@@ -2,14 +2,83 @@
 
 const ENTRY_KEY_STOPLIST = ["app", "desktop", "client", "gui", "handler", "launcher", "bin", "main"];
 
+function lowerName(entry) {
+    if (!entry)
+        return "";
+    if (typeof entry.nameLower === "string")
+        return entry.nameLower;
+    return entry.name ? String(entry.name).toLowerCase() : "";
+}
+
 function compareNames(a, b) {
-    const an = (a && a.name ? a.name : "").toLowerCase();
-    const bn = (b && b.name ? b.name : "").toLowerCase();
+    const an = lowerName(a);
+    const bn = lowerName(b);
     if (an < bn)
         return -1;
     if (an > bn)
         return 1;
     return 0;
+}
+
+function listText(value) {
+    if (Array.isArray(value))
+        return value.join(" ");
+    if (value && typeof value.join === "function")
+        return value.join(" ");
+    return value !== null && value !== undefined ? String(value) : "";
+}
+
+function listValues(value) {
+    const out = [];
+    if (!value || typeof value === "string")
+        return out;
+    if (typeof value.length !== "number")
+        return out;
+    for (let i = 0; i < value.length; i++)
+        out.push(String(value[i]));
+    return out;
+}
+
+function makeActions(actions) {
+    const out = [];
+    const list = actions || [];
+    for (let i = 0; i < list.length; i++) {
+        const action = list[i];
+        out.push({
+            name: action && action.name != null ? String(action.name) : "",
+            icon: action && action.icon != null ? String(action.icon) : ""
+        });
+    }
+    return out;
+}
+
+function makeRecords(list) {
+    const source = list || [];
+    const out = [];
+    for (let i = 0; i < source.length; i++) {
+        const item = source[i];
+        if (!item)
+            continue;
+        const id = item.id != null ? String(item.id) : "";
+        const name = item.name != null ? String(item.name) : "";
+        const genericName = item.genericName != null ? String(item.genericName) : "";
+        const keywords = listText(item.keywords);
+        out.push({
+            id: id,
+            name: name,
+            nameLower: name.toLowerCase(),
+            genericName: genericName,
+            meta: (genericName + " " + keywords + " " + id).toLowerCase(),
+            icon: item.icon != null ? String(item.icon) : "",
+            keys: entryKeys({ id: id, startupClass: item.startupClass }),
+            runInTerminal: item.runInTerminal === true,
+            command: listValues(item.command),
+            actions: makeActions(item.actions),
+            entry: item.entry ? item.entry : null
+        });
+    }
+    out.sort(compareNames);
+    return out;
 }
 
 function subsequence(text, query) {
@@ -22,7 +91,9 @@ function subsequence(text, query) {
 }
 
 function score(entry, query) {
-    const name = (entry && entry.name ? entry.name : "").toLowerCase();
+    if (!entry)
+        return 0;
+    const name = lowerName(entry);
     if (query === "")
         return 0;
     if (name.indexOf(query) === 0)
@@ -36,9 +107,11 @@ function score(entry, query) {
         return 60;
     if (subsequence(name, query))
         return 40;
-    const meta = [(entry && entry.genericName ? entry.genericName : ""),
-        (entry && entry.keywords ? entry.keywords.join(" ") : ""),
-        (entry && entry.id ? entry.id : "")].join(" ").toLowerCase();
+    const meta = typeof entry.meta === "string" ? entry.meta : [
+        entry.genericName ? entry.genericName : "",
+        listText(entry.keywords),
+        entry.id ? entry.id : ""
+    ].join(" ").toLowerCase();
     if (meta.indexOf(query) !== -1)
         return 25;
     return 0;
@@ -289,6 +362,40 @@ function windowIndexesFor(keys, toplevelClassLists) {
     return out;
 }
 
+function runningCounts(records, toplevelClassLists) {
+    const out = {};
+    const list = records || [];
+    const lists = toplevelClassLists || [];
+    if (list.length === 0 || lists.length === 0)
+        return out;
+    const byKey = {};
+    for (let i = 0; i < list.length; i++) {
+        const keys = list[i].keys || [];
+        for (let k = 0; k < keys.length; k++) {
+            const key = normalizeKey(keys[k]);
+            if (key === "")
+                continue;
+            if (!byKey[key])
+                byKey[key] = [];
+            byKey[key].push(i);
+        }
+    }
+    for (let w = 0; w < lists.length; w++) {
+        const sources = lists[w] || [];
+        const hit = {};
+        for (let s = 0; s < sources.length; s++) {
+            const matches = byKey[normalizeKey(sources[s])];
+            if (!matches)
+                continue;
+            for (let m = 0; m < matches.length; m++)
+                hit[matches[m]] = true;
+        }
+        for (const index in hit)
+            out[list[index].id] = (out[list[index].id] || 0) + 1;
+    }
+    return out;
+}
+
 function menuItem(kind, extra) {
     const item = { kind: kind, id: "", text: "", hint: "", danger: false, enabled: true, image: "", actionIndex: -1, workspace: -1, submenu: [] };
     if (extra) {
@@ -424,7 +531,7 @@ function sections(entries, pinnedIds, recentIds, query) {
         if (entry)
             recent.push(entry);
     }
-    const all = list.slice().sort(compareNames);
+    const all = list;
     return [
         { key: "pinned", count: pinned.length, items: pinned },
         { key: "recent", count: recent.length, items: recent },

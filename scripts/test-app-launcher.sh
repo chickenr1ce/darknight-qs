@@ -31,7 +31,7 @@ grep -q '^\.pragma library' "$LOGIC" \
     || fail "AppLogic.js is not a .pragma library"
 grep -q '^import "AppLogic.js" as AppLogic' "$SVC" \
     || fail "AppService does not import AppLogic.js"
-for fn in rank matchRanges sections parseState recordLaunch togglePin visibleEntries hide unhide resolveHidden menuItems shellQuote shellCommand; do
+for fn in rank matchRanges sections parseState recordLaunch togglePin visibleEntries hide unhide resolveHidden menuItems shellQuote shellCommand makeRecords runningCounts; do
     grep -q "function $fn" "$LOGIC" \
         || fail "AppLogic.js has no $fn"
     grep -q "AppLogic.$fn" "$SVC" \
@@ -51,14 +51,20 @@ grep -q 'readonly property var terminalPrefix: \["kitty", "-e"\]' "$SVC" \
     || fail "AppService terminal prefix is not kitty -e"
 grep -q 'Quickshell.execDetached' "$SVC" \
     || fail "AppService does not launch through execDetached"
-grep -q 'entry.runInTerminal' "$SVC" \
+grep -q 'record.runInTerminal' "$SVC" \
     || fail "AppService ignores runInTerminal"
 grep -q 'Quickshell.iconPath' "$SVC" \
     || fail "AppService has no iconPath lookup"
-grep -q 'DashboardService.close()' "$SVC" \
-    || fail "AppService launch does not close the dashboard"
+grep -q 'root.iconCache' "$SVC" \
+    || fail "AppService icon lookups are not cached"
+grep -q 'onEntriesChanged: root.iconCache = ({})' "$SVC" \
+    || fail "AppService does not clear the icon cache when the snapshot changes"
+grep -q 'DesktopEntries.applications.values' "$SVC" \
+    || fail "AppService does not snapshot DesktopEntries.applications"
 grep -q 'entry.execute()' "$SVC" \
     || fail "AppService launch does not execute the entry"
+grep -q 'DashboardService.close()' "$SVC" \
+    || fail "AppService launch does not close the dashboard"
 
 # --- 3. tokens: selection role, icon size, tile ink, star and terminal glyphs ---
 grep -q 'property color selection' "$ROOT/config/Colors.qml" \
@@ -116,9 +122,27 @@ grep -q 'function resetSearch' "$VIEW" \
 grep -q 'root.resetSearch()' "$VIEW" \
     || fail "DashboardAppsView never resets the search on open"
 
-# --- 4c. section headers paint no tile or row content ---
-grep -qF 'visible: !idAppRow.isHeader' "$VIEW" \
-    || fail "app row content is not hidden for section headers"
+# --- 4c. header and app row are exclusive Loader subtrees; actions load on
+# the active row only; the reserved trailing width never reflows ---
+grep -q 'active: idAppRow.isHeader' "$VIEW" \
+    || fail "the header subtree is not gated to header rows"
+grep -q 'active: !idAppRow.isHeader' "$VIEW" \
+    || fail "the app row subtree is not created exclusively"
+grep -q 'active: idAppRow.actionsActive' "$VIEW" \
+    || fail "the inline actions are not created only for the active row"
+grep -q 'readonly property real actionsWidth' "$VIEW" \
+    || fail "the view does not reserve a fixed actions width"
+grep -q 'Layout.preferredWidth: root.actionsWidth' "$VIEW" \
+    || fail "the trailing actions width is not reserved from a constant"
+if grep -q 'idAppRowActions.implicitWidth' "$VIEW"; then
+    fail "the trailing width still collapses to the instantiated actions"
+fi
+grep -q 'reuseItems: true' "$VIEW" \
+    || fail "the app list does not reuse delegates"
+grep -q 'ListView.onReused' "$VIEW" \
+    || fail "reused delegates do not reset their per-row state"
+grep -q 'idAppRow.killTipShown = false' "$VIEW" \
+    || fail "reuse does not reset the kill tooltip state"
 
 # --- 4d. shared context menu plus launcher wiring ---
 CTX="$ROOT/components/ContextMenu.qml"
@@ -234,8 +258,10 @@ grep -q 'readonly property var runningMap' "$SVC" \
     || fail "AppService has no running map"
 grep -q 'Hyprland.toplevels' "$SVC" \
     || fail "AppService does not read Hyprland.toplevels"
-grep -q 'AppLogic.entryKeys' "$SVC" \
-    || fail "AppService does not build entry keys through AppLogic"
+grep -q 'AppLogic.makeRecords' "$SVC" \
+    || fail "AppService does not snapshot entries through AppLogic.makeRecords"
+grep -q 'AppLogic.runningCounts' "$SVC" \
+    || fail "AppService does not count running windows through AppLogic.runningCounts"
 grep -q 'AppLogic.windowIndexesFor' "$SVC" \
     || fail "AppService does not match windows through AppLogic"
 grep -q 'HyprlandFocus.focusAddress' "$SVC" \
@@ -268,13 +294,13 @@ grep -q 'AppService.focusWindows' "$VIEW" \
     || fail "DashboardAppsView does not focus a running app"
 grep -q 'AppService.killWindows' "$VIEW" \
     || fail "DashboardAppsView does not kill a running app"
-grep -q 'Layout.preferredWidth: idAppRowActions.implicitWidth' "$VIEW" \
+grep -q 'Layout.preferredWidth: root.actionsWidth' "$VIEW" \
     || fail "DashboardAppsView does not reserve the trailing width"
 grep -q 'Globals.tooltipDelayMs' "$VIEW" \
     || fail "DashboardAppsView kill tooltip ignores the tooltip delay"
 grep -q 'idAppRow.killTipShown' "$VIEW" \
     || fail "DashboardAppsView has no kill tooltip"
-grep -q 'AppService.menuItems(row.entry, root.menuPinned, row.kind === "run"' "$VIEW" \
+grep -q 'AppService.menuItems(record, root.menuPinned, row.kind === "run"' "$VIEW" \
     || fail "DashboardAppsView menu does not pass the running count"
 for id in focus-window kill; do
     grep -q "\"$id\"" "$VIEW" \
@@ -494,6 +520,48 @@ grep -q 'Globals.cardHPadding + Globals.scrollbarWidth' "$VIEW" \
 grep -q 'Globals.pillHPadding + Globals.scrollbarWidth' "$CTX" \
     || fail "menu rows do not reserve the scrollbar width"
 
+# --- 4k. idle-tab cost, icon load, and the apps bench ---
+grep -q 'root.launcherActive' "$VIEW" \
+    || fail "the Apps view has no active-tab gate for its rows"
+grep -q 'DashboardService.dashboardVisible' "$VIEW" \
+    || fail "the Apps row gate ignores dashboard visibility"
+LISTROWS_GATE="$(awk '/readonly property var listRows/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+echo "$LISTROWS_GATE" | grep -q 'if (!root.launcherActive)' \
+    || fail "listRows does not return early while the tab is not visible"
+echo "$LISTROWS_GATE" | grep -q 'AppService.sections' \
+    || fail "listRows does not build from AppService.sections"
+if echo "$LISTROWS_GATE" | grep -q 'AppService.sections' \
+    && echo "$LISTROWS_GATE" | grep -q 'if (!root.launcherActive)'; then
+    gate_ln="$(echo "$LISTROWS_GATE" | grep -n 'if (!root.launcherActive)' | head -1 | cut -d: -f1)"
+    sect_ln="$(echo "$LISTROWS_GATE" | grep -n 'AppService.sections' | head -1 | cut -d: -f1)"
+    [ "$gate_ln" -lt "$sect_ln" ] \
+        || fail "listRows evaluates sections before checking the active gate"
+fi
+grep -q 'asynchronous: true' "$ROOT/components/AppIcon.qml" \
+    || fail "AppIcon does not load its image asynchronously"
+grep -q 'cache: true' "$ROOT/components/AppIcon.qml" \
+    || fail "AppIcon does not cache its image"
+grep -q 'function appsBench(): string' "$ROOT/dev/DevProbe.qml" \
+    || fail "DevProbe has no appsBench"
+grep -q 'view.bench()' "$ROOT/dev/DevProbe.qml" \
+    || fail "DevProbe appsBench does not call the view's bench"
+grep -q 'DevGeometry.register("dashboard.apps", root)' "$VIEW" \
+    || fail "the Apps view does not register itself for the bench"
+for part in snapshotMs emptyMs stepsMs clearMs runningMapMs; do
+    grep -q "$part" "$VIEW" \
+        || fail "the apps bench does not time $part"
+done
+grep -q 'idAppsList.forceLayout()' "$VIEW" \
+    || fail "the apps bench does not force layout after each step"
+grep -q 'appsBench' "$ROOT/docs/dev/debugging-quickshell.md" \
+    || fail "the apps bench is not documented in the Dev probe list"
+grep -q 'function buildRecords' "$SVC" \
+    || fail "AppService has no rebuildable record snapshot"
+grep -q 'AppService.buildRecords' "$VIEW" \
+    || fail "the apps bench does not rebuild the AppService snapshot"
+grep -q 'AppLogic.runningCounts' "$SVC" \
+    || fail "AppService runningMap does not use runningCounts"
+
 # --- 5. ranking, sections, markup, and state run under node ---
 node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/services/MonitorLogic.js" <<'NODEEOF'
 const qmljs = require(process.argv[2]);
@@ -501,8 +569,8 @@ const check = qmljs.checker('app-launcher');
 const al = qmljs.load(process.argv[3]);
 const ml = qmljs.load(process.argv[4]);
 
-const ENTRIES = [
-  { id: 'firefox.desktop', name: 'Firefox', genericName: 'Web Browser', keywords: ['browser', 'web'], command: ['firefox'] },
+const RAW = [
+  { id: 'firefox.desktop', name: 'Firefox', genericName: 'Web Browser', keywords: ['browser', 'web'], command: ['firefox'], startupClass: 'firefox', icon: 'firefox' },
   { id: 'org.gnome.Files.desktop', name: 'Files', genericName: 'File Manager', keywords: ['file', 'folder'], command: ['nautilus'] },
   { id: 'profile.desktop', name: 'Profile', genericName: 'Account', keywords: [], command: ['profile'] },
   { id: 'code.desktop', name: 'Code', genericName: 'Code Editor', keywords: ['editor', 'programming'], command: ['code'] },
@@ -510,8 +578,44 @@ const ENTRIES = [
   { id: 'editor.desktop', name: 'Kakoune', genericName: 'Modal editor', keywords: ['code', 'editor'], command: ['kak'] },
   { id: 'gimp.desktop', name: 'GIMP', genericName: 'Image Editor', keywords: ['image'], command: ['gimp'] },
 ];
+const ENTRIES = al.makeRecords(RAW);
 const PINNED = ['code.desktop', 'firefox.desktop'];
 const RECENT = ['firefox.desktop', 'gimp.desktop', 'code.desktop', 'editor.desktop'];
+
+// makeRecords: plain records sorted once, with a lowercased name, a search
+// haystack (generic name + keywords + id), precomputed window keys, a copied
+// command array, mapped plain actions, and the source QObject passthrough.
+const handles = { fake: true };
+const records = al.makeRecords([
+  { id: 'z.desktop', name: 'Zeta', genericName: 'Last', keywords: ['zz'], command: ['zeta'], entry: handles },
+  { id: 'org.mozilla.firefox', name: 'Firefox', genericName: 'Web Browser', keywords: ['web', 'browser'], startupClass: 'firefox', runInTerminal: true, command: ['firefox'], actions: [{ name: 'New Window', icon: 'window-new' }] },
+]);
+check('records/sorted', records.map(r => r.name), ['Firefox', 'Zeta']);
+check('records/nameLower', records[0].nameLower, 'firefox');
+check('records/meta', records[0].meta, 'web browser web browser org.mozilla.firefox');
+check('records/keys', records[0].keys, ['firefox', 'org.mozilla.firefox']);
+check('records/terminal', records[0].runInTerminal, true);
+check('records/actions', records[0].actions, [{ name: 'New Window', icon: 'window-new' }]);
+check('records/entry', records[1].entry, handles);
+check('records/icon', records[0].icon, '');
+check('records/no-entry', records[0].entry, null);
+check('records/null', al.makeRecords([null, undefined]).length, 0);
+check('records/keywords-string',
+      al.makeRecords([{ id: 'a', name: 'A', keywords: 'one two' }])[0].meta.indexOf('one two') !== -1,
+      true);
+const cmd = ['firefox', '--new'];
+const copyRec = al.makeRecords([{ id: 'x', name: 'X', command: cmd }])[0];
+cmd.push('mutated');
+check('records/command-copy', copyRec.command.join(' '), 'firefox --new');
+check('records/array-like-command',
+      al.makeRecords([{ id: 'x', name: 'X', command: { length: 2, 0: 'a', 1: 'b' } }])[0].command,
+      ['a', 'b']);
+check('list/array-like', al.listValues({ length: 2, 0: 'a', 1: 'b' }), ['a', 'b']);
+check('list/string', al.listValues('ab'), []);
+check('list/none', al.listValues(null), []);
+check('listtext/array-like',
+      al.listText({ length: 2, 0: 'a', 1: 'b', join: function () { return 'a b'; } }),
+      'a b');
 
 // rank: prefix beats substring beats keyword, ties by name; no match is empty.
 check('rank/fi', al.rank(ENTRIES, 'fi').map(e => e.name), ['Files', 'Firefox', 'Profile']);
@@ -587,7 +691,7 @@ check('visible/filter',
       -1);
 check('visible/keep',
       al.visibleEntries(ENTRIES, ['gimp.desktop']).map(e => e.name),
-      ['Firefox', 'Files', 'Profile', 'Code', 'VS Code', 'Kakoune']);
+      ['Code', 'Files', 'Firefox', 'Kakoune', 'Profile', 'VS Code']);
 check('visible/none', al.visibleEntries(ENTRIES, []).length, ENTRIES.length);
 check('visible/stale', al.visibleEntries(ENTRIES, ['ghost.desktop']).length, ENTRIES.length);
 
@@ -633,7 +737,7 @@ check('unhide/undefined', al.unhide(undefined, 'a'), []);
 
 // menuItems: the app menu opens, keeps, pins, hides, and copies, with the
 // entry's actions under an Actions label; the Run row only runs and copies.
-const noActions = { id: 'firefox.desktop', name: 'Firefox', actions: [] };
+const noActions = al.makeRecords([{ id: 'firefox.desktop', name: 'Firefox', actions: [] }])[0];
 check('menu/app-kinds',
       al.menuItems(noActions, false, false).map(i => i.kind),
       ['item', 'item', 'separator', 'item', 'item', 'separator', 'item']);
@@ -656,10 +760,10 @@ check('menu/pin-hint',
       al.menuItems(noActions, false, false).find(i => i.id === 'pin').hint,
       'Ctrl+P');
 
-const withActions = { id: 'firefox.desktop', name: 'Firefox', actions: [
+const withActions = al.makeRecords([{ id: 'firefox.desktop', name: 'Firefox', actions: [
   { name: 'New Window', icon: 'window-new' },
   { name: 'New Private Window', icon: '' },
-] };
+] }])[0];
 const actionMenu = al.menuItems(withActions, false, false);
 check('menu/actions-label',
       actionMenu.some(i => i.kind === 'label' && i.text === 'Actions'),
@@ -764,6 +868,22 @@ check('windows/reverse-dns-class',
       al.windowIndexesFor(al.entryKeys({ id: 'org.gnome.Files' }),
           [['org'], ['files'], ['org.gnome.files']]),
       [1, 2]);
+
+// runningCounts: one count per matching window even when several keys of one
+// entry match several sources of the same window; strict equality keeps the
+// Baldur's Gate 3 / Unity case out.
+const ffRec = al.makeRecords([{ id: 'org.mozilla.firefox', name: 'Firefox', startupClass: 'firefox' }]);
+const bg3Rec = al.makeRecords([{ id: "Baldur's Gate 3", name: "Baldur's Gate 3", startupClass: 'steam_app_1086940' }]);
+check('run/exact', al.runningCounts(ffRec, [['firefox']]), { 'org.mozilla.firefox': 1 });
+check('run/count-two', al.runningCounts(ffRec, [['firefox'], ['Firefox'], ['spotify']]), { 'org.mozilla.firefox': 2 });
+check('run/dedupe-sources',
+      al.runningCounts(ffRec, [['firefox', 'org.mozilla.firefox']]),
+      { 'org.mozilla.firefox': 1 });
+check('run/bg3-no-unity',
+      al.runningCounts(bg3Rec, [['Unityhub-unity-editor-6000.3.25f1']]),
+      {});
+check('run/no-records', al.runningCounts([], [['firefox']]), {});
+check('run/no-windows', al.runningCounts(ffRec, []), {});
 
 // menuItems with a running count keeps the spec order — Open, Open on
 // workspace (only when workspace items exist), Open, keep dashboard, Focus

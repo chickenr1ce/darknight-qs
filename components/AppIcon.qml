@@ -30,6 +30,8 @@ Item {
         sourceSize.height: root.size
         fillMode: Image.PreserveAspectFit
         smooth: true
+        asynchronous: true
+        cache: true
     }
 
     Rectangle {

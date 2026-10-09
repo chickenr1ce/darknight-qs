@@ -103,6 +103,16 @@ Item {
             return DevGeometry.snapshot(name);
         }
 
+        function appsBench(): string {
+            const screen = root.probeScreen;
+            if (screen !== null && !(DashboardService.dashboardVisible && DashboardService.activeTab === "apps"))
+                DashboardService.openAppsAt(screen, screen.width / 2);
+            const view = DevGeometry.targets["dashboard.apps"];
+            if (view === undefined || view === null)
+                return JSON.stringify({ found: false });
+            return JSON.stringify(view.bench());
+        }
+
         function toplevels(): string {
             return JSON.stringify((Hyprland.toplevels?.values ?? []).map(toplevel => ({
                 address: toplevel.address,

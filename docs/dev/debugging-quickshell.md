@@ -87,6 +87,11 @@ shell (`scripts/reload.sh`). The file must be non-empty: `DevProbe.qml` tests
 - `geom <name>` — the `DevGeometry` snapshot for one registered target;
   `geomNames` lists the registry. Prefer these over a one-off handler for
   any widget geometry question.
+- `appsBench` — JSON timings in ms for the launcher: the cold `AppService`
+  record snapshot, `listRows` with an empty query, five one-character query
+  extensions (`f`, `fi`, `fir`, `fire`, `firef`, each followed by a forced
+  layout), clearing the query, and a forced `runningMap` recompute. Opens the
+  Apps tab first if it is not already showing and leaves the query empty.
 
 ```
 quickshell ipc --pid <pid> call devprobe toggle calendar

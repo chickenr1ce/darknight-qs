@@ -12,31 +12,27 @@ Singleton {
 
     readonly property var terminalPrefix: ["kitty", "-e"]
 
-    readonly property var entries: {
-        const list = DesktopEntries.applications.values.slice();
-        list.sort((a, b) => AppLogic.compareNames(a, b));
-        return list;
-    }
+    property var state: ({})
+
+    property var iconCache: ({})
+
+    readonly property var entries: root.buildRecords()
 
     readonly property var toplevels: Hyprland.toplevels?.values ?? []
 
-    readonly property var runningMap: {
-        const map = {};
+    readonly property var toplevelClassLists: {
         const tops = root.toplevels;
         const lists = [];
         for (let i = 0; i < tops.length; i++)
             lists.push(HyprlandFocus.classSources(tops[i]));
-        const entries = root.entries;
-        for (let i = 0; i < entries.length; i++) {
-            const entry = entries[i];
-            const count = AppLogic.windowIndexesFor(AppLogic.entryKeys(entry), lists).length;
-            if (count > 0)
-                map[entry.id] = count;
-        }
-        return map;
+        return lists;
     }
 
-    property var state: ({})
+    property int runningMapRevision: 0
+
+    readonly property var runningMap: root.runningMapRevision >= 0
+        ? AppLogic.runningCounts(root.entries, root.toplevelClassLists)
+        : {}
 
     readonly property var pinned: root.state.pinned || []
     readonly property var hidden: root.state.hidden || []
@@ -46,17 +42,23 @@ Singleton {
         const records = root.resolveHidden(root.entries, root.hidden);
         const out = [];
         for (let i = 0; i < records.length; i++) {
-            const entry = records[i].entry || DesktopEntries.byId(records[i].id);
+            const record = records[i].entry;
+            if (record) {
+                out.push({ id: record.id, name: record.name, source: root.iconFor(record) });
+                continue;
+            }
+            const entry = DesktopEntries.byId(records[i].id);
             out.push({
                 id: records[i].id,
                 name: entry ? entry.name : records[i].id,
-                source: entry ? root.iconFor(entry) : ""
+                source: entry ? root.iconForName(entry.icon) : ""
             });
         }
         return out;
     }
 
     onStateChanged: root.saveState()
+    onEntriesChanged: root.iconCache = ({})
 
     StateFile {
         id: idAppState
@@ -66,39 +68,83 @@ Singleton {
         onParsed: text => root.applyState(text)
     }
 
-    function iconFor(entry): string {
-        if (!entry || entry.icon === "")
+    function buildRecords(): var {
+        const list = DesktopEntries.applications.values;
+        const plain = [];
+        for (let i = 0; i < list.length; i++) {
+            const entry = list[i];
+            if (!entry)
+                continue;
+            const actions = [];
+            const sourceActions = entry.actions || [];
+            for (let j = 0; j < sourceActions.length; j++) {
+                const action = sourceActions[j];
+                if (action)
+                    actions.push({ name: action.name, icon: action.icon });
+            }
+            plain.push({
+                id: entry.id,
+                name: entry.name,
+                genericName: entry.genericName,
+                keywords: entry.keywords,
+                icon: entry.icon,
+                startupClass: entry.startupClass,
+                runInTerminal: entry.runInTerminal,
+                command: entry.command,
+                actions: actions,
+                entry: entry
+            });
+        }
+        return AppLogic.makeRecords(plain);
+    }
+
+    function rebuildRunningMap(): var {
+        root.runningMapRevision = root.runningMapRevision + 1;
+        return root.runningMap;
+    }
+
+    function iconFor(record): string {
+        if (!record || record.icon === "")
             return "";
-        return root.iconForName(entry.icon);
+        return root.iconForName(record.icon);
     }
 
     function iconForName(name): string {
         if (!name)
             return "";
-        return Quickshell.iconPath(name, true);
+        const cached = root.iconCache[name];
+        if (typeof cached === "string")
+            return cached;
+        const path = Quickshell.iconPath(name, true);
+        root.iconCache[name] = path;
+        return path;
     }
 
-    function launch(entry, keepOpen): void {
+    function launch(record, keepOpen): void {
+        if (!record)
+            return;
+        const entry = record.entry;
         if (!entry)
             return;
-        if (entry.runInTerminal)
-            Quickshell.execDetached(root.terminalPrefix.concat(entry.command || []));
+        if (record.runInTerminal)
+            Quickshell.execDetached(root.terminalPrefix.concat(record.command || []));
         else
             entry.execute();
-        root.recordLaunch(entry.id);
+        root.recordLaunch(record.id);
         if (!keepOpen)
             DashboardService.close();
     }
 
-    function launchKeep(entry): void {
-        root.launch(entry, true);
+    function launchKeep(record): void {
+        root.launch(record, true);
     }
 
-    function launchAction(entry, index): void {
+    function launchAction(record, index): void {
+        const entry = record ? record.entry : null;
         if (!entry || !entry.actions || index < 0 || index >= entry.actions.length)
             return;
         entry.actions[index].execute();
-        root.recordLaunch(entry.id);
+        root.recordLaunch(record.id);
         DashboardService.close();
     }
 
@@ -133,23 +179,23 @@ Singleton {
             MonitorService.workspacesPerMonitor, active, occupied);
     }
 
-    function launchOnWorkspace(entry, workspace, keepOpen): void {
-        if (!entry || workspace < 1)
+    function launchOnWorkspace(record, workspace, keepOpen): void {
+        if (!record || workspace < 1)
             return;
-        const parts = entry.runInTerminal ? root.terminalPrefix.concat(entry.command || []) : (entry.command || []);
+        const parts = record.runInTerminal ? root.terminalPrefix.concat(record.command || []) : (record.command || []);
         const command = AppLogic.shellCommand(parts);
         if (command === "")
             return;
         Hyprland.dispatch(`hl.dsp.exec_cmd("${MonitorLogic.escapeLua(command)}", { workspace = ${workspace} })`);
-        root.recordLaunch(entry.id);
+        root.recordLaunch(record.id);
         if (!keepOpen)
             DashboardService.close();
     }
 
-    function copyCommand(entry): void {
-        if (!entry)
+    function copyCommand(record): void {
+        if (!record)
             return;
-        root.copyText((entry.command || []).join(" "));
+        root.copyText((record.command || []).join(" "));
     }
 
     function copyText(text): void {
@@ -195,10 +241,10 @@ Singleton {
         root.setState(root.pinned, AppLogic.unhide(root.hidden, id), root.recent);
     }
 
-    function windowsFor(entry): var {
-        if (!entry)
+    function windowsFor(record): var {
+        if (!record)
             return [];
-        const keys = AppLogic.entryKeys(entry);
+        const keys = record.keys || [];
         if (keys.length === 0)
             return [];
         const tops = root.toplevels;
@@ -212,17 +258,17 @@ Singleton {
         return out;
     }
 
-    function runningCount(entry): int {
-        if (!entry)
+    function runningCount(record): int {
+        if (!record)
             return 0;
-        const count = root.runningMap[entry.id];
+        const count = root.runningMap[record.id];
         return typeof count === "number" ? count : 0;
     }
 
-    function focusWindows(entry): void {
-        if (!entry)
+    function focusWindows(record): void {
+        if (!record)
             return;
-        const windows = root.windowsFor(entry);
+        const windows = root.windowsFor(record);
         if (windows.length === 0)
             return;
         let target = windows[0];
@@ -236,8 +282,8 @@ Singleton {
         HyprlandFocus.focusAddress(target.address);
     }
 
-    function killWindows(entry): void {
-        const windows = root.windowsFor(entry);
+    function killWindows(record): void {
+        const windows = root.windowsFor(record);
         for (let i = 0; i < windows.length; i++) {
             const handle = windows[i].wayland;
             if (handle)
@@ -285,6 +331,14 @@ Singleton {
         return AppLogic.shellCommand(argv);
     }
 
+    function makeRecords(list): var {
+        return AppLogic.makeRecords(list);
+    }
+
+    function runningCounts(records, toplevelClassLists): var {
+        return AppLogic.runningCounts(records, toplevelClassLists);
+    }
+
     function sections(query): var {
         return AppLogic.sections(root.visibleEntries(root.entries, root.hidden), root.pinned, root.recent, query);
     }
@@ -293,8 +347,8 @@ Singleton {
         return AppLogic.parseState(jsonText);
     }
 
-    function menuItems(entry, pinned, isRun, runningCount): var {
-        return AppLogic.menuItems(entry, pinned, isRun, runningCount, root.workspaceMenuItems());
+    function menuItems(record, pinned, isRun, runningCount): var {
+        return AppLogic.menuItems(record, pinned, isRun, runningCount, root.workspaceMenuItems());
     }
 
     function applyState(jsonText): void {
