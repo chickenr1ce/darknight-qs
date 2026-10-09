@@ -31,7 +31,7 @@ grep -q '^\.pragma library' "$LOGIC" \
     || fail "AppLogic.js is not a .pragma library"
 grep -q '^import "AppLogic.js" as AppLogic' "$SVC" \
     || fail "AppService does not import AppLogic.js"
-for fn in rank matchRanges sections parseState recordLaunch togglePin visibleEntries hide unhide resolveHidden menuItems shellQuote shellCommand makeRecords runningCounts; do
+for fn in rank matchRanges sections browseRows resultRows parseState recordLaunch togglePin visibleEntries hide unhide resolveHidden menuItems shellQuote shellCommand makeRecords runningCounts; do
     grep -q "function $fn" "$LOGIC" \
         || fail "AppLogic.js has no $fn"
     grep -q "AppLogic.$fn" "$SVC" \
@@ -85,8 +85,10 @@ grep -q 'property string terminal' "$ROOT/config/Icons.qml" \
     || fail "Icons.qml has no terminal glyph"
 
 # --- 4. the view renders highlighted rows plus the run fallback ---
-grep -q 'AppService.sections' "$VIEW" \
-    || fail "DashboardAppsView does not build sections through AppService"
+grep -q 'AppService.browseRows' "$VIEW" \
+    || fail "DashboardAppsView does not build the browse rows through AppService"
+grep -q 'AppService.resultRows' "$VIEW" \
+    || fail "DashboardAppsView does not build the result rows through AppService"
 grep -q 'AppService.markup' "$VIEW" \
     || fail "DashboardAppsView does not highlight matched characters"
 grep -q 'AppService.runQuery' "$VIEW" \
@@ -155,8 +157,8 @@ grep -q 'info.record' "$VIEW" \
 if grep -q 'info\.entry' "$VIEW"; then
     fail "the delegate still reads the removed info.entry"
 fi
-grep -q 'record: section.items\[i\]' "$VIEW" \
-    || fail "listRows app rows do not carry the record"
+grep -q 'record: section.items\[i\]' "$LOGIC" \
+    || fail "the row-building helper does not carry the app record"
 
 # --- 4d. shared context menu plus launcher wiring ---
 CTX="$ROOT/components/ContextMenu.qml"
@@ -515,14 +517,18 @@ test -n "$MOVE_BODY" || fail "could not extract SmoothWheel.moveTo"
 echo "$MOVE_BODY" | grep -q 'Globals.reducedMotion' \
     || fail "the shared move path does not honor reduced motion"
 
-grep -q 'Controls.ScrollBar.vertical: ScrollBar' "$VIEW" \
-    || fail "the Apps list has no scrollbar"
-grep -q 'SmoothWheel {' "$VIEW" \
-    || fail "the Apps list does not use the smooth wheel"
-grep -q 'flickable: idAppsList' "$VIEW" \
-    || fail "the Apps smooth wheel does not target the list"
-grep -q 'idAppsSmoothWheel.stop()' "$VIEW" \
-    || fail "the Apps list does not stop the glide before keyboard scroll"
+APPS_SCROLLBARS="$(grep -c 'Controls.ScrollBar.vertical: ScrollBar' "$VIEW")"
+[ "$APPS_SCROLLBARS" -eq 2 ] \
+    || fail "the two Apps lists do not each have a scrollbar (found $APPS_SCROLLBARS)"
+APPS_WHEELS="$(grep -c 'SmoothWheel {' "$VIEW")"
+[ "$APPS_WHEELS" -eq 2 ] \
+    || fail "the two Apps lists do not each use the smooth wheel (found $APPS_WHEELS)"
+grep -q 'flickable: idAppsBrowseList' "$VIEW" \
+    || fail "the browse smooth wheel does not target the browse list"
+grep -q 'flickable: idAppsResultList' "$VIEW" \
+    || fail "the result smooth wheel does not target the result list"
+grep -q 'root.activeSmoothWheel.stop()' "$VIEW" \
+    || fail "keyboard scroll does not stop the active list's glide"
 
 grep -q 'Controls.ScrollBar.vertical: ScrollBar' "$CTX" \
     || fail "the context menu has no scrollbar"
@@ -547,20 +553,25 @@ echo "$LAUNCHER_DECL" | grep -q 'root.visible' \
     || fail "launcherActive ignores the view visibility"
 echo "$LAUNCHER_DECL" | grep -q 'DashboardService.dashboardVisible' \
     || fail "launcherActive ignores dashboard visibility"
-LISTROWS_GATE="$(awk '/readonly property var listRows/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-echo "$LISTROWS_GATE" | grep -q 'if (!root.launcherActive)' \
-    || fail "listRows does not return early while the tab is not visible"
-echo "$LISTROWS_GATE" | grep -A1 'if (!root.launcherActive)' | grep -qE 'return (rows|\[\]);' \
-    || fail "the listRows active gate does not return an empty row list"
-echo "$LISTROWS_GATE" | grep -q 'AppService.sections' \
-    || fail "listRows does not build from AppService.sections"
-if echo "$LISTROWS_GATE" | grep -q 'AppService.sections' \
-    && echo "$LISTROWS_GATE" | grep -q 'if (!root.launcherActive)'; then
-    gate_ln="$(echo "$LISTROWS_GATE" | grep -n 'if (!root.launcherActive)' | head -1 | cut -d: -f1)"
-    sect_ln="$(echo "$LISTROWS_GATE" | grep -n 'AppService.sections' | head -1 | cut -d: -f1)"
-    [ "$gate_ln" -lt "$sect_ln" ] \
-        || fail "listRows evaluates sections before checking the active gate"
+BROWSE_GATE="$(awk '/readonly property var browseRows/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+test -n "$BROWSE_GATE" || fail "the Apps view has no browse row model"
+echo "$BROWSE_GATE" | grep -q 'if (!root.launcherActive)' \
+    || fail "browseRows does not return early while the tab is not visible"
+echo "$BROWSE_GATE" | grep -A1 'if (!root.launcherActive)' | grep -qE 'return (rows|\[\]);' \
+    || fail "the browseRows active gate does not return an empty row list"
+echo "$BROWSE_GATE" | grep -q 'AppService.browseRows' \
+    || fail "browseRows does not build from AppService.browseRows"
+if echo "$BROWSE_GATE" | grep -q 'query'; then
+    fail "browseRows still depends on the query"
 fi
+RESULT_GATE="$(awk '/readonly property var resultRows/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+test -n "$RESULT_GATE" || fail "the Apps view has no result row model"
+echo "$RESULT_GATE" | grep -q 'if (!root.launcherActive || root.query.trim() === "")' \
+    || fail "resultRows is not gated by launcherActive and an empty query"
+echo "$RESULT_GATE" | grep -A1 'if (!root.launcherActive' | grep -qE 'return (rows|\[\]);' \
+    || fail "the resultRows gate does not return an empty row list"
+echo "$RESULT_GATE" | grep -q 'AppService.resultRows' \
+    || fail "resultRows does not build from AppService.resultRows"
 grep -q 'asynchronous: true' "$ROOT/components/AppIcon.qml" \
     || fail "AppIcon does not load its image asynchronously"
 grep -q 'cache: true' "$ROOT/components/AppIcon.qml" \
@@ -581,8 +592,10 @@ for part in snapshotMs emptyMs stepsMs clearMs runningMapMs; do
     grep -q "$part" "$VIEW" \
         || fail "the apps bench does not time $part"
 done
-grep -q 'idAppsList.forceLayout()' "$VIEW" \
-    || fail "the apps bench does not force layout after each step"
+grep -q 'idAppsBrowseList.forceLayout()' "$VIEW" \
+    || fail "the apps bench does not force the browse layout on the empty/clear steps"
+grep -q 'idAppsResultList.forceLayout()' "$VIEW" \
+    || fail "the apps bench does not force the result layout after each query step"
 grep -q 'appsBench' "$ROOT/docs/dev/debugging-quickshell.md" \
     || fail "the apps bench is not documented in the Dev probe list"
 grep -q 'function buildRecords' "$SVC" \
@@ -616,6 +629,45 @@ echo "$FOOTER_BLOCK" | grep -q 'Colors.border' \
     || fail "the footer rule is not Colors.border"
 grep -q 'property int appsFooterGap' "$ROOT/config/Globals.qml" \
     || fail "Globals has no appsFooterGap token"
+
+# --- 4m. two lists share one delegate and route through the active list ---
+DELEGATE_COMPONENTS="$(grep -c 'id: idAppRowDelegate' "$VIEW")"
+[ "$DELEGATE_COMPONENTS" -eq 1 ] \
+    || fail "the Apps view does not declare exactly one shared delegate Component (found $DELEGATE_COMPONENTS)"
+DELEGATE_USES="$(grep -c '^[[:space:]]*delegate: idAppRowDelegate$' "$VIEW")"
+[ "$DELEGATE_USES" -eq 2 ] \
+    || fail "both Apps lists do not share the one delegate Component (found $DELEGATE_USES)"
+grep -q 'Controls.ScrollBar.vertical: ScrollBar { id: idAppsBrowseScrollBar }' "$VIEW" \
+    || fail "the browse list does not carry its own ScrollBar"
+grep -q 'Controls.ScrollBar.vertical: ScrollBar { id: idAppsResultScrollBar }' "$VIEW" \
+    || fail "the result list does not carry its own ScrollBar"
+if grep -qnE '\bidAppsList\b' "$VIEW"; then
+    fail "a list-specific idAppsList reference survives; route through root.activeList"
+fi
+grep -q 'root.activeList' "$VIEW" \
+    || fail "the view has no active-list abstraction"
+grep -q 'root.activeRows' "$VIEW" \
+    || fail "the view has no active-rows abstraction"
+grep -q 'root.activeSmoothWheel' "$VIEW" \
+    || fail "the view has no active-wheel abstraction"
+grep -q 'DevGeometry.register("dashboard.apps.list", root.activeList)' "$VIEW" \
+    || fail "dashboard.apps.list is not the active list"
+grep -q 'DevGeometry.register("dashboard.apps.browseList", idAppsBrowseList)' "$VIEW" \
+    || fail "the browse list is not registered for the probe"
+grep -q 'DevGeometry.register("dashboard.apps.resultList", idAppsResultList)' "$VIEW" \
+    || fail "the result list is not registered for the probe"
+ONQUERY_BLOCK="$(awk '/^    onQueryChanged:/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+test -n "$ONQUERY_BLOCK" || fail "could not extract the onQueryChanged handler"
+echo "$ONQUERY_BLOCK" | grep -q 'idAppsBrowseList.selectedIndex = 0' \
+    || fail "clearing the query does not reset the browse selection"
+echo "$ONQUERY_BLOCK" | grep -q 'idAppsBrowseList.positionViewAtBeginning()' \
+    || fail "clearing the query does not restore the browse list to the top"
+echo "$ONQUERY_BLOCK" | grep -q 'idAppsResultList.selectedIndex = 0' \
+    || fail "a query change does not select the first result"
+grep -q 'idAppRow.useMarkup' "$VIEW" \
+    || fail "the row name has no markup gate"
+grep -q 'idAppRow.useMarkup ? Text.StyledText : Text.PlainText' "$VIEW" \
+    || fail "the row name is not StyledText only when it has markup"
 
 # --- 5. ranking, sections, markup, and state run under node ---
 node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/services/MonitorLogic.js" <<'NODEEOF'
@@ -738,6 +790,28 @@ check('sections/query-items',
       al.sections(ENTRIES, PINNED, RECENT, 'fi')[0].items.map(e => e.name),
       ['Files', 'Firefox', 'Profile']);
 check('sections/query-none', al.sections(ENTRIES, PINNED, RECENT, 'zzzz')[0].items, []);
+
+// browseRows: the empty-query model is the sectioned list, rowIndex and
+// appIndex run consecutively, and no Run row exists without a query.
+const browse = al.browseRows(ENTRIES, PINNED, RECENT);
+check('rows/browse-headers', browse.filter(r => r.kind === 'header').map(r => r.key), ['pinned', 'recent', 'all']);
+check('rows/browse-first-apps', browse.filter(r => r.kind === 'app').map(r => r.record.name).slice(0, 2), ['Code', 'Firefox']);
+check('rows/browse-rowindex', browse.map(r => r.rowIndex), browse.map((_, i) => i));
+check('rows/browse-appindex', browse.filter(r => r.kind === 'app').map(r => r.appIndex), browse.filter(r => r.kind === 'app').map((_, i) => i));
+check('rows/browse-header-appindex', browse.filter(r => r.kind === 'header').every(r => r.appIndex === -1), true);
+check('rows/browse-no-run', browse.some(r => r.kind === 'run'), false);
+
+// resultRows: empty query is the empty model, a match ranks into app rows with
+// no header and no Run row, and no match appends exactly the Run row.
+check('rows/result-empty', al.resultRows(ENTRIES, PINNED, RECENT, ''), []);
+check('rows/result-whitespace', al.resultRows(ENTRIES, PINNED, RECENT, '   '), []);
+check('rows/result-apps',
+      al.resultRows(ENTRIES, PINNED, RECENT, 'fi').filter(r => r.kind === 'app').map(r => r.record.name),
+      ['Files', 'Firefox', 'Profile']);
+check('rows/result-no-header', al.resultRows(ENTRIES, PINNED, RECENT, 'fi').some(r => r.kind === 'header'), false);
+check('rows/result-no-run', al.resultRows(ENTRIES, PINNED, RECENT, 'fi').some(r => r.kind === 'run'), false);
+check('rows/result-run', al.resultRows(ENTRIES, PINNED, RECENT, 'zzzz'), [{ kind: 'run', query: 'zzzz', rowIndex: 0, appIndex: 0 }]);
+check('rows/result-run-trim', al.resultRows(ENTRIES, PINNED, RECENT, '  zzzz ')[0].query, 'zzzz');
 
 // visibleEntries: a hidden id drops out; an unknown id is a no-op and an empty
 // hidden list passes the caller's list straight through.

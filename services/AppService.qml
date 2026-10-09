@@ -343,6 +343,14 @@ Singleton {
         return AppLogic.sections(root.visibleEntries(root.entries, root.hidden), root.pinned, root.recent, query);
     }
 
+    function browseRows(): var {
+        return AppLogic.browseRows(root.visibleEntries(root.entries, root.hidden), root.pinned, root.recent);
+    }
+
+    function resultRows(query): var {
+        return AppLogic.resultRows(root.visibleEntries(root.entries, root.hidden), root.pinned, root.recent, query);
+    }
+
     function parseState(jsonText): var {
         return AppLogic.parseState(jsonText);
     }

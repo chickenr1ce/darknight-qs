@@ -88,9 +88,11 @@ shell (`scripts/reload.sh`). The file must be non-empty: `DevProbe.qml` tests
   `geomNames` lists the registry. Prefer these over a one-off handler for
   any widget geometry question.
 - `appsBench` — JSON timings in ms for the launcher: the cold `AppService`
-  record snapshot, `listRows` with an empty query, five one-character query
-  extensions (`f`, `fi`, `fir`, `fire`, `firef`, each followed by a forced
-  layout), clearing the query, and a forced `runningMap` recompute. Opens the
+  record snapshot, the persistent browse list with an empty query, five
+  one-character query extensions (`f`, `fi`, `fir`, `fire`, `firef`, each
+  followed by a forced layout on the result list), clearing the query (now the
+  visibility flip back to the browse list), and a forced `runningMap`
+  recompute. Opens the
   Apps tab first if it is not already showing, then restores the dashboard to
   its prior open/closed state and tab once it is done. Leaves the query empty.
   Answers `{"found": false, "reason": "..."}` when there is no screen, the

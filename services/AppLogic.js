@@ -539,3 +539,38 @@ function sections(entries, pinnedIds, recentIds, query) {
         { key: "all", count: all.length, items: all }
     ];
 }
+
+function sectionRows(sections, runQuery) {
+    const rows = [];
+    const list = sections || [];
+    let appIndex = 0;
+    let rowIndex = 0;
+    for (let s = 0; s < list.length; s++) {
+        const section = list[s];
+        if (section.key !== "results") {
+            if (section.items.length === 0)
+                continue;
+            rows.push({ kind: "header", key: section.key, count: section.count, rowIndex: rowIndex, appIndex: -1 });
+            rowIndex++;
+        }
+        for (let i = 0; i < section.items.length; i++) {
+            rows.push({ kind: "app", record: section.items[i], rowIndex: rowIndex, appIndex: appIndex });
+            rowIndex++;
+            appIndex++;
+        }
+    }
+    if (runQuery !== "" && appIndex === 0)
+        rows.push({ kind: "run", query: runQuery, rowIndex: rowIndex, appIndex: 0 });
+    return rows;
+}
+
+function browseRows(entries, pinnedIds, recentIds) {
+    return sectionRows(sections(entries, pinnedIds, recentIds, ""), "");
+}
+
+function resultRows(entries, pinnedIds, recentIds, query) {
+    const trimmed = (query || "").trim();
+    if (trimmed === "")
+        return [];
+    return sectionRows(sections(entries, pinnedIds, recentIds, query), trimmed);
+}

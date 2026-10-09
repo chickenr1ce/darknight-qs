@@ -16,37 +16,31 @@ Item {
     property bool menuPinned: false
 
     readonly property bool launcherActive: root.visible && DashboardService.dashboardVisible
+    readonly property bool querying: root.query.trim() !== ""
 
-    readonly property var listRows: {
+    readonly property var browseRows: {
         const rows = [];
         if (!root.launcherActive)
             return rows;
-        const sections = AppService.sections(root.query);
-        let appIndex = 0;
-        let rowIndex = 0;
-        for (let s = 0; s < sections.length; s++) {
-            const section = sections[s];
-            if (section.key !== "results") {
-                if (section.items.length === 0)
-                    continue;
-                rows.push({ kind: "header", key: section.key, count: section.count, rowIndex: rowIndex, appIndex: -1 });
-                rowIndex++;
-            }
-            for (let i = 0; i < section.items.length; i++) {
-                rows.push({ kind: "app", record: section.items[i], rowIndex: rowIndex, appIndex: appIndex });
-                rowIndex++;
-                appIndex++;
-            }
-        }
-        if (appIndex === 0 && root.query.trim() !== "")
-            rows.push({ kind: "run", query: root.query.trim(), rowIndex: rowIndex, appIndex: 0 });
-        return rows;
+        return AppService.browseRows();
     }
+
+    readonly property var resultRows: {
+        const rows = [];
+        if (!root.launcherActive || root.query.trim() === "")
+            return rows;
+        return AppService.resultRows(root.query);
+    }
+
+    readonly property var activeRows: root.querying ? root.resultRows : root.browseRows
+    readonly property var activeList: root.querying ? idAppsResultList : idAppsBrowseList
+    readonly property var activeSmoothWheel: root.querying ? idAppsResultSmoothWheel : idAppsBrowseSmoothWheel
 
     readonly property int appCount: {
         let count = 0;
-        for (let i = 0; i < root.listRows.length; i++) {
-            if (root.listRows[i].kind !== "header")
+        const rows = root.activeRows;
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i].kind !== "header")
                 count++;
         }
         return count;
@@ -102,10 +96,17 @@ Item {
             idAppsContextMenu.closeMenu();
     }
     onQueryChanged: {
-        idAppsList.selectedIndex = 0;
+        if (root.querying) {
+            idAppsResultList.selectedIndex = 0;
+        } else {
+            idAppsBrowseList.selectedIndex = 0;
+            idAppsBrowseList.positionViewAtBeginning();
+        }
         root.clampSelection();
     }
-    onListRowsChanged: root.clampSelection()
+    onQueryingChanged: root.registerLists()
+    onBrowseRowsChanged: root.clampSelection()
+    onResultRowsChanged: root.clampSelection()
 
     Connections {
         id: idAppsDashboardWatch
@@ -186,43 +187,92 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: idAppsList.contentHeight
+            Layout.preferredHeight: root.activeList.contentHeight
 
-            ListView {
-                id: idAppsList
-
-                property int selectedIndex: 0
+            Item {
+                id: idAppsBrowseSlot
 
                 anchors.fill: parent
+                visible: !root.querying
 
-                model: root.listRows
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                reuseItems: true
-                Controls.ScrollBar.vertical: ScrollBar { id: idAppsScrollBar }
+                ListView {
+                    id: idAppsBrowseList
 
-                delegate: Item {
+                    property int selectedIndex: 0
+
+                    anchors.fill: parent
+
+                    model: root.browseRows
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    reuseItems: true
+                    delegate: idAppRowDelegate
+                    Controls.ScrollBar.vertical: ScrollBar { id: idAppsBrowseScrollBar }
+                }
+
+                SmoothWheel {
+                    id: idAppsBrowseSmoothWheel
+
+                    flickable: idAppsBrowseList
+                }
+            }
+
+            Item {
+                id: idAppsResultSlot
+
+                anchors.fill: parent
+                visible: root.querying
+
+                ListView {
+                    id: idAppsResultList
+
+                    property int selectedIndex: 0
+
+                    anchors.fill: parent
+
+                    model: root.resultRows
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    reuseItems: true
+                    delegate: idAppRowDelegate
+                    Controls.ScrollBar.vertical: ScrollBar { id: idAppsResultScrollBar }
+                }
+
+                SmoothWheel {
+                    id: idAppsResultSmoothWheel
+
+                    flickable: idAppsResultList
+                }
+            }
+
+            Component {
+                id: idAppRowDelegate
+
+                Item {
                     id: idAppRow
 
                     required property int index
                     required property var modelData
 
+                    readonly property var listView: ListView.view
                     readonly property var info: idAppRow.modelData || ({})
                     readonly property bool isHeader: idAppRow.info.kind === "header"
                     readonly property bool isRun: idAppRow.info.kind === "run"
                     readonly property var record: idAppRow.info.record ? idAppRow.info.record : null
                     readonly property string iconSource: idAppRow.record ? AppService.iconFor(idAppRow.record) : ""
                     readonly property bool pinned: idAppRow.record ? AppService.isPinned(idAppRow.record.id) : false
-                    readonly property bool selected: !idAppRow.isHeader && idAppRow.info.appIndex === idAppsList.selectedIndex
+                    readonly property bool selected: !idAppRow.isHeader && idAppRow.info.appIndex
+                        === (idAppRow.listView ? idAppRow.listView.selectedIndex : -1)
                     readonly property int runningCount: idAppRow.record ? AppService.runningCount(idAppRow.record) : 0
                     readonly property bool actionsActive: !idAppRow.isHeader && idAppRow.record !== null
                         && (idAppRow.selected || idAppRow.rowHovered)
                     readonly property real actionsX: idAppRow.width - Globals.cardHPadding - Globals.scrollbarWidth - root.actionsWidth
+                    readonly property bool useMarkup: idAppRow.isRun || root.querying
 
                     property bool rowHovered: false
                     property bool killTipShown: false
 
-                    width: idAppsList.width
+                    width: idAppRow.listView ? idAppRow.listView.width : 0
                     height: idAppRow.isHeader
                         ? (idAppRowHeaderLoader.item?.implicitHeight ?? 0)
                         : (idAppRowContentLoader.item?.implicitHeight ?? 0)
@@ -401,11 +451,15 @@ Item {
                                         Layout.fillWidth: true
                                         Layout.minimumWidth: 0
 
-                                        textFormat: Text.StyledText
+                                        textFormat: idAppRow.useMarkup ? Text.StyledText : Text.PlainText
                                         elide: Text.ElideRight
                                         text: idAppRow.isRun
                                             ? AppService.escapeHtml(qsTr("Run “%1”").arg(idAppRow.info.query))
-                                            : (idAppRow.record ? AppService.markup(idAppRow.record.name, root.query, Colors.accent) : "")
+                                            : (idAppRow.record
+                                                ? (idAppRow.useMarkup
+                                                    ? AppService.markup(idAppRow.record.name, root.query, Colors.accent)
+                                                    : idAppRow.record.name)
+                                                : "")
                                         color: Colors.text
 
                                         font {
@@ -506,8 +560,8 @@ Item {
                                 cursorShape: Qt.PointingHandCursor
 
                                 onEntered: {
-                                    if (!idAppRow.isHeader)
-                                        idAppsList.selectedIndex = idAppRow.info.appIndex;
+                                    if (!idAppRow.isHeader && idAppRow.listView)
+                                        idAppRow.listView.selectedIndex = idAppRow.info.appIndex;
                                 }
                                 onClicked: mouse => {
                                     if (idAppRow.isHeader)
@@ -517,7 +571,8 @@ Item {
                                             root.openMenuAt(idAppRow.info, idAppRowMouse.mapToItem(root, mouse.x, mouse.y));
                                         return;
                                     }
-                                    idAppsList.selectedIndex = idAppRow.info.appIndex;
+                                    if (idAppRow.listView)
+                                        idAppRow.listView.selectedIndex = idAppRow.info.appIndex;
                                     if (mouse.button === Qt.RightButton)
                                         root.openMenuAt(idAppRow.info, idAppRowMouse.mapToItem(root, mouse.x, mouse.y));
                                     else
@@ -676,12 +731,6 @@ Item {
                     }
                 }
             }
-
-            SmoothWheel {
-                id: idAppsSmoothWheel
-
-                flickable: idAppsList
-            }
         }
 
         Text {
@@ -834,17 +883,19 @@ Item {
     }
 
     function clampSelection(): void {
+        const list = root.activeList;
         if (root.appCount === 0) {
-            idAppsList.selectedIndex = 0;
+            list.selectedIndex = 0;
             return;
         }
-        idAppsList.selectedIndex = Math.max(0, Math.min(idAppsList.selectedIndex, root.appCount - 1));
+        list.selectedIndex = Math.max(0, Math.min(list.selectedIndex, root.appCount - 1));
     }
 
     function selectedRow(): var {
-        const rows = root.listRows;
+        const rows = root.activeRows;
+        const selected = root.activeList.selectedIndex;
         for (let i = 0; i < rows.length; i++) {
-            if (rows[i].kind !== "header" && rows[i].appIndex === idAppsList.selectedIndex)
+            if (rows[i].kind !== "header" && rows[i].appIndex === selected)
                 return rows[i];
         }
         return null;
@@ -853,17 +904,19 @@ Item {
     function moveSelection(delta: int): void {
         if (root.appCount === 0)
             return;
-        const next = Math.max(0, Math.min(idAppsList.selectedIndex + delta, root.appCount - 1));
-        idAppsList.selectedIndex = next;
+        const list = root.activeList;
+        const next = Math.max(0, Math.min(list.selectedIndex + delta, root.appCount - 1));
+        list.selectedIndex = next;
         root.ensureVisible(next);
     }
 
     function ensureVisible(appIndex: int): void {
-        idAppsSmoothWheel.stop();
-        const rows = root.listRows;
+        root.activeSmoothWheel.stop();
+        const rows = root.activeRows;
+        const list = root.activeList;
         for (let i = 0; i < rows.length; i++) {
             if (rows[i].kind !== "header" && rows[i].appIndex === appIndex) {
-                idAppsList.positionViewAtIndex(rows[i].rowIndex, ListView.Contain);
+                list.positionViewAtIndex(rows[i].rowIndex, ListView.Contain);
                 return;
             }
         }
@@ -890,10 +943,11 @@ Item {
         const row = root.selectedRow();
         if (!row)
             return;
-        idAppsSmoothWheel.stop();
-        idAppsList.positionViewAtIndex(row.rowIndex, ListView.Contain);
+        const list = root.activeList;
+        root.activeSmoothWheel.stop();
+        list.positionViewAtIndex(row.rowIndex, ListView.Contain);
         Qt.callLater(() => {
-            const delegate = idAppsList.itemAtIndex(row.rowIndex);
+            const delegate = list.itemAtIndex(row.rowIndex);
             if (!delegate)
                 return;
             root.openMenuAt(row, delegate.mapToItem(root, Globals.cardHPadding, delegate.height));
@@ -984,7 +1038,9 @@ Item {
         idAppsContextMenu.closeMenu();
         if (idAppsSearch.text !== "")
             idAppsSearch.clear();
-        idAppsList.selectedIndex = 0;
+        idAppsBrowseList.selectedIndex = 0;
+        idAppsResultList.selectedIndex = 0;
+        idAppsBrowseList.positionViewAtBeginning();
         root.focusSearch();
     }
 
@@ -993,8 +1049,14 @@ Item {
     }
 
     function registerProbe(): void {
-        DevGeometry.register("dashboard.apps.list", idAppsList);
+        root.registerLists();
         DevGeometry.register("dashboard.apps", root);
+    }
+
+    function registerLists(): void {
+        DevGeometry.register("dashboard.apps.list", root.activeList);
+        DevGeometry.register("dashboard.apps.browseList", idAppsBrowseList);
+        DevGeometry.register("dashboard.apps.resultList", idAppsResultList);
     }
 
     function bench(): var {
@@ -1009,7 +1071,7 @@ Item {
         root.query = "__bench__";
         started = Date.now();
         root.query = "";
-        idAppsList.forceLayout();
+        idAppsBrowseList.forceLayout();
         out.emptyMs = Date.now() - started;
 
         const steps = ["f", "fi", "fir", "fire", "firef"];
@@ -1017,13 +1079,13 @@ Item {
         for (let i = 0; i < steps.length; i++) {
             started = Date.now();
             root.query = steps[i];
-            idAppsList.forceLayout();
+            idAppsResultList.forceLayout();
             out.stepsMs.push(Date.now() - started);
         }
 
         started = Date.now();
         root.query = "";
-        idAppsList.forceLayout();
+        idAppsBrowseList.forceLayout();
         out.clearMs = Date.now() - started;
 
         started = Date.now();
