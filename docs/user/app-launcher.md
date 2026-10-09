@@ -31,9 +31,10 @@ The card grows downward with the list, up to most of the screen height. A list
 longer than that scrolls in place, with a thin bar on the right edge.
 
 The card ends with a fixed footer of key hints under a hairline: `↵` Open,
-`ctrl 1–N` On workspace (N is the monitor's workspace count, up to 9), and
-`⇧F10` More, with a faint "hover a row for actions" reminder on the right. The
-footer never moves; the list shrinks instead.
+`ctrl 1–9, 0` On workspace (the tenth workspace is Ctrl+0; with fewer
+workspaces the range stops at the last one, up to 9), and `→` More, with a
+faint "hover a row for actions" reminder on the right. The footer never moves;
+the list shrinks instead.
 
 ## Mouse
 
@@ -66,27 +67,34 @@ from anywhere in the card.
 | Enter | open the selected app (or run the `Run` row) |
 | Alt+Enter | open and keep the dashboard |
 | Ctrl+P | pin or unpin the selected app |
-| Ctrl+1…9 | open the selected app on that workspace slot of the dashboard's monitor |
-| Shift+F10 or the Menu key | open the context menu on the selected row |
+| Ctrl+1…9 | open the selected app on absolute workspace 1–9 |
+| Ctrl+0 | open the selected app on absolute workspace 10 |
+| → | open the context menu on the selected row (cursor at the end of the query) |
+| Menu | open the context menu on the selected row |
 | Esc | clear the query; when it is already empty, close the dashboard |
 
-Ctrl+0 and slots past the monitor's workspace count are consumed and do nothing.
+Ctrl+N opens on workspace N, and Ctrl+0 is workspace 10. A key past the
+available workspace count is consumed and does nothing.
 
 ## Context menu
 
-The menu opens on the selected row from Shift+F10 or the Menu key, and at the
-pointer on right-click. ↑/↓ move, → opens the "Open on workspace" submenu, ← or
-Esc leaves it, and Enter runs the highlighted item. Typing a printable
-character closes the menu and sends the text to the search field. Items, in
-order:
+The menu opens on the selected row from → (when the search cursor is at the
+end of the query) or the Menu key, and at the pointer on right-click. ↑/↓
+move, → opens the "Open on workspace" submenu, ← leaves a submenu and on the
+top level closes the menu back to search, and Enter runs the highlighted item.
+Typing a printable character closes the menu and sends the text to the search
+field. The menu is as wide as its widest item, up to a cap, so a long label
+like "Open, keep dashboard" is never cut off; it stays inside the card and the
+submenu fits its own content the same way. Items, in order:
 
 1. Open (↵)
 2. Open on workspace ▸: a label per enabled monitor, the dashboard's monitor
    first, then one item per workspace in that monitor's block with its absolute
    number. Each monitor's current workspace is marked and occupied workspaces
-   keep their marker. `ctrl N` hints appear only on the dashboard monitor's
-   items (Ctrl+N is still per-monitor). "New empty workspace" adds the first
-   free slot in the dashboard monitor's block, hidden when that block is full.
+   keep their marker. Every item shows its absolute shortcut: `ctrl N` for
+   workspaces 1–9 and `ctrl 0` for workspace 10. "New empty workspace" adds the
+   first free slot in the dashboard monitor's block, hidden when that block is
+   full.
 
    Just after a reload, before the monitor list is known, the submenu falls back
    to the dashboard monitor's block alone, so the item is always there.

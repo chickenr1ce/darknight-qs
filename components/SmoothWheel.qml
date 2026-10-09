@@ -4,11 +4,13 @@ import QtQuick
 import qs.config
 import "SmoothWheelLogic.js" as SmoothWheelLogic
 
-// Transparent overlay for a Flickable: one wheel notch (a 120 angleDelta)
-// glides contentY by Globals.wheelStep over Globals.wheelMs, a finer or
-// coarser chunk scales proportionally, rapid notches accumulate into one
-// target, trackpad pixelDelta scrolls 1:1, and a user drag cancels the glide.
-// Keyboard scrolling stops it through stop() before positionViewAtIndex.
+// Transparent overlay for a Flickable: the scroll path is chosen by input
+// source (SmoothWheelLogic.wheelMode). A mouse wheel glides contentY by
+// Globals.wheelStep over Globals.wheelMs; one notch (a 120 angleDelta) is one
+// step, a finer or coarser chunk scales proportionally, and rapid notches
+// accumulate into one target. A touchpad pixelDelta scrolls 1:1. A user drag
+// cancels the glide; keyboard scrolling stops it through stop() before
+// positionViewAtIndex.
 Item {
     id: root
 
@@ -40,11 +42,19 @@ Item {
         idWheelAnimation.restart();
     }
 
+    function isTouchpadEvent(event): bool {
+        if (!event || !event.device)
+            return false;
+        return event.device.type === PointerDevice.TouchPad;
+    }
+
     function handleWheel(event): void {
         if (!root.flickable)
             return;
-        const pixelDelta = event.pixelDelta.y;
-        if (pixelDelta !== 0) {
+        const mode = SmoothWheelLogic.wheelMode(event.angleDelta.y, event.pixelDelta.y,
+            root.isTouchpadEvent(event));
+        if (mode === "pixel") {
+            const pixelDelta = event.pixelDelta.y;
             const next = SmoothWheelLogic.clampTarget(root.flickable.originY,
                 root.flickable.contentHeight, root.flickable.height,
                 root.flickable.contentY - pixelDelta);
@@ -55,9 +65,9 @@ Item {
             event.accepted = true;
             return;
         }
-        const angleDelta = event.angleDelta.y;
-        if (angleDelta === 0)
+        if (mode !== "angle")
             return;
+        const angleDelta = event.angleDelta.y;
         const max = root.flickable.originY + Math.max(0,
             root.flickable.contentHeight - root.flickable.height);
         const result = SmoothWheelLogic.wheelStep(root.flickable.contentY, root.target,

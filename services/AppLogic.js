@@ -454,15 +454,30 @@ function menuItems(entry, pinned, isRun, runningCount, workspaceItems) {
     return items;
 }
 
-function workspaceFor(n, firstWorkspace, perMonitor) {
-    const slot = Math.round(Number(n));
-    const first = Math.round(Number(firstWorkspace));
-    const count = Math.round(Number(perMonitor));
-    if (isNaN(slot) || isNaN(first) || isNaN(count))
+// Ctrl+1…9 and Ctrl+0 resolve to the absolute workspace number: the key is
+// the workspace (0 means 10). A workspace exists when it is within
+// 1..totalWorkspaces, whose caller passes perMonitor × enabled monitors.
+function workspaceFor(n, totalWorkspaces) {
+    const key = Math.round(Number(n));
+    const total = Math.round(Number(totalWorkspaces));
+    if (isNaN(key) || isNaN(total) || key < 0 || key > 9)
         return -1;
-    if (slot < 1 || count < 1 || slot > count || first < 1)
+    const workspace = key === 0 ? 10 : key;
+    if (total < 1 || workspace > total)
         return -1;
-    return first + slot - 1;
+    return workspace;
+}
+
+// The footer key cap for the workspace range. Ten or more workspaces put the
+// tenth on Ctrl+0, so the cap reads "ctrl 1–9, 0"; below that it is the
+// reachable range capped at 9.
+function workspaceKeys(totalWorkspaces) {
+    const total = Math.round(Number(totalWorkspaces));
+    if (isNaN(total) || total < 1)
+        return qsTr("ctrl 1–%1").arg(1);
+    if (total >= 10)
+        return qsTr("ctrl 1–9, 0");
+    return qsTr("ctrl 1–%1").arg(Math.min(9, total));
 }
 
 function firstEmptyWorkspace(firstWorkspace, perMonitor, occupiedIds) {
@@ -535,7 +550,8 @@ function workspaceMenu(monitors, perMonitor, anchorName, occupiedIds, anchorFall
             items.push(menuItem("item", {
                 id: "workspace",
                 text: current ? qsTr("Workspace %1 (current)").arg(workspace) : qsTr("Workspace %1").arg(workspace),
-                hint: monitor.name === anchor && n <= 9 ? qsTr("ctrl %1").arg(n) : "",
+                hint: workspace <= 9 ? qsTr("ctrl %1").arg(workspace)
+                    : (workspace === 10 ? qsTr("ctrl 0") : ""),
                 workspace: workspace,
                 current: current,
                 occupied: occupied.indexOf(workspace) !== -1

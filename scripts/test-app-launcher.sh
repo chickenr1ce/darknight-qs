@@ -9,7 +9,7 @@
 #      builds highlighted rows from the ranked sections, Escape reaches the
 #      search input past the panel Shortcut, stale queries reset on open,
 #      section headers paint no tile, and the context menu is generic while
-#      the view wires right-click, Shift+F10/Menu, hide, actions, and copy;
+#      the view wires right-click, Right/Menu, hide, actions, and copy;
 #   2. node runs of the shipped pure logic (ranking, match ranges, markup,
 #      section building, hidden filtering, recent/pin/hide/unhide mutation,
 #      menu building, state parsing) through tests/qmljs.js, so a broken
@@ -186,15 +186,26 @@ for key in Qt.Key_Down Qt.Key_Up Qt.Key_Right Qt.Key_Left Qt.Key_Return; do
     grep -q "$key" "$CTX" \
         || fail "ContextMenu missed the $key key"
 done
+CTX_HANDLE="$(awk '/^    function handleKey/{flag=1} flag{print} flag && /^    \}$/{exit}' "$CTX")"
+test -n "$CTX_HANDLE" || fail "could not extract ContextMenu.handleKey"
+echo "$CTX_HANDLE" | grep -A5 'event.key === Qt.Key_Left' | grep -q 'root.leaveSubmenu()' \
+    || fail "Left inside a submenu does not return to the parent menu"
+echo "$CTX_HANDLE" | grep -A5 'event.key === Qt.Key_Left' | grep -q 'root.closeMenu()' \
+    || fail "Left on the top level does not close the menu"
 
 grep -q 'ContextMenu' "$VIEW" \
     || fail "DashboardAppsView does not mount the context menu"
 grep -q 'Qt.RightButton' "$VIEW" \
     || fail "DashboardAppsView does not open the menu on right-click"
-grep -q 'Qt.Key_F10' "$VIEW" \
-    || fail "DashboardAppsView does not open the menu on Shift+F10"
 grep -q 'Qt.Key_Menu' "$VIEW" \
     || fail "DashboardAppsView does not open the menu on the Menu key"
+if grep -q 'Qt.Key_F10' "$VIEW"; then
+    fail "DashboardAppsView still opens the menu on Shift+F10"
+fi
+grep -q 'Qt.Key_Right' "$VIEW" \
+    || fail "DashboardAppsView does not open the menu on the Right key"
+grep -qF 'idAppsSearch.cursorPosition === idAppsSearch.length' "$VIEW" \
+    || fail "Right does not gate on the search cursor being at the end"
 grep -q 'AppService.hide' "$VIEW" \
     || fail "DashboardAppsView does not hide entries"
 grep -q 'AppService.launchAction' "$VIEW" \
@@ -211,6 +222,38 @@ grep -q 'root.availableHeight' "$CTX" \
     || fail "ContextMenu does not cap its height to the view"
 grep -q 'idMenuList' "$CTX" \
     || fail "ContextMenu item column is not scrollable"
+grep -q 'property int menuMaxWidth' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no menuMaxWidth token"
+grep -q 'Globals.menuMaxWidth' "$CTX" \
+    || fail "ContextMenu does not cap its width to the max token"
+grep -q 'FontMetrics' "$CTX" \
+    || fail "ContextMenu does not measure its item text"
+for fn in itemWidth fittedWidth measureWidths; do
+    grep -q "function $fn" "$CTX" \
+        || fail "ContextMenu has no $fn"
+done
+grep -qF 'onItemsChanged: root.measureWidths()' "$CTX" \
+    || fail "ContextMenu does not remeasure its width when the items change"
+grep -q 'root.mainWidth' "$CTX" \
+    || fail "ContextMenu does not size the main menu from its content"
+grep -q 'root.submenuWidth' "$CTX" \
+    || fail "ContextMenu does not size the submenu from its content"
+CTX_MEASURE="$(awk '/^    function measureWidths/{flag=1} flag{print} flag && /^    \}$/{exit}' "$CTX")"
+test -n "$CTX_MEASURE" || fail "could not extract ContextMenu.measureWidths"
+echo "$CTX_MEASURE" | grep -qF 'root.mainWidth = root.fittedWidth(root.items)' \
+    || fail "the main menu width is not measured from its items"
+echo "$CTX_MEASURE" | grep -qF 'root.submenuWidth = widest' \
+    || fail "the submenu width is not measured from its items"
+CTX_WIDTH="$(awk '/^    function itemWidth/{flag=1} flag{print} flag && /^    \}$/{exit}' "$CTX")"
+test -n "$CTX_WIDTH" || fail "could not extract ContextMenu.itemWidth"
+echo "$CTX_WIDTH" | grep -qF '2 * Globals.menuMargin' \
+    || fail "the menu width does not account for the column margins"
+echo "$CTX_WIDTH" | grep -q 'Globals.menuGlyphWidth' \
+    || fail "the menu width does not reserve the glyph column"
+echo "$CTX_WIDTH" | grep -q 'Globals.scrollbarWidth' \
+    || fail "the menu width does not reserve the scrollbar"
+echo "$CTX_WIDTH" | grep -q 'Globals.rowSpacing' \
+    || fail "the menu width does not reserve the label and trailing gaps"
 grep -q 'onTypedText' "$VIEW" \
     || fail "DashboardAppsView does not handle forwarded text"
 if grep -q 'idAppsContextMenu.anchorY\|idAppsContextMenu.contentHeight' "$VIEW"; then
@@ -246,7 +289,7 @@ for glyph in open openInApp copy eyeOff starOutline; do
     grep -q "property string $glyph" "$ROOT/config/Icons.qml" \
         || fail "Icons.qml has no $glyph glyph"
 done
-for token in menuWidth menuItemHeight menuMargin menuSeparatorHeight menuLabelHeight menuSubmenuGap; do
+for token in menuWidth menuMaxWidth menuItemHeight menuMargin menuSeparatorHeight menuLabelHeight menuSubmenuGap; do
     grep -q "$token" "$ROOT/config/Globals.qml" \
         || fail "Globals has no $token token"
 done
@@ -334,12 +377,16 @@ grep -q 'appInlineSeparatorHeight' "$ROOT/config/Globals.qml" \
     || fail "Globals has no appInlineSeparatorHeight token"
 
 # --- 4g. open-on-workspace: pure mapping, submenu, Ctrl+digit, Lua dispatch ---
-for fn in workspaceFor firstEmptyWorkspace workspaceMenu; do
+for fn in workspaceFor workspaceKeys firstEmptyWorkspace workspaceMenu; do
     grep -q "function $fn" "$LOGIC" \
         || fail "AppLogic.js has no $fn"
 done
 grep -q 'AppLogic.workspaceFor' "$SVC" \
     || fail "AppService does not delegate workspaceFor to AppLogic"
+grep -q 'function totalWorkspaces' "$SVC" \
+    || fail "AppService has no total workspace count"
+grep -q 'AppLogic.workspaceKeys' "$SVC" \
+    || fail "AppService does not delegate the footer key cap to AppLogic"
 grep -q 'AppLogic.workspaceMenu' "$SVC" \
     || fail "AppService does not build the workspace submenu through AppLogic"
 grep -q 'function launchOnWorkspace' "$SVC" \
@@ -376,7 +423,9 @@ grep -q 'submenuGlyph' "$VIEW" \
 grep -q 'AppService.launchOnWorkspace' "$VIEW" \
     || fail "DashboardAppsView does not launch on a workspace"
 grep -q 'AppService.workspaceFor' "$VIEW" \
-    || fail "DashboardAppsView does not resolve a workspace slot"
+    || fail "DashboardAppsView does not resolve the absolute workspace"
+grep -q 'ctrl 0' "$LOGIC" \
+    || fail "AppLogic workspaceMenu does not hint workspace 10 as ctrl 0"
 grep -qF 'disabled: enabledNames.indexOf(monitorName) === -1' "$SVC" \
     || fail "AppService does not tag disabled monitors for AppLogic to filter"
 grep -q 'monitor.disabled !== true' "$LOGIC" \
@@ -398,9 +447,14 @@ if echo "$RUNMENU_BLOCK" | grep -q 'workspaceFor'; then
 fi
 DIGIT_BLOCK="$(awk '/Qt.ControlModifier\) !== 0/{flag=1} flag{print} flag && /event.accepted = true/{exit}' "$VIEW")"
 echo "$DIGIT_BLOCK" | grep -q 'AppService.workspaceFor' \
-    || fail "Ctrl+digit branch does not resolve the slot through AppService.workspaceFor"
+    || fail "Ctrl+digit branch does not resolve the absolute workspace through AppService.workspaceFor"
 echo "$DIGIT_BLOCK" | grep -q 'AppService.launchOnWorkspace' \
-    || fail "Ctrl+digit branch does not launch on the slot"
+    || fail "Ctrl+digit branch does not launch on the target workspace"
+echo "$DIGIT_BLOCK" | grep -qF 'event.key - Qt.Key_0' \
+    || fail "Ctrl+digit branch does not map the key to a workspace number"
+if echo "$DIGIT_BLOCK" | grep -q 'slot >= 1'; then
+    fail "Ctrl+digit branch still drops Ctrl+0 with a slot floor"
+fi
 echo "$DIGIT_BLOCK" | grep -q 'event.accepted = true' \
     || fail "Ctrl+digit branch does not consume the key"
 for glyph in workspace circle circleOutline; do
@@ -487,14 +541,20 @@ grep -q '^\.pragma library' "$SMOOTHLOGIC" \
     || fail "SmoothWheelLogic.js is not a .pragma library"
 grep -q 'import "SmoothWheelLogic.js" as SmoothWheelLogic' "$SMOOTH" \
     || fail "SmoothWheel does not import SmoothWheelLogic.js"
-for fn in clampTarget wheelTarget wheelStep; do
+for fn in clampTarget wheelTarget wheelStep wheelMode; do
     grep -q "function $fn" "$SMOOTHLOGIC" \
         || fail "SmoothWheelLogic.js has no $fn"
 done
-for fn in clampTarget wheelStep; do
+for fn in clampTarget wheelStep wheelMode; do
     grep -q "SmoothWheelLogic.$fn" "$SMOOTH" \
         || fail "SmoothWheel does not delegate $fn to SmoothWheelLogic"
 done
+grep -q 'function isTouchpadEvent' "$SMOOTH" \
+    || fail "SmoothWheel has no touchpad source check"
+grep -q 'event.device' "$SMOOTH" \
+    || fail "SmoothWheel does not read the wheel event's device"
+grep -q 'PointerDevice.TouchPad' "$SMOOTH" \
+    || fail "SmoothWheel does not compare the device against a touchpad"
 if grep -qE 'function (scrollTo|setTarget)\b' "$SMOOTH"; then
     fail "SmoothWheel keeps the dead scrollTo/setTarget entry points"
 fi
@@ -533,6 +593,10 @@ HANDLE_BODY="$(awk '/^    function handleWheel/{flag=1} flag && /^    }$/{print;
 test -n "$HANDLE_BODY" || fail "could not extract SmoothWheel.handleWheel"
 echo "$HANDLE_BODY" | grep -q 'SmoothWheelLogic.wheelStep' \
     || fail "handleWheel does not compose the wheel decision in SmoothWheelLogic"
+echo "$HANDLE_BODY" | grep -q 'SmoothWheelLogic.wheelMode' \
+    || fail "handleWheel does not pick the scroll path through SmoothWheelLogic.wheelMode"
+echo "$HANDLE_BODY" | grep -q 'mode === "pixel"' \
+    || fail "handleWheel has no pixel-source branch"
 echo "$HANDLE_BODY" | grep -q 'root.moveTo(' \
     || fail "handleWheel does not route the notch through the shared move path"
 echo "$HANDLE_BODY" | grep -q 'if (!result.moved)' \
@@ -632,16 +696,23 @@ grep -q 'AppService.buildRecords' "$VIEW" \
 grep -q 'AppLogic.runningCounts' "$SVC" \
     || fail "AppService runningMap does not use runningCounts"
 
-# --- 4l. the footer hint bar composes KeyHint and binds the workspace count ---
+# --- 4l. the footer hint bar composes KeyHint and binds the workspace key cap ---
 grep -q 'idAppsFooter' "$VIEW" \
     || fail "DashboardAppsView has no footer"
 FOOTER_COUNT="$(grep -c 'KeyHint {' "$VIEW")"
 [ "$FOOTER_COUNT" -eq 3 ] \
     || fail "the Apps footer does not compose KeyHint exactly three times (found $FOOTER_COUNT)"
-grep -q 'Math.min(9, MonitorService.workspacesPerMonitor)' "$VIEW" \
-    || fail "the footer workspace hint is not capped at 9 against workspacesPerMonitor"
-grep -q 'ctrl 1–' "$VIEW" \
-    || fail "the footer workspace hint does not use the en-dash range"
+grep -q 'AppService.workspaceKeys()' "$VIEW" \
+    || fail "the footer workspace hint does not come from the pure key cap"
+grep -q 'ctrl 1–' "$LOGIC" \
+    || fail "the workspace key cap does not use the en-dash range"
+grep -q 'ctrl 1–9, 0' "$LOGIC" \
+    || fail "the workspace key cap does not cover Ctrl+0 for the tenth workspace"
+grep -qF 'key: "→"' "$VIEW" \
+    || fail "the footer More key cap is not the right arrow"
+if grep -q '⇧F10' "$VIEW"; then
+    fail "the footer still shows the Shift+F10 key cap"
+fi
 grep -q 'qsTr("On workspace")' "$VIEW" \
     || fail "the footer does not label the workspace hint through qsTr"
 grep -q 'qsTr("hover a row for actions")' "$VIEW" \
@@ -740,22 +811,36 @@ echo "$MENUCLOSE_BLOCK" | grep -q 'root.menuRow = null' \
 echo "$MENUCLOSE_BLOCK" | grep -q 'root.menuPinned = false' \
     || fail "closing the menu does not clear the menu pin state"
 
-# --- 4o. offscreen behavioral check for the mode handler (skips without Qt 6) ---
+# --- 4o. offscreen behavioral checks (skip without Qt 6) ---
 QMLTESTRUNNER="${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}"
 MODE_TEST="$ROOT/tests/app-launcher-mode.qml"
+WHEEL_TEST="$ROOT/tests/app-launcher-wheel.qml"
 if [ ! -x "$QMLTESTRUNNER" ]; then
-    echo "app-launcher: qmltestrunner not found, skipping the offscreen mode test" >&2
-elif [ ! -f "$MODE_TEST" ]; then
-    fail "the offscreen mode test is missing"
+    echo "app-launcher: qmltestrunner not found, skipping the offscreen tests" >&2
 else
+    if [ ! -f "$MODE_TEST" ]; then
+        fail "the offscreen mode test is missing"
+    fi
     MODE_OUT="$(mktemp)"
-    if QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 \
+    if env -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 \
         "$QMLTESTRUNNER" -input "$MODE_TEST" >"$MODE_OUT" 2>&1; then
         rm -f "$MODE_OUT"
     else
         cat "$MODE_OUT" >&2
         rm -f "$MODE_OUT"
         fail "the offscreen mode handler test failed"
+    fi
+    if [ ! -f "$WHEEL_TEST" ]; then
+        fail "the offscreen wheel test is missing"
+    fi
+    WHEEL_OUT="$(mktemp)"
+    if env -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 \
+        "$QMLTESTRUNNER" -input "$WHEEL_TEST" >"$WHEEL_OUT" 2>&1; then
+        rm -f "$WHEEL_OUT"
+    else
+        cat "$WHEEL_OUT" >&2
+        rm -f "$WHEEL_OUT"
+        fail "the offscreen wheel handler test failed"
     fi
 fi
 
@@ -1164,20 +1249,30 @@ check('menu/no-focus-idle',
       al.menuItems(noActions, false, false, 0).filter(i => i.kind === 'item').map(i => i.id),
       ['open', 'open-keep', 'pin', 'hide', 'copy-command']);
 
-// workspaceFor: the Nth slot of a monitor's block, the primary starting at 1
-// and each following monitor at perMonitor + 1; out of 1..perMonitor, a
-// non-positive first workspace, or a non-positive count is -1.
-check('ws/primary-first', al.workspaceFor(1, 1, 5), 1);
-check('ws/primary-third', al.workspaceFor(3, 1, 5), 3);
-check('ws/primary-last', al.workspaceFor(5, 1, 5), 5);
-check('ws/second-first', al.workspaceFor(1, 6, 5), 6);
-check('ws/second-third', al.workspaceFor(3, 6, 5), 8);
-check('ws/second-last', al.workspaceFor(5, 6, 5), 10);
-check('ws/zero', al.workspaceFor(0, 1, 5), -1);
-check('ws/past-count', al.workspaceFor(6, 1, 5), -1);
-check('ws/zero-count', al.workspaceFor(1, 1, 0), -1);
-check('ws/bad-first', al.workspaceFor(1, 0, 5), -1);
-check('ws/nan', al.workspaceFor('x', 1, 5), -1);
+// workspaceFor: Ctrl+N targets the absolute workspace N (Ctrl+0 is 10), and
+// the key does nothing when the workspace is past the total of
+// perMonitor × enabled monitors, or on a bad key or total.
+check('ws/key-one', al.workspaceFor(1, 10), 1);
+check('ws/key-nine', al.workspaceFor(9, 10), 9);
+check('ws/key-zero-ten', al.workspaceFor(0, 10), 10);
+check('ws/key-at-total', al.workspaceFor(5, 5), 5);
+check('ws/out-of-range', al.workspaceFor(6, 5), -1);
+check('ws/zero-when-total-one', al.workspaceFor(0, 1), -1);
+check('ws/key-ten-out-of-range', al.workspaceFor(10, 10), -1);
+check('ws/total-zero', al.workspaceFor(1, 0), -1);
+check('ws/total-bad', al.workspaceFor(1, 'x'), -1);
+check('ws/nan-key', al.workspaceFor('x', 10), -1);
+check('ws/negative-key', al.workspaceFor(-1, 10), -1);
+
+// workspaceKeys: the footer cap reads the reachable range, capped at 9, and
+// switches to "ctrl 1–9, 0" once a tenth workspace exists.
+check('keys/one', al.workspaceKeys(1), 'ctrl 1–1');
+check('keys/five', al.workspaceKeys(5), 'ctrl 1–5');
+check('keys/nine', al.workspaceKeys(9), 'ctrl 1–9');
+check('keys/ten', al.workspaceKeys(10), 'ctrl 1–9, 0');
+check('keys/twelve', al.workspaceKeys(12), 'ctrl 1–9, 0');
+check('keys/zero', al.workspaceKeys(0), 'ctrl 1–1');
+check('keys/bad', al.workspaceKeys('x'), 'ctrl 1–1');
 
 // firstEmptyWorkspace: the first slot without an occupant, -1 when the block
 // is full, and an out-of-range block is -1.
@@ -1191,7 +1286,8 @@ check('empty/zero-count', al.firstEmptyWorkspace(1, 0, []), -1);
 // workspaceMenu: one label per enabled monitor, the anchor first even when it
 // is not the primary; one item per slot under each label with the absolute
 // workspace number, the active one labelled per monitor, occupied flags, ctrl
-// hints only on the anchor, and "New empty workspace" from the anchor's block.
+// hints by absolute number on every monitor's items, and "New empty workspace"
+// from the anchor's block.
 const WS = [
   { name: 'DP-1', first: 1, active: 3 },
   { name: 'DP-2', first: 6, active: 8 },
@@ -1209,7 +1305,8 @@ check('wsmenu/texts',
        'Workspace 6', 'Workspace 7', 'Workspace 8 (current)', 'Workspace 9', 'Workspace 10']);
 check('wsmenu/hints',
       wsMenu.filter(i => i.id === 'workspace').map(i => i.hint),
-      ['ctrl 1', 'ctrl 2', 'ctrl 3', 'ctrl 4', 'ctrl 5', '', '', '', '', '']);
+      ['ctrl 1', 'ctrl 2', 'ctrl 3', 'ctrl 4', 'ctrl 5',
+       'ctrl 6', 'ctrl 7', 'ctrl 8', 'ctrl 9', 'ctrl 0']);
 check('wsmenu/current',
       wsMenu.filter(i => i.current).map(i => i.workspace),
       [3, 8]);
@@ -1220,9 +1317,9 @@ const wsAnchorSecond = al.workspaceMenu(WS, 5, 'DP-2', [1, 2, 3, 6]);
 check('wsmenu/anchor-first',
       wsAnchorSecond.filter(i => i.kind === 'label').map(i => i.text),
       ['DP-2', 'DP-1']);
-check('wsmenu/anchor-hints',
+check('wsmenu/all-hinted',
       wsAnchorSecond.filter(i => i.hint !== '').map(i => i.workspace),
-      [6, 7, 8, 9, 10]);
+      [6, 7, 8, 9, 10, 1, 2, 3, 4, 5]);
 check('wsmenu/new-id', wsMenu[wsMenu.length - 1].id, 'workspace-new');
 check('wsmenu/new-workspace', wsMenu[wsMenu.length - 1].workspace, 4);
 check('wsmenu/new-separator', wsMenu[wsMenu.length - 2].kind, 'separator');
@@ -1249,7 +1346,7 @@ check('wsmenu/disabled-excluded',
 check('wsmenu/no-hint-over-9',
       al.workspaceMenu([{ name: 'DP-1', first: 1, active: 1 }], 12, 'DP-1', [])
         .filter(i => i.id === 'workspace' && i.hint === '').length,
-      3);
+      2);
 check('wsmenu/no-monitors', al.workspaceMenu([], 5, '', []), []);
 check('wsmenu/zero-count', al.workspaceMenu(WS, 0, 'DP-1', []), []);
 check('wsmenu/bad-first',
@@ -1272,7 +1369,7 @@ check('wsmenu/fallback-current',
       [7]);
 check('wsmenu/fallback-hints',
       wsFallback.filter(i => i.id === 'workspace').map(i => i.hint),
-      ['ctrl 1', 'ctrl 2', 'ctrl 3', 'ctrl 4', 'ctrl 5']);
+      ['ctrl 6', 'ctrl 7', 'ctrl 8', 'ctrl 9', 'ctrl 0']);
 check('wsmenu/fallback-new', wsFallback[wsFallback.length - 1].workspace, 7);
 check('wsmenu/fallback-name',
       al.workspaceMenu([], 5, '', [], { name: 'eDP-1', first: 1, active: -1 })
@@ -1283,13 +1380,13 @@ check('wsmenu/no-anchor-labels',
       ['DP-1', 'DP-2']);
 check('wsmenu/no-anchor-hints',
       al.workspaceMenu(WS, 5, '', []).filter(i => i.hint !== '').map(i => i.workspace),
-      [1, 2, 3, 4, 5]);
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 check('wsmenu/stray-anchor-labels',
       al.workspaceMenu(WS, 5, 'HDMI-A-1', []).filter(i => i.kind === 'label').map(i => i.text),
       ['DP-1', 'DP-2']);
 check('wsmenu/stray-anchor-hints',
       al.workspaceMenu(WS, 5, 'HDMI-A-1', []).filter(i => i.hint !== '').map(i => i.workspace),
-      [1, 2, 3, 4, 5]);
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 check('wsmenu/disabled-anchor-falls-to-first',
       al.workspaceMenu([
         { name: 'DP-1', first: 1, active: 1 },
@@ -1369,6 +1466,19 @@ check('clamp/undefined', sl.clampTarget(0, 1000, 200, undefined), 0);
 check('wheel/down', sl.wheelTarget(0, -120, 144), 144);
 check('wheel/up', sl.wheelTarget(144, 120, 144), 0);
 check('wheel/undefined-from', sl.wheelTarget(undefined, -120, 144), 144);
+
+// wheelMode: pick the path by input source. A mouse wheel with a Wayland
+// pixelDelta still steps on angleDelta, a touchpad takes the pixel path even
+// when it reports a small angleDelta, and an event with no device falls back
+// to angleDelta first and pixelDelta only when the angle is zero.
+check('mode/mouse-angle', sl.wheelMode(120, 15, false), 'angle');
+check('mode/mouse-coalesced', sl.wheelMode(600, 15, false), 'angle');
+check('mode/touchpad-pixel', sl.wheelMode(0, 12, true), 'pixel');
+check('mode/touchpad-small-angle', sl.wheelMode(8, 3, true), 'pixel');
+check('mode/pixel-fallback', sl.wheelMode(0, 15, false), 'pixel');
+check('mode/touchpad-no-pixel-angle', sl.wheelMode(120, 0, true), 'angle');
+check('mode/none', sl.wheelMode(0, 0, true), 'none');
+check('mode/none-unknown', sl.wheelMode(0, 0, false), 'none');
 
 // wheelStep: the composed decision. It seeds from the in-flight target while
 // the glide runs and from contentY otherwise, clamps against the view bounds,

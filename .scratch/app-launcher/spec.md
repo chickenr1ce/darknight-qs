@@ -26,9 +26,9 @@ no category pills.
   pin star. The selected or hovered row swaps the dot and star for inline
   buttons: **Focus**, **Kill**, **Pin/Unpin**, **⋯** (opens the context menu).
   Focus and Kill stay laid out but dim and inert when the app has no window.
-- Open on a workspace is not an inline button: Ctrl+1…N and the right-click
-  menu cover it.
-- Right-click (or ⋯, Shift+F10, Menu key) opens a context menu: Open, Open on
+- Open on a workspace is not an inline button: Ctrl+1…9 and Ctrl+0 open on
+  absolute workspaces 1–9 and 10; the right-click menu covers every workspace.
+- Right-click (or ⋯, →, Menu key) opens a context menu: Open, Open on
   workspace ▸, Open and keep dashboard, Focus window, the app's desktop
   actions, Pin/Unpin, Hide from launcher, Copy launch command, Kill.
 
@@ -57,12 +57,12 @@ no category pills.
 9. As a mouse user, I want right-click on any row to open a menu of every
    action, including the app's own desktop actions, so that nothing needs a
    keybind.
-10. As a keyboard user, I want Shift+F10 or the Menu key to open the same menu
+10. As a keyboard user, I want the → key or the Menu key to open the same menu
     on the selected row and arrow through it, so that the menu is not
     mouse-only.
-11. As a multi-monitor user, I want Ctrl+1…N and "Open on workspace" to mean
-    this monitor's workspaces, so that workspace 2 opens on the monitor I am
-    looking at.
+11. As a keyboard user, I want Ctrl+1…9, Ctrl+0 and "Open on workspace" to
+    reach every workspace, so that Ctrl+3 opens workspace 3 whether or not it
+    is on the monitor I am looking at.
 12. As a tidy user, I want to pin, reorder by recency, and hide apps, and have
     that survive a restart, so that the list reflects how I work.
 13. As a tidy user, I want to unhide apps from Settings, so that a hidden app
@@ -112,16 +112,19 @@ no category pills.
 - **Kill** closes every matched window through its Wayland handle
   (`HyprlandToplevel.wayland.close()`), a graceful close: apps may still
   prompt to save. No confirm step, since nothing is force-killed.
-- **Workspaces.** "Workspace N" is the Nth workspace of the dashboard's
-  monitor: `MonitorService.firstWorkspaceFor(monitorName) + N - 1`, with N
-  bounded by `MonitorService.workspacesPerMonitor`. Ctrl+1…9 cover that range.
-  The dispatch is a Hyprland Lua call (`hl.dsp.*`), not a legacy `dispatch`
-  string, verified against the installed Hyprland before it ships.
+- **Workspaces.** Ctrl+1…9 and Ctrl+0 open on the absolute workspace 1–9 and
+  10, available when it is within `workspacesPerMonitor × enabled monitors`
+  (the anchor block when the monitor list is not loaded yet). The "Open on
+  workspace" submenu lists every enabled monitor's block with absolute numbers
+  and its absolute shortcut, and every item launches directly on its absolute
+  workspace. The dispatch is a Hyprland Lua call (`hl.dsp.*`), not a legacy
+  `dispatch` string, verified against the installed Hyprland before it ships.
 - **Context menu** is a new shared component, `components/ContextMenu.qml`,
   built from existing tokens, because no current primitive covers it
   ("No new primitive" asks that it live in `components/`). It opens inside the
-  dashboard window and clamps to the card, since the panel clips anything
-  outside its layout.
+  dashboard window, fits its width to the widest item between
+  `Globals.menuWidth` and `Globals.menuMaxWidth`, and clamps to the card, since
+  the panel clips anything outside its layout.
 - **Persistence.** One `StateFile` named `app-launcher` holds
   `{ pinned: [ids], hidden: [ids], recent: [ids] }` behind the load guard.
   Recent keeps the last 8 launches. An id that no longer resolves stays in the
@@ -136,9 +139,10 @@ no category pills.
   `Colors.selection` role using `Colors.contrastRatio` and `mixInto`), so ash
   and vantablack keep a visible selection.
 - **Keyboard.** ↑/↓, PageUp/PageDown, Tab/Shift+Tab move; Enter opens;
-  Alt+Enter opens and keeps the dashboard; Ctrl+P toggles pin; Ctrl+1…N opens
-  on workspace; Shift+F10 / Menu opens the menu; Esc clears the query, then
-  closes. Typing anywhere in the tab refocuses search.
+  Alt+Enter opens and keeps the dashboard; Ctrl+P toggles pin; Ctrl+1…9 and
+  Ctrl+0 open on absolute workspaces 1–9 and 10; → (cursor at the end) or Menu
+  opens the menu; Esc clears the query, then closes. Typing anywhere in the tab
+  refocuses search.
 - **Design source.** `docs/plans/09-app-launcher-designs.html`, variant 3,
   with this spec's change: Focus and Kill replace the inline workspace buttons.
 

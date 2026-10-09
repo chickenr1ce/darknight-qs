@@ -36,8 +36,9 @@ window.
   `Run "query"` row. The selected or hovered running row swaps its dot, count,
   and star for inline Focus, Kill, Pin/Unpin, and `⋯` buttons; Focus and Kill
   stay laid out but dim and inert without a window, so the row never reflows.
-  Workspaces are not an inline button: Ctrl+1…N and the menu's "Open on
-  workspace" submenu cover them.
+  Workspaces are not an inline button: Ctrl+1…9 and Ctrl+0 open on absolute
+  workspaces 1–9 and 10, and the menu's "Open on workspace" submenu covers
+  every enabled monitor.
 - **Entry points.** The dashboard `IpcHandler` gains `apps()`, which opens on
   Apps when closed, switches to Apps when open on another tab, and closes when
   Apps is showing. The Super bind is `quickshell ipc call dashboard apps` in the
@@ -68,9 +69,11 @@ window.
   calls `HyprlandFocus.focusAddress(address)`. Closing first lets
   `HyprlandFocus` wait for `PanelGrab.closing` and restore the cursor, the order
   `DashboardPlayerBlock` already uses.
-- **Workspace dispatch and quoting.** "Workspace N" is the dashboard monitor's
-  Nth slot: `MonitorService.firstWorkspaceFor(monitor) + N - 1`, bounded by
-  `MonitorService.workspacesPerMonitor`. The dispatch is a Hyprland Lua call,
+- **Workspace dispatch and quoting.** Ctrl+N opens on absolute workspace N
+  (Ctrl+0 is workspace 10), available while N is within
+  `workspacesPerMonitor × enabled monitors`, the anchor block until the monitor
+  list loads. The "Open on workspace" submenu lists the same workspaces grouped
+  by monitor. The dispatch is a Hyprland Lua call,
   `hl.dsp.exec_cmd(cmd, { workspace = N })` through `Hyprland.dispatch`, not a
   legacy `dispatch` string. `AppLogic.shellCommand` quotes each argv element
   with POSIX single quotes and `MonitorLogic.escapeLua` escapes the result, so
@@ -78,10 +81,14 @@ window.
   with spaces, `$(...)`, backticks, or redirection cannot split or inject.
   Terminal entries keep the `kitty -e` prefix.
 - **Menu inside the card.** `components/ContextMenu.qml` is a shared, generic
-  menu. It fits inside the dashboard window without growing it: it opens at the
-  anchor, shifts up on bottom overflow, caps its height at the view and scrolls
-  its item column, and flips the one-level submenu left when there is no room on
-  the right. The item order is Open (↵), Open on workspace ▸, Open keep
+  menu. It fits inside the dashboard window without growing it: its width fits
+  the widest item between `Globals.menuWidth` and `Globals.menuMaxWidth` (the
+  submenu likewise), it opens at the anchor, shifts up on bottom overflow,
+  caps its height at the view and scrolls its item column, and flips the
+  one-level submenu left when there is no room on the right. Right (search
+  cursor at the end) or the Menu key opens it on the selected row; Left on the
+  top level closes it back to search, Left inside the submenu returns to the
+  parent. The item order is Open (↵), Open on workspace ▸, Open keep
   dashboard (middle), Focus window (N open), the entry's desktop actions under
   an "Actions" label, Pin/Unpin (Ctrl+P), Hide from launcher, Copy launch
   command, and Kill `<name>` last in danger. The `Run` row's menu is only Run

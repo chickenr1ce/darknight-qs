@@ -49,6 +49,7 @@ QtObject {
     readonly property int appIconSize: 28
     readonly property int appsFooterGap: 8
     readonly property int menuWidth: 236
+    readonly property int menuMaxWidth: 340
     readonly property int menuItemHeight: 30
     readonly property int menuHeaderHeight: 40
     readonly property int menuGlyphWidth: 16

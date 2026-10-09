@@ -153,9 +153,18 @@ Singleton {
         return screen ? screen.name : "";
     }
 
+    function totalWorkspaces(): int {
+        const enabled = MonitorService.enabledMonitors;
+        const monitors = enabled && enabled.length > 0 ? enabled.length : 1;
+        return MonitorService.workspacesPerMonitor * monitors;
+    }
+
     function workspaceFor(n): int {
-        return AppLogic.workspaceFor(n, MonitorService.firstWorkspaceFor(root.anchorMonitorName()),
-            MonitorService.workspacesPerMonitor);
+        return AppLogic.workspaceFor(n, root.totalWorkspaces());
+    }
+
+    function workspaceKeys(): string {
+        return AppLogic.workspaceKeys(root.totalWorkspaces());
     }
 
     function activeWorkspaceFor(hyprMonitors, monitorName): int {

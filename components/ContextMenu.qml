@@ -7,9 +7,10 @@ import qs.config
 
 // Generic in-card context menu. The caller supplies a descriptor list and a
 // header and positions the menu with openAt(). The menu fits itself inside the
-// host's bounds: it opens at the anchor, shifts up when it would overflow the
-// bottom, and caps its height with a scrollable item column when the content is
-// taller than the host. Descriptors:
+// host's bounds: its width fits the widest item between Globals.menuWidth and
+// Globals.menuMaxWidth, it opens at the anchor, shifts up when it would
+// overflow the bottom, and caps its height with a scrollable item column when
+// the content is taller than the host. Descriptors:
 //   { kind: "item"|"separator"|"label", id, text, hint, danger, enabled,
 //     image, actionIndex, submenu: [ ...same shape... ] }
 // "image" is a resolved icon source; "glyph" is a font glyph. One submenu
@@ -27,7 +28,9 @@ Item {
     property int submenuFor: -1
     property real submenuAnchorY: 0
 
-    readonly property real contentWidth: Globals.menuWidth
+    property real mainWidth: Globals.menuWidth
+    property real submenuWidth: Globals.menuWidth
+    readonly property real contentWidth: root.mainWidth
     readonly property var submenuItems: {
         if (root.submenuFor < 0 || root.submenuFor >= root.items.length)
             return [];
@@ -58,9 +61,9 @@ Item {
         Math.min(root.anchorY, root.height - root.menuHeight - Globals.menuMargin))
     readonly property real submenuX: {
         const right = idMenu.x + idMenu.width + Globals.menuSubmenuGap;
-        if (right + root.contentWidth + Globals.menuMargin <= root.width)
+        if (right + root.submenuWidth + Globals.menuMargin <= root.width)
             return right;
-        return Math.max(Globals.menuMargin, idMenu.x - root.contentWidth - Globals.menuSubmenuGap);
+        return Math.max(Globals.menuMargin, idMenu.x - root.submenuWidth - Globals.menuSubmenuGap);
     }
     readonly property real submenuY: Math.max(Globals.menuMargin,
         Math.min(root.submenuAnchorY, root.height - root.submenuHeight - Globals.menuMargin))
@@ -70,6 +73,9 @@ Item {
     signal typedText(string text)
 
     focus: root.opened
+    onItemsChanged: root.measureWidths()
+
+    Component.onCompleted: root.measureWidths()
 
     Keys.onPressed: event => root.handleKey(event)
     Keys.onShortcutOverride: event => {
@@ -244,6 +250,8 @@ Item {
         } else if (event.key === Qt.Key_Left) {
             if (root.activeLevel === 1)
                 root.leaveSubmenu();
+            else
+                root.closeMenu();
             event.accepted = true;
         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             root.activateActive();
@@ -484,7 +492,7 @@ Item {
 
         x: root.submenuX
         y: root.submenuY
-        width: root.contentWidth
+        width: root.submenuWidth
         height: root.submenuHeight
         visible: root.opened && root.submenuItems.length > 0 && idSubmenu.opacity > 0
         opacity: root.submenuItems.length > 0 ? 1 : 0
@@ -539,6 +547,44 @@ Item {
             id: idSubmenuSmoothWheel
 
             flickable: idSubmenuList
+        }
+    }
+
+    FontMetrics {
+        id: idBodyMetrics
+
+        font {
+            family: Globals.uiFontFamily
+            pixelSize: Globals.uiBodySize
+        }
+    }
+
+    FontMetrics {
+        id: idHintMetrics
+
+        font {
+            family: Globals.fontFamily
+            pixelSize: Globals.uiCaptionSize
+        }
+    }
+
+    FontMetrics {
+        id: idLabelMetrics
+
+        font {
+            family: Globals.uiFontFamily
+            pixelSize: Globals.uiCaptionSize
+            weight: Font.Medium
+            letterSpacing: Globals.uiLetterSpacing
+        }
+    }
+
+    FontMetrics {
+        id: idChevronMetrics
+
+        font {
+            family: Globals.iconFontFamily
+            pixelSize: Globals.uiCaptionSize
         }
     }
 
@@ -718,5 +764,57 @@ Item {
 
     function hasSubmenu(item): bool {
         return !!(item && item.submenu && item.submenu.length > 0);
+    }
+
+    function bodyTextWidth(text): real {
+        return idBodyMetrics.advanceWidth(text || "");
+    }
+
+    function hintTextWidth(text): real {
+        return idHintMetrics.advanceWidth(text || "");
+    }
+
+    function labelTextWidth(text): real {
+        return idLabelMetrics.advanceWidth((text || "").toUpperCase());
+    }
+
+    function itemWidth(item): real {
+        if (!item || item.kind === "separator")
+            return 0;
+        const inset = 2 * Globals.menuMargin;
+        const trailing = Globals.pillHPadding + Globals.scrollbarWidth;
+        if (item.kind === "label")
+            return inset + Globals.pillHPadding + root.labelTextWidth(item.text)
+                + Globals.rowSpacing + trailing;
+        const hint = item.hint ? root.hintTextWidth(item.hint) : 0;
+        const chevron = root.hasSubmenu(item) ? idChevronMetrics.advanceWidth(Icons.chevronRight) : 0;
+        return inset + Globals.pillHPadding + Globals.menuGlyphWidth + Globals.rowSpacing
+            + root.bodyTextWidth(item.text) + Globals.rowSpacing
+            + Math.max(hint, chevron) + trailing;
+    }
+
+    function fittedWidth(list): real {
+        let widest = Globals.menuWidth;
+        const items = list || [];
+        for (let i = 0; i < items.length; i++) {
+            const width = root.itemWidth(items[i]);
+            if (width > widest)
+                widest = width;
+        }
+        return Math.min(widest, Globals.menuMaxWidth);
+    }
+
+    function measureWidths(): void {
+        root.mainWidth = root.fittedWidth(root.items);
+        let widest = Globals.menuWidth;
+        for (let i = 0; i < root.items.length; i++) {
+            const item = root.items[i];
+            if (!item || !item.submenu)
+                continue;
+            const width = root.fittedWidth(item.submenu);
+            if (width > widest)
+                widest = width;
+        }
+        root.submenuWidth = widest;
     }
 }

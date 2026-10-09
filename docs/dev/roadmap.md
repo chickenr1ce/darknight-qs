@@ -70,7 +70,7 @@ Build only if it earns daily use.
 - App launcher: the dashboard's Apps tab (`windows/DashboardAppsView.qml`,
   `services/AppService.qml`, `services/AppLogic.js`) replaces the Media
   placeholder: ranked search with Pinned/Recent/All sections, inline
-  Focus/Kill/Pin on a running app, a shared context menu, per-monitor workspace
+  Focus/Kill/Pin on a running app, a shared context menu, absolute-workspace
   launch through the Hyprland Lua API, a hidden-apps Settings section, and the
   `dashboard apps` IPC target. ADR 0018; user page `docs/user/app-launcher.md`.
 - Cava restart backoff: a repeatedly crashing cava process retries at 1.5 s,

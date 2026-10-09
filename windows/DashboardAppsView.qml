@@ -795,7 +795,7 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                     Layout.fillWidth: false
 
-                    key: qsTr("ctrl 1–%1").arg(Math.min(9, MonitorService.workspacesPerMonitor))
+                    key: AppService.workspaceKeys()
                     label: qsTr("On workspace")
                 }
 
@@ -805,7 +805,7 @@ Item {
                     Layout.alignment: Qt.AlignVCenter
                     Layout.fillWidth: false
 
-                    key: "⇧F10"
+                    key: "→"
                     label: qsTr("More")
                 }
 
@@ -1032,13 +1032,18 @@ Item {
             event.accepted = true;
         } else if ((event.modifiers & Qt.ControlModifier) !== 0
             && event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
-            const slot = event.key - Qt.Key_0;
+            const key = event.key - Qt.Key_0;
             const row = root.selectedRow();
-            if (slot >= 1 && row && row.record)
-                AppService.launchOnWorkspace(row.record, AppService.workspaceFor(slot), false);
+            const workspace = AppService.workspaceFor(key);
+            if (row && row.record && workspace >= 1)
+                AppService.launchOnWorkspace(row.record, workspace, false);
             event.accepted = true;
-        } else if (event.key === Qt.Key_Menu
-            || (event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier))) {
+        } else if (event.key === Qt.Key_Right) {
+            if (idAppsSearch.cursorPosition === idAppsSearch.length) {
+                root.openMenuForSelection();
+                event.accepted = true;
+            }
+        } else if (event.key === Qt.Key_Menu) {
             root.openMenuForSelection();
             event.accepted = true;
         } else if (event.key === Qt.Key_Escape) {
