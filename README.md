@@ -32,6 +32,7 @@ Omarchy trademark disclaimer are in [NOTICE](NOTICE).
 | `mpc` | MPD control; playback pauses on suspend |
 | `gcalcli` | the opt-in multi-calendar backend (see [Calendar setup](docs/user/calendar.md)) |
 | `awww` | applies theme backgrounds |
+| [`kitty`](https://sw.kovidgoyal.net/kitty/) | terminal apps and the launcher's Run row |
 | one of `hyprlock`, `betterlockscreen`, `i3lock` | the power menu's Lock action |
 
 Every optional tool degrades one feature when absent; the shell still starts.
@@ -115,6 +116,14 @@ The workspace split is still fixed: the second monitor's workspaces are 6–10
 The shell claims `org.freedesktop.Notifications` at startup. Stop `mako` or
 `dunst` and disable its autostart first, or the shell cannot own the bus. The
 installer warns when one holds it.
+
+### App launcher
+
+The dashboard's Apps tab is the launcher: Pinned and Recent sections, a ranked
+search over installed apps, and inline Focus, Kill, and Pin on a running app.
+Point your Super key at the `dashboard apps` IPC target to open it from
+anywhere; the [app launcher guide](docs/user/app-launcher.md) covers the
+keybind, the keys and mouse, the context menu, and hiding and unhiding apps.
 
 ### Polkit
 

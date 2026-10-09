@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import qs.components
 import qs.config
@@ -175,8 +176,8 @@ PanelShell {
         visible: root.showingSettings
     }
 
-    Flickable {
-        id: idBodyFlickable
+    Item {
+        id: idBodySlot
 
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -185,142 +186,32 @@ PanelShell {
 
         visible: !root.showingSettings
 
-        contentWidth: width
-        contentHeight: idBodyColumn.implicitHeight
-        clip: true
-        interactive: contentHeight > height
-        boundsBehavior: Flickable.StopAtBounds
+        Flickable {
+            id: idBodyFlickable
 
-        Column {
-            id: idBodyColumn
+            anchors.fill: parent
 
-            width: idBodyFlickable.width
-
-            spacing: Globals.spacing
-
-            Text {
-                id: idAgendaTitle
-
-                width: idBodyColumn.width
-
-                textFormat: Text.PlainText
-                text: CalendarService.dateLabel(CalendarService.selectedIso).toUpperCase()
-                color: Colors.textSubtle
-
-                font {
-                    family: Globals.uiFontFamily
-                    pixelSize: Globals.uiCaptionSize
-                    weight: Font.Medium
-                    letterSpacing: Globals.uiLetterSpacing
-                }
-            }
-
-            Text {
-                id: idStaleMarker
-
-                width: idBodyColumn.width
-
-                visible: CalendarService.eventsStale
-                textFormat: Text.PlainText
-                text: CalendarService.staleLabel().toUpperCase()
-                color: Colors.warning
-
-                font {
-                    family: Globals.uiFontFamily
-                    pixelSize: Globals.uiCaptionSize
-                    weight: Font.Medium
-                    letterSpacing: Globals.uiLetterSpacing
-                }
-            }
+            contentWidth: width
+            contentHeight: idBodyColumn.implicitHeight
+            clip: true
+            interactive: contentHeight > height
+            boundsBehavior: Flickable.StopAtBounds
+            Controls.ScrollBar.vertical: ScrollBar { id: idBodyScrollBar }
 
             Column {
-                id: idAgendaColumn
+                id: idBodyColumn
 
-                width: idBodyColumn.width
+                width: idBodyFlickable.width - Globals.scrollbarWidth
 
-                spacing: Globals.listSpacing
-
-                Repeater {
-                    model: root.agendaRows
-
-                    RowLayout {
-                        required property var modelData
-
-                        width: idAgendaColumn.width
-
-                        spacing: Globals.rowSpacing
-
-                        Text {
-                            Layout.preferredWidth: Globals.agendaTimeWidth
-
-                            visible: root.agendaHasTimes
-                            textFormat: Text.PlainText
-                            text: modelData.t
-                            color: Colors.textSubtle
-
-                            font {
-                                family: Globals.uiFontFamily
-                                pixelSize: Globals.uiBodySize
-                            }
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-
-                            textFormat: Text.PlainText
-                            elide: Text.ElideRight
-                            text: modelData.s
-                            color: Colors.text
-
-                            font {
-                                family: Globals.uiFontFamily
-                                pixelSize: Globals.uiBodySize
-                            }
-                        }
-                    }
-                }
+                spacing: Globals.spacing
 
                 Text {
-                    id: idAgendaEmpty
+                    id: idAgendaTitle
 
-                    width: idAgendaColumn.width
-
-                    visible: CalendarService.selectedDayEvents.length === 0
-                    textFormat: Text.PlainText
-                    text: qsTr("No events")
-                    color: Colors.textSubtle
-
-                    font {
-                        family: Globals.uiFontFamily
-                        pixelSize: Globals.uiBodySize
-                    }
-                }
-            }
-
-            Rectangle {
-                id: idSectionDivider
-
-                width: idBodyColumn.width
-                height: Globals.hairlineHeight
-
-                color: Colors.border
-            }
-
-            RowLayout {
-                id: idWorldHeader
-
-                width: idBodyColumn.width
-
-                spacing: Globals.rowSpacing
-
-                Text {
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
+                    width: idBodyColumn.width
 
                     textFormat: Text.PlainText
-                    elide: Text.ElideRight
-                    text: qsTr("World clock").toUpperCase()
+                    text: CalendarService.dateLabel(CalendarService.selectedIso).toUpperCase()
                     color: Colors.textSubtle
 
                     font {
@@ -331,26 +222,149 @@ PanelShell {
                     }
                 }
 
-                PillButton {
-                    id: idZoneEditButton
+                Text {
+                    id: idStaleMarker
 
-                    Layout.alignment: Qt.AlignVCenter
+                    width: idBodyColumn.width
 
-                    text: root.editingZones ? qsTr("Done") : qsTr("Edit")
-                    onClicked: {
-                        root.editingZones = !root.editingZones;
-                        if (root.editingZones)
-                            idZoneEditor.focusInput();
+                    visible: CalendarService.eventsStale
+                    textFormat: Text.PlainText
+                    text: CalendarService.staleLabel().toUpperCase()
+                    color: Colors.warning
+
+                    font {
+                        family: Globals.uiFontFamily
+                        pixelSize: Globals.uiCaptionSize
+                        weight: Font.Medium
+                        letterSpacing: Globals.uiLetterSpacing
                     }
                 }
-            }
 
-            WorldClockEditor {
-                id: idZoneEditor
+                Column {
+                    id: idAgendaColumn
 
-                width: idBodyColumn.width
-                editing: root.editingZones
+                    width: idBodyColumn.width
+
+                    spacing: Globals.listSpacing
+
+                    Repeater {
+                        model: root.agendaRows
+
+                        RowLayout {
+                            required property var modelData
+
+                            width: idAgendaColumn.width
+
+                            spacing: Globals.rowSpacing
+
+                            Text {
+                                Layout.preferredWidth: Globals.agendaTimeWidth
+
+                                visible: root.agendaHasTimes
+                                textFormat: Text.PlainText
+                                text: modelData.t
+                                color: Colors.textSubtle
+
+                                font {
+                                    family: Globals.uiFontFamily
+                                    pixelSize: Globals.uiBodySize
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
+
+                                textFormat: Text.PlainText
+                                elide: Text.ElideRight
+                                text: modelData.s
+                                color: Colors.text
+
+                                font {
+                                    family: Globals.uiFontFamily
+                                    pixelSize: Globals.uiBodySize
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        id: idAgendaEmpty
+
+                        width: idAgendaColumn.width
+
+                        visible: CalendarService.selectedDayEvents.length === 0
+                        textFormat: Text.PlainText
+                        text: qsTr("No events")
+                        color: Colors.textSubtle
+
+                        font {
+                            family: Globals.uiFontFamily
+                            pixelSize: Globals.uiBodySize
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: idSectionDivider
+
+                    width: idBodyColumn.width
+                    height: Globals.hairlineHeight
+
+                    color: Colors.border
+                }
+
+                RowLayout {
+                    id: idWorldHeader
+
+                    width: idBodyColumn.width
+
+                    spacing: Globals.rowSpacing
+
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+
+                        textFormat: Text.PlainText
+                        elide: Text.ElideRight
+                        text: qsTr("World clock").toUpperCase()
+                        color: Colors.textSubtle
+
+                        font {
+                            family: Globals.uiFontFamily
+                            pixelSize: Globals.uiCaptionSize
+                            weight: Font.Medium
+                            letterSpacing: Globals.uiLetterSpacing
+                        }
+                    }
+
+                    PillButton {
+                        id: idZoneEditButton
+
+                        Layout.alignment: Qt.AlignVCenter
+
+                        text: root.editingZones ? qsTr("Done") : qsTr("Edit")
+                        onClicked: {
+                            root.editingZones = !root.editingZones;
+                            if (root.editingZones)
+                                idZoneEditor.focusInput();
+                        }
+                    }
+                }
+
+                WorldClockEditor {
+                    id: idZoneEditor
+
+                    width: idBodyColumn.width
+                    editing: root.editingZones
+                }
             }
+        }
+
+        SmoothWheel {
+            id: idBodySmoothWheel
+
+            flickable: idBodyFlickable
         }
     }
 

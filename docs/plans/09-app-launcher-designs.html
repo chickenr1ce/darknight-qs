@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE · Dashboard Apps tab (5 variants)</title>
+<!--
+  PROTOTYPE, throwaway. Question: what should the app launcher look like as the dashboard's Apps tab
+  (replacing the Media placeholder)? Round 2: the standalone shapes are gone; every variant renders inside
+  a mock of DashboardCenter (720px card, junction seam, DashboardTabs row, settings gear).
+  Switch with ?variant=1..5, ?theme=<catalog theme>, ?icons=color|tint.
+  Ctrl+Space stands in for the Super hotkey (`quickshell ipc call dashboard apps`): opens on Apps, switches
+  to Apps if the dashboard is open elsewhere, closes if Apps is showing. Clicking the bar title opens the
+  plain Dashboard page, as today.
+  Colors map omarchy palette roles onto config/Colors.qml tokens. Icons are letter tiles hued with
+  Colors.appColor()'s hash; the real tab would load the icon theme.
+-->
+<style>
+:root{--ui:"Geist","Inter",system-ui,sans-serif;--mono:"Iosevka","GeistMono Nerd Font","JetBrains Mono",ui-monospace,monospace;--rp:9px;--rc:6px;--rpill:4px;--jr:16px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:var(--ui);font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:default}
+.scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--surface) transparent}
+.sp{flex:1}
+
+/* ---------- desktop mock ---------- */
+#desk{position:fixed;inset:0;background:
+  radial-gradient(1100px 700px at 78% 88%,color-mix(in srgb,var(--accent) 24%,transparent),transparent 62%),
+  radial-gradient(900px 600px at 8% 18%,color-mix(in srgb,var(--purple) 18%,transparent),transparent 60%),
+  linear-gradient(160deg,var(--bg2),var(--bg))}
+.win{position:absolute;top:44px;bottom:12px;background:var(--bg);border:2px solid var(--surface);border-radius:8px;overflow:hidden;opacity:.96}
+.win.active{border-color:var(--accent)}
+.win .tb{height:30px;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--bg2);font-size:12px;color:var(--subtle)}
+.win .url{flex:1;height:20px;border-radius:5px;background:var(--bg);padding:2px 8px;font-size:11px}
+.win pre{margin:0;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--text)}
+.win pre i{color:var(--accent);font-style:normal}.win pre u{color:var(--subtle);text-decoration:none}
+.win .blk{margin:16px;height:14px;border-radius:4px;background:var(--surface)}
+
+#bar{position:fixed;top:4px;left:10px;right:10px;height:28px;background:var(--bg);border-radius:var(--rp);display:flex;align-items:center;gap:4px;padding:0 6px;font-family:var(--mono);font-size:13px;z-index:40}
+.mod{height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:var(--text);transition:background .14s,color .14s}
+.mod:hover{background:var(--hover)}
+.wss{display:flex;gap:2px}
+.ws{width:22px;height:22px;display:grid;place-items:center;border-radius:5px;color:var(--faint)}
+.ws.occ{color:var(--subtle)}.ws.cur{color:var(--accent);background:var(--accentDim)}
+.hair{width:1px;height:12px;background:var(--surface);margin:0 4px}
+#title{position:absolute;left:50%;transform:translateX(-50%)}
+#title.on{color:var(--accent)}
+
+/* ---------- dashboard card ---------- */
+#dash{position:fixed;top:31px;left:calc(50% - 360px);width:720px;padding:12px;display:flex;flex-direction:column;gap:8px;z-index:30;
+  background:var(--bg);border:1px solid var(--surface);border-top:0;border-radius:0 0 var(--rp) var(--rp);box-shadow:0 18px 40px rgba(0,0,0,.28);animation:drop .16s ease-out}
+#dash::before,#dash::after{content:"";position:absolute;top:0;width:var(--jr);height:var(--jr);pointer-events:none}
+#dash::before{left:calc(-1 * var(--jr));background:radial-gradient(circle at 0 100%,transparent calc(var(--jr) - 1px),var(--surface) calc(var(--jr) - 1px),var(--surface) var(--jr),var(--bg) var(--jr))}
+#dash::after{right:calc(-1 * var(--jr));background:radial-gradient(circle at 100% 100%,transparent calc(var(--jr) - 1px),var(--surface) calc(var(--jr) - 1px),var(--surface) var(--jr),var(--bg) var(--jr))}
+@keyframes drop{from{opacity:0;clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 -60px 0)}}
+.dhead{display:flex;align-items:center;gap:8px}
+.tabs{flex:1;display:flex;gap:8px}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--subtle);font-size:14px;padding-top:2px}
+.tab:hover{color:var(--text)}
+.tab i{display:block;width:100%;height:2px;border-radius:1px;background:transparent}
+.tab.on{color:var(--text);font-weight:600}.tab.on i{background:var(--accent)}
+.gear{width:28px;height:28px;border-radius:var(--rc);display:grid;place-items:center;color:var(--subtle);font-size:16px}
+.gear:hover{background:var(--hover);color:var(--text)}.gear.on{color:var(--accent)}
+#body{height:500px;min-height:0;position:relative;overflow:hidden}
+.card{background:var(--bg);border:1px solid var(--surface);border-radius:var(--rc)}
+.ph{display:grid;place-items:center;height:100%;color:var(--subtle);font-size:14px}
+.dmock{display:grid;grid-template-columns:1fr 1fr 186px;grid-template-rows:96px 128px 112px;gap:8px}
+.dmock .card{padding:10px 12px;font-size:12px;color:var(--subtle)}
+.dmock b{display:block;font-size:22px;color:var(--text);font-weight:600;margin-top:6px}
+
+/* ---------- shared primitives ---------- */
+.search{display:flex;align-items:center;gap:9px;height:38px;padding:0 12px;background:var(--bg2);border:1px solid var(--surface);border-radius:var(--rc);color:var(--subtle);transition:border-color .14s;flex:none}
+.search:focus-within{border-color:var(--accent)}
+.search input{all:unset;flex:1;min-width:0;font-family:var(--ui);font-size:14px;color:var(--text)}
+.search input::placeholder{color:var(--subtle)}
+.kc{display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;line-height:16px;padding:0 5px;border:1px solid var(--surface);background:var(--bg2);border-radius:var(--rpill);color:var(--text);white-space:nowrap}
+.kh{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--subtle);margin-right:14px;white-space:nowrap}
+.sec{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--subtle);padding:10px 12px 4px;display:flex;align-items:center;gap:6px}
+.sec .n{color:var(--faint)}
+.foot{display:flex;align-items:center;border-top:1px solid var(--surface);padding-top:8px;flex:none}
+.foot .hint{font-size:12px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+.ic{display:inline-grid;place-items:center;flex:none;border-radius:24%;font-weight:600;position:relative;letter-spacing:-.02em}
+.icons-color .ic{background:hsl(var(--h) 65% 72%);color:rgba(0,0,0,.6)}
+.icons-tint .ic{background:var(--bg2);color:var(--accent);box-shadow:inset 0 0 0 1px var(--surface)}
+
+.row{position:relative;display:flex;align-items:center;gap:11px;height:44px;padding:0 10px 0 12px;border-radius:var(--rc);user-select:none;flex:none}
+.row.sel{background:var(--sel)}
+.row.sel::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:2px;background:var(--accent)}
+.row .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.row.compact{height:36px;gap:10px}
+.nm{font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gn{font-size:12px;color:var(--subtle);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm b,.tl b{color:var(--accent);font-weight:650}
+.meta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--subtle);font-family:var(--mono)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block}
+.row .enter{display:none}.row.sel .enter{display:inline-flex}
+.pinmark{color:var(--accent);font-size:11px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 4px 8px;border-radius:var(--rc);user-select:none;position:relative;min-width:0}
+.tile.sel{background:var(--sel);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent)}
+.tile .tl{font-size:12px;color:var(--text);max-width:100%;text-align:center;line-height:1.25;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.tile .run{position:absolute;top:8px;right:12px}
+.tile.dropbefore{box-shadow:-3px 0 0 var(--accent)}
+
+.btn{height:30px;padding:0 12px;border-radius:var(--rc);border:1px solid var(--surface);background:var(--bg2);color:var(--text);display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap;transition:background .14s,border-color .14s}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onAccent);font-weight:600}
+.btn.primary .kc{background:transparent;border-color:color-mix(in srgb,var(--onAccent) 35%,transparent);color:var(--onAccent)}
+.quiet{font-size:12px;color:var(--subtle);padding:2px 4px;border-radius:4px;white-space:nowrap}
+.quiet:hover{color:var(--text);background:var(--hover)}
+.ib{width:26px;height:26px;border-radius:var(--rc);display:grid;place-items:center;color:var(--subtle);font-size:13px;flex:none}
+.ib:hover{background:var(--hover);color:var(--text)}
+
+/* detail pane (variants 1 and 5) */
+.detail{display:flex;flex-direction:column;gap:14px;padding:16px 18px;overflow-y:auto}
+.dtop{display:flex;gap:14px;align-items:center}
+.dn{font-size:19px;font-weight:600;color:var(--text)}
+.exec{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:11.5px;color:var(--subtle);background:var(--bg2);border:1px solid var(--surface);border-radius:4px;padding:1px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.star{margin-left:auto;font-size:18px;color:var(--faint);flex:none}.star.on{color:var(--accent)}.star:hover{color:var(--text)}
+.detail .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:-6px}
+.wsrow{display:flex;gap:6px}
+.wsp{width:36px;height:32px;border-radius:var(--rc);border:1px solid var(--surface);background:var(--bg2);font-family:var(--mono);font-size:13px;position:relative;transition:all .14s}
+.wsp:hover{border-color:var(--accent);color:var(--accent)}
+.wsp.cur{background:var(--accentDim);border-color:color-mix(in srgb,var(--accent) 50%,transparent);color:var(--accent)}
+.wsp.occ::after{content:"";position:absolute;bottom:3px;left:50%;margin-left:-2px;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.6}
+.alist{display:flex;flex-direction:column;gap:2px;margin:0 -8px}
+.arow{display:flex;align-items:center;gap:10px;height:30px;padding:0 8px;border-radius:var(--rc);font-size:13px;text-align:left}
+.arow:hover{background:var(--hover)}.arow .g{width:16px;text-align:center;color:var(--subtle)}
+.arow .k{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.dfoot{margin-top:auto;display:flex;gap:6px;border-top:1px solid var(--surface);padding-top:10px}
+
+/* ---------- 1 · Split preview ---------- */
+.v1{display:flex;height:100%}
+.v1 .col{width:296px;flex:none;display:flex;flex-direction:column;gap:8px;padding-right:8px;border-right:1px solid var(--surface)}
+.v1 .list{flex:1;margin-right:-4px;padding-right:4px}
+.v1 .detail{flex:1;min-width:0}
+
+/* ---------- 2 · Pinned board ---------- */
+.v2{display:flex;flex-direction:column;height:100%;gap:8px}
+.v2 .res{flex:1;min-height:0}
+.board{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:6px;margin:0 2px;border-radius:var(--rc);border:1px dashed transparent;transition:border-color .14s,background .14s}
+.board.over{border-color:var(--accent);background:var(--accentDim)}
+.board .tile{padding:12px 4px 10px}
+.board .add{display:grid;place-items:center;border:1px dashed var(--surface);border-radius:var(--rc);color:var(--faint);font-size:12px;min-height:88px;text-align:center;padding:6px}
+.recents{display:flex;gap:6px;padding:0 12px;flex-wrap:wrap}
+.rc{display:flex;align-items:center;gap:7px;height:30px;padding:0 10px 0 4px;border-radius:999px;background:var(--bg2);border:1px solid var(--surface);font-size:13px;user-select:none}
+.rc.sel{border-color:var(--accent);background:var(--sel)}
+.dense{display:grid;grid-template-columns:repeat(3,1fr);gap:0 6px;padding:0 4px}
+.dense .row{height:32px;gap:9px;padding-left:10px;min-width:0}
+.dense .row .nm{font-size:13px}
+
+/* ---------- 3 · Inline actions ---------- */
+.v3{display:flex;flex-direction:column;height:100%;gap:8px}
+.v3 .res{flex:1;min-height:0;margin:0 -4px;padding:0 4px}
+.v3 .row{height:46px}
+.inl{display:none;align-items:center;gap:3px;margin-left:4px}
+.v3 .row.sel .inl,.v3 .row:hover .inl{display:flex}
+.v3 .row:hover .meta .run-c,.v3 .row.sel .meta .run-c,.v3 .row:hover .pinmark,.v3 .row.sel .pinmark{display:none}
+.wsm{width:22px;height:22px;border-radius:4px;border:1px solid var(--surface);font-family:var(--mono);font-size:11px;color:var(--subtle);background:var(--bg)}
+.wsm:hover{border-color:var(--accent);color:var(--accent)}
+.wsm.cur{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+.inl .vr{width:1px;height:14px;background:var(--surface);margin:0 4px}
+.inl .ib.off{opacity:.35;pointer-events:none}
+.inl .ib.kill:hover{color:var(--danger)}
+
+/* ---------- 4 · Bento ---------- */
+.v4{display:grid;grid-template-columns:262px 1fr;gap:8px;height:100%}
+.v4 .left{display:flex;flex-direction:column;gap:8px;min-height:0;transition:opacity .14s}
+.v4.searching .left{opacity:.4}
+.v4 .card{padding:8px}
+.v4 .ch{display:flex;align-items:center;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--subtle);padding:2px 4px 6px}
+.v4 .ch .n{margin-left:6px;color:var(--faint);text-transform:none;letter-spacing:0}
+.v4 .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}
+.v4 .pgrid .tile{padding:7px 2px 5px;gap:5px}.v4 .pgrid .tl{font-size:11px}
+.v4 .row{height:34px;gap:9px;padding-left:10px}
+.v4 .row .nm{font-size:13px}
+.v4 .right .row{height:42px}.v4 .right .row .nm{font-size:14px}
+.v4 .pgrid .tile .run{top:4px;right:4px}
+.v4 .running{flex:1;min-height:0;display:flex;flex-direction:column}
+.v4 .running .scroll{flex:1}
+.v4 .row .x{display:none}.v4 .row:hover .x,.v4 .row.sel .x{display:grid}
+.v4 .right{display:flex;flex-direction:column;gap:8px;min-height:0;padding:10px}
+.v4 .right .res{flex:1;min-height:0;margin:0 -4px;padding:0 4px}
+
+/* ---------- 5 · Detail drawer ---------- */
+.v5{position:relative;height:100%;display:flex;flex-direction:column;gap:8px}
+.v5 .res{flex:1;min-height:0;margin:0 -4px;padding:0 4px;transition:opacity .16s}
+.v5.open .res{opacity:.55}
+.chev{display:none;width:24px;height:24px;border-radius:5px;place-items:center;color:var(--subtle);font-size:15px}
+.chev:hover{background:var(--hover);color:var(--text)}
+.v5 .row:hover .chev,.v5 .row.sel .chev{display:grid}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:392px;background:var(--bg);border-left:1px solid var(--surface);box-shadow:-16px 0 30px rgba(0,0,0,.25);transform:translateX(calc(100% + 30px));transition:transform .18s ease-out;display:flex;flex-direction:column}
+.v5.open .drawer{transform:none}
+.drawer .detail{flex:1}
+.drawer .back{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--subtle);padding:10px 18px 0}
+
+/* ---------- context menu ---------- */
+.ctx{position:fixed;z-index:60;min-width:236px;background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp);padding:5px;box-shadow:0 14px 38px rgba(0,0,0,.4);font-size:13px;animation:pop .1s ease-out;user-select:none}
+@keyframes pop{from{opacity:0;transform:translateY(-4px)}}
+.ctx .hd{display:flex;gap:9px;align-items:center;padding:5px 8px 9px;margin-bottom:4px;border-bottom:1px solid var(--surface)}
+.ctx .it{display:flex;align-items:center;gap:10px;height:30px;padding:0 8px;border-radius:5px;color:var(--text);white-space:nowrap}
+.ctx .it.act{background:var(--sel)}
+.ctx .it .g{width:16px;text-align:center;color:var(--subtle);font-size:12px}
+.ctx .it.act .g{color:var(--accent)}
+.ctx .it .k{margin-left:auto;padding-left:18px;font-family:var(--mono);font-size:11px;color:var(--subtle)}
+.ctx .it.danger,.ctx .it.danger .g{color:var(--danger)}
+.ctx .sep{height:1px;background:var(--surface);margin:4px 6px}
+.ctx .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);padding:6px 8px 3px}
+
+#toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:10px;padding:8px 14px 8px 8px;background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp);font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:opacity .18s,transform .18s;pointer-events:none}
+#toast.hide{opacity:0;transform:translate(-50%,8px)}
+
+/* ---------- prototype chrome (deliberately NOT themed) ---------- */
+#switch{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:6px;padding:5px;background:#fafafa;color:#111;border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.45);font:12.5px/1 system-ui,sans-serif}
+#switch button{width:30px;height:30px;border-radius:50%;font-size:16px;color:#111;cursor:pointer}
+#switch button:hover{background:#e6e6e6}
+#switch .lab{min-width:180px;text-align:center;font-weight:650}
+#switch select{font:inherit;border:1px solid #ccc;border-radius:999px;padding:5px 8px;background:#fff;color:#111}
+#switch .div{width:1px;height:20px;background:#ddd}
+#state{position:fixed;right:12px;bottom:14px;z-index:90;width:290px;background:rgba(10,10,10,.86);color:#ddd;border-radius:10px;font:11px/1.5 ui-monospace,monospace;padding:8px 10px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+#state h4{margin:0 0 4px;font:600 10px system-ui;letter-spacing:.1em;color:#999;display:flex;cursor:pointer}
+#state h4 span{margin-left:auto}
+#state.min .body{display:none}
+#state .k{color:#888}#state .log{color:#9fe0a8}
+#state button{color:#fc6;text-decoration:underline;cursor:pointer;font:inherit}
+</style>
+</head>
+<body>
+<div id="desk">
+  <div class="win" style="left:10px;right:calc(50% + 4px)"><div class="tb">kitty — ~/.config/quickshell</div>
+<pre><i>~/.config/quickshell</i> on <i>main</i>
+<u>❯</u> scripts/check.sh
+qmllint ........ ok
+node tests ..... 214 passed
+<u>❯</u> █</pre></div>
+  <div class="win active" style="left:calc(50% + 4px);right:10px"><div class="tb"><span>◀ ▶</span><span class="url">quickshell.org/docs/v0.3.1/guide</span></div>
+    <div class="blk" style="width:40%;height:22px"></div><div class="blk" style="width:86%"></div><div class="blk" style="width:78%"></div><div class="blk" style="width:82%"></div><div class="blk" style="width:50%"></div></div>
+</div>
+
+<div id="bar">
+  <div class="wss" id="wss"></div>
+  <div class="hair"></div>
+  <div class="mod">Thu 9 Oct&nbsp;&nbsp;14:32</div>
+  <div id="title" class="mod" title="Opens the Dashboard page, as today">Firefox — Quickshell guide</div>
+  <div class="sp"></div>
+  <div class="mod">▂▅▇▃▆▂</div><div class="mod">♪ 62%</div><div class="mod">󰂚 ●</div><div class="mod">⏻</div>
+</div>
+
+<div id="dashHost"></div>
+<div id="toast" class="hide"></div>
+
+<div id="switch">
+  <button id="prev" title="Previous variant (← when closed, alt+← when open)">‹</button>
+  <div class="lab" id="vlab"></div>
+  <button id="next" title="Next variant">›</button>
+  <div class="div"></div>
+  <select id="themeSel" title="Theme (real catalog palettes)"></select>
+  <select id="iconSel" title="Icon treatment"><option value="color">Icons: app color</option><option value="tint">Icons: theme tint</option></select>
+</div>
+<div id="state"><h4 id="stateH">PROTOTYPE STATE · ctrl+space = Super <span>▾</span></h4><div class="body" id="stateB"></div></div>
+
+<script>
+// ---------------- data ----------------
+const THEMES = {
+  darknight:{mode:'dark',accent:'#b4befe',muted:'#9d93ad',background:'#141118',dark_background:'#27222f',lighter_background:'#282936',foreground:'#cac4d4',dark_foreground:'#4f455f',red:'#ff5252',magenta:'#a980db'},
+  outpost:{mode:'dark',accent:'#d3ae78',muted:'#a1afa9',background:'#14282d',dark_background:'#102126',lighter_background:'#253c41',foreground:'#e8dfc4',red:'#d78f79',magenta:'#b5a0ba'},
+  haven:{mode:'light',accent:'#795334',muted:'#526056',background:'#EEE8DA',dark_background:'#E7DFD0',lighter_background:'#E2DAC9',foreground:'#263D40',red:'#8C4036',magenta:'#6C4D6C'},
+  vantablack:{mode:'dark',accent:'#8d8d8d',muted:'#7a7a7a',background:'#000000',dark_background:'#090909',lighter_background:'#1a1a1a',foreground:'#ffffff',red:'#a4a4a4',magenta:'#9b9b9b'},
+  ash:{mode:'dark',accent:'#626262',muted:'#5a5a5a',background:'#121212',dark_background:'#0d0d0d',lighter_background:'#212121',foreground:'#e0e0e0',red:'#8a8a8a',magenta:'#8a8a8a'},
+};
+const APPS = [
+  {id:'firefox',name:'Firefox',generic:'Web Browser',exec:'firefox %u',kw:'browser web',actions:['New Window','New Private Window'],running:2},
+  {id:'chromium',name:'Chromium',generic:'Web Browser',exec:'chromium %U',kw:'browser web chrome',actions:['New Window','New Incognito Window']},
+  {id:'thunderbird',name:'Thunderbird',generic:'Mail Client',exec:'thunderbird %u',kw:'email',actions:['Compose New Message','Address Book']},
+  {id:'discord',name:'Discord',generic:'Internet Messenger',exec:'discord',kw:'chat voice',running:1},
+  {id:'signal',name:'Signal',generic:'Private Messenger',exec:'signal-desktop',kw:'chat'},
+  {id:'spotify',name:'Spotify',generic:'Music Player',exec:'spotify %U',kw:'music audio',running:1},
+  {id:'mpv',name:'mpv',generic:'Media Player',exec:'mpv --player-operation-mode=pseudo-gui',kw:'video'},
+  {id:'obs',name:'OBS Studio',generic:'Screen Recorder',exec:'obs',kw:'stream record'},
+  {id:'pavucontrol',name:'Volume Control',generic:'PulseAudio Volume Control',exec:'pavucontrol',kw:'sound audio mixer'},
+  {id:'kitty',name:'kitty',generic:'Terminal Emulator',exec:'kitty',kw:'shell terminal console',actions:['New Window'],running:3},
+  {id:'btop',name:'btop++',generic:'System Monitor',exec:'kitty -e btop',kw:'top process cpu',terminal:true},
+  {id:'yazi',name:'Yazi',generic:'Terminal File Manager',exec:'kitty -e yazi',kw:'files',terminal:true},
+  {id:'nautilus',name:'Files',generic:'File Manager',exec:'nautilus --new-window %U',kw:'folder explorer',actions:['New Window']},
+  {id:'code',name:'Visual Studio Code',generic:'Text Editor',exec:'code %F',kw:'vscode editor ide',actions:['New Empty Window'],running:1},
+  {id:'nvim',name:'Neovim',generic:'Text Editor',exec:'kitty -e nvim %F',kw:'vim editor',terminal:true},
+  {id:'zed',name:'Zed',generic:'Text Editor',exec:'zeditor %U',kw:'editor ide'},
+  {id:'lazygit',name:'Lazygit',generic:'Git Client',exec:'kitty -e lazygit',kw:'git vcs',terminal:true},
+  {id:'bruno',name:'Bruno',generic:'API Client',exec:'bruno',kw:'http rest postman'},
+  {id:'gimp',name:'GIMP',generic:'Image Editor',exec:'gimp %U',kw:'photo paint'},
+  {id:'inkscape',name:'Inkscape',generic:'Vector Graphics Editor',exec:'inkscape %F',kw:'svg draw'},
+  {id:'krita',name:'Krita',generic:'Digital Painting',exec:'krita %F',kw:'paint draw'},
+  {id:'blender',name:'Blender',generic:'3D Modeler',exec:'blender %f',kw:'3d render'},
+  {id:'obsidian',name:'Obsidian',generic:'Knowledge Base',exec:'obsidian %u',kw:'notes markdown'},
+  {id:'writer',name:'LibreOffice Writer',generic:'Word Processor',exec:'libreoffice --writer %U',kw:'doc word'},
+  {id:'calc',name:'LibreOffice Calc',generic:'Spreadsheet',exec:'libreoffice --calc %U',kw:'excel sheet'},
+  {id:'zathura',name:'Zathura',generic:'Document Viewer',exec:'zathura %U',kw:'pdf'},
+  {id:'steam',name:'Steam',generic:'Game Library',exec:'steam %U',kw:'games',actions:['Store','Library','Friends']},
+  {id:'heroic',name:'Heroic Games Launcher',generic:'Game Launcher',exec:'heroic %u',kw:'epic gog'},
+  {id:'nm',name:'Network Connections',generic:'Network Settings',exec:'nm-connection-editor',kw:'wifi ethernet vpn'},
+  {id:'blueman',name:'Bluetooth Manager',generic:'Bluetooth Settings',exec:'blueman-manager',kw:'bt devices'},
+  {id:'hyprpicker',name:'Hyprpicker',generic:'Color Picker',exec:'hyprpicker -a',kw:'colour eyedropper'},
+  {id:'calculator',name:'Calculator',generic:'Calculator',exec:'gnome-calculator',kw:'math'},
+  {id:'1password',name:'1Password',generic:'Password Manager',exec:'1password %U',kw:'vault secrets',actions:['Open Quick Access','Lock']},
+];
+const TABS = [['dashboard','Dashboard'],['apps','Apps'],['performance','Performance'],['workspaces','Workspaces']];
+const CUR_WS = 2, OCC_WS = new Set([1, 2, 3]);
+const byId = id => APPS.find(a => a.id === id);
+
+// ---------------- state ----------------
+const P = new URLSearchParams(location.search);
+const KEYS = ['1','2','3','4','5'];
+const state = {
+  variant: KEYS.includes(P.get('variant')) ? P.get('variant') : '1',
+  theme: THEMES[P.get('theme')] ? P.get('theme') : 'darknight',
+  icons: P.get('icons') === 'tint' ? 'tint' : 'color',
+  open: true, tab: 'apps', query: '', sel: 0, items: [], drawer: false,
+  pinned: ['firefox','kitty','code','spotify','obsidian','nautilus'],
+  hidden: [], recent: ['code','steam','firefox','lazygit','kitty','btop'],
+  log: [], ctx: null,
+};
+
+// ---------------- helpers ----------------
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function hue(name) { let h = 5381; for (const ch of name.trim().toLowerCase()) h = ((h * 33) + ch.charCodeAt(0)) >>> 0; return ((h % 11) + 1) * 30; }
+function icon(a, size) {
+  const letter = a.id === '__run' ? '›_' : a.name.replace(/^LibreOffice /, '')[0].toUpperCase();
+  return `<span class="ic" style="--h:${hue(a.name)};width:${size}px;height:${size}px;font-size:${Math.round(size * .46)}px">${esc(letter)}</span>`;
+}
+function hexRgb(h) { h = h.replace('#',''); return [0,2,4].map(i => parseInt(h.slice(i, i + 2), 16) / 255); }
+function lum(h) { return hexRgb(h).map(c => c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4)).reduce((s, c, i) => s + c * [.2126,.7152,.0722][i], 0); }
+function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); }
+function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return '#' + A.map((c, i) => Math.round((c + (B[i] - c) * t) * 255).toString(16).padStart(2, '0')).join(''); }
+function rgba(h, a) { const [r, g, b] = hexRgb(h).map(c => Math.round(c * 255)); return `rgba(${r},${g},${b},${a})`; }
+function kh(k, l) { return `<span class="kh"><span class="kc">${k}</span>${l}</span>`; }
+const SEARCH = `<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>`;
+const searchBox = ph => `<div class="search">${SEARCH}<input id="q" placeholder="${ph}" autocomplete="off" spellcheck="false"></div>`;
+
+function applyTheme() {
+  const t = THEMES[state.theme], s = document.documentElement.style;
+  const faint = t.dark_foreground && contrast(t.dark_foreground, t.background) < contrast(t.accent, t.background) ? t.dark_foreground : mix(t.background, t.foreground, .35);
+  // accentDim like the shell, but a near-grey accent (ash, vantablack) would vanish, so fall back to a foreground wash.
+  const weakAccent = contrast(t.accent, t.background) < 3.2;
+  const vars = {
+    '--bg': t.background, '--bg2': t.dark_background, '--surface': t.lighter_background,
+    '--text': t.foreground, '--subtle': t.muted, '--faint': faint, '--accent': t.accent, '--purple': t.magenta,
+    '--danger': t.red, '--accentDim': rgba(t.accent, .14), '--hover': mix(t.background, t.foreground, .06),
+    '--sel': weakAccent ? mix(t.background, t.foreground, .11) : rgba(t.accent, .14),
+    '--onAccent': contrast(t.background, t.accent) >= 3 ? t.background : t.foreground,
+  };
+  for (const k in vars) s.setProperty(k, vars[k]);
+  document.body.className = 'icons-' + state.icons;
+}
+
+// ---------------- search ----------------
+function subseq(n, q) { let j = 0; for (const c of n) if (c === q[j]) j++; return j === q.length; }
+function score(a, q) {
+  const n = a.name.toLowerCase();
+  if (n.startsWith(q)) return 100 - n.length * .1;
+  if (n.split(/[\s\-+.]/).some(w => w.startsWith(q))) return 80;
+  if (n.includes(q)) return 60;
+  if (subseq(n, q)) return 40;
+  if (`${a.generic} ${a.kw || ''} ${a.id}`.toLowerCase().includes(q)) return 25;
+  return 0;
+}
+function hl(name, q) {
+  q = q.trim().toLowerCase(); if (!q) return esc(name);
+  const n = name.toLowerCase(), marks = new Set(); const i = n.indexOf(q);
+  if (i >= 0) for (let k = 0; k < q.length; k++) marks.add(i + k);
+  else { let j = 0; for (let k = 0; k < n.length && j < q.length; k++) if (n[k] === q[j]) { marks.add(k); j++; } if (j < q.length) marks.clear(); }
+  return [...name].map((c, k) => marks.has(k) ? `<b>${esc(c)}</b>` : esc(c)).join('');
+}
+const visible = () => APPS.filter(a => !state.hidden.includes(a.id));
+const alpha = (x, y) => x.name.localeCompare(y.name, undefined, {sensitivity: 'base'});
+const q = () => state.query.trim().toLowerCase();
+function ranked() {
+  if (!q()) return visible().sort(alpha);
+  return visible().map(a => [a, score(a, q())]).filter(x => x[1] > 0).sort((x, y) => y[1] - x[1] || alpha(x[0], y[0])).map(x => x[0]);
+}
+const pinnedApps = () => state.pinned.map(byId).filter(a => !state.hidden.includes(a.id));
+const recentApps = (n, skipPinned) => state.recent.map(byId).filter(a => !state.hidden.includes(a.id) && !(skipPinned && state.pinned.includes(a.id))).slice(0, n);
+const runApp = () => ({id:'__run', name:`Run “${state.query.trim()}”`, generic:'Run as a shell command', exec:state.query.trim()});
+function appAt(i) { const id = state.items[i]; return id === '__run' ? runApp() : byId(id); }
+const selApp = () => appAt(state.sel);
+
+// Each renderer registers the ids it lays out so data-idx maps back to an app.
+function reg(a) { state.items.push(a.id); return state.items.length - 1; }
+function groups(gs, fn) {
+  let html = '';
+  for (const g of gs) {
+    if (!g.apps.length) continue;
+    if (g.title) html += `<div class="sec">${esc(g.title)}${g.n ? `<span class="n">${g.apps.length}</span>` : ''}</div>`;
+    html += g.apps.map(a => fn(a, reg(a))).join('');
+  }
+  if (!state.items.length && q()) html += fn(runApp(), reg(runApp()));
+  return html;
+}
+function metaHtml(a) {
+  const pin = state.pinned.includes(a.id) ? '<span class="pinmark" title="Pinned">★</span>' : '';
+  const run = a.running ? `<span class="run-c" title="${a.running} open"><span class="dot"></span> ${a.running}</span>` : '';
+  return run + pin;
+}
+function row(a, i, o = {}) {
+  return `<div class="row ${o.cls || ''}" data-idx="${i}" data-app="${a.id}" ${o.drag && a.id !== '__run' ? 'draggable="true"' : ''}>${icon(a, o.size || 28)}<div class="t"><div class="nm">${hl(a.name, state.query)}</div>${o.gn === false ? '' : `<div class="gn">${esc(a.generic)}</div>`}</div><span class="meta">${o.meta === false ? '' : metaHtml(a)}${o.tail || ''}${o.enter === false ? '' : '<span class="kc enter">↵</span>'}</span></div>`;
+}
+function tile(a, i, size) {
+  return `<div class="tile" data-idx="${i}" data-app="${a.id}" draggable="true" title="${esc(a.name)}">${icon(a, size)}<div class="tl">${hl(a.name, state.query)}</div>${a.running ? '<span class="dot run"></span>' : ''}</div>`;
+}
+function homeGroups() {
+  return [{title:'Pinned', apps:pinnedApps()}, {title:'Recent', apps:recentApps(4, true)}, {title:'All apps', apps:ranked(), n:true}];
+}
+
+function detailHtml(a) {
+  if (!a) return '<div class="ph">Nothing selected</div>';
+  if (a.id === '__run') return `<div class="dtop">${icon(a, 52)}<div style="min-width:0"><div class="dn">${esc(a.name)}</div><div class="gn">Runs in kitty</div><span class="exec">${esc(a.exec)}</span></div></div><div><button class="btn primary" data-act="open">Run <span class="kc">↵</span></button></div>`;
+  const pinned = state.pinned.includes(a.id);
+  return `<div class="dtop" data-app="${a.id}">${icon(a, 52)}<div style="min-width:0"><div class="dn">${esc(a.name)}</div><div class="gn">${esc(a.generic)}${a.terminal ? ' · terminal' : ''}</div><span class="exec">${esc(a.exec)}</span></div><button class="star ${pinned ? 'on' : ''}" data-act="pin" title="${pinned ? 'Unpin' : 'Pin'} (ctrl+p)">${pinned ? '★' : '☆'}</button></div>
+    <div style="display:flex;gap:8px"><button class="btn primary" data-act="open">Open <span class="kc">↵</span></button><button class="btn" data-act="keep">Open, keep dashboard</button></div>
+    <div class="lbl">Open on workspace</div>
+    <div class="wsrow">${[1,2,3,4,5].map(n => `<button class="wsp ${n === CUR_WS ? 'cur' : ''} ${OCC_WS.has(n) ? 'occ' : ''}" data-act="ws" data-v="${n}" title="Workspace ${n}${n === CUR_WS ? ' (current)' : ''} · ctrl+${n}">${n}</button>`).join('')}<button class="wsp" data-act="ws" data-v="new" title="New empty workspace">+</button></div>
+    ${a.actions ? `<div class="lbl">Actions</div><div class="alist">${a.actions.map((x, i) => `<button class="arow" data-act="action" data-v="${i}"><span class="g">›</span>${esc(x)}</button>`).join('')}</div>` : ''}
+    ${a.running ? `<div class="lbl">Open windows</div><div class="alist">${Array.from({length: a.running}, (_, i) => `<button class="arow" data-act="focus" data-v="${i}"><span class="g">◎</span>${esc(a.name)} — window ${i + 1}<span class="k">ws ${[2, 1, 3][i % 3]}</span></button>`).join('')}</div>` : ''}
+    <div class="dfoot"><button class="quiet" data-act="hide">Hide from launcher</button><button class="quiet" data-act="copy">Copy command</button><button class="quiet" data-act="edit">Edit desktop entry</button></div>`;
+}
+
+// ---------------- variants (all render into the Apps tab body) ----------------
+const V = {
+  1: { name: 'Split preview', hoverDelay: 140,
+    mount(b) { b.innerHTML = `<div class="v1"><div class="col">${searchBox('Search apps')}<div class="list scroll" id="res"></div></div><div class="detail" id="detail"></div></div>`; },
+    results() { $('#res').innerHTML = groups(q() ? [{apps: ranked()}] : homeGroups(), (a, i) => row(a, i, {cls: 'compact', size: 24, gn: false})); },
+    onSel() { $('#detail').innerHTML = detailHtml(selApp()); },
+    hint: 'A’s list on the left, E’s detail on the right. Hover previews after a short rest, so crossing rows on the way to the pane keeps the app. Click opens.' },
+
+  2: { name: 'Pinned board',
+    mount(b) { b.innerHTML = `<div class="v2">${searchBox('Search apps')}<div class="res scroll" id="res"></div><div class="foot">${kh('↵','Open')}${kh('ctrl 1–5','On workspace')}<span class="sp"></span><span class="hint">drag onto the board to pin, off it to unpin</span></div></div>`; },
+    results() {
+      if (q()) { $('#res').innerHTML = groups([{apps: ranked()}], row); return; }
+      const pins = pinnedApps(); let html = `<div class="sec">Pinned<span class="n">${pins.length}</span></div><div class="board" id="board">`;
+      html += pins.map(a => tile(a, reg(a), 48)).join('');
+      if (pins.length % 6) html += `<div class="add">drop an app here</div>`;
+      html += `</div><div class="sec">Recent</div><div class="recents">` + recentApps(5).map(a => `<div class="rc" data-idx="${reg(a)}" data-app="${a.id}">${icon(a, 22)}${esc(a.name)}</div>`).join('') + `</div>`;
+      html += `<div class="sec">All apps<span class="n">${visible().length}</span></div><div class="dense">` + ranked().map(a => row(a, reg(a), {size: 20, gn: false, meta: false, enter: false, drag: true})).join('') + `</div>`;
+      $('#res').innerHTML = html;
+    },
+    hint: 'Mouse-first home: big pinned tiles, recent chips, a dense three-column A–Z. Typing swaps it all for A’s ranked list.' },
+
+  3: { name: 'Inline actions',
+    mount(b) { b.innerHTML = `<div class="v3">${searchBox('Search apps')}<div class="res scroll" id="res"></div><div class="foot">${kh('↵','Open')}${kh('ctrl 1–5','On workspace')}${kh('⇧F10','More')}<span class="sp"></span><span class="hint">hover a row for actions</span></div></div>`; },
+    results() {
+      // Focus and Kill stay laid out for apps with no window (dim and inert), so the row never reflows.
+      const tail = a => a.id === '__run' ? '' : `<span class="inl"><button class="ib ${a.running ? '' : 'off'}" data-act="${a.running ? 'focus' : 'noop'}" title="${a.running ? 'Focus ' + esc(a.name) : 'Not running'}">◎</button><button class="ib kill ${a.running ? '' : 'off'}" data-act="${a.running ? 'quit' : 'noop'}" title="${a.running ? 'Kill ' + esc(a.name) + ' (closes ' + a.running + ' window' + (a.running > 1 ? 's' : '') + ')' : 'Not running'}">✕</button><span class="vr"></span><button class="ib" data-act="pin" title="${state.pinned.includes(a.id) ? 'Unpin' : 'Pin'}">${state.pinned.includes(a.id) ? '★' : '☆'}</button><button class="ib" data-act="menu" title="More actions">⋯</button></span>`;
+      $('#res').innerHTML = groups(q() ? [{apps: ranked()}] : homeGroups(), (a, i) => row(a, i, {tail: tail(a), enter: false}));
+    },
+    hint: 'Pure A, no side pane: the selected or hovered row grows focus, kill, pin, and ⋯ buttons in place. Open on workspace lives in ctrl+1–5 and the right-click menu.' },
+
+  4: { name: 'Bento',
+    mount(b) { b.innerHTML = `<div class="v4" id="v4"><div class="left"><div class="card"><div class="ch">Pinned</div><div class="pgrid" id="pins"></div></div><div class="card running"><div class="ch">Running<span class="n" id="runN"></span></div><div class="scroll" id="running"></div></div></div><div class="card right">${searchBox('Search all apps')}<div class="res scroll" id="res"></div></div></div>`; },
+    results() {
+      $('#v4').classList.toggle('searching', !!q());
+      // The searchable list registers first so a query selects its top hit, not a pinned tile.
+      $('#res').innerHTML = groups([{apps: ranked()}], (a, i) => row(a, i, {size: 26, cls: 'compact'}));
+      $('#pins').innerHTML = pinnedApps().map(a => tile(a, reg(a), 36)).join('');
+      const run = visible().filter(a => a.running);
+      $('#runN').textContent = run.reduce((s, a) => s + a.running, 0) + ' windows';
+      $('#running').innerHTML = run.map(a => row(a, reg(a), {size: 22, gn: false, meta: false, enter: false, cls: 'focusrow', tail: `<span style="color:var(--subtle)">${a.running}</span><button class="ib x" data-act="quit" title="Quit ${esc(a.name)}">✕</button>`})).join('');
+    },
+    hint: 'Dashboard-style blocks: pinned grid and running windows on the left (click a running app to focus it), searchable A–Z on the right.' },
+
+  5: { name: 'Detail drawer',
+    mount(b) { b.innerHTML = `<div class="v5" id="v5">${searchBox('Search apps')}<div class="res scroll" id="res"></div><div class="foot">${kh('↵','Open')}${kh('→','Details')}${kh('ctrl 1–5','On workspace')}<span class="sp"></span><span class="hint">click › or press → for details</span></div><div class="drawer" id="drawer"><button class="back" data-act="drawer" data-v="0">‹ Back <span class="kc">←</span></button><div class="detail" id="detail"></div></div></div>`; },
+    results() {
+      $('#v5').classList.toggle('open', state.drawer);
+      $('#res').innerHTML = groups(q() ? [{apps: ranked()}] : homeGroups(), (a, i) => row(a, i, {tail: a.id === '__run' ? '' : '<button class="chev" data-act="drawer" data-v="1" title="Details">›</button>'}));
+    },
+    onSel() { if (state.drawer) $('#detail').innerHTML = detailHtml(selApp()); },
+    onRight() { if (state.drawer || selApp()?.id === '__run') return false; ACTS.drawer('1'); return true; },
+    onLeft() { if (!state.drawer) return false; ACTS.drawer('0'); return true; },
+    hint: 'A’s clean list by default; E’s full detail pane slides over on demand (› or →).' },
+};
+const cur = () => V[state.variant];
+
+// ---------------- lifecycle ----------------
+function mount() {
+  closeCtx();
+  const host = $('#dashHost');
+  $('#title').classList.toggle('on', state.open);
+  if (!state.open) { host.innerHTML = ''; renderState(); return; }
+  host.innerHTML = `<div id="dash">
+    <div class="dhead"><div class="tabs">${TABS.map(([k, t]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-tab="${k}">${t}<i></i></button>`).join('')}</div><button class="gear ${state.tab === 'settings' ? 'on' : ''}" data-tab="settings" title="Settings">⚙</button></div>
+    <div id="body"></div></div>`;
+  const body = $('#body');
+  if (state.tab === 'apps') {
+    cur().mount(body);
+    const inp = $('#q'); inp.value = state.query;
+    inp.addEventListener('input', () => { state.query = inp.value; state.sel = 0; refresh(); });
+    refresh(); inp.focus();
+  } else if (state.tab === 'dashboard') {
+    body.innerHTML = `<div class="dmock"><div class="card">Weather<b>18° Kuala Lumpur</b></div><div class="card">System<b>omarchy</b></div><div class="card" style="grid-row:span 2">Theme<b>${state.theme}</b></div><div class="card" style="grid-column:span 2">Player<b>Spotify — Nils Frahm</b></div><div class="card">CPU<b>14%</b></div><div class="card" style="grid-column:span 2">Volume<b>62%</b></div></div><div class="ph" style="height:auto;padding-top:14px;font-size:12px;color:var(--faint)">existing Dashboard page (mock) · ctrl+space jumps to Apps</div>`;
+    renderState();
+  } else { body.innerHTML = `<div class="ph">${state.tab === 'settings' ? 'Settings (not part of this prototype)' : 'Coming soon'}</div>`; renderState(); }
+}
+function refresh() {
+  state.items = []; cur().results();
+  state.sel = Math.max(0, Math.min(state.sel, state.items.length - 1));
+  applySel(true);
+}
+function applySel(scroll) {
+  document.querySelectorAll('#body [data-idx]').forEach(el => {
+    const on = +el.dataset.idx === state.sel; el.classList.toggle('sel', on);
+    if (on && scroll) el.scrollIntoView({block: 'nearest'});
+  });
+  cur().onSel && cur().onSel();
+  renderState();
+}
+function openOn(tab) { state.open = true; state.tab = tab; state.query = ''; state.sel = 0; state.drawer = false; mount(); }
+function closeDash() { state.open = false; mount(); }
+function superKey() { if (state.open && state.tab === 'apps') closeDash(); else openOn('apps'); }
+function setVariant(k) {
+  state.variant = k; const u = new URL(location); u.searchParams.set('variant', k); history.replaceState(null, '', u);
+  $('#vlab').textContent = `${k} · ${V[k].name}`; openOn('apps');
+}
+function cycle(d) { setVariant(KEYS[(KEYS.indexOf(state.variant) + d + KEYS.length) % KEYS.length]); }
+
+// Arrow keys move to the geometrically nearest item, so one handler serves lists, grids, chips, and two-column layouts.
+function spatial(dir) {
+  const els = [...document.querySelectorAll('#body [data-idx]')];
+  const curEl = els.find(e => +e.dataset.idx === state.sel); if (!curEl) return false;
+  const c = curEl.getBoundingClientRect(), cx = c.left + c.width / 2, cy = c.top + c.height / 2;
+  let best = null, bd = Infinity;
+  for (const e of els) {
+    if (e === curEl) continue;
+    const r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    let ok = false, d = 0;
+    if (dir === 'down') { ok = r.top >= c.bottom - 4; d = (y - cy) + Math.abs(x - cx) * 2; }
+    if (dir === 'up') { ok = r.bottom <= c.top + 4; d = (cy - y) + Math.abs(x - cx) * 2; }
+    if (dir === 'right') { ok = r.left >= c.right - 4 && Math.abs(y - cy) < Math.max(c.height, r.height); d = (x - cx) + Math.abs(y - cy) * 2; }
+    if (dir === 'left') { ok = r.right <= c.left + 4 && Math.abs(y - cy) < Math.max(c.height, r.height); d = (cx - x) + Math.abs(y - cy) * 2; }
+    if (ok && d < bd) { bd = d; best = e; }
+  }
+  if (!best) return false;
+  state.sel = +best.dataset.idx; applySel(true); return true;
+}
+
+// ---------------- actions ----------------
+let toastT;
+function log(msg, a) {
+  state.log.unshift(msg); state.log = state.log.slice(0, 6);
+  const t = $('#toast'); t.innerHTML = (a ? icon(a, 24) : '') + `<span>${esc(msg)}</span>`; t.classList.remove('hide');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hide'), 1800);
+  renderState();
+}
+function launch(a, o = {}) {
+  if (!a) return;
+  let m = a.id === '__run' ? `run in kitty: ${a.exec}` : `launch ${a.name}`;
+  if (o.action) m += ` · ${o.action}`;
+  if (o.ws) m += o.ws === 'new' ? ' → new workspace' : ` → workspace ${o.ws}`;
+  if (o.keep) m += ' (dashboard kept open)';
+  if (a.id !== '__run') state.recent = [a.id, ...state.recent.filter(x => x !== a.id)].slice(0, 8);
+  log(m, a);
+  if (!o.keep) closeDash(); else refresh();
+}
+function focusApp(a, n) { log(`focus ${a.name}${n !== undefined ? ' window ' + (n + 1) : ''} via HyprlandFocus (after the dashboard closes)`, a); closeDash(); }
+function togglePin(a) {
+  if (!a || a.id === '__run') return;
+  const on = state.pinned.includes(a.id);
+  state.pinned = on ? state.pinned.filter(x => x !== a.id) : [...state.pinned, a.id];
+  log(`${on ? 'unpinned' : 'pinned'} ${a.name}`, a); refresh();
+}
+function hideApp(a) { state.hidden.push(a.id); log(`hid ${a.name} — undo from the state panel`, a); refresh(); }
+function quitApp(a) { a.running = 0; log(`closed all ${a.name} windows`, a); refresh(); }
+
+// ---------------- context menu ----------------
+function ctxItems(a) {
+  if (a.id === '__run') return [{g:'›_', t:'Run in terminal', k:'↵', run:() => launch(a)}, {g:'⎘', t:'Copy command', run:() => log(`copied: ${a.exec}`)}];
+  const pinned = state.pinned.includes(a.id), it = [];
+  it.push({g:'↗', t:'Open', k:'↵', run:() => launch(a)});
+  it.push({g:'▣', t:'Open on workspace', sub:[1,2,3,4,5].map(n => ({g: n === CUR_WS ? '●' : (OCC_WS.has(n) ? '◦' : ''), t:`Workspace ${n}${n === CUR_WS ? ' (current)' : ''}`, k:`ctrl ${n}`, run:() => launch(a, {ws:n})})).concat([{sep:1}, {g:'+', t:'New empty workspace', run:() => launch(a, {ws:'new'})}])});
+  it.push({g:'⧉', t:'Open, keep dashboard', k:'middle', run:() => launch(a, {keep:true})});
+  if (a.running) it.push({g:'◎', t:a.running > 1 ? `Focus window (${a.running} open)` : 'Focus window', run:() => focusApp(a)});
+  if (a.actions) { it.push({sep:1}, {lbl:'Actions'}); for (const x of a.actions) it.push({g:'›', t:x, run:() => launch(a, {action:x})}); }
+  it.push({sep:1});
+  it.push({g: pinned ? '☆' : '★', t: pinned ? 'Unpin' : 'Pin', k:'ctrl p', run:() => togglePin(a)});
+  it.push({g:'⊘', t:'Hide from launcher', run:() => hideApp(a)});
+  it.push({sep:1});
+  it.push({g:'⎘', t:'Copy launch command', run:() => log(`copied: ${a.exec}`, a)});
+  it.push({g:'✎', t:'Edit desktop entry', run:() => log(`open ~/.local/share/applications/${a.id}.desktop`, a)});
+  if (a.running) it.push({sep:1}, {g:'✕', t:`Quit ${a.name}`, danger:1, run:() => quitApp(a)});
+  return it;
+}
+function buildMenu(items, x, y, head, parent) {
+  const el = document.createElement('div'); el.className = 'ctx';
+  el.innerHTML = (head ? `<div class="hd">${icon(head, 22)}<div><div class="nm" style="font-size:13px">${esc(head.name)}</div><div class="gn" style="font-size:11px">${esc(head.generic)}</div></div></div>` : '')
+    + items.map((it, i) => it.sep ? '<div class="sep"></div>' : it.lbl ? `<div class="lbl">${it.lbl}</div>` : `<div class="it ${it.danger ? 'danger' : ''}" data-i="${i}"><span class="g">${it.g || ''}</span>${esc(it.t)}${it.sub ? '<span class="k">›</span>' : it.k ? `<span class="k">${it.k}</span>` : ''}</div>`).join('');
+  document.body.appendChild(el);
+  const r = el.getBoundingClientRect();
+  if (x + r.width > innerWidth - 8) x = parent ? parent.left - r.width + 4 : innerWidth - r.width - 8;
+  if (y + r.height > innerHeight - 8) y = Math.max(8, innerHeight - r.height - 8);
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  return el;
+}
+function openCtx(a, x, y) {
+  closeCtx();
+  const items = ctxItems(a), el = buildMenu(items, x, y, a);
+  state.ctx = {a, items, el, act: -1, sub: null, actionable: () => [...el.querySelectorAll('.it')]};
+  el.addEventListener('mousemove', e => { const it = e.target.closest('.it'); if (it) setAct(state.ctx.actionable().indexOf(it)); });
+  el.addEventListener('click', e => { const it = e.target.closest('.it'); if (it) activate(+it.dataset.i); });
+  renderState();
+}
+function setAct(k, viaKey) {
+  const c = state.ctx, els = c.actionable(); if (k < 0 || k >= els.length) return;
+  c.act = k; els.forEach((e, j) => e.classList.toggle('act', j === k));
+  const item = c.items[+els[k].dataset.i];
+  if (item.sub) { if (!c.sub || c.subFor !== item) openSub(item, els[k], viaKey); } else closeSub();
+}
+function openSub(item, anchor, viaKey) {
+  closeSub(); const c = state.ctx, r = anchor.getBoundingClientRect();
+  const el = buildMenu(item.sub, r.right + 2, r.top - 6, null, r);
+  c.sub = {el, items: item.sub, act: -1, actionable: () => [...el.querySelectorAll('.it')]}; c.subFor = item;
+  el.addEventListener('mousemove', e => { const it = e.target.closest('.it'); if (it) setSubAct(c.sub.actionable().indexOf(it)); });
+  el.addEventListener('click', e => { const it = e.target.closest('.it'); if (it) { const f = item.sub[+it.dataset.i].run; closeCtx(); f(); } });
+  if (viaKey) setSubAct(0);
+}
+function setSubAct(k) { const s = state.ctx.sub, els = s.actionable(); if (k < 0 || k >= els.length) return; s.act = k; els.forEach((e, j) => e.classList.toggle('act', j === k)); }
+function closeSub() { const c = state.ctx; if (c && c.sub) { c.sub.el.remove(); c.sub = null; c.subFor = null; } }
+function activate(i) { const it = state.ctx.items[i]; if (it.sub) { setAct(state.ctx.actionable().findIndex(e => +e.dataset.i === i), true); return; } closeCtx(); it.run(); }
+function closeCtx() { if (!state.ctx) return; closeSub(); state.ctx.el.remove(); state.ctx = null; const inp = $('#q'); inp && inp.focus(); renderState(); }
+function ctxKey(e) {
+  const c = state.ctx; e.preventDefault();
+  if (c.sub && c.sub.act >= 0) {
+    const n = c.sub.actionable().length;
+    if (e.key === 'ArrowDown') setSubAct((c.sub.act + 1) % n);
+    else if (e.key === 'ArrowUp') setSubAct((c.sub.act - 1 + n) % n);
+    else if (e.key === 'ArrowLeft' || e.key === 'Escape') { c.sub.act = -1; c.sub.actionable().forEach(x => x.classList.remove('act')); }
+    else if (e.key === 'Enter') { const f = c.sub.items[+c.sub.actionable()[c.sub.act].dataset.i].run; closeCtx(); f(); }
+    return;
+  }
+  const n = c.actionable().length, curI = () => +c.actionable()[c.act].dataset.i;
+  if (e.key === 'ArrowDown') setAct(c.act < 0 ? 0 : (c.act + 1) % n, true);
+  else if (e.key === 'ArrowUp') setAct(c.act < 0 ? n - 1 : (c.act - 1 + n) % n, true);
+  else if (e.key === 'ArrowRight' && c.act >= 0 && c.items[curI()].sub) activate(curI());
+  else if (e.key === 'Enter' && c.act >= 0) activate(curI());
+  else if (e.key === 'Escape') closeCtx();
+}
+
+// ---------------- events ----------------
+const inDash = t => t.closest && t.closest('#dash');
+const appOf = el => { const r = el.closest('[data-app]'); return r ? (r.dataset.idx !== undefined ? appAt(+r.dataset.idx) : byId(r.dataset.app)) : selApp(); };
+let swallowClick = false, hoverT;
+document.addEventListener('mousemove', e => {
+  if (state.ctx || (!e.movementX && !e.movementY)) return;
+  const t = e.target.closest('#body [data-idx]'); clearTimeout(hoverT);
+  if (!t || +t.dataset.idx === state.sel) return;
+  const go = () => { state.sel = +t.dataset.idx; applySel(false); };
+  const d = cur().hoverDelay; if (d) hoverT = setTimeout(go, d); else go();
+});
+document.addEventListener('mousedown', e => {
+  if (state.ctx && !e.target.closest('.ctx')) { closeCtx(); if (inDash(e.target)) swallowClick = true; }
+  if (e.button === 1 && inDash(e.target)) e.preventDefault();
+  if (state.open && !inDash(e.target) && !e.target.closest('#title,#switch,#state,.ctx')) closeDash();
+});
+document.addEventListener('click', e => {
+  if (swallowClick) { swallowClick = false; return; }
+  if (e.target.closest('#title')) { state.open ? closeDash() : openOn('dashboard'); return; }
+  if (!inDash(e.target)) return;
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { state.tab = tab.dataset.tab; state.query = ''; state.sel = 0; state.drawer = false; mount(); return; }
+  const act = e.target.closest('[data-act]');
+  if (act) { ACTS[act.dataset.act](act.dataset.v, act); refocus(); return; }
+  const t = e.target.closest('[data-idx]');
+  if (t) { const a = appOf(t); if (t.classList.contains('focusrow')) focusApp(a); else launch(a); }
+});
+document.addEventListener('auxclick', e => {
+  if (e.button !== 1) return; const t = inDash(e.target) && e.target.closest('[data-idx]');
+  if (t) { e.preventDefault(); launch(appOf(t), {keep: true}); }
+});
+document.addEventListener('contextmenu', e => {
+  if (!inDash(e.target)) return; e.preventDefault();
+  const t = e.target.closest('[data-app]'); if (!t) return;
+  if (t.dataset.idx !== undefined) { state.sel = +t.dataset.idx; applySel(false); }
+  openCtx(appOf(t), e.clientX, e.clientY);
+});
+function refocus() { setTimeout(() => { const inp = $('#q'); inp && !state.ctx && inp.focus(); }); }
+
+const ACTS = {
+  open(v, el) { launch(appOf(el)); }, keep(v, el) { launch(appOf(el), {keep: true}); },
+  ws(v, el) { launch(appOf(el), {ws: v === 'new' ? 'new' : +v}); },
+  action(v, el) { const a = appOf(el); launch(a, {action: a.actions[+v]}); },
+  focus(v, el) { focusApp(appOf(el), v === undefined ? undefined : +v); },
+  noop() {},
+  pin(v, el) { togglePin(appOf(el)); }, hide(v, el) { hideApp(appOf(el)); }, quit(v, el) { quitApp(appOf(el)); },
+  copy(v, el) { const a = appOf(el); log(`copied: ${a.exec}`, a); },
+  edit(v, el) { const a = appOf(el); log(`open ~/.local/share/applications/${a.id}.desktop`, a); },
+  menu(v, el) { const r = el.getBoundingClientRect(); const a = appOf(el); setTimeout(() => openCtx(a, r.left, r.bottom + 4)); },
+  drawer(v, el) {
+    if (el) { const r = el.closest('[data-idx]'); if (r) state.sel = +r.dataset.idx; }
+    state.drawer = v === '1'; $('#v5').classList.toggle('open', state.drawer);
+    if (state.drawer) $('#detail').innerHTML = detailHtml(selApp());
+    applySel(false);
+  },
+  unhide() { state.hidden = []; log('unhid all apps'); if (state.open && state.tab === 'apps') refresh(); },
+};
+
+document.addEventListener('keydown', e => {
+  const typing = e.target.matches && e.target.matches('input,textarea,select,[contenteditable]');
+  if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); superKey(); return; }
+  if (state.ctx) { ctxKey(e); return; }
+  if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); cycle(e.key === 'ArrowLeft' ? -1 : 1); return; }
+  if (!state.open) { if (!typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) cycle(e.key === 'ArrowLeft' ? -1 : 1); return; }
+  if (e.key === 'Escape') { e.preventDefault(); if (state.drawer) ACTS.drawer('0'); else if (state.query) { state.query = ''; $('#q').value = ''; state.sel = 0; refresh(); } else closeDash(); return; }
+  if (state.tab !== 'apps') return;
+  const n = state.items.length;
+  const lin = d => { e.preventDefault(); if (!n) return; state.sel = Math.max(0, Math.min(n - 1, state.sel + d)); applySel(true); };
+  if (e.ctrlKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); launch(selApp(), {ws: +e.key}); return; }
+  if (e.ctrlKey && e.key.toLowerCase() === 'p') { e.preventDefault(); togglePin(selApp()); return; }
+  switch (e.key) {
+    case 'ArrowDown': e.preventDefault(); spatial('down'); return;
+    case 'ArrowUp': e.preventDefault(); spatial('up'); return;
+    case 'ArrowRight': if ((cur().onRight && cur().onRight()) || spatial('right')) e.preventDefault(); return;
+    case 'ArrowLeft': if ((cur().onLeft && cur().onLeft()) || spatial('left')) e.preventDefault(); return;
+    case 'PageDown': return lin(8);
+    case 'PageUp': return lin(-8);
+    case 'Tab': return lin(e.shiftKey ? -1 : 1);
+    case 'Enter': e.preventDefault(); { const el = $(`#body [data-idx="${state.sel}"]`); const a = selApp(); if (el && el.classList.contains('focusrow')) focusApp(a); else launch(a, {keep: e.altKey}); } return;
+    case 'ContextMenu': case 'F10':
+      if (e.key === 'F10' && !e.shiftKey) return;
+      e.preventDefault(); { const el = $(`#body [data-idx="${state.sel}"]`); if (el) { const r = el.getBoundingClientRect(); openCtx(selApp(), r.left + 40, r.bottom - 4); } } return;
+  }
+  if (!typing && e.key.length === 1 && !e.ctrlKey && !e.metaKey && $('#q')) $('#q').focus();
+});
+
+// drag to pin / reorder / unpin (variant 2 board, variant 4 pinned grid)
+let dragId = null, dragFromPins = false;
+const pinZone = t => t.closest && t.closest('#board,#pins');
+document.addEventListener('dragstart', e => {
+  const t = e.target.closest && e.target.closest('#dash [data-app]'); if (!t) return;
+  dragId = t.dataset.app; dragFromPins = !!pinZone(t); e.dataTransfer.setData('text/plain', dragId); e.dataTransfer.effectAllowed = 'move';
+});
+document.addEventListener('dragover', e => {
+  if (!dragId) return; const z = pinZone(e.target);
+  document.querySelectorAll('.dropbefore').forEach(x => x.classList.remove('dropbefore'));
+  const board = $('#board'); board && board.classList.toggle('over', z === board);
+  if (z) { e.preventDefault(); const p = e.target.closest('.tile'); if (p && p.dataset.app !== dragId) p.classList.add('dropbefore'); }
+  else if (dragFromPins && inDash(e.target)) e.preventDefault();
+});
+document.addEventListener('drop', e => {
+  if (!dragId) return; e.preventDefault(); const a = byId(dragId);
+  if (pinZone(e.target)) {
+    const p = e.target.closest('.tile'); const before = p && p.dataset.app !== dragId ? p.dataset.app : null;
+    const was = state.pinned.includes(dragId), list = state.pinned.filter(x => x !== dragId);
+    list.splice(before ? list.indexOf(before) : list.length, 0, dragId); state.pinned = list;
+    log(was ? `moved ${a.name}${before ? ' before ' + byId(before).name : ' to the end'}` : `pinned ${a.name}`, a);
+  } else if (dragFromPins) { state.pinned = state.pinned.filter(x => x !== dragId); log(`unpinned ${a.name}`, a); }
+  refresh();
+});
+document.addEventListener('dragend', () => { dragId = null; const b = $('#board'); b && b.classList.remove('over'); });
+
+// ---------------- prototype chrome ----------------
+function renderState() {
+  const a = state.open && state.tab === 'apps' ? selApp() : null;
+  $('#stateB').innerHTML = `<div style="color:#bbb;margin-bottom:4px;font-family:system-ui">${esc(V[state.variant].hint)}</div>` + [
+    ['dashboard', state.open ? `open · tab ${state.tab}` : 'closed'], ['theme', `${state.theme} (${THEMES[state.theme].mode})`],
+    ['query', JSON.stringify(state.query)], ['selected', a ? a.name : '—'], ['ctx menu', state.ctx ? state.ctx.a.name : '—'],
+    ['pinned', state.pinned.join(', ') || '—'], ['hidden', state.hidden.length ? state.hidden.join(', ') + ' <button onclick="ACTS.unhide()">unhide</button>' : '—'],
+    ['recent', state.recent.slice(0, 5).join(', ')],
+  ].map(([k, v]) => `<div><span class="k">${k}</span> ${v}</div>`).join('') + state.log.map(l => `<div class="log">› ${esc(l)}</div>`).join('');
+}
+$('#stateH').onclick = () => $('#state').classList.toggle('min');
+$('#prev').onclick = () => cycle(-1); $('#next').onclick = () => cycle(1);
+const ts = $('#themeSel'); ts.innerHTML = Object.keys(THEMES).map(k => `<option value="${k}">Theme: ${k}</option>`).join(''); ts.value = state.theme;
+ts.onchange = () => { state.theme = ts.value; const u = new URL(location); u.searchParams.set('theme', ts.value); history.replaceState(null, '', u); applyTheme(); renderState(); refocus(); };
+const is = $('#iconSel'); is.value = state.icons;
+is.onchange = () => { state.icons = is.value; const u = new URL(location); u.searchParams.set('icons', is.value); history.replaceState(null, '', u); applyTheme(); refocus(); };
+$('#wss').innerHTML = [1,2,3,4,5].map(n => `<div class="ws ${n === CUR_WS ? 'cur' : ''} ${OCC_WS.has(n) ? 'occ' : ''}">${n}</div>`).join('');
+
+applyTheme();
+setVariant(state.variant);
+</script>
+</body>
+</html>

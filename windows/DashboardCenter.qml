@@ -14,7 +14,10 @@ PanelShell {
     anchorCenterX: DashboardService.anchorCenterX
     panelVisible: DashboardService.dashboardVisible
     panelWidth: Globals.dashboardWidth
-    panelMaxHeight: Globals.dashboardMaxHeight
+    panelMaxHeight: DashboardService.activeTab === "apps"
+        ? Math.max(Globals.dashboardMaxHeight, Math.round(Globals.dashboardAppsMaxFraction
+            * (DashboardService.anchorScreen ? DashboardService.anchorScreen.height : 0)))
+        : Globals.dashboardMaxHeight
     attachedToBar: true
     junctionRadius: DashboardService.junctionRadius
     onOutsideClicked: DashboardService.closeDashboardFromOutside()
@@ -145,7 +148,7 @@ PanelShell {
 
         Layout.fillWidth: true
 
-        visible: DashboardService.activeTab !== "dashboard" && DashboardService.activeTab !== "settings"
+        visible: DashboardService.activeTab !== "dashboard" && DashboardService.activeTab !== "settings" && DashboardService.activeTab !== "apps"
         implicitHeight: idPlaceholderLabel.implicitHeight + 4 * Globals.panelPadding
 
         Text {
@@ -162,6 +165,14 @@ PanelShell {
                 pixelSize: Globals.uiBodySize
             }
         }
+    }
+
+    DashboardAppsView {
+        id: idDashboardAppsView
+
+        Layout.fillWidth: true
+
+        visible: DashboardService.activeTab === "apps"
     }
 
     SettingsView {

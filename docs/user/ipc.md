@@ -49,14 +49,15 @@ and is a no-op when its module is hidden.
 | --- | --- | --- | --- |
 | `toggle` | — | `ok` / `error: no screen` | Toggles the attached dashboard card on the focused monitor. |
 | `open` | — | `ok` / `error: no screen` | Opens the card on the Dashboard tab. |
+| `apps` | — | `ok` / `error: no screen` | Toggles the app launcher: opens on the Apps tab when closed, switches to Apps when open on another tab, closes when Apps is showing. |
 | `close` | — | `ok` | Closes the card. |
 | `settings` | `<section>` | `ok: <section>` / `error: no section <name>` / `error: no screen` | Opens the card on the Settings tab, deep-linked to a section. |
 
 Valid `<section>` keys, from `SettingsService.sectionRegistry`: `calendar`,
-`cava`, `dashboard`, `audio`, `fonts`, `layout`, `media`, `monitors`, `motion`,
-`notifications`, `theme`, `weather`. A name that is not one of these is rejected
-with `error: no section <name>`; a name with characters outside `a-z0-9-` is
-echoed back as `?`.
+`cava`, `dashboard`, `audio`, `fonts`, `layout`, `media`, `apps`, `monitors`,
+`motion`, `notifications`, `theme`, `weather`. A name that is not one of these
+is rejected with `error: no section <name>`; a name with characters outside
+`a-z0-9-` is echoed back as `?`.
 
 ### `dnd`
 
@@ -104,7 +105,8 @@ output, 100.
   (`power`).
 - `dashboard` opens on the Hyprland-focused monitor, falling back to the primary
   monitor, then to the first screen. `dashboard settings <section>` opens on the
-  same monitor, deep-linked.
+  same monitor, deep-linked. `dashboard apps` uses the same monitor and is the
+  intended Super keybind target.
 - A toggle that would open a panel within about 300 ms of that panel closing from
   an outside click or an IPC `close` is ignored, so the close gesture does not
   immediately reopen it.

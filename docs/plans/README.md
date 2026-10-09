@@ -7,6 +7,12 @@ Active work lives in [`docs/dev/roadmap.md`](../dev/roadmap.md). The domain glos
 [`CONTEXT.md`](../../CONTEXT.md); the "why" decisions are in
 [`docs/adr/`](../adr/).
 
+## Active plans
+
+| # | Document | Status | Description |
+|---|---|---|---|
+| **09** | [`09-app-launcher-designs.html`](09-app-launcher-designs.html) | 🟢 Implemented | App launcher as the dashboard Apps tab: five variants (`?variant=1..5`). Variant 3 "Inline actions" shipped, with Focus and Kill replacing the inline workspace buttons. ADR 0018. |
+
 ---
 
 ## Archived plans

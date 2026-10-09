@@ -47,6 +47,12 @@ Singleton {
             comingSoon: false
         },
         {
+            key: "apps",
+            title: qsTr("Apps"),
+            options: [qsTr("Hidden"), qsTr("Launcher")].concat(AppService.hiddenEntries.map(app => app.name)),
+            comingSoon: false
+        },
+        {
             key: "monitors",
             title: qsTr("Monitors"),
             options: [qsTr("Primary monitor"), qsTr("Displays"), qsTr("Workspaces per monitor")]

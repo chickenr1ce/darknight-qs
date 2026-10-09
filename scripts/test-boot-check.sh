@@ -33,6 +33,11 @@ case "${QS_STUB_MODE:-ok}" in
         echo 'Configuration Loaded'
         echo 'TypeError: Cannot read property "x" of null'
         ;;
+    anchor)
+        echo 'Configuration Loaded'
+        echo "QML SmoothWheel at @components/Overlay.qml[4:5]: Cannot anchor to an item that isn't a parent or sibling."
+        echo '@windows/List.qml[7:9]: Unable to assign [undefined] to QString'
+        ;;
 esac
 while :; do sleep 1; done
 STUBEOF
@@ -63,6 +68,13 @@ if QS_STUB_MODE=dirty "$BOOT" "$CFG" --timeout 5 >"$TMP/out" 2>&1; then
     fail "dirty path exited 0: $(cat "$TMP/out")"
 fi
 grep -q 'TypeError' "$TMP/out" || fail "dirty path did not surface the error: $(cat "$TMP/out")"
+
+# The anchor and undefined-assignment signatures are load-clean but still fail.
+if QS_STUB_MODE=anchor "$BOOT" "$CFG" --timeout 5 >"$TMP/out" 2>&1; then
+    fail "anchor path exited 0: $(cat "$TMP/out")"
+fi
+grep -q 'Cannot anchor' "$TMP/out" || fail "anchor path did not surface the anchor warning: $(cat "$TMP/out")"
+grep -q 'Unable to assign' "$TMP/out" || fail "anchor path did not surface the assignment warning: $(cat "$TMP/out")"
 
 # No Wayland session: skip with exit 0.
 if ! env -u WAYLAND_DISPLAY "$BOOT" "$CFG" >"$TMP/out" 2>&1; then
