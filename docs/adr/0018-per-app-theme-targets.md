@@ -36,9 +36,11 @@ The renderer writes a fixed set of themed apps. Each app has a template under
 state file. A new Themed apps settings section lists every app as a toggle.
 Firefox and Vencord join the six existing apps.
 
-A disabled app is not deleted from the pipeline. The renderer writes a no-op
-layer for it, a comment-only file or an empty override block, so a user include
-line or an `enabledThemes` entry never points at a missing file.
+A disabled app is not deleted from the pipeline. The renderer writes a valid
+unthemed layer for it: a comment-only file where that is safe, or the built-in
+no-theme default palette where the file is a whole config or defines variables
+the app requires, so a user include line or an `enabledThemes` entry never points
+at a missing file.
 
 Content comes from the palette only. The renderer does not read app files from a
 theme directory, which keeps ADR 0010 and ADR 0011 intact: only `colors.toml` and
@@ -46,10 +48,9 @@ theme directory, which keeps ADR 0010 and ADR 0011 intact: only `colors.toml` an
 
 Firefox is themed at the chrome. The renderer discovers the default profile from
 `installs.ini`, writes a generated `chrome/shell-palette.css` holding `:root`
-variables through the profile path, and writes a `user.js` carrying the
-legacy-sheets pref, unless a hand-written `user.js` already sits there, in which
-case the renderer leaves it alone and warns. The user's own `userChrome.css`
-imports the generated file.
+variables through the profile path, and manages the legacy-sheets pref as a
+marker-delimited block in `user.js`, so a hand-written `user.js` keeps its other
+lines. The user's own `userChrome.css` imports the generated file.
 There is no `userContent.css` target, so pages are untouched, and the change
 applies on the next Firefox start.
 
@@ -103,15 +104,15 @@ braces, so CSS braces in a template do not trip it.
 - A Firefox profile that cannot be resolved is skipped with a `firefox: no
   profile` warning on stderr and does not count as a render failure.
 - A disabled target writes a valid unthemed layer. Where a comment-only file is
-  safe (`--` for Lua, `#` for the shell-shaped files, `/* */` for CSS, `//` for
-  `user.js`) it writes one, so a disabled Lua target still parses when the user's
-  config `require`s it. Where the file is a whole config or defines variables the
+  safe (`--` for Lua, `#` for the shell-shaped files, `/* */` for CSS) it
+  writes one, so a disabled Lua target still parses when the user's config
+  `require`s it. Where the file is a whole config or defines variables the
   app requires (starship, hyprlock) it renders the built-in no-theme default
   palette instead, because a comment-only file would wipe the prompt or leave
   hyprlock's `$theme_*` undefined.
 - `docs/user/theme-desktop-setup.md` and `CONTEXT.md` say the retint writes six
-  files. Both move to nine targets (eleven files) and gain Firefox and Spicetify
-  wiring sections.
+  files. Both move to nine targets (eleven files) and gain Firefox, Vencord, and
+  Spicetify wiring sections.
 - The Firefox root resolves to `${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox`
   (falling back to `$HOME/.mozilla/firefox`), so tests redirect both
   `XDG_CONFIG_HOME` and `HOME`.

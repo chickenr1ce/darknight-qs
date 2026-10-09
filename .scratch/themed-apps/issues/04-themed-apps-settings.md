@@ -41,8 +41,9 @@ target tickets never collide on prose.
 5. `scripts/test-panel-logic.sh` section 10 asserts the `themed-apps` section
    key, that its `options` derive from `ThemeService.themeTargets`, and that the
    view composes `SettingsToggleRow` and filters through `SettingsFilter`. Add
-   the new view to the `SettingsFilter` loop that currently enumerates the other
-   section views.
+   the new view to a matching block in section 10, alongside the existing
+   per-section view assertions (`SettingsFilter` is checked per view, not in one
+   shared loop).
 
 6. `docs/user/theme-desktop-setup.md` is updated:
    - the intro moves from six files to nine targets (eleven files) and lists
@@ -57,8 +58,11 @@ target tickets never collide on prose.
      `spicetify refresh` and never `spicetify apply`, and that a Spotify update
      needs a re-apply;
    - a Vencord subsection under One-time wiring: enable the generated theme once,
-     order it after `system24.theme.css`, restart Discord once, note the
-     base-theme coupling and the hot reload;
+     list it **last** in `enabledThemes` (a stale `system24-old.theme.css`
+     already sits ahead of `system24.theme.css`, so "after system24" is not
+     enough), restart Discord once, and note the base-theme coupling, the hot
+     reload, and the upstream `midnight.css` debug placeholders that survive any
+     namespace override;
    - a Firefox subsection: create the profile's `userChrome.css` with a single
      `@import url("shell-palette.css");` as its **first** line (an `@import`
      after other rules is ignored); the generated sheet carries the palette
@@ -77,8 +81,9 @@ target tickets never collide on prose.
      paths expressed profile-relative (a glob or an explicit profile dir), since
      they are not fixed XDG paths.
 
-7. `CONTEXT.md`'s desktop-retint line is corrected to "one file per target
-   (Firefox and Spicetify each contribute two)".
+7. `CONTEXT.md`'s desktop-retint line and the new terms match the shipped
+   behavior (`CONTEXT.md` currently describes the end state ahead of the code):
+   one file per target, with Firefox and Spicetify each contributing two.
 
 8. `scripts/check.sh` and `scripts/boot-check.sh` pass.
 

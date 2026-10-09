@@ -63,7 +63,9 @@ user's own `userChrome.css` imports, written safely into a psd-managed profile.
    destroys a hand-written file: it replaces or inserts only the block in
    criterion 2 and preserves every other line, so a user's own prefs survive and
    an appended edit is not lost on the next render. When `user.js` is absent it
-   creates it with the block alone. It never rewrites `prefs.js`.
+   creates it with the block alone; if an existing `user.js` already sets the
+   pref outside the markers, adopt that line into the block rather than adding a
+   duplicate. It never rewrites `prefs.js`.
 
 7. Disabled, `shell-palette.css` is a `/* */` comment-only file (so the import
    yields stock Firefox). `user.js` is not touched, and is not created when it
