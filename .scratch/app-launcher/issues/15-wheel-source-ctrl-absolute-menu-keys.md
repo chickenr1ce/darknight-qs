@@ -116,13 +116,14 @@ Right arrow replaces Shift+F10 for opening the context menu from the list.
 ### 1. Wheel source detection
 
 - `SmoothWheelLogic.wheelMode(angleDelta, pixelDelta, isContinuous)` returns
-  `"angle" | "pixel" | "none"`: a continuous source (touchpad or momentum)
-  takes pixels, a discrete wheel takes angleDelta whenever it is non-zero and
-  only falls back to pixels when the angle is zero. All six ticket cases are
-  node-tested, plus a continuous source with an angleDelta but no pixelDelta.
-- `SmoothWheel.isContinuousScroll(event)` returns
-  `event.phase !== Qt.NoScrollPhase`; `handleWheel` picks the path through
-  `wheelMode` before touching either delta.
+  `"angle" | "pixel" | "none"`: a continuous source (a touchpad) takes pixels,
+  a discrete wheel takes angleDelta whenever it is non-zero and only falls back
+  to pixels when the angle is zero. All six ticket cases are node-tested, plus
+  a continuous source with an angleDelta but no pixelDelta.
+- `SmoothWheelLogic.isContinuousPhase(phase, noScrollPhase)` is the pure phase
+  decision, node-tested for all five phases and a missing phase;
+  `SmoothWheel.isContinuousScroll(event)` delegates to it, and `handleWheel`
+  picks the path through `wheelMode` before touching either delta.
 - **Correction (2026-10-09, live).** The first implementation keyed on
   `event.device.type === PointerDevice.TouchPad`. That cannot work on Qt
   Wayland: `QWaylandWindow::handleMouse` picks the device through
@@ -132,9 +133,14 @@ Right arrow replaces Shift+F10 for opening the context menu from the list.
   the live shell logged the real mouse wheel as `angle=-120 pixel=-15 phase=0
   dev=4 name=touchpad`, which the device check routed to the pixel path. The
   scroll phase is the usable signal: the real wheel reports `NoScrollPhase`, a
-  continuous source reports `ScrollBegin`/`ScrollUpdate`. The offscreen
+  finger source reports `ScrollBegin`/`ScrollUpdate`. The offscreen
   `tests/app-launcher-wheel.qml` now guards `Qt.NoScrollPhase` and that a
   synthetic mouse wheel reports it, not the pointer device.
+- **Known limitation.** Qt Wayland emits `ScrollBegin`/`ScrollUpdate` only for
+  `axis_source_finger`; a rare `axis_source_continuous` device (a free-spin
+  wheel) also reports `NoScrollPhase`, so it takes the stepped path rather than
+  1:1 pixels. QML's `WheelEvent` exposes no axis source, so the two cannot be
+  told apart.
 
 ### 2. Absolute Ctrl workspaces
 

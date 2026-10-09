@@ -541,16 +541,18 @@ grep -q '^\.pragma library' "$SMOOTHLOGIC" \
     || fail "SmoothWheelLogic.js is not a .pragma library"
 grep -q 'import "SmoothWheelLogic.js" as SmoothWheelLogic' "$SMOOTH" \
     || fail "SmoothWheel does not import SmoothWheelLogic.js"
-for fn in clampTarget wheelTarget wheelStep wheelMode; do
+for fn in clampTarget wheelTarget wheelStep isContinuousPhase wheelMode; do
     grep -q "function $fn" "$SMOOTHLOGIC" \
         || fail "SmoothWheelLogic.js has no $fn"
 done
-for fn in clampTarget wheelStep wheelMode; do
+for fn in clampTarget wheelStep isContinuousPhase wheelMode; do
     grep -q "SmoothWheelLogic.$fn" "$SMOOTH" \
         || fail "SmoothWheel does not delegate $fn to SmoothWheelLogic"
 done
 grep -q 'function isContinuousScroll' "$SMOOTH" \
     || fail "SmoothWheel has no continuous-source check"
+grep -q 'SmoothWheelLogic.isContinuousPhase' "$SMOOTH" \
+    || fail "SmoothWheel does not delegate the phase decision to SmoothWheelLogic"
 grep -q 'event.phase' "$SMOOTH" \
     || fail "SmoothWheel does not read the wheel event's scroll phase"
 grep -q 'Qt.NoScrollPhase' "$SMOOTH" \
@@ -1497,6 +1499,17 @@ check('mode/pixel-fallback', sl.wheelMode(0, 15, false), 'pixel');
 check('mode/continuous-no-pixel-angle', sl.wheelMode(120, 0, true), 'angle');
 check('mode/none', sl.wheelMode(0, 0, true), 'none');
 check('mode/none-unknown', sl.wheelMode(0, 0, false), 'none');
+
+// isContinuousPhase: the pure phase decision. Every non-NoScrollPhase value is
+// continuous, NoScrollPhase is not, and a missing or non-numeric phase is not
+// (so a malformed event falls back to the stepped path).
+check('phase/discrete', sl.isContinuousPhase(0, 0), false);
+check('phase/begin', sl.isContinuousPhase(1, 0), true);
+check('phase/update', sl.isContinuousPhase(2, 0), true);
+check('phase/end', sl.isContinuousPhase(3, 0), true);
+check('phase/momentum', sl.isContinuousPhase(4, 0), true);
+check('phase/missing', sl.isContinuousPhase(undefined, 0), false);
+check('phase/nan', sl.isContinuousPhase(NaN, 0), false);
 
 // wheelStep: the composed decision. It seeds from the in-flight target while
 // the glide runs and from contentY otherwise, clamps against the view bounds,

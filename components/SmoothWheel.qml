@@ -8,10 +8,10 @@ import "SmoothWheelLogic.js" as SmoothWheelLogic
 // event's scroll phase (SmoothWheelLogic.wheelMode). A discrete wheel
 // (Qt.NoScrollPhase) glides contentY by Globals.wheelStep over Globals.wheelMs;
 // one notch (a 120 angleDelta) is one step, a finer or coarser chunk scales
-// proportionally, and rapid notches accumulate into one target. A continuous
-// source (a touchpad or momentum scroll, any other phase) scrolls 1:1 on
-// pixelDelta. A user drag cancels the glide; keyboard scrolling stops it
-// through stop() before positionViewAtIndex.
+// proportionally, and rapid notches accumulate into one target. A finger
+// source (a touchpad, ScrollBegin or ScrollUpdate) scrolls 1:1 on pixelDelta.
+// A user drag cancels the glide; keyboard scrolling stops it through stop()
+// before positionViewAtIndex.
 Item {
     id: root
 
@@ -46,7 +46,7 @@ Item {
     function isContinuousScroll(event): bool {
         if (!event)
             return false;
-        return event.phase !== Qt.NoScrollPhase;
+        return SmoothWheelLogic.isContinuousPhase(event.phase, Qt.NoScrollPhase);
     }
 
     function handleWheel(event): void {

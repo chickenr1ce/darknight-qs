@@ -44,6 +44,10 @@ TestCase {
             "NoScrollPhase and ScrollBegin are distinct");
         compare(Qt.NoScrollPhase === Qt.ScrollUpdate, false,
             "NoScrollPhase and ScrollUpdate are distinct");
+        compare(Qt.NoScrollPhase === Qt.ScrollEnd, false,
+            "NoScrollPhase and ScrollEnd are distinct");
+        compare(Qt.NoScrollPhase === Qt.ScrollMomentum, false,
+            "NoScrollPhase and ScrollMomentum are distinct");
     }
 
     function test_mouseWheelIsDiscrete(): void {

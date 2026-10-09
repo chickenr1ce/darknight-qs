@@ -23,6 +23,13 @@ function wheelStep(currentY, target, running, delta, step, minY, maxY) {
     return { target: next, moved: next !== from };
 }
 
+function isContinuousPhase(phase, noScrollPhase) {
+    const value = Number(phase);
+    if (!isFinite(value))
+        return false;
+    return value !== Number(noScrollPhase);
+}
+
 function wheelMode(angleDelta, pixelDelta, isContinuous) {
     const angle = Number(angleDelta);
     const pixel = Number(pixelDelta);
