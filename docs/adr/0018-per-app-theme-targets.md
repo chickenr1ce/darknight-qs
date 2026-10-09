@@ -112,3 +112,15 @@ braces, so CSS braces in a template do not trip it.
   Firefox profile lives under `~/.config/mozilla`, not under `XDG_CONFIG_HOME`.
 
 ## Amendments
+
+- 2026-10-09 (Spicetify target): Spotify joins through Spicetify, as a ninth
+  target. The renderer ships the community `text` theme (MIT, vendored as
+  templates under `assets/templates/`) into a shell-owned
+  `~/.config/spicetify/Themes/quickshell/` directory, keeping the theme's own
+  default color options and appending one `Quickshell` color option built from
+  the palette. It owns the whole theme directory, so it never edits a theme the
+  user installed. The user selects the theme and the color option once, like the
+  Vencord enable and the Firefox import. A render finishes with a best-effort
+  `spicetify refresh`, never `spicetify apply`, which is version-gated on this
+  machine and force-restarts the client. Disabled, the color option is rendered
+  from the theme's own default values rather than removed.

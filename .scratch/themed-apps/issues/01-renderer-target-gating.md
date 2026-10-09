@@ -42,10 +42,10 @@ a target the user switched off renders a no-op layer instead of a missing file.
    per ticket 03).
 
 5. `services/ThemeService.qml` exposes `readonly property var themeTargets`,
-   eight `{ key, title }` entries in render order, titles wrapped in `qsTr()`:
+   nine `{ key, title }` entries in render order, titles wrapped in `qsTr()`:
    `hyprland` "Hyprland borders", `kitty` "kitty", `hyprlock` "hyprlock",
    `starship` "starship", `yazi` "yazi", `btop` "btop", `firefox` "Firefox",
-   `vencord` "Vencord".
+   `vencord` "Vencord", `spicetify` "Spicetify".
 
 6. `ThemeService` exposes `themeTargetEnabled: ({})` and
    `isThemeTargetEnabled(key)` / `setThemeTargetEnabled(key, enabled)`, persisted

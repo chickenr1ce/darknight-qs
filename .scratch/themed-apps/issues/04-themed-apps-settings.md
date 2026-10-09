@@ -2,7 +2,7 @@
 
 **Status:** ready-for-agent
 **Blocking:** none
-**Blocked by:** ticket 01, ticket 02, ticket 03
+**Blocked by:** ticket 01, ticket 02, ticket 03, ticket 05
 
 ## Objective
 
@@ -45,10 +45,16 @@ target tickets never collide on prose.
    section views.
 
 6. `docs/user/theme-desktop-setup.md` is updated:
-   - the intro moves from six files to eight targets (nine files) and lists all
-     nine destinations: the six existing paths, the profile's
-     `chrome/shell-palette.css` and `user.js`, and
-     `~/.config/Vencord/themes/quickshell.theme.css`;
+   - the intro moves from six files to nine targets (eleven files) and lists
+     every destination: the six existing paths, the profile's
+     `chrome/shell-palette.css` and `user.js`,
+     `~/.config/Vencord/themes/quickshell.theme.css`, and
+     `~/.config/spicetify/Themes/quickshell/{color.ini,user.css}`;
+   - a Spicetify subsection: select the `quickshell` theme and its `Quickshell`
+     color option once, note that the theme ships the community `text` theme's
+     default options (MIT), that the client is refreshed with `spicetify refresh`
+     (never `spicetify apply`, which is version-gated here and restarts Spotify),
+     and that a Spotify update needs a re-apply;
    - a Vencord subsection under One-time wiring: enable the generated theme once,
      order it after `system24.theme.css`, restart Discord once, note the
      base-theme coupling and the hot reload;
