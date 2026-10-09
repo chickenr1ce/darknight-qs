@@ -454,9 +454,6 @@ function menuItems(entry, pinned, isRun, runningCount, workspaceItems) {
     return items;
 }
 
-// Ctrl+1…9 and Ctrl+0 resolve to the absolute workspace number: the key is
-// the workspace (0 means 10). A workspace exists when it is within
-// 1..totalWorkspaces, whose caller passes perMonitor × enabled monitors.
 function workspaceFor(n, totalWorkspaces) {
     const key = Math.round(Number(n));
     const total = Math.round(Number(totalWorkspaces));
@@ -468,9 +465,6 @@ function workspaceFor(n, totalWorkspaces) {
     return workspace;
 }
 
-// The footer key cap for the workspace range. Ten or more workspaces put the
-// tenth on Ctrl+0, so the cap reads "ctrl 1–9, 0"; below that it is the
-// reachable range capped at 9.
 function workspaceKeys(totalWorkspaces) {
     const total = Math.round(Number(totalWorkspaces));
     if (isNaN(total) || total < 1)

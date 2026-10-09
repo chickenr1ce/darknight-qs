@@ -193,6 +193,13 @@ Timer { id: idMediaTimer }
 - **`HyprlandToplevel.address` omits the `0x` prefix**: the `address:` window
   selector needs it, so prepend `0x` when missing (verified live 2026-09-13).
   Selecting by `class:` needs no prefix.
+- **Wayland mouse-wheel events carry a `pixelDelta` too**: Hyprland and Qt
+  Wayland attach a small `pixelDelta` (15) to an ordinary mouse wheel whose
+  `angleDelta` is 120, so a pixel-first scroll path moves 15 px per notch and
+  drops coalesced notches. Choose the path from the pointer device type
+  (`event.device.type === PointerDevice.TouchPad`), and step on `angleDelta`
+  otherwise (verified live 2026-10-09; `SmoothWheel` and
+  `SmoothWheelLogic.wheelMode`).
 - **Focusing a Hyprland window warps the cursor**: snapshot the position first
   (`hyprctl cursorpos`) and restore it after with
   `hl.dsp.cursor.move({ x, y })`; focus stays on the window

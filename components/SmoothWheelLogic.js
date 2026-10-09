@@ -23,14 +23,6 @@ function wheelStep(currentY, target, running, delta, step, minY, maxY) {
     return { target: next, moved: next !== from };
 }
 
-// Pick the scroll path by input source, not by whether a pixelDelta is
-// present: Hyprland and Qt Wayland attach a small pixelDelta to ordinary
-// mouse-wheel events too, and the old pixel-first rule threw away the
-// stepped angleDelta (a mouse notch moved 15 px and coalesced notches were
-// lost). A touchpad takes the 1:1 pixel path; anything else takes the
-// stepped angle path whenever there is an angle to step, and only falls
-// back to pixels when the angle is zero. "none" means the event carries no
-// usable delta.
 function wheelMode(angleDelta, pixelDelta, isTouchpad) {
     const angle = Number(angleDelta);
     const pixel = Number(pixelDelta);

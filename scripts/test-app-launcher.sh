@@ -815,6 +815,7 @@ echo "$MENUCLOSE_BLOCK" | grep -q 'root.menuPinned = false' \
 QMLTESTRUNNER="${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}"
 MODE_TEST="$ROOT/tests/app-launcher-mode.qml"
 WHEEL_TEST="$ROOT/tests/app-launcher-wheel.qml"
+KEYS_TEST="$ROOT/tests/app-launcher-menu-keys.qml"
 if [ ! -x "$QMLTESTRUNNER" ]; then
     echo "app-launcher: qmltestrunner not found, skipping the offscreen tests" >&2
 else
@@ -841,6 +842,18 @@ else
         cat "$WHEEL_OUT" >&2
         rm -f "$WHEEL_OUT"
         fail "the offscreen wheel handler test failed"
+    fi
+    if [ ! -f "$KEYS_TEST" ]; then
+        fail "the offscreen menu-keys test is missing"
+    fi
+    KEYS_OUT="$(mktemp)"
+    if env -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 \
+        "$QMLTESTRUNNER" -input "$KEYS_TEST" >"$KEYS_OUT" 2>&1; then
+        rm -f "$KEYS_OUT"
+    else
+        cat "$KEYS_OUT" >&2
+        rm -f "$KEYS_OUT"
+        fail "the offscreen menu-keys handler test failed"
     fi
 fi
 
