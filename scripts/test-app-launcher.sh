@@ -377,6 +377,25 @@ grep -q 'AppService.launchOnWorkspace' "$VIEW" \
     || fail "DashboardAppsView does not launch on a workspace"
 grep -q 'AppService.workspaceFor' "$VIEW" \
     || fail "DashboardAppsView does not resolve a workspace slot"
+grep -qF 'disabled: enabledNames.indexOf(monitorName) === -1' "$SVC" \
+    || fail "AppService does not tag disabled monitors for AppLogic to filter"
+grep -q 'monitor.disabled !== true' "$LOGIC" \
+    || fail "AppLogic workspaceMenu does not drop disabled monitors"
+grep -qF 'active: root.activeWorkspaceFor(hyprMonitors, monitorName)' "$SVC" \
+    || fail "AppService does not resolve each monitor's active workspace"
+grep -qF 'AppLogic.workspaceMenu(monitors, MonitorService.workspacesPerMonitor, name, occupied, fallback)' "$SVC" \
+    || fail "AppService does not pass the anchor fallback to AppLogic"
+grep -q 'firstWorkspaceFor(fallbackName)' "$SVC" \
+    || fail "AppService does not fall back to the anchor block when no monitor is enabled"
+grep -q 'anchorFallback' "$LOGIC" \
+    || fail "AppLogic workspaceMenu has no anchor fallback"
+RUNMENU_BLOCK="$(awk '/^    function runMenuItem/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+test -n "$RUNMENU_BLOCK" || fail "could not extract runMenuItem"
+echo "$RUNMENU_BLOCK" | grep -qF 'AppService.launchOnWorkspace(row.record, item.workspace, false);' \
+    || fail "the submenu launch does not pass the absolute workspace directly"
+if echo "$RUNMENU_BLOCK" | grep -q 'workspaceFor'; then
+    fail "the submenu launch still re-resolves the workspace through workspaceFor"
+fi
 DIGIT_BLOCK="$(awk '/Qt.ControlModifier\) !== 0/{flag=1} flag{print} flag && /event.accepted = true/{exit}' "$VIEW")"
 echo "$DIGIT_BLOCK" | grep -q 'AppService.workspaceFor' \
     || fail "Ctrl+digit branch does not resolve the slot through AppService.workspaceFor"
@@ -658,24 +677,87 @@ grep -q 'root.activeRows' "$VIEW" \
     || fail "the view has no active-rows abstraction"
 grep -q 'root.activeSmoothWheel' "$VIEW" \
     || fail "the view has no active-wheel abstraction"
-grep -q 'DevGeometry.register("dashboard.apps.list", root.activeList)' "$VIEW" \
-    || fail "dashboard.apps.list is not the active list"
+grep -q 'readonly property bool querying: root.query.trim() !== ""' "$VIEW" \
+    || fail "querying is not derived from the trimmed query"
+grep -q 'readonly property var activeRows: root.querying ? root.resultRows : root.browseRows' "$VIEW" \
+    || fail "activeRows does not map a query to the result rows"
+grep -q 'readonly property var activeList: root.querying ? idAppsResultList : idAppsBrowseList' "$VIEW" \
+    || fail "activeList does not map a query to the result list"
+grep -q 'readonly property var activeSmoothWheel: root.querying ? idAppsResultSmoothWheel : idAppsBrowseSmoothWheel' "$VIEW" \
+    || fail "activeSmoothWheel does not map a query to the result wheel"
+grep -q 'visible: !root.querying' "$VIEW" \
+    || fail "the browse slot is not visible only on an empty query"
+grep -q 'visible: root.querying' "$VIEW" \
+    || fail "the result slot is not visible only on a query"
+REGISTER_BLOCK="$(awk '/^    function registerLists/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+test -n "$REGISTER_BLOCK" || fail "could not extract registerLists"
+echo "$REGISTER_BLOCK" | grep -q 'root.query.trim() !== ""' \
+    || fail "registerLists does not derive the active list from the source query"
+if echo "$REGISTER_BLOCK" | grep -q 'root.activeList'; then
+    fail "registerLists registers the stale activeList"
+fi
+echo "$REGISTER_BLOCK" | grep -q 'DevGeometry.register("dashboard.apps.list"' \
+    || fail "registerLists does not register the active list"
 grep -q 'DevGeometry.register("dashboard.apps.browseList", idAppsBrowseList)' "$VIEW" \
     || fail "the browse list is not registered for the probe"
 grep -q 'DevGeometry.register("dashboard.apps.resultList", idAppsResultList)' "$VIEW" \
     || fail "the result list is not registered for the probe"
 ONQUERY_BLOCK="$(awk '/^    onQueryChanged:/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
 test -n "$ONQUERY_BLOCK" || fail "could not extract the onQueryChanged handler"
+echo "$ONQUERY_BLOCK" | grep -qF 'const querying = root.query.trim() !== ""' \
+    || fail "onQueryChanged does not derive the mode from the source query"
+if echo "$ONQUERY_BLOCK" | grep -qE 'root\.(querying|activeList)\b'; then
+    fail "onQueryChanged reads a stale derived mode instead of the source query"
+fi
 echo "$ONQUERY_BLOCK" | grep -q 'idAppsBrowseList.selectedIndex = 0' \
     || fail "clearing the query does not reset the browse selection"
 echo "$ONQUERY_BLOCK" | grep -q 'idAppsBrowseList.positionViewAtBeginning()' \
     || fail "clearing the query does not restore the browse list to the top"
 echo "$ONQUERY_BLOCK" | grep -q 'idAppsResultList.selectedIndex = 0' \
     || fail "a query change does not select the first result"
+echo "$ONQUERY_BLOCK" | grep -q 'idAppsResultList.positionViewAtBeginning()' \
+    || fail "entering a query does not restore the results list to the top"
+ONQUERYING_BLOCK="$(awk '/^    onQueryingChanged:/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+test -n "$ONQUERYING_BLOCK" || fail "could not extract the onQueryingChanged handler"
+echo "$ONQUERYING_BLOCK" | grep -q 'idAppsBrowseSmoothWheel.stop()' \
+    || fail "a mode change does not stop the hidden browse wheel"
+echo "$ONQUERYING_BLOCK" | grep -q 'idAppsResultSmoothWheel.stop()' \
+    || fail "a mode change does not stop the hidden result wheel"
 grep -q 'idAppRow.useMarkup' "$VIEW" \
     || fail "the row name has no markup gate"
 grep -q 'idAppRow.useMarkup ? Text.StyledText : Text.PlainText' "$VIEW" \
     || fail "the row name is not StyledText only when it has markup"
+
+# --- 4n. closing the menu drops the menu-only state, after the trigger runs ---
+grep -qF 'onClosed: root.onMenuClosed()' "$VIEW" \
+    || fail "the context menu does not route close through onMenuClosed"
+MENUCLOSE_BLOCK="$(awk '/^    function onMenuClosed/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
+test -n "$MENUCLOSE_BLOCK" || fail "could not extract onMenuClosed"
+echo "$MENUCLOSE_BLOCK" | grep -q 'root.focusSearch()' \
+    || fail "closing the menu does not restore search focus"
+echo "$MENUCLOSE_BLOCK" | grep -q 'root.menuRow = null' \
+    || fail "closing the menu does not clear the menu row"
+echo "$MENUCLOSE_BLOCK" | grep -q 'root.menuPinned = false' \
+    || fail "closing the menu does not clear the menu pin state"
+
+# --- 4o. offscreen behavioral check for the mode handler (skips without Qt 6) ---
+QMLTESTRUNNER="${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}"
+MODE_TEST="$ROOT/tests/app-launcher-mode.qml"
+if [ ! -x "$QMLTESTRUNNER" ]; then
+    echo "app-launcher: qmltestrunner not found, skipping the offscreen mode test" >&2
+elif [ ! -f "$MODE_TEST" ]; then
+    fail "the offscreen mode test is missing"
+else
+    MODE_OUT="$(mktemp)"
+    if QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 \
+        "$QMLTESTRUNNER" -input "$MODE_TEST" >"$MODE_OUT" 2>&1; then
+        rm -f "$MODE_OUT"
+    else
+        cat "$MODE_OUT" >&2
+        rm -f "$MODE_OUT"
+        fail "the offscreen mode handler test failed"
+    fi
+fi
 
 # --- 5. ranking, sections, markup, and state run under node ---
 node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/services/MonitorLogic.js" <<'NODEEOF'
@@ -1168,10 +1250,52 @@ check('wsmenu/no-hint-over-9',
       al.workspaceMenu([{ name: 'DP-1', first: 1, active: 1 }], 12, 'DP-1', [])
         .filter(i => i.id === 'workspace' && i.hint === '').length,
       3);
-check('wsmenu/no-monitors', al.workspaceMenu([], 5, 'DP-1', []), []);
+check('wsmenu/no-monitors', al.workspaceMenu([], 5, '', []), []);
 check('wsmenu/zero-count', al.workspaceMenu(WS, 0, 'DP-1', []), []);
 check('wsmenu/bad-first',
       al.workspaceMenu([{ name: 'DP-1', first: 0, active: 1 }], 5, 'DP-1', []).length, 0);
+
+// Empty or stale monitor data still offers the anchor block: the fallback
+// carries the anchor's first workspace and known active id, so "Open on
+// workspace" survives a startup poll gap. The first monitor anchors the menu
+// when the anchor name is empty or names no enabled monitor, and a disabled
+// anchor yields to the first enabled monitor.
+const wsFallback = al.workspaceMenu([], 5, 'DP-2', [6], { name: 'DP-2', first: 6, active: 7 });
+check('wsmenu/fallback-labels',
+      wsFallback.filter(i => i.kind === 'label').map(i => i.text),
+      ['DP-2']);
+check('wsmenu/fallback-workspaces',
+      wsFallback.filter(i => i.id === 'workspace').map(i => i.workspace),
+      [6, 7, 8, 9, 10]);
+check('wsmenu/fallback-current',
+      wsFallback.filter(i => i.current).map(i => i.workspace),
+      [7]);
+check('wsmenu/fallback-hints',
+      wsFallback.filter(i => i.id === 'workspace').map(i => i.hint),
+      ['ctrl 1', 'ctrl 2', 'ctrl 3', 'ctrl 4', 'ctrl 5']);
+check('wsmenu/fallback-new', wsFallback[wsFallback.length - 1].workspace, 7);
+check('wsmenu/fallback-name',
+      al.workspaceMenu([], 5, '', [], { name: 'eDP-1', first: 1, active: -1 })
+        .filter(i => i.kind === 'label').map(i => i.text),
+      ['eDP-1']);
+check('wsmenu/no-anchor-labels',
+      al.workspaceMenu(WS, 5, '', []).filter(i => i.kind === 'label').map(i => i.text),
+      ['DP-1', 'DP-2']);
+check('wsmenu/no-anchor-hints',
+      al.workspaceMenu(WS, 5, '', []).filter(i => i.hint !== '').map(i => i.workspace),
+      [1, 2, 3, 4, 5]);
+check('wsmenu/stray-anchor-labels',
+      al.workspaceMenu(WS, 5, 'HDMI-A-1', []).filter(i => i.kind === 'label').map(i => i.text),
+      ['DP-1', 'DP-2']);
+check('wsmenu/stray-anchor-hints',
+      al.workspaceMenu(WS, 5, 'HDMI-A-1', []).filter(i => i.hint !== '').map(i => i.workspace),
+      [1, 2, 3, 4, 5]);
+check('wsmenu/disabled-anchor-falls-to-first',
+      al.workspaceMenu([
+        { name: 'DP-1', first: 1, active: 1 },
+        { name: 'DP-2', first: 6, active: 6, disabled: true },
+      ], 5, 'DP-2', []).filter(i => i.hint !== '').map(i => i.workspace),
+      [1, 2, 3, 4, 5]);
 
 // menuItems with workspace items gains Open on workspace right after Open,
 // carrying the submenu; without them the item list is unchanged.

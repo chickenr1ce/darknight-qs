@@ -107,3 +107,33 @@ monitor, with absolute numbers, grouped by monitor.
   and `DP-2` (6–10 with no hints, 6 current), with occupied rings on 2, 5, 7
   and 10, then "New empty workspace"; it fits inside the card. Launching on
   workspace 8 and opening from DP-2 remain the user's live check.
+
+## Review fixes (2026-10-09)
+
+- **Empty monitor list keeps the submenu.** When no monitor is enabled yet
+  (`MonitorService.orderedMonitors` present but `enabledMonitors` empty, or the
+  list entirely empty), `workspaceMenuItems` passes the anchor's block as an
+  `anchorFallback` and `AppLogic.workspaceMenu` synthesizes a single-monitor
+  menu from it (first from `firstWorkspaceFor(anchor)`, active from
+  `Hyprland.monitors` when known). Node cases cover the fallback.
+- **Missing anchor falls to the first monitor.** `AppLogic.workspaceMenu`
+  anchors on the first enabled monitor when `anchorName` is empty or names no
+  enabled monitor, so hints and "New empty workspace" follow that block instead
+  of vanishing. Node cases cover empty, unknown, and disabled anchors.
+- **The enabled filter is exercised for real.** `workspaceMenuItems` now passes
+  every ordered monitor with a `disabled` flag from
+  `MonitorService.enabledMonitors`, and `AppLogic.workspaceMenu` drops disabled
+  entries, so the node tests run the same filter production uses. Dropping the
+  filter fails the structural grep and the node cases (mutation-verified).
+- **The submenu launch passes the absolute workspace.** Section 4g pins
+  `AppService.launchOnWorkspace(row.record, item.workspace, false)` inside
+  `runMenuItem` and rejects a `workspaceFor()` wrap on that path; wrapping it
+  fails the gate (mutation-verified). The Ctrl+digit path still resolves its slot
+  through `AppService.workspaceFor`.
+- **Menu-only state clears on close.** `onClosed` routes through `onMenuClosed`,
+  which refocuses search and, after `triggered` has run, clears `menuRow` and
+  `menuPinned`, so the `menuItems` binding stops rebuilding through
+  `workspaceMenuItems()` on monitor/toplevel changes while the menu is closed.
+  `scripts/check.sh` and `scripts/boot-check.sh <worktree>` pass (loaded, no new
+  warnings); `docs/user/app-launcher.md` notes the post-reload single-block
+  fallback.

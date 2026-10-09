@@ -87,6 +87,9 @@ order:
    keep their marker. `ctrl N` hints appear only on the dashboard monitor's
    items (Ctrl+N is still per-monitor). "New empty workspace" adds the first
    free slot in the dashboard monitor's block, hidden when that block is full.
+
+   Just after a reload, before the monitor list is known, the submenu falls back
+   to the dashboard monitor's block alone, so the item is always there.
 3. Open, keep dashboard (middle-click)
 4. Focus window (N open), only while the app has windows
 5. The entry's desktop actions, under an "Actions" label, only when it

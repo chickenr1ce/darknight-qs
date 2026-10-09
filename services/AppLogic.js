@@ -479,25 +479,46 @@ function firstEmptyWorkspace(firstWorkspace, perMonitor, occupiedIds) {
     return -1;
 }
 
-function workspaceMenu(monitors, perMonitor, anchorName, occupiedIds) {
+function workspaceMenu(monitors, perMonitor, anchorName, occupiedIds, anchorFallback) {
     const items = [];
     const count = Math.round(Number(perMonitor));
-    const list = monitors || [];
-    if (isNaN(count) || count < 1 || list.length === 0)
+    if (isNaN(count) || count < 1)
         return items;
     const occupied = occupiedIds || [];
-    const ordered = [];
+    const list = monitors || [];
+    const enabled = [];
     for (let i = 0; i < list.length; i++) {
         const monitor = list[i];
-        if (!monitor || monitor.disabled === true || monitor.name !== anchorName)
-            continue;
-        ordered.push(monitor);
+        if (monitor && monitor.disabled !== true)
+            enabled.push(monitor);
     }
-    for (let i = 0; i < list.length; i++) {
-        const monitor = list[i];
-        if (!monitor || monitor.disabled === true || monitor.name === anchorName)
-            continue;
-        ordered.push(monitor);
+    if (enabled.length === 0) {
+        const fallback = anchorFallback || {};
+        const fallbackName = typeof fallback.name === "string" ? fallback.name : "";
+        const name = anchorName !== "" ? anchorName : fallbackName;
+        if (name === "")
+            return items;
+        enabled.push({
+            name: name,
+            first: fallback.first,
+            active: typeof fallback.active === "number" ? fallback.active : -1
+        });
+    }
+    let anchor = enabled[0].name;
+    for (let i = 0; i < enabled.length; i++) {
+        if (enabled[i].name === anchorName) {
+            anchor = anchorName;
+            break;
+        }
+    }
+    const ordered = [];
+    for (let i = 0; i < enabled.length; i++) {
+        if (enabled[i].name === anchor)
+            ordered.push(enabled[i]);
+    }
+    for (let i = 0; i < enabled.length; i++) {
+        if (enabled[i].name !== anchor)
+            ordered.push(enabled[i]);
     }
     let anchorFirst = -1;
     for (let i = 0; i < ordered.length; i++) {
@@ -505,7 +526,7 @@ function workspaceMenu(monitors, perMonitor, anchorName, occupiedIds) {
         const first = Math.round(Number(monitor.first));
         if (isNaN(first) || first < 1)
             continue;
-        if (monitor.name === anchorName)
+        if (monitor.name === anchor)
             anchorFirst = first;
         items.push(menuItem("label", { text: monitor.name }));
         for (let n = 1; n <= count; n++) {
@@ -514,7 +535,7 @@ function workspaceMenu(monitors, perMonitor, anchorName, occupiedIds) {
             items.push(menuItem("item", {
                 id: "workspace",
                 text: current ? qsTr("Workspace %1 (current)").arg(workspace) : qsTr("Workspace %1").arg(workspace),
-                hint: monitor.name === anchorName && n <= 9 ? qsTr("ctrl %1").arg(n) : "",
+                hint: monitor.name === anchor && n <= 9 ? qsTr("ctrl %1").arg(n) : "",
                 workspace: workspace,
                 current: current,
                 occupied: occupied.indexOf(workspace) !== -1

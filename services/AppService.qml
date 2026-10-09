@@ -158,6 +158,14 @@ Singleton {
             MonitorService.workspacesPerMonitor);
     }
 
+    function activeWorkspaceFor(hyprMonitors, monitorName): int {
+        for (let i = 0; i < hyprMonitors.length; i++) {
+            if (hyprMonitors[i].name === monitorName && hyprMonitors[i].activeWorkspace)
+                return hyprMonitors[i].activeWorkspace.id;
+        }
+        return -1;
+    }
+
     function workspaceMenuItems(): var {
         const name = root.anchorMonitorName();
         const hyprMonitors = Hyprland.monitors?.values ?? [];
@@ -171,19 +179,11 @@ Singleton {
         const orderedNames = MonitorService.orderedMonitors;
         for (let i = 0; i < orderedNames.length; i++) {
             const monitorName = orderedNames[i];
-            if (enabledNames.indexOf(monitorName) === -1)
-                continue;
-            let activeWorkspace = -1;
-            for (let j = 0; j < hyprMonitors.length; j++) {
-                if (hyprMonitors[j].name === monitorName && hyprMonitors[j].activeWorkspace) {
-                    activeWorkspace = hyprMonitors[j].activeWorkspace.id;
-                    break;
-                }
-            }
             monitors.push({
                 name: monitorName,
                 first: MonitorService.firstWorkspaceFor(monitorName),
-                active: activeWorkspace
+                active: root.activeWorkspaceFor(hyprMonitors, monitorName),
+                disabled: enabledNames.indexOf(monitorName) === -1
             });
         }
         const occupied = [];
@@ -193,7 +193,15 @@ Singleton {
             if (workspace && occupied.indexOf(workspace.id) === -1)
                 occupied.push(workspace.id);
         }
-        return AppLogic.workspaceMenu(monitors, MonitorService.workspacesPerMonitor, name, occupied);
+        const fallbackName = name !== ""
+            ? name
+            : (orderedNames.length > 0 ? orderedNames[0] : "");
+        const fallback = {
+            name: fallbackName,
+            first: MonitorService.firstWorkspaceFor(fallbackName),
+            active: root.activeWorkspaceFor(hyprMonitors, fallbackName)
+        };
+        return AppLogic.workspaceMenu(monitors, MonitorService.workspacesPerMonitor, name, occupied, fallback);
     }
 
     function launchOnWorkspace(record, workspace, keepOpen): void {

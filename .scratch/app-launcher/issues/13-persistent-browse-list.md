@@ -146,3 +146,20 @@ Requirements:
   reload. The one `ReferenceError: idAppsList` in the live log, at
   18:58:09, came from the agent's stray-`idAppsList` mutation; the file has
   no `idAppsList` left.
+- 2026-10-09 — **Review fixes.** `onQueryChanged` and `registerLists` derive the
+  mode from `root.query.trim() !== ""` locally instead of the stale
+  `root.querying`/`root.activeList` (Qt 6.12 runs the handler before the derived
+  binding refreshes), so the first keystroke selects the results list and a clear
+  selects and scrolls the browse list; the clamp is deferred through
+  `Qt.callLater` so it lands on the refreshed active list. Section 4m now pins
+  the `querying` definition, the three `active*` ternaries, the two visibility
+  gates, the local derivation (and rejects `root.querying`/`root.activeList` in
+  the handler), and the local `registerLists` derivation; each was
+  mutation-verified (hard-wire `activeList`, swap a ternary, swap a visibility
+  gate, read `root.querying` in the handler, register `root.activeList`) →
+  `app-launcher FAIL` → restored. `onQueryingChanged` stops both `SmoothWheel`s
+  on a mode flip, and entering a query calls
+  `idAppsResultList.positionViewAtBeginning()`. `tests/app-launcher-mode.qml`
+  runs under `/usr/lib/qt6/bin/qmltestrunner` (offscreen, skipping when the Qt 6
+  runner is absent) inside `test-app-launcher.sh`, mirroring the handler pattern;
+  a handler that reads `root.querying` fails it.

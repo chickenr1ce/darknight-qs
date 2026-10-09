@@ -96,15 +96,21 @@ Item {
             idAppsContextMenu.closeMenu();
     }
     onQueryChanged: {
-        if (root.querying) {
+        const querying = root.query.trim() !== "";
+        if (querying) {
             idAppsResultList.selectedIndex = 0;
+            idAppsResultList.positionViewAtBeginning();
         } else {
             idAppsBrowseList.selectedIndex = 0;
             idAppsBrowseList.positionViewAtBeginning();
         }
-        root.clampSelection();
+        Qt.callLater(root.clampSelection);
     }
-    onQueryingChanged: root.registerLists()
+    onQueryingChanged: {
+        root.registerLists();
+        idAppsBrowseSmoothWheel.stop();
+        idAppsResultSmoothWheel.stop();
+    }
     onBrowseRowsChanged: root.clampSelection()
     onResultRowsChanged: root.clampSelection()
 
@@ -831,7 +837,7 @@ Item {
         anchors.fill: parent
         items: root.menuItems
         header: root.menuHeader
-        onClosed: root.focusSearch()
+        onClosed: root.onMenuClosed()
         onTriggered: item => root.runMenuItem(item)
         onTypedText: text => root.forwardTypedText(text)
     }
@@ -954,6 +960,16 @@ Item {
         });
     }
 
+    function onMenuClosed(): void {
+        root.focusSearch();
+        Qt.callLater(() => {
+            if (idAppsContextMenu.opened)
+                return;
+            root.menuRow = null;
+            root.menuPinned = false;
+        });
+    }
+
     function runMenuItem(item): void {
         const row = root.menuRow;
         if (!item || !row)
@@ -1054,7 +1070,8 @@ Item {
     }
 
     function registerLists(): void {
-        DevGeometry.register("dashboard.apps.list", root.activeList);
+        const querying = root.query.trim() !== "";
+        DevGeometry.register("dashboard.apps.list", querying ? idAppsResultList : idAppsBrowseList);
         DevGeometry.register("dashboard.apps.browseList", idAppsBrowseList);
         DevGeometry.register("dashboard.apps.resultList", idAppsResultList);
     }
