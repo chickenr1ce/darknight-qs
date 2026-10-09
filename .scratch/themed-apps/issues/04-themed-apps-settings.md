@@ -50,29 +50,35 @@ target tickets never collide on prose.
      `chrome/shell-palette.css` and `user.js`,
      `~/.config/Vencord/themes/quickshell.theme.css`, and
      `~/.config/spicetify/Themes/quickshell/{color.ini,user.css}`;
-   - a Spicetify subsection: select the `quickshell` theme and its `Quickshell`
-     color option once, note that the theme ships the community `text` theme's
-     default options (MIT), that the client is refreshed with `spicetify refresh`
-     (never `spicetify apply`, which is version-gated here and restarts Spotify),
-     and that a Spotify update needs a re-apply;
+   - a Spicetify subsection written from ticket 05's dated evidence, not from
+     this plan: the actual selection step (plain `refresh`, or a version-gated
+     `apply`), that the theme ships the community `text` theme's default options
+     (MIT, and the repo maintains its `user.css`), that the shell refreshes with
+     `spicetify refresh` and never `spicetify apply`, and that a Spotify update
+     needs a re-apply;
    - a Vencord subsection under One-time wiring: enable the generated theme once,
      order it after `system24.theme.css`, restart Discord once, note the
      base-theme coupling and the hot reload;
-   - a Firefox subsection: add `@import url("shell-palette.css");` as the first
-     line of the profile's `userChrome.css`, note the generated `user.js` pref
-     (and that the renderer will not overwrite a hand-written one), the psd write
-     path, the `XDG_CONFIG_HOME`/`$HOME/.config` resolution, and that a restart
-     applies it;
+   - a Firefox subsection: create the profile's `userChrome.css` with a single
+     `@import url("shell-palette.css");` as its **first** line (an `@import`
+     after other rules is ignored); the generated sheet carries the palette
+     variables and the rules mapping them onto Firefox's chrome, verified against
+     Firefox 157 and subject to upkeep after upgrades; note that chrome only is
+     themed (about: pages and web content are not), the managed `user.js` block
+     that preserves other prefs, the psd write path, the
+     `${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox` resolution, and that a
+     restart applies it;
    - the "Running the renderer by hand" paragraph states the optional second
      argument and the per-target isolation exit semantics (a broken target is
      skipped, the rest still write, the script exits non-zero), and notes that
-     the Firefox path follows `HOME` rather than `XDG_CONFIG_HOME`;
+     the Firefox root follows `${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox`,
+     falling back to `$HOME/.mozilla/firefox`;
    - the "Verify" `grep` list gains the three new files, with the two Firefox
      paths expressed profile-relative (a glob or an explicit profile dir), since
      they are not fixed XDG paths.
 
 7. `CONTEXT.md`'s desktop-retint line is corrected to "one file per target
-   (Firefox contributes two)".
+   (Firefox and Spicetify each contribute two)".
 
 8. `scripts/check.sh` and `scripts/boot-check.sh` pass.
 

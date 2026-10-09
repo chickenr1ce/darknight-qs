@@ -102,14 +102,19 @@ braces, so CSS braces in a template do not trip it.
   the file.
 - A Firefox profile that cannot be resolved is skipped with a `firefox: no
   profile` warning on stderr and does not count as a render failure.
-- A disabled target writes a comment-only file in that destination's own
-  language (`--` for Lua, `#` for the shell-shaped files, `/* */` for CSS, `//`
-  for `user.js`), so a disabled Lua target still parses when the user's config
-  `require`s it.
+- A disabled target writes a valid unthemed layer. Where a comment-only file is
+  safe (`--` for Lua, `#` for the shell-shaped files, `/* */` for CSS, `//` for
+  `user.js`) it writes one, so a disabled Lua target still parses when the user's
+  config `require`s it. Where the file is a whole config or defines variables the
+  app requires (starship, hyprlock) it renders the built-in no-theme default
+  palette instead, because a comment-only file would wipe the prompt or leave
+  hyprlock's `$theme_*` undefined.
 - `docs/user/theme-desktop-setup.md` and `CONTEXT.md` say the retint writes six
-  files. Both move to eight and gain a one-time Firefox wiring section.
-- Tests that redirect `XDG_CONFIG_HOME` must also redirect `HOME`, because the
-  Firefox profile lives under `~/.config/mozilla`, not under `XDG_CONFIG_HOME`.
+  files. Both move to nine targets (eleven files) and gain Firefox and Spicetify
+  wiring sections.
+- The Firefox root resolves to `${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox`
+  (falling back to `$HOME/.mozilla/firefox`), so tests redirect both
+  `XDG_CONFIG_HOME` and `HOME`.
 
 ## Amendments
 
