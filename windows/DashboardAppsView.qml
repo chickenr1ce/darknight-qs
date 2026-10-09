@@ -164,7 +164,9 @@ Item {
                     anchors.fill: parent
 
                     verticalAlignment: Text.AlignVCenter
-                    visible: idAppsSearch.text === "" && !idAppsSearch.activeFocus
+                    // The field is focused whenever the tab opens, so the hint stays
+                    // until the user types.
+                    visible: idAppsSearch.text === ""
 
                     textFormat: Text.PlainText
                     elide: Text.ElideRight
@@ -693,6 +695,80 @@ Item {
             font {
                 family: Globals.uiFontFamily
                 pixelSize: Globals.uiBodySize
+            }
+        }
+
+        ColumnLayout {
+            id: idAppsFooter
+
+            Layout.fillWidth: true
+
+            spacing: Globals.appsFooterGap
+
+            Rectangle {
+                id: idAppsFooterRule
+
+                Layout.fillWidth: true
+                Layout.preferredHeight: Globals.hairlineHeight
+
+                color: Colors.border
+            }
+
+            RowLayout {
+                id: idAppsFooterRow
+
+                Layout.fillWidth: true
+
+                spacing: Globals.spacing
+
+                KeyHint {
+                    id: idAppsFooterOpen
+
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.fillWidth: false
+
+                    key: "↵"
+                    label: qsTr("Open")
+                }
+
+                KeyHint {
+                    id: idAppsFooterWorkspace
+
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.fillWidth: false
+
+                    key: qsTr("ctrl 1–%1").arg(Math.min(9, MonitorService.workspacesPerMonitor))
+                    label: qsTr("On workspace")
+                }
+
+                KeyHint {
+                    id: idAppsFooterMore
+
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.fillWidth: false
+
+                    key: "⇧F10"
+                    label: qsTr("More")
+                }
+
+                Text {
+                    id: idAppsFooterHint
+
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.alignment: Qt.AlignVCenter
+
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    horizontalAlignment: Text.AlignRight
+                    text: qsTr("hover a row for actions")
+                    color: Colors.textFaint
+
+                    font {
+                        family: Globals.uiFontFamily
+                        pixelSize: Globals.uiCaptionSize
+                    }
+                }
             }
         }
     }

@@ -4,8 +4,9 @@ import QtQuick
 import qs.config
 import "SmoothWheelLogic.js" as SmoothWheelLogic
 
-// Transparent overlay for a Flickable: one wheel notch glides contentY by
-// Globals.wheelStep over Globals.wheelMs, rapid notches accumulate into one
+// Transparent overlay for a Flickable: one wheel notch (a 120 angleDelta)
+// glides contentY by Globals.wheelStep over Globals.wheelMs, a finer or
+// coarser chunk scales proportionally, rapid notches accumulate into one
 // target, trackpad pixelDelta scrolls 1:1, and a user drag cancels the glide.
 // Keyboard scrolling stops it through stop() before positionViewAtIndex.
 Item {

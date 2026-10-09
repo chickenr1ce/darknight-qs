@@ -386,6 +386,8 @@ for token in 'property real dashboardAppsMaxFraction: 0.8' 'property int scrollb
     grep -q "$token" "$ROOT/config/Globals.qml" \
         || fail "Globals has no $token token"
 done
+grep -q 'property int wheelStep: 240' "$ROOT/config/Globals.qml" \
+    || fail "Globals.wheelStep is not 240"
 
 # --- 4j. the Apps view is bounded by PanelShell, so the list scrolls ---
 APPS_MOUNT="$(awk '/^    DashboardAppsView \{/{flag=1} flag{print} flag && /^    \}$/{exit}' "$DCENTER")"
@@ -561,6 +563,31 @@ grep -q 'AppService.buildRecords' "$VIEW" \
     || fail "the apps bench does not rebuild the AppService snapshot"
 grep -q 'AppLogic.runningCounts' "$SVC" \
     || fail "AppService runningMap does not use runningCounts"
+
+# --- 4l. the footer hint bar composes KeyHint and binds the workspace count ---
+grep -q 'idAppsFooter' "$VIEW" \
+    || fail "DashboardAppsView has no footer"
+FOOTER_COUNT="$(grep -c 'KeyHint {' "$VIEW")"
+[ "$FOOTER_COUNT" -eq 3 ] \
+    || fail "the Apps footer does not compose KeyHint exactly three times (found $FOOTER_COUNT)"
+grep -q 'Math.min(9, MonitorService.workspacesPerMonitor)' "$VIEW" \
+    || fail "the footer workspace hint is not capped at 9 against workspacesPerMonitor"
+grep -q 'ctrl 1–' "$VIEW" \
+    || fail "the footer workspace hint does not use the en-dash range"
+grep -q 'qsTr("On workspace")' "$VIEW" \
+    || fail "the footer does not label the workspace hint through qsTr"
+grep -q 'qsTr("hover a row for actions")' "$VIEW" \
+    || fail "the footer has no faint hover hint"
+grep -q 'Colors.textFaint' "$VIEW" \
+    || fail "the footer hover hint is not Colors.textFaint"
+FOOTER_BLOCK="$(awk '/id: idAppsFooter$/{flag=1} flag{print} flag && /^        \}$/{exit}' "$VIEW")"
+test -n "$FOOTER_BLOCK" || fail "could not extract the Apps footer"
+echo "$FOOTER_BLOCK" | grep -q 'Globals.hairlineHeight' \
+    || fail "the footer rule is not a hairline"
+echo "$FOOTER_BLOCK" | grep -q 'Colors.border' \
+    || fail "the footer rule is not Colors.border"
+grep -q 'property int appsFooterGap' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no appsFooterGap token"
 
 # --- 5. ranking, sections, markup, and state run under node ---
 node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/services/MonitorLogic.js" <<'NODEEOF'
@@ -1039,6 +1066,19 @@ check('step/pinned-bottom', sl.wheelStep(800, 800, false, -120, 144, 0, 800), { 
 check('step/pinned-top', sl.wheelStep(0, 0, false, 120, 144, 0, 800), { target: 0, moved: false });
 check('step/no-overflow', sl.wheelStep(0, 0, false, -120, 144, 0, 0), { target: 0, moved: false });
 check('step/running-pinned', sl.wheelStep(0, 800, true, -120, 144, 0, 800), { target: 800, moved: false });
+
+// The step scales by |angleDelta| / 120 against the caller's step (240 live):
+// one notch moves one step, a 240 delta (two coalesced notches) two, a
+// high-resolution 15- or 30-unit chunk a proportional fraction, a reverse
+// notch subtracts, and a scaled step still clamps and accumulates.
+check('scale/notch', sl.wheelStep(0, 0, false, -120, 240, 0, 800), { target: 240, moved: true });
+check('scale/two-notches', sl.wheelStep(0, 0, false, -240, 240, 0, 1200), { target: 480, moved: true });
+check('scale/high-res-15', sl.wheelStep(0, 0, false, -15, 240, 0, 800), { target: 30, moved: true });
+check('scale/high-res-30', sl.wheelStep(100, 100, false, 30, 240, 0, 800), { target: 40, moved: true });
+check('scale/reverse', sl.wheelStep(480, 480, false, 120, 240, 0, 800), { target: 240, moved: true });
+check('scale/accumulate', sl.wheelStep(0, 240, true, -120, 240, 0, 800), { target: 480, moved: true });
+check('scale/bottom-clamp', sl.wheelStep(700, 700, false, -240, 240, 0, 800), { target: 800, moved: true });
+check('scale/top-clamp', sl.wheelStep(10, 10, false, 30, 240, 0, 800), { target: 0, moved: true });
 NODEEOF
 
 echo "app-launcher: all ok"

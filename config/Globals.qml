@@ -47,6 +47,7 @@ QtObject {
     readonly property real dashboardAppsMaxFraction: 0.8
     readonly property int dashboardUsageWidth: 320
     readonly property int appIconSize: 28
+    readonly property int appsFooterGap: 8
     readonly property int menuWidth: 236
     readonly property int menuItemHeight: 30
     readonly property int menuHeaderHeight: 40
@@ -72,7 +73,7 @@ QtObject {
     readonly property int pressMs: 120
     readonly property int tooltipDelayMs: 1000
     readonly property int wheelMs: 160
-    readonly property int wheelStep: 144
+    readonly property int wheelStep: 240
 
     readonly property int toastMs: 180
     readonly property int toastStickyClampMs: 30000

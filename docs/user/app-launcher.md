@@ -30,6 +30,11 @@ matched letters are highlighted. With no match the list offers one
 The card grows downward with the list, up to most of the screen height. A list
 longer than that scrolls in place, with a thin bar on the right edge.
 
+The card ends with a fixed footer of key hints under a hairline: `↵` Open,
+`ctrl 1–N` On workspace (N is the monitor's workspace count, up to 9), and
+`⇧F10` More, with a faint "hover a row for actions" reminder on the right. The
+footer never moves; the list shrinks instead.
+
 ## Mouse
 
 - Hover selects a row. A selected or hovered app row shows its inline buttons;
@@ -42,8 +47,9 @@ longer than that scrolls in place, with a thin bar on the right edge.
 - A selected or hovered row swaps the running dot, window count, and pin star
   for those buttons. Focus and Kill are dim and inert when the app has no
   window, so the row never moves.
-- The mouse wheel glides about three rows per notch; a trackpad scrolls with
-  the fingers. With reduced motion on, the wheel jumps instead of gliding.
+- The mouse wheel glides about four rows per notch; a high-resolution wheel
+  scales its partial chunks proportionally, and a trackpad scrolls with the
+  fingers. With reduced motion on, the wheel jumps instead of gliding.
 - The scrollbar appears only when the list overflows. Drag it to scroll, or
   click the track above or below it to page.
 

@@ -18,6 +18,7 @@ function wheelTarget(current, angleDeltaY, step) {
 function wheelStep(currentY, target, running, delta, step, minY, maxY) {
     const base = running ? Number(target) : Number(currentY);
     const from = isFinite(base) ? base : minY;
-    const next = Math.min(Math.max(wheelTarget(from, delta, step), minY), maxY);
+    const scaled = Number(step) * Math.abs(Number(delta)) / 120;
+    const next = Math.min(Math.max(wheelTarget(from, delta, scaled), minY), maxY);
     return { target: next, moved: next !== from };
 }
