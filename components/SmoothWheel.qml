@@ -4,13 +4,14 @@ import QtQuick
 import qs.config
 import "SmoothWheelLogic.js" as SmoothWheelLogic
 
-// Transparent overlay for a Flickable: the scroll path is chosen by input
-// source (SmoothWheelLogic.wheelMode). A mouse wheel glides contentY by
-// Globals.wheelStep over Globals.wheelMs; one notch (a 120 angleDelta) is one
-// step, a finer or coarser chunk scales proportionally, and rapid notches
-// accumulate into one target. A touchpad pixelDelta scrolls 1:1. A user drag
-// cancels the glide; keyboard scrolling stops it through stop() before
-// positionViewAtIndex.
+// Transparent overlay for a Flickable: the scroll path is chosen by the
+// event's scroll phase (SmoothWheelLogic.wheelMode). A discrete wheel
+// (Qt.NoScrollPhase) glides contentY by Globals.wheelStep over Globals.wheelMs;
+// one notch (a 120 angleDelta) is one step, a finer or coarser chunk scales
+// proportionally, and rapid notches accumulate into one target. A continuous
+// source (a touchpad or momentum scroll, any other phase) scrolls 1:1 on
+// pixelDelta. A user drag cancels the glide; keyboard scrolling stops it
+// through stop() before positionViewAtIndex.
 Item {
     id: root
 
@@ -42,17 +43,17 @@ Item {
         idWheelAnimation.restart();
     }
 
-    function isTouchpadEvent(event): bool {
-        if (!event || !event.device)
+    function isContinuousScroll(event): bool {
+        if (!event)
             return false;
-        return event.device.type === PointerDevice.TouchPad;
+        return event.phase !== Qt.NoScrollPhase;
     }
 
     function handleWheel(event): void {
         if (!root.flickable)
             return;
         const mode = SmoothWheelLogic.wheelMode(event.angleDelta.y, event.pixelDelta.y,
-            root.isTouchpadEvent(event));
+            root.isContinuousScroll(event));
         if (mode === "pixel") {
             const pixelDelta = event.pixelDelta.y;
             const next = SmoothWheelLogic.clampTarget(root.flickable.originY,

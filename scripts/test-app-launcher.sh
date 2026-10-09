@@ -549,12 +549,15 @@ for fn in clampTarget wheelStep wheelMode; do
     grep -q "SmoothWheelLogic.$fn" "$SMOOTH" \
         || fail "SmoothWheel does not delegate $fn to SmoothWheelLogic"
 done
-grep -q 'function isTouchpadEvent' "$SMOOTH" \
-    || fail "SmoothWheel has no touchpad source check"
-grep -q 'event.device' "$SMOOTH" \
-    || fail "SmoothWheel does not read the wheel event's device"
-grep -q 'PointerDevice.TouchPad' "$SMOOTH" \
-    || fail "SmoothWheel does not compare the device against a touchpad"
+grep -q 'function isContinuousScroll' "$SMOOTH" \
+    || fail "SmoothWheel has no continuous-source check"
+grep -q 'event.phase' "$SMOOTH" \
+    || fail "SmoothWheel does not read the wheel event's scroll phase"
+grep -q 'Qt.NoScrollPhase' "$SMOOTH" \
+    || fail "SmoothWheel does not treat NoScrollPhase as a discrete wheel"
+if grep -q 'event.device\|PointerDevice' "$SMOOTH"; then
+    fail "SmoothWheel still keys the scroll path on the pointer device"
+fi
 if grep -qE 'function (scrollTo|setTarget)\b' "$SMOOTH"; then
     fail "SmoothWheel keeps the dead scrollTo/setTarget entry points"
 fi
@@ -595,6 +598,8 @@ echo "$HANDLE_BODY" | grep -q 'SmoothWheelLogic.wheelStep' \
     || fail "handleWheel does not compose the wheel decision in SmoothWheelLogic"
 echo "$HANDLE_BODY" | grep -q 'SmoothWheelLogic.wheelMode' \
     || fail "handleWheel does not pick the scroll path through SmoothWheelLogic.wheelMode"
+echo "$HANDLE_BODY" | grep -q 'root.isContinuousScroll' \
+    || fail "handleWheel does not pick the scroll path by the event's scroll phase"
 echo "$HANDLE_BODY" | grep -q 'mode === "pixel"' \
     || fail "handleWheel has no pixel-source branch"
 echo "$HANDLE_BODY" | grep -q 'root.moveTo(' \
@@ -1480,16 +1485,16 @@ check('wheel/down', sl.wheelTarget(0, -120, 144), 144);
 check('wheel/up', sl.wheelTarget(144, 120, 144), 0);
 check('wheel/undefined-from', sl.wheelTarget(undefined, -120, 144), 144);
 
-// wheelMode: pick the path by input source. A mouse wheel with a Wayland
-// pixelDelta still steps on angleDelta, a touchpad takes the pixel path even
-// when it reports a small angleDelta, and an event with no device falls back
-// to angleDelta first and pixelDelta only when the angle is zero.
-check('mode/mouse-angle', sl.wheelMode(120, 15, false), 'angle');
-check('mode/mouse-coalesced', sl.wheelMode(600, 15, false), 'angle');
-check('mode/touchpad-pixel', sl.wheelMode(0, 12, true), 'pixel');
-check('mode/touchpad-small-angle', sl.wheelMode(8, 3, true), 'pixel');
+// wheelMode: pick the path by scroll phase. A discrete wheel (isContinuous
+// false) steps on angleDelta even when Wayland also attaches a pixelDelta; a
+// continuous source (isContinuous true) takes the pixel path even with a small
+// angleDelta; an event with no usable delta is "none".
+check('mode/wheel-angle', sl.wheelMode(120, 15, false), 'angle');
+check('mode/wheel-coalesced', sl.wheelMode(600, 15, false), 'angle');
+check('mode/continuous-pixel', sl.wheelMode(0, 12, true), 'pixel');
+check('mode/continuous-small-angle', sl.wheelMode(8, 3, true), 'pixel');
 check('mode/pixel-fallback', sl.wheelMode(0, 15, false), 'pixel');
-check('mode/touchpad-no-pixel-angle', sl.wheelMode(120, 0, true), 'angle');
+check('mode/continuous-no-pixel-angle', sl.wheelMode(120, 0, true), 'angle');
 check('mode/none', sl.wheelMode(0, 0, true), 'none');
 check('mode/none-unknown', sl.wheelMode(0, 0, false), 'none');
 

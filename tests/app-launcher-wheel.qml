@@ -1,18 +1,17 @@
 import QtQuick
 import QtTest
 
-// The wheel path SmoothWheel picks depends on the input source: a mouse wheel
-// must take the stepped angleDelta path even when Wayland attaches a small
-// pixelDelta, and only a touchpad takes the 1:1 pixel path. That needs
-// WheelEvent.device (a PointerDevice) and PointerDevice.TouchPad; if either
-// disappeared, every wheel would silently route down the pixel path again.
+// The scroll path depends on the event's scroll phase: a discrete wheel
+// arrives with Qt.NoScrollPhase and must take the stepped angleDelta path,
+// while a continuous source (touchpad, momentum) arrives with ScrollBegin or
+// ScrollUpdate and takes the 1:1 pixel path. Qt Wayland reports every seat
+// pointer as a "touchpad" device, so the device type cannot make this call.
 // This runs offscreen and is wired into scripts/test-app-launcher.sh.
 TestCase {
     id: root
 
     property int wheels: 0
-    property int wheelDeviceType: -1
-    property bool wheelHasDevice: false
+    property int wheelPhase: -1
 
     name: "AppLauncherWheel"
 
@@ -33,28 +32,27 @@ TestCase {
                 anchors.fill: parent
                 onWheel: wheel => {
                     root.wheels = root.wheels + 1;
-                    root.wheelHasDevice = wheel.device !== null;
-                    root.wheelDeviceType = wheel.device ? wheel.device.type : -1;
+                    root.wheelPhase = wheel.phase;
                 }
             }
         }
     }
 
-    function test_pointerDeviceTypeExists(): void {
-        verify(typeof PointerDevice !== "undefined", "PointerDevice is available");
-        compare(PointerDevice.TouchPad === PointerDevice.Mouse, false,
-            "TouchPad and Mouse are distinct device types");
+    function test_scrollPhaseEnum(): void {
+        verify(typeof Qt.NoScrollPhase !== "undefined", "Qt.NoScrollPhase is available");
+        compare(Qt.NoScrollPhase === Qt.ScrollBegin, false,
+            "NoScrollPhase and ScrollBegin are distinct");
+        compare(Qt.NoScrollPhase === Qt.ScrollUpdate, false,
+            "NoScrollPhase and ScrollUpdate are distinct");
     }
 
-    function test_mouseWheelCarriesDevice(): void {
+    function test_mouseWheelIsDiscrete(): void {
         root.wheels = 0;
-        root.wheelDeviceType = -1;
-        root.wheelHasDevice = false;
+        root.wheelPhase = -1;
         mouseWheel(idWheelArea, 50, 50, 0, 120);
         wait(50);
         compare(root.wheels, 1, "the wheel event is delivered");
-        verify(root.wheelHasDevice, "the wheel event carries a device");
-        compare(root.wheelDeviceType, PointerDevice.Mouse,
-            "a synthetic mouse wheel reports the Mouse device type");
+        compare(root.wheelPhase, Qt.NoScrollPhase,
+            "a synthetic mouse wheel reports NoScrollPhase");
     }
 }

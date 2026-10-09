@@ -23,12 +23,12 @@ function wheelStep(currentY, target, running, delta, step, minY, maxY) {
     return { target: next, moved: next !== from };
 }
 
-function wheelMode(angleDelta, pixelDelta, isTouchpad) {
+function wheelMode(angleDelta, pixelDelta, isContinuous) {
     const angle = Number(angleDelta);
     const pixel = Number(pixelDelta);
     const hasAngle = isFinite(angle) && angle !== 0;
     const hasPixel = isFinite(pixel) && pixel !== 0;
-    if (isTouchpad === true)
+    if (isContinuous === true)
         return hasPixel ? "pixel" : (hasAngle ? "angle" : "none");
     if (hasAngle)
         return "angle";

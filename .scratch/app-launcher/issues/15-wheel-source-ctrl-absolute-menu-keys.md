@@ -21,19 +21,19 @@ ordinary mouse-wheel events too. `SmoothWheel` takes the 1:1 pixel path
 whenever `pixelDelta` is non-zero, so every notch moves 15 px and coalesced
 notches are lost.
 
-**Fix:** pick the path by input source, not by whether `pixelDelta` is
-non-zero.
+**Fix:** pick the path by the event's scroll phase, not by whether
+`pixelDelta` is non-zero.
 
-- Use `event.device.type === PointerDevice.TouchPad` (Qt 6
-  `QQuickWheelEvent.device`, a `PointerDevice`) for the 1:1 pixel path.
-  Verify the API on Qt 6.12 with the `qt-docs` MCP or an offscreen
-  `qmltestrunner` case; `/usr/lib/qt6/bin/qmltestrunner` is the Qt 6 binary.
-- Otherwise use the stepped `angleDelta` path, scaled by `|angleDelta|/120`
-  (ticket 12).
-- If the device type is unavailable, use `angleDelta` whenever it is
-  non-zero, and fall back to `pixelDelta` only when `angleDelta` is zero.
+- A discrete wheel arrives with `event.phase === Qt.NoScrollPhase`; use the
+  stepped `angleDelta` path, scaled by `|angleDelta|/120` (ticket 12).
+- A continuous source (a touchpad or momentum scroll) arrives with
+  `ScrollBegin`/`ScrollUpdate`; use the 1:1 `pixelDelta` path.
+- `event.device.type` cannot make this call: Qt Wayland registers only its
+  gesture device and labels every seat pointer `PointerDevice.TouchPad`, so
+  the type is `TouchPad` for a real mouse wheel too (verified live
+  2026-10-09 with `wev` and a temporary probe).
 - Keep the decision pure and node-tested in `SmoothWheelLogic`, e.g.
-  `wheelMode(angleDelta, pixelDelta, isTouchpad)`. Cases:
+  `wheelMode(angleDelta, pixelDelta, isContinuous)`. Cases:
   - (120, 15, false) → angle;
   - (600, 15, false) → angle, five steps;
   - (0, 12, true) → pixel;
@@ -94,8 +94,8 @@ Right arrow replaces Shift+F10 for opening the context menu from the list.
 
 ## Acceptance criteria
 
-- [x] `wheelMode` is pure and node-tested; `SmoothWheel` uses the device type
-  and steps on angleDelta for mouse wheels.
+- [x] `wheelMode` is pure and node-tested; `SmoothWheel` uses the scroll
+  phase and steps on angleDelta for a discrete wheel.
 - [x] Ctrl+1…9 and Ctrl+0 target absolute workspaces within the available
   range, with node tests; submenu hints on every group; footer text updated.
 - [x] The menu and submenu widths fit their content within the min/max
@@ -107,33 +107,34 @@ Right arrow replaces Shift+F10 for opening the context menu from the list.
   mutation-verified.
 - [x] `scripts/check.sh` passes; `scripts/boot-check.sh <worktree>` reports
   loaded.
-- [ ] Live (orchestrator, via `ydotool` wheel injection and screenshots):
-  one injected notch moves about four rows; the menu text is not cut off.
+- [x] Live (orchestrator, via `ydotool` wheel injection and screenshots):
+  one injected notch moves ~237 px (~four rows); the menu text is not cut
+  off; the workspace submenu shows `ctrl 0` on workspace 10.
 
 ## Amendments (2026-10-09)
 
 ### 1. Wheel source detection
 
-- `SmoothWheelLogic.wheelMode(angleDelta, pixelDelta, isTouchpad)` returns
-  `"angle" | "pixel" | "none"`: a touchpad takes pixels, anything else takes
-  angleDelta whenever it is non-zero and only falls back to pixels when the
-  angle is zero. All six ticket cases are node-tested, plus a touchpad with an
-  angleDelta but no pixelDelta.
-- `SmoothWheel.isTouchpadEvent(event)` returns
-  `event.device.type === PointerDevice.TouchPad`; `handleWheel` picks the path
-  through `wheelMode` before touching either delta.
-- **Qt API verified on the installed 6.12.0**, not just docs: the shipped
-  `.qmltypes` (`/usr/lib/qt6/qml/QtQuick/plugins.qmltypes`, generated from the
-  live metaobject) shows `QQuickWheelEvent` (QML `WheelEvent`) exposing a
-  constant `device` property of type `QPointingDevice`, and `QPointingDevice`
-  (QML `PointerDevice`) inheriting `type` (`DeviceType`) from `QInputDevice` —
-  so `event.device.type === PointerDevice.TouchPad` is the correct property on
-  this build (the PointerDevice doc page's `deviceType` does not match the
-  binary). A new offscreen `tests/app-launcher-wheel.qml` synthesizes a real
-  wheel event through a `Window` and confirms `PointerDevice` loads,
-  `TouchPad` is defined, and a mouse wheel reports `PointerDevice.Mouse`. It
-  is wired into `scripts/test-app-launcher.sh` beside the mode test (skips
-  cleanly without `/usr/lib/qt6/bin/qmltestrunner`).
+- `SmoothWheelLogic.wheelMode(angleDelta, pixelDelta, isContinuous)` returns
+  `"angle" | "pixel" | "none"`: a continuous source (touchpad or momentum)
+  takes pixels, a discrete wheel takes angleDelta whenever it is non-zero and
+  only falls back to pixels when the angle is zero. All six ticket cases are
+  node-tested, plus a continuous source with an angleDelta but no pixelDelta.
+- `SmoothWheel.isContinuousScroll(event)` returns
+  `event.phase !== Qt.NoScrollPhase`; `handleWheel` picks the path through
+  `wheelMode` before touching either delta.
+- **Correction (2026-10-09, live).** The first implementation keyed on
+  `event.device.type === PointerDevice.TouchPad`. That cannot work on Qt
+  Wayland: `QWaylandWindow::handleMouse` picks the device through
+  `QPointingDevice::primaryPointingDevice(seatName)`, and Qt Wayland registers
+  only its gesture device (`"touchpad"`, type `TouchPad`), so every pointer
+  event, a real mouse wheel included, carries `TouchPad`. A temporary probe on
+  the live shell logged the real mouse wheel as `angle=-120 pixel=-15 phase=0
+  dev=4 name=touchpad`, which the device check routed to the pixel path. The
+  scroll phase is the usable signal: the real wheel reports `NoScrollPhase`, a
+  continuous source reports `ScrollBegin`/`ScrollUpdate`. The offscreen
+  `tests/app-launcher-wheel.qml` now guards `Qt.NoScrollPhase` and that a
+  synthetic mouse wheel reports it, not the pointer device.
 
 ### 2. Absolute Ctrl workspaces
 
@@ -183,12 +184,15 @@ Right arrow replaces Shift+F10 for opening the context menu from the list.
 
 - `scripts/test-app-launcher.sh` `app-launcher: all ok`; new structural gates
   and node cases. All new gates mutation-verified (mutate → gate FAIL →
-  restore): the pixel-first `wheelMode`, a dropped `PointerDevice.TouchPad`
+  restore): the pixel-first `wheelMode`, a dropped `Qt.NoScrollPhase`
   compare, an off-by-one workspace range, a dropped `ctrl 0` hint, a dropped
   menu-width inset, unmeasured main/submenu widths, a Right branch without the
   cursor gate, a Left top-level that does not close, and a dropped
   `AppService.workspaceKeys` delegation each fail.
 - `scripts/check.sh` prints `check: all gates ok`;
   `scripts/boot-check.sh <worktree>` reports `loaded` with no new warnings.
-- The Live bullet stays unchecked: it needs the running shell, `ydotool` wheel
-  injection, and screenshots, which this task's hard rules exclude.
+- Live (orchestrator, 2026-10-09): one `ydotool` notch moved the browse list
+  ~237 px (~four rows), the context menu rendered "Open, keep dashboard"
+  unelided, and the workspace submenu showed `ctrl 0` on workspace 10. A real
+  mouse wheel was captured with `wev` (`axis_source=wheel`, `value120=120`)
+  and a temporary probe (`phase=0`), matching the ydotool path.
