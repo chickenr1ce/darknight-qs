@@ -160,13 +160,31 @@ Singleton {
 
     function workspaceMenuItems(): var {
         const name = root.anchorMonitorName();
-        const monitors = Hyprland.monitors?.values ?? [];
-        let active = -1;
-        for (let i = 0; i < monitors.length; i++) {
-            if (monitors[i].name === name && monitors[i].activeWorkspace) {
-                active = monitors[i].activeWorkspace.id;
-                break;
+        const hyprMonitors = Hyprland.monitors?.values ?? [];
+        const enabled = MonitorService.enabledMonitors;
+        const enabledNames = [];
+        for (let i = 0; i < enabled.length; i++) {
+            if (enabled[i] && enabled[i].name)
+                enabledNames.push(enabled[i].name);
+        }
+        const monitors = [];
+        const orderedNames = MonitorService.orderedMonitors;
+        for (let i = 0; i < orderedNames.length; i++) {
+            const monitorName = orderedNames[i];
+            if (enabledNames.indexOf(monitorName) === -1)
+                continue;
+            let activeWorkspace = -1;
+            for (let j = 0; j < hyprMonitors.length; j++) {
+                if (hyprMonitors[j].name === monitorName && hyprMonitors[j].activeWorkspace) {
+                    activeWorkspace = hyprMonitors[j].activeWorkspace.id;
+                    break;
+                }
             }
+            monitors.push({
+                name: monitorName,
+                first: MonitorService.firstWorkspaceFor(monitorName),
+                active: activeWorkspace
+            });
         }
         const occupied = [];
         const tops = root.toplevels;
@@ -175,8 +193,7 @@ Singleton {
             if (workspace && occupied.indexOf(workspace.id) === -1)
                 occupied.push(workspace.id);
         }
-        return AppLogic.workspaceMenu(MonitorService.firstWorkspaceFor(name),
-            MonitorService.workspacesPerMonitor, active, occupied);
+        return AppLogic.workspaceMenu(monitors, MonitorService.workspacesPerMonitor, name, occupied);
     }
 
     function launchOnWorkspace(record, workspace, keepOpen): void {

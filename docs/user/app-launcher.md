@@ -81,9 +81,12 @@ character closes the menu and sends the text to the search field. Items, in
 order:
 
 1. Open (↵)
-2. Open on workspace ▸: one item per slot of the dashboard's monitor, the
-   current workspace and occupied slots marked, `ctrl N` hints up to 9, and
-   "New empty workspace" when the block has a free slot.
+2. Open on workspace ▸: a label per enabled monitor, the dashboard's monitor
+   first, then one item per workspace in that monitor's block with its absolute
+   number. Each monitor's current workspace is marked and occupied workspaces
+   keep their marker. `ctrl N` hints appear only on the dashboard monitor's
+   items (Ctrl+N is still per-monitor). "New empty workspace" adds the first
+   free slot in the dashboard monitor's block, hidden when that block is full.
 3. Open, keep dashboard (middle-click)
 4. Focus window (N open), only while the app has windows
 5. The entry's desktop actions, under an "Actions" label, only when it

@@ -479,29 +479,54 @@ function firstEmptyWorkspace(firstWorkspace, perMonitor, occupiedIds) {
     return -1;
 }
 
-function workspaceMenu(firstWorkspace, perMonitor, activeWorkspace, occupiedIds) {
+function workspaceMenu(monitors, perMonitor, anchorName, occupiedIds) {
     const items = [];
-    const first = Math.round(Number(firstWorkspace));
     const count = Math.round(Number(perMonitor));
-    if (isNaN(first) || isNaN(count) || count < 1 || first < 1)
+    const list = monitors || [];
+    if (isNaN(count) || count < 1 || list.length === 0)
         return items;
     const occupied = occupiedIds || [];
-    for (let n = 1; n <= count; n++) {
-        const workspace = first + n - 1;
-        const current = workspace === activeWorkspace;
-        items.push(menuItem("item", {
-            id: "workspace",
-            text: current ? qsTr("Workspace %1 (current)").arg(n) : qsTr("Workspace %1").arg(n),
-            hint: n <= 9 ? qsTr("ctrl %1").arg(n) : "",
-            workspace: workspace,
-            current: current,
-            occupied: occupied.indexOf(workspace) !== -1
-        }));
+    const ordered = [];
+    for (let i = 0; i < list.length; i++) {
+        const monitor = list[i];
+        if (!monitor || monitor.disabled === true || monitor.name !== anchorName)
+            continue;
+        ordered.push(monitor);
     }
-    const empty = firstEmptyWorkspace(first, count, occupied);
-    if (empty !== -1) {
-        items.push(menuItem("separator", {}));
-        items.push(menuItem("item", { id: "workspace-new", text: qsTr("New empty workspace"), workspace: empty }));
+    for (let i = 0; i < list.length; i++) {
+        const monitor = list[i];
+        if (!monitor || monitor.disabled === true || monitor.name === anchorName)
+            continue;
+        ordered.push(monitor);
+    }
+    let anchorFirst = -1;
+    for (let i = 0; i < ordered.length; i++) {
+        const monitor = ordered[i];
+        const first = Math.round(Number(monitor.first));
+        if (isNaN(first) || first < 1)
+            continue;
+        if (monitor.name === anchorName)
+            anchorFirst = first;
+        items.push(menuItem("label", { text: monitor.name }));
+        for (let n = 1; n <= count; n++) {
+            const workspace = first + n - 1;
+            const current = workspace === monitor.active;
+            items.push(menuItem("item", {
+                id: "workspace",
+                text: current ? qsTr("Workspace %1 (current)").arg(workspace) : qsTr("Workspace %1").arg(workspace),
+                hint: monitor.name === anchorName && n <= 9 ? qsTr("ctrl %1").arg(n) : "",
+                workspace: workspace,
+                current: current,
+                occupied: occupied.indexOf(workspace) !== -1
+            }));
+        }
+    }
+    if (anchorFirst !== -1) {
+        const empty = firstEmptyWorkspace(anchorFirst, count, occupied);
+        if (empty !== -1) {
+            items.push(menuItem("separator", {}));
+            items.push(menuItem("item", { id: "workspace-new", text: qsTr("New empty workspace"), workspace: empty }));
+        }
     }
     return items;
 }
