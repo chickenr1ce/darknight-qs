@@ -160,7 +160,105 @@ Ticket 04 owns the user docs. The Spicetify findings below land in
   logs `spicetify: not installed` on stderr, writes nothing, and skips as
   success (the run still exits zero).
 - The change applies on the next refresh; the theme and color option must be
-  selected once (see below), and the shell's `refresh` then repaints the client.
+  selected once (see below); the shell's `refresh` then stages the new colors,
+  which appear on the next Spotify start.
+
+## 2. Selection step and the version gate (needs live resolution)
+
+The dated machine facts (2026-10-10, read-only; the real `spicetify` binary was
+never run by this ticket):
+
+- `spicetify-cli` 2.45.3-1 (`/usr/bin/spicetify`).
+- Spotify 1.2.79.427.g80eb4a07.
+- `~/.config/spicetify/config-xpui.ini` `[Backup]` holds
+  `version = 1.2.79.427.g80eb4a07` and `with = 2.42.8` — the CLI (2.45.3)
+  outpaces the backup (2.42.8), which is why `spicetify apply` is version-gated
+  and must not be automated.
+- Only `Themes/marketplace` is installed; there is no `text` and no other user
+  theme, so the shell's `Themes/quickshell/` collides with nothing.
+
+Criterion 6 resolved live on 2026-10-10 (spicetify-cli 2.45.3, Spotify
+1.2.79.427.g80eb4a07, `[Backup] with = 2.42.8` before the run). Result: **path
+(b)**.
+
+1. `spicetify config current_theme quickshell color_scheme Quickshell`, then
+   `spicetify refresh`: refresh rewrote `xpui/colors.css` and `user.css`, but the
+   client kept the old colors even after a Spotify restart, because
+   `xpui/index.html` still carried `Spicetify.Config["current_theme"]="marketplace"`
+   and the Marketplace extension kept injecting its own theme. A theme
+   selection only reaches `index.html` through `apply`.
+2. Plain `spicetify apply` refused: "Preprocessed Spotify data is outdated.
+   Please run `spicetify restore backup apply`".
+3. `spicetify restore backup apply` succeeded: it restarted Spotify, rewrote
+   `index.html` with `current_theme="quickshell"`, moved `[Backup] with` to
+   2.45.3, and the client showed the Quickshell accent.
+
+The one-time step for ticket 04 is therefore exactly:
+
+```
+spicetify config current_theme quickshell color_scheme Quickshell
+spicetify restore backup apply
+```
+
+It restarts Spotify. It replaces a Marketplace-managed theme (the previous
+`current_theme` here was `marketplace`; the Marketplace custom app itself stays).
+`spicetify apply` (or `restore backup apply` when the CLI outpaces the backup)
+must be re-run after every Spotify update, as for any Spicetify setup.
+
+After selection, later retints were verified through the renderer itself (real
+`HOME`, fixture `XDG_CONFIG_HOME` symlinking only `spicetify/`): a palette change
+rewrote `color.ini`, the renderer's `spicetify refresh` updated
+`xpui/colors.css`, and the running client did **not** repaint; the new colors
+appear on the next Spotify start. Document "applies on the next Spotify start",
+not a live repaint. Note: running the renderer with `HOME` redirected makes
+`spicetify refresh` fail silently (it cannot find Spotify's prefs), which the
+renderer correctly swallows.
+
+## 3. Manual verification to run before closing ticket 04 docs
+
+Headless tests cover the renderer and the file bytes; the visual result needs a
+real Firefox start. Steps: run the renderer with the `firefox` target enabled,
+confirm the profile's `chrome/shell-palette.css` and `user.js` exist, add the
+one `@import` line to the profile's `userChrome.css`, restart Firefox, and
+check the toolbar, a selected tab, the address bar, a panel (hamburger menu),
+and the sidebar all follow the palette. Toggle Firefox off in Settings, restart
+the renderer, restart Firefox, and confirm the chrome returns to stock.
+
+# Ticket 05 -> ticket 04 handoff
+
+Ticket 04 owns the user docs. The Spicetify findings below land in
+`docs/user/theme-desktop-setup.md`.
+
+## 1. User-facing behaviors the docs must state
+
+- The renderer ships the community `text` theme into the shell-owned
+  `${XDG_CONFIG_HOME:-$HOME/.config}/spicetify/Themes/quickshell/` directory as
+  two files: `color.ini` and `user.css`. The shell owns that directory; it never
+  edits a theme the user installed (e.g. `Themes/text/`) or `config-xpui.ini`,
+  and it never deletes unknown files there.
+- `color.ini` keeps every color option the theme ships and appends one
+  `[Quickshell]` option whose 13 keys follow the shell palette
+  (`text`, `subtext`, `main`, `highlight`, `header`, `banner`, `accent`,
+  `accent-active`, `accent-inactive`, `border-active`, `border-inactive`,
+  `notification`, `notification-error`).
+- **Bundling obligation the docs must record**: the repo maintains a vendored
+  copy of the upstream `text/user.css` (MIT, copyright 2019 morpheusthewhite,
+  pinned at commit `33a08ea009687f5a42ff678015c28797fe142a7c`). Upstream changes
+  do not reach the user until the vendored template is updated; the hashes and
+  commit live in a banner atop each template and the license in `NOTICE`.
+- Disabled (the Spicetify toggle off): `color.ini`'s `[Quickshell]` section
+  renders the theme's own `[Spicetify]` default values instead of the palette
+  (read from the vendored template, so it cannot drift), and `user.css` is still
+  written because it is the theme's layout, not a color layer.
+- A real palette change runs `spicetify refresh` best-effort after writing, and
+  only when a Spicetify file's bytes actually changed. The renderer never runs
+  `spicetify apply` (version-gated here and force-restarts Spotify).
+- When `${XDG_CONFIG_HOME:-$HOME/.config}/spicetify` does not exist, the target
+  logs `spicetify: not installed` on stderr, writes nothing, and skips as
+  success (the run still exits zero).
+- The change applies on the next refresh; the theme and color option must be
+  selected once (see below); the shell's `refresh` then stages the new colors,
+  which appear on the next Spotify start.
 
 ## 2. Selection step and the version gate (needs live resolution)
 

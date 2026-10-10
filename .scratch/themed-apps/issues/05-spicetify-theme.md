@@ -101,3 +101,10 @@ touching `text/`. Hashes of the vendored upstream files:
 Both hashes and the commit are recorded in a comment atop their template
 (`assets/templates/spicetify-user.css`, `assets/templates/spicetify-color.ini`)
 and the license in `NOTICE`.
+
+Criterion 6 resolved live 2026-10-10: path (b). `config` plus `refresh` does not
+take a selection (Marketplace keeps `current_theme` in `index.html`); the step
+is `spicetify config current_theme quickshell color_scheme Quickshell` then
+`spicetify restore backup apply` (restarts Spotify; re-run after Spotify
+updates). Later retints stage through `refresh` and show on the next Spotify
+start. Details in `.scratch/themed-apps/notes/04-handoff.md` section 2.
