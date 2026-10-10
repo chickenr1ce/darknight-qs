@@ -3003,13 +3003,20 @@ grep -q 'vencord: not installed' "$RENDER_NOVENCORD/vencord.log" \
 # installs.ini, not profiles.ini's Default=1 stub, and the write goes through
 # the profile path (the psd symlink) without resolving it.
 FF_TPL="$ROOT/assets/templates/firefox-palette.css"
+FF_CONTENT_TPL="$ROOT/assets/templates/firefox-content.css"
 FF_USER_TPL="$ROOT/assets/templates/firefox-user.js"
 test -f "$FF_TPL" \
     || fail "assets/templates/firefox-palette.css is missing"
+test -f "$FF_CONTENT_TPL" \
+    || fail "assets/templates/firefox-content.css is missing"
 test -f "$FF_USER_TPL" \
     || fail "assets/templates/firefox-user.js is missing"
 grep -q -- '--shell-background: {{background}}' "$FF_TPL" \
     || fail "the Firefox template does not expose the palette as --shell-* variables"
+grep -q -- '--shell-on-accent: {{on_accent}}' "$FF_TPL" \
+    || fail "the Firefox template has no --shell-on-accent from the on-accent ink"
+grep -q -- '--shell-on-accent: {{on_accent}}' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template has no --shell-on-accent from the on-accent ink"
 grep -q '^// BEGIN quickshell$' "$FF_USER_TPL" \
     || fail "the Firefox user.js template has no BEGIN marker"
 grep -q 'toolkit.legacyUserProfileCustomizations.stylesheets", true' "$FF_USER_TPL" \
@@ -3022,10 +3029,72 @@ for var in toolbar-background-color toolbar-text-color tab-background-color-sele
     grep -q -- "--$var: var(--shell-" "$FF_TPL" \
         || fail "the Firefox template does not map --$var onto a shell variable"
 done
-# The target never writes a backup tree or the user-owned userContent.css, and
-# never rewrites prefs.js (Firefox rewrites it on shutdown).
-if grep -q 'userContent' "$RENDER"; then
-    fail "the renderer names userContent.css; only the chrome sheet is generated"
+# The accent family: each Attention color reads --shell-accent, and the primary
+# button text takes the on-accent ink. The hover/active variants are color-mix
+# ladders off the accent. --toolbar-field-focus-border-color does not exist in
+# Firefox 157; the real token is --toolbar-field-border-color-focus. Names
+# verified in chrome/omni.ja's design-system tokens-shared.css and
+# browser/omni.ja's tab.tokens.css.
+for var in color-accent-primary color-accent-primary-selected focus-outline-color link-color button-background-color-primary toolbarbutton-icon-fill-attention tab-loading-fill toolbar-field-border-color-focus; do
+    grep -q -- "--$var: var(--shell-" "$FF_TPL" \
+        || fail "the Firefox template does not map --$var onto a shell variable"
+done
+for var in color-accent-primary-hover color-accent-primary-active link-color-hover link-color-active button-background-color-primary-hover button-background-color-primary-active; do
+    grep -q -- "$var: color-mix(in srgb, var(--shell-accent)" "$FF_TPL" \
+        || fail "the Firefox accent variant $var is not a color-mix off the accent"
+done
+grep -q -- '--button-text-color-primary: var(--shell-on-accent)' "$FF_TPL" \
+    || fail "the Firefox template does not paint primary-button text with the on-accent ink"
+# The search-engine switcher pill has no switcher-specific token, so a scoped
+# rule themes its muted button variables from the palette.
+grep -q '\.searchmode-switcher' "$FF_TPL" \
+    || fail "the Firefox template does not scope the searchmode switcher"
+grep -q -- '--button-background-color-muted: var(--shell-' "$FF_TPL" \
+    || fail "the Firefox switcher rule does not theme the muted button background"
+grep -q -- '--button-text-color-muted-hover: var(--shell-foreground)' "$FF_TPL" \
+    || fail "the Firefox switcher rule does not theme the muted hover text"
+grep -q -- '--button-text-color-muted-active: var(--shell-foreground)' "$FF_TPL" \
+    || fail "the Firefox switcher rule does not theme the muted active text"
+# The content sheet reaches about:newtab/home/privatebrowsing (which userChrome
+# cannot) via @-moz-document, and paints the newtab page's own variables.
+grep -q '^@-moz-document url("about:newtab"), url("about:home"), url("about:privatebrowsing") {' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not scope about:newtab/home/privatebrowsing"
+for var in newtab-background-color newtab-background-color-secondary newtab-background-card newtab-text-primary-color newtab-text-secondary-text newtab-text-secondary-color newtab-primary-action-background newtab-primary-element-text-color; do
+    grep -q -- "--$var: var(--shell-" "$FF_CONTENT_TPL" \
+        || fail "the Firefox content template does not map --$var onto a shell variable"
+done
+grep -q -- '--content-search-handoff-ui-background-color: var(--shell-' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not theme the search box"
+# about:privatebrowsing paints from html.private in its own sheet, which pins
+# --background-color-canvas and paints a bare content-search-handoff-ui with no
+# .search-wrapper ancestor; the content sheet overrides both. It also carries
+# the palette mode as color-scheme so native controls match.
+grep -q -- 'html.private' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not theme about:privatebrowsing"
+grep -q -- '--background-color-canvas: var(--shell-' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not override the private-browsing canvas"
+grep -q '^    content-search-handoff-ui {' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template gates the search box behind .search-wrapper"
+grep -q -- '--in-content-banner-background: var(--shell-' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not theme the private-browsing banner"
+grep -q -- 'color-scheme: {{page_scheme}}' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not set color-scheme from the palette mode"
+# aboutPrivateBrowsing.css pins `a:link`, `.text-link` and `.promo a` to
+# `color: inherit` (:36-48, :394-398), which outranks the shared --link-color
+# consumer, and the Nova branch that would read --link-color is off by default,
+# so mapping the variable is not enough: the sheet must set the links' color
+# explicitly, and carry :visited through --link-color-visited
+# (common-shared.css:462).
+ff_link_rule="$(awk '/^[[:space:]]*html\.private a,$/{r=1} r{print} r&&/^[[:space:]]*}$/{exit}' "$FF_CONTENT_TPL")"
+if ! printf '%s\n' "$ff_link_rule" | grep -q 'color: var(--shell-accent) !important'; then
+    fail "the content template does not paint html.private links with an explicit color"
+fi
+grep -q -- '--link-color-visited: var(--shell-' "$FF_CONTENT_TPL" \
+    || fail "the content template does not map the visited link color"
+# The target never writes a backup tree or the user-owned userContent.css (the
+# user imports shell-content.css from it), and never rewrites prefs.js.
+if grep -qE '(emit|write_if_changed|open)\([^)]*userContent' "$RENDER"; then
+    fail "the renderer writes userContent.css; only the shell-* sheets are generated"
 fi
 if grep -q -- '-backup' "$RENDER"; then
     fail "the renderer names a -backup path; the profile path is the only write"
@@ -3077,6 +3146,7 @@ HOME="$FF_ON" XDG_CONFIG_HOME="$FF_ON" sh "$RENDER" "$RENDER_PALETTE" "firefox"
 FF_ROOT="$FF_ON/mozilla/firefox"
 FF_PROFILE="$FF_ROOT/b5dxo71e.default-release"
 FF_CSS="$FF_PROFILE/chrome/shell-palette.css"
+FF_CONTENT_CSS="$FF_PROFILE/chrome/shell-content.css"
 FF_USERJS="$FF_PROFILE/user.js"
 test -f "$FF_CSS" \
     || fail "the Firefox target wrote no shell-palette.css"
@@ -3084,8 +3154,50 @@ grep -q -- '--shell-background: #1a1b26' "$FF_CSS" \
     || fail "the Firefox sheet does not carry the palette background"
 grep -q -- '--toolbar-background-color: var(--shell-background)' "$FF_CSS" \
     || fail "the Firefox sheet does not map the palette onto the toolbar"
+# The accent resolves to the palette accent: --shell-accent is the fixture
+# accent and every accent token reads it (directly or through color-mix), and
+# the on-accent ink is the black-or-white ink chosen against that accent.
+grep -q -- '--shell-accent: #7aa2f7' "$FF_CSS" \
+    || fail "the Firefox sheet does not carry the palette accent"
+grep -q -- '--color-accent-primary: var(--shell-accent)' "$FF_CSS" \
+    || fail "the Firefox accent does not resolve from the palette accent"
+grep -q -- '--tab-loading-fill: var(--shell-accent)' "$FF_CSS" \
+    || fail "the Firefox tab spinner does not resolve from the palette accent"
+grep -q -- '--shell-on-accent: #000000' "$FF_CSS" \
+    || fail "the Firefox on-accent ink is not the ink chosen against the accent"
+grep -q -- '--button-text-color-primary: var(--shell-on-accent)' "$FF_CSS" \
+    || fail "the Firefox primary-button text is not the on-accent ink"
+grep -q '\.searchmode-switcher' "$FF_CSS" \
+    || fail "the Firefox sheet does not carry the scoped switcher rule"
 if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$FF_CSS"; then
     fail "the Firefox sheet left an unresolved placeholder"
+fi
+# The content sheet carries the palette onto the newtab page and the search box.
+test -f "$FF_CONTENT_CSS" \
+    || fail "the Firefox target wrote no shell-content.css"
+grep -q '^@-moz-document url("about:newtab")' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not scope about:newtab"
+grep -q -- '--newtab-background-color: var(--shell-background)' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not map the newtab background"
+grep -q -- '--shell-background: #1a1b26' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not carry the palette background"
+grep -q -- '--newtab-primary-action-background: var(--shell-accent)' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not map the newtab accent"
+# about:privatebrowsing is themed: its html.private canvas pin is overridden,
+# the search box rule is bare (no .search-wrapper gate), the promo CTA reads the
+# palette accent, and color-scheme follows the palette mode (dark here, since
+# the fixture carries no mode).
+grep -q -- '--background-color-canvas: var(--shell-background)' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not override the private-browsing canvas"
+grep -q 'html.private .promo-cta .primary' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not theme the private-browsing CTA"
+grep -q 'color-scheme: dark' "$FF_CONTENT_CSS" \
+    || fail "the dark content sheet does not pin color-scheme dark"
+if grep -q '\.search-wrapper content-search-handoff-ui' "$FF_CONTENT_CSS"; then
+    fail "the content sheet still gates the search box behind .search-wrapper"
+fi
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$FF_CONTENT_CSS"; then
+    fail "the Firefox content sheet left an unresolved placeholder"
 fi
 test -f "$FF_USERJS" \
     || fail "the Firefox target wrote no user.js"
@@ -3103,6 +3215,31 @@ for sibling in "$FF_ROOT/b5dxo71e.default-release-backup" \
     test ! -e "$sibling/chrome" && test ! -e "$sibling/user.js" \
         || fail "the Firefox target wrote into a psd sibling: $sibling"
 done
+
+# A light palette: the accent is applied and the on-accent ink is chosen
+# against it (white on this dark accent), and the content sheet carries the
+# light background, so a light theme under a dark system scheme is themed.
+FF_LIGHT="$RENDER_FIREFOX/light"
+mkdir -p "$FF_LIGHT"
+make_firefox_fixture "$FF_LIGHT"
+RENDER_PALETTE_LIGHT='{"mode":"light","accent":"#795334","selection":"#d9cdb8","muted":"#8a7d6a","background":"#eee8da","dark_background":"#e2dccb","darker_background":"#d6cfbc","lighter_background":"#f7f2e8","foreground":"#3b3428","dark_foreground":"#5a5245","light_foreground":"#241f17","bright_foreground":"#000000","red":"#a33a3a","yellow":"#9a7b2e","green":"#5a7a3a","cyan":"#3a7a7a","blue":"#4a6a9a","magenta":"#7a4a7a","bright_red":"#b55252","bright_yellow":"#b0913e","bright_green":"#6f8f4f","bright_cyan":"#4f8f8f","bright_blue":"#5f7faf","bright_magenta":"#8f5f8f"}'
+HOME="$FF_LIGHT" XDG_CONFIG_HOME="$FF_LIGHT" sh "$RENDER" "$RENDER_PALETTE_LIGHT" "firefox"
+FF_LIGHT_CSS="$FF_LIGHT/mozilla/firefox/b5dxo71e.default-release/chrome/shell-palette.css"
+FF_LIGHT_CONTENT="$FF_LIGHT/mozilla/firefox/b5dxo71e.default-release/chrome/shell-content.css"
+grep -q -- '--shell-accent: #795334' "$FF_LIGHT_CSS" \
+    || fail "the light palette accent did not reach the Firefox sheet"
+grep -q -- '--shell-on-accent: #ffffff' "$FF_LIGHT_CSS" \
+    || fail "the light on-accent ink is not white against the dark accent"
+grep -q -- '--color-accent-primary: var(--shell-accent)' "$FF_LIGHT_CSS" \
+    || fail "the light Firefox accent does not resolve from the palette accent"
+grep -q -- '--shell-background: #eee8da' "$FF_LIGHT_CONTENT" \
+    || fail "the light palette background did not reach the newtab content sheet"
+grep -q -- '--newtab-background-color: var(--shell-background)' "$FF_LIGHT_CONTENT" \
+    || fail "the light content sheet does not map the newtab background"
+grep -q 'color-scheme: light' "$FF_LIGHT_CONTENT" \
+    || fail "the light palette mode did not reach the content sheet color-scheme"
+grep -q -- '--background-color-canvas: var(--shell-background)' "$FF_LIGHT_CONTENT" \
+    || fail "the light content sheet does not override the private-browsing canvas"
 
 # A pre-existing user.js keeps its own prefs, gains the block once, and an
 # appended edit survives the next render.
@@ -3227,10 +3364,30 @@ mkdir -p "$FF_OFF"
 make_firefox_fixture "$FF_OFF"
 HOME="$FF_OFF" XDG_CONFIG_HOME="$FF_OFF" sh "$RENDER" "$RENDER_PALETTE" "kitty"
 FF_OFF_CSS="$FF_OFF/mozilla/firefox/b5dxo71e.default-release/chrome/shell-palette.css"
+FF_OFF_CONTENT="$FF_OFF/mozilla/firefox/b5dxo71e.default-release/chrome/shell-content.css"
 test "$(cat "$FF_OFF_CSS")" = "/* quickshell theme target disabled */" \
-    || fail "a disabled Firefox target did not write a comment-only sheet"
+    || fail "a disabled Firefox target did not write a comment-only palette sheet"
+test "$(cat "$FF_OFF_CONTENT")" = "/* quickshell theme target disabled */" \
+    || fail "a disabled Firefox target did not write a comment-only content sheet"
 test ! -e "$FF_OFF/mozilla/firefox/b5dxo71e.default-release/user.js" \
     || fail "a disabled Firefox target created a user.js"
+
+# The renderer never writes the user-owned userContent.css: it generates the
+# shell-* sheets only, and the user imports shell-content.css from their own
+# file. A sentinel in userContent.css must survive an enabled render byte for
+# byte.
+FF_UCS="$RENDER_FIREFOX/usercontent"
+mkdir -p "$FF_UCS"
+make_firefox_fixture "$FF_UCS"
+FF_UCS_FILE="$FF_UCS/mozilla/firefox/b5dxo71e.default-release/chrome/userContent.css"
+mkdir -p "$(dirname "$FF_UCS_FILE")"
+printf '@import url("shell-content.css");\n/* my own rule */\n' > "$FF_UCS_FILE"
+HOME="$FF_UCS" XDG_CONFIG_HOME="$FF_UCS" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test "$(cat "$FF_UCS_FILE")" = '@import url("shell-content.css");
+/* my own rule */' \
+    || fail "the Firefox target wrote userContent.css; the user owns it"
+test -f "$FF_UCS/mozilla/firefox/b5dxo71e.default-release/chrome/shell-content.css" \
+    || fail "the Firefox target wrote no shell-content.css beside userContent.css"
 
 FF_OFF2="$RENDER_FIREFOX/off2"
 mkdir -p "$FF_OFF2"

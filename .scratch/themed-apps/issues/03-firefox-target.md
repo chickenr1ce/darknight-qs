@@ -55,9 +55,11 @@ user's own `userChrome.css` imports, written safely into a psd-managed profile.
    skipped-success, so the run exits zero. A template or render error still exits
    non-zero.
 
-5. Under the target key `firefox`, it writes `<profile>/chrome/shell-palette.css`
-   and `<profile>/user.js`, creating `chrome/` when absent. It never writes a
-   `-backup` directory or `userContent.css`.
+5. Under the target key `firefox`, it writes `<profile>/chrome/shell-palette.css`,
+   `<profile>/chrome/shell-content.css`, and `<profile>/user.js`, creating
+   `chrome/` when absent. It never writes a `-backup` directory, `userChrome.css`,
+   or `userContent.css` (the user imports the generated sheets from their own
+   user sheets).
 
 6. `user.js` is renderer-owned through its managed block, and the renderer never
    destroys a hand-written file: it replaces or inserts only the block in
@@ -67,9 +69,9 @@ user's own `userChrome.css` imports, written safely into a psd-managed profile.
    pref outside the markers, adopt that line into the block rather than adding a
    duplicate. It never rewrites `prefs.js`.
 
-7. Disabled, `shell-palette.css` is a `/* */` comment-only file (so the import
-   yields stock Firefox). `user.js` is not touched, and is not created when it
-   was absent.
+7. Disabled, `shell-palette.css` and `shell-content.css` are `/* */`
+   comment-only files (so the imports yield stock Firefox). `user.js` is not
+   touched, and is not created when it was absent.
 
 8. `scripts/test-panel-logic.sh` section 17 redirects `HOME` to a temp dir for
    every render invocation that can resolve a `$HOME` path, so the live profile
@@ -94,3 +96,52 @@ change applies on the next Firefox start. The one-time step, documented in ticke
 04, is to create the profile's `userChrome.css` with only the `@import` line as
 its first line (an `@import` after other rules is ignored by CSS); the generated
 sheet does the rest.
+
+### 2026-10-10: accent, switcher, and content sheet
+
+Live testing on a light palette (background `#eee8da`, accent `#795334`) found
+three gaps, now closed. Firefox contributes three files, not two.
+
+- The chrome accent was unmapped: `firefox-palette.css` defined `--shell-accent`
+  but no Firefox token read it. The template now maps the accent onto Firefox
+  157's tokens (verified in `omni.ja`: `chrome/.../design-system/tokens-shared.css`
+  for `--color-accent-primary`/-hover/-active/-selected, `--focus-outline-color`,
+  `--link-color`, the `--button-background-color-primary*` and
+  `--button-text-color-primary`; `browser/.../tab.tokens.css` for
+  `--tab-loading-fill`), adds `--shell-on-accent` (the existing `on_accent` ink),
+  and uses `color-mix` for hover/active. The guessed
+  `--toolbar-field-focus-border-color` does not exist in 157; the real token is
+  `--toolbar-field-border-color-focus`.
+- The search-engine switcher pill (`.searchmode-switcher`, a `type="muted"`
+  `moz-button`) had no token of its own, so the sheet scopes the muted-button
+  variables onto it (`browser/.../urlbar.css`, `global/elements/moz-button.css`).
+- `about:newtab`/`about:home` are content documents, so `userChrome.css` cannot
+  reach them. A second generated sheet, `chrome/shell-content.css`, scopes with
+  `@-moz-document url("about:newtab"), url("about:home"),
+  url("about:privatebrowsing")` and sets the newtab page's own variables
+  (`browser/.../newtab/data/css/activity-stream.css`) plus the search-box
+  element's `--content-search-handoff-ui-*` values
+  (`browser/.../contentSearchHandoffUI.css`). The user imports it from their own
+  `userContent.css` as its first line, `@import url("shell-content.css");`; the
+  renderer never creates or edits a user sheet. The earlier section-17 assertion
+  that the renderer never *names* `userContent.css` is relaxed to never *writes*
+  it (a sentinel `userContent.css` must survive a render byte for byte). The
+  legacy-sheets pref already in `user.js` covers `userContent.css` too. Disabled,
+  both sheets are comment-only.
+- Scope review (2026-10-10): `about:privatebrowsing` was scoped but not actually
+  themed. It paints from `html.private`, whose own sheet pins
+  `--background-color-canvas` and a legacy purple gradient and whose search box
+  is a bare `content-search-handoff-ui` with no `.search-wrapper` ancestor
+  (`browser/.../privatebrowsing/aboutPrivateBrowsing.css`). The content sheet now
+  overrides the canvas, body text, the `--link-color` family, the in-content
+  banner pair, the info card, the promos, and the CTA; the search-box selector
+  drops `.search-wrapper` (safe: the scope is these three URLs).
+- Scope review (2026-10-10): the content sheet sets `color-scheme` from a new
+  `page_scheme` token (`"light"`/`"dark"` from the palette `mode`, dark by
+  default) so native controls and scrollbars follow the palette instead of PB's
+  pinned dark. Not set on the chrome sheet.
+- Scope review (2026-10-10): the switcher rule also themes
+  `--button-text-color-muted-hover` and `--button-text-color-muted-active`. The
+  doc one-liners guard a resolved-but-empty profile (`[ -n "$d" ] || exit 1`),
+  silence the missing-`installs.ini` error, and note that an `@import` present
+  but not on line 1 is ignored and must be moved to line 1.

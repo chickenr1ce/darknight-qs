@@ -1,9 +1,9 @@
 # Theme desktop setup
 
 The theme switcher renders the active palette into the desktop config files for
-nine targets — eleven files, because Firefox and Spicetify each contribute two.
-The renderer, `scripts/render-theme.sh`, runs on every palette load and change,
-so the files stay in step with the selected theme. It writes:
+nine targets and twelve files, because Firefox contributes three and Spicetify
+two. The renderer, `scripts/render-theme.sh`, runs on every palette load and
+change, so the files stay in step with the selected theme. It writes:
 
 - `~/.config/hypr/theme.lua`
 - `~/.config/kitty/theme.conf`
@@ -11,7 +11,8 @@ so the files stay in step with the selected theme. It writes:
 - `~/.config/starship.toml`
 - `~/.config/yazi/theme.toml`
 - `~/.config/btop/themes/theme.theme`
-- the active Firefox profile's `chrome/shell-palette.css` and `user.js`
+- the active Firefox profile's `chrome/shell-palette.css`,
+  `chrome/shell-content.css`, and `user.js`
 - `~/.config/Vencord/themes/quickshell.theme.css`
 - `~/.config/spicetify/Themes/quickshell/color.ini` and `user.css`
 
@@ -34,8 +35,9 @@ Some files outside this repo must be pointed at the rendered output once. The
 renderer does not touch them. Starship and yazi have no include directive, so
 the renderer owns `~/.config/starship.toml` and `~/.config/yazi/theme.toml`
 outright and there is nothing to add. Hyprland, kitty, hyprlock, and Firefox
-each need a line added; btop needs a one-time pick in its own options menu; and
-Vencord and Spicetify each need a one-time selection in the app.
+each need a line added (Firefox needs two, one per sheet); btop needs a
+one-time pick in its own options menu; and Vencord and Spicetify each need a
+one-time selection in the app.
 
 ### Hyprland borders
 
@@ -165,19 +167,46 @@ running yazi keeps its old colors until it is reopened.
 
 ### Firefox
 
-Firefox's browser chrome follows the palette through a sheet the renderer
-generates in the active profile. Create the profile's `chrome/userChrome.css`
-with this as its **first** line:
+Firefox follows the palette through three generated files in the active
+profile: two sheets and a pref block. The browser chrome reads
+`chrome/shell-palette.css`. The `about:newtab`, `about:home`, and
+`about:privatebrowsing` pages read `chrome/shell-content.css`, because they are
+content documents the chrome sheet cannot reach. `user.js` enables custom
+stylesheets. The renderer writes all three and never edits either of your own
+user sheets (`userChrome.css`, `userContent.css`).
+
+Point your own `userChrome.css` and `userContent.css` at the generated sheets
+once. Each `@import` must be the file's **first** line: CSS ignores an
+`@import` that follows any other rule.
 
 ```css
 @import url("shell-palette.css");
 ```
 
-It must be first: CSS ignores an `@import` that follows any other rule. The
-renderer never edits `userChrome.css`. It writes `chrome/shell-palette.css`,
-which carries the palette as `:root` variables plus the rules that map them onto
-Firefox's own chrome variables, and `user.js`, which enables custom stylesheets
-through a marker-delimited block:
+```css
+@import url("shell-content.css");
+```
+
+This one-liner finds the default profile from `installs.ini` and prepends the
+chrome import, creating `userChrome.css` if it is absent and doing nothing if
+the line is already there. It is safe to paste into fish:
+
+```bash
+bash -c 'r=~/.config/mozilla/firefox; [ -d "$r" ] || r=~/.mozilla/firefox; d=$(sed -n "s/^Default=//p" "$r/installs.ini" 2>/dev/null | head -1); [ -n "$d" ] || { echo "no firefox profile found" >&2; exit 1; }; f=$r/$d/chrome/userChrome.css; l="@import url(\"shell-palette.css\");"; grep -qxF "$l" "$f" 2>/dev/null || { mkdir -p "$(dirname "$f")"; printf "%s\n" "$l" | cat - "$f" 2>/dev/null > "$f.tmp"; mv "$f.tmp" "$f"; }'
+```
+
+The matching one for `userContent.css`:
+
+```bash
+bash -c 'r=~/.config/mozilla/firefox; [ -d "$r" ] || r=~/.mozilla/firefox; d=$(sed -n "s/^Default=//p" "$r/installs.ini" 2>/dev/null | head -1); [ -n "$d" ] || { echo "no firefox profile found" >&2; exit 1; }; f=$r/$d/chrome/userContent.css; l="@import url(\"shell-content.css\");"; grep -qxF "$l" "$f" 2>/dev/null || { mkdir -p "$(dirname "$f")"; printf "%s\n" "$l" | cat - "$f" 2>/dev/null > "$f.tmp"; mv "$f.tmp" "$f"; }'
+```
+
+If the `@import` line is already in the file but not on line 1, these one-liners
+leave it alone and it is ignored; move it to line 1 yourself. Use the one-liner
+only on a file whose first line is the import or nothing.
+
+The pref block is managed between markers, so a hand-written `user.js` keeps
+its other lines:
 
 ```
 // BEGIN quickshell
@@ -187,14 +216,14 @@ user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 
 Only that block is managed: the other prefs in a hand-written `user.js` survive,
 a pref set outside the markers is adopted into the block rather than duplicated,
-and `prefs.js` is never rewritten.
+and `prefs.js` is never rewritten. The one pref covers `userContent.css` as well
+as `userChrome.css`.
 
-Chrome only. Pages and `about:` pages keep their own styling; there is no
-`userContent.css` target. The sheet was verified against Firefox 157.0.1. Its
-chrome variables are Firefox internals and have been renamed across releases, so
-the sheet may need template upkeep after a Firefox upgrade; a renamed variable
-fails cosmetically (the chrome falls back to its built-in value), not as a
-render error.
+The sheets were verified against Firefox 157.0.1. Their chrome and newtab
+variables are Firefox internals and have been renamed across releases, so the
+templates may need upkeep after a Firefox upgrade; a renamed variable fails
+cosmetically (the surface falls back to its built-in value), not as a render
+error.
 
 The renderer resolves the default profile from `installs.ini` (its `Default=`)
 and writes through the profile path, which Profile-sync-daemon syncs back; the
@@ -205,8 +234,8 @@ never resolved. The root is
 no profile, the target logs `firefox: no profile` and skips as success (the run
 still exits zero), unlike a broken template, which fails the run. A restart
 applies the change. Switching Firefox off in Themed apps writes a comment-only
-`shell-palette.css` (stock Firefox through the same import) and leaves `user.js`
-untouched.
+`shell-palette.css` and `shell-content.css` (stock Firefox and stock newtab
+through the same imports) and leaves `user.js` untouched.
 
 ### Vencord
 
@@ -292,9 +321,11 @@ grep -h . ~/.config/hypr/theme.lua ~/.config/kitty/theme.conf \
     ~/.config/spicetify/Themes/quickshell/color.ini \
     ~/.config/spicetify/Themes/quickshell/user.css
 grep -h . ~/.config/mozilla/firefox/*/chrome/shell-palette.css \
+    ~/.config/mozilla/firefox/*/chrome/shell-content.css \
     ~/.config/mozilla/firefox/*/user.js
 # under the fallback root:
 grep -h . ~/.mozilla/firefox/*/chrome/shell-palette.css \
+    ~/.mozilla/firefox/*/chrome/shell-content.css \
     ~/.mozilla/firefox/*/user.js
 ```
 

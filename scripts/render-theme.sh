@@ -8,6 +8,7 @@
 #   ~/.config/btop/themes/theme.theme
 #   ~/.config/Vencord/themes/quickshell.theme.css
 #   <firefox-profile>/chrome/shell-palette.css
+#   <firefox-profile>/chrome/shell-content.css
 #   <firefox-profile>/user.js
 #   ~/.config/spicetify/Themes/quickshell/color.ini
 #   ~/.config/spicetify/Themes/quickshell/user.css
@@ -211,6 +212,11 @@ def ink(value):
 
 def build_tokens(palette):
     tokens = {}
+    # The CSS `color-scheme` keyword from the palette mode, so the Firefox
+    # content sheet's native controls and scrollbars follow the palette instead
+    # of the system scheme. Anything but an explicit "light" is dark, the same
+    # default DEFAULT_PALETTE carries.
+    tokens["page_scheme"] = "light" if palette.get("mode") == "light" else "dark"
     for role in ROLES:
         value = palette.get(role)
         if channels(value) is None and role in OPTIONAL:
@@ -362,8 +368,10 @@ def render_vencord(enabled):
     return emit(dest, load("vencord-theme.css", tokens))
 
 
-# Firefox is themed by a generated sheet the user's own userChrome.css imports
-# once, plus a managed block in user.js that turns on legacy stylesheet support.
+# Firefox is themed by two generated sheets plus a managed block in user.js
+# that turns on legacy stylesheet support. The user imports the chrome sheet
+# from userChrome.css and the content sheet from userContent.css. The renderer
+# never creates or edits either user sheet; it only writes the shell-* targets.
 # The profile is discovered from installs.ini because profiles.ini's Default=1
 # names an empty stub here. The root is read from os.environ, not the
 # config_home the wrapper passes; a Snap or Flatpak Firefox root is out of scope.
@@ -507,12 +515,20 @@ def render_firefox(enabled):
     if profile is None:
         sys.stderr.write("firefox: no profile\n")
         return False
+    chrome = os.path.join(profile, "chrome")
+    palette_path = os.path.join(chrome, "shell-palette.css")
+    content_path = os.path.join(chrome, "shell-content.css")
     if not enabled:
-        return emit(os.path.join(profile, "chrome", "shell-palette.css"), DISABLED_CSS)
+        wrote_palette = emit(palette_path, DISABLED_CSS)
+        wrote_content = emit(content_path, DISABLED_CSS)
+        return wrote_palette or wrote_content
     palette_css = load("firefox-palette.css", tokens)
+    content_css = load("firefox-content.css", tokens)
     user_block = load("firefox-user.js", tokens)
-    wrote = emit(os.path.join(profile, "chrome", "shell-palette.css"), palette_css)
-    return emit_userjs(os.path.join(profile, "user.js"), user_block) or wrote
+    wrote_palette = emit(palette_path, palette_css)
+    wrote_content = emit(content_path, content_css)
+    wrote_userjs = emit_userjs(os.path.join(profile, "user.js"), user_block)
+    return wrote_palette or wrote_content or wrote_userjs
 
 
 # Spicetify follows the shell through the community `text` theme, vendored as

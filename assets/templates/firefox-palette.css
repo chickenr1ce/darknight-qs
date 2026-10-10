@@ -4,10 +4,11 @@
  * Import this once from the profile's userChrome.css as its FIRST line:
  *     @import url("shell-palette.css");
  * An @import after any other rule is ignored, so it must come before every
- * other rule. This themes the browser chrome only; about: pages and web
- * content are untouched. Firefox's chrome variables are internal and have
- * been renamed across releases (verified against Firefox 157), so this sheet
- * may need upkeep after an update. See docs/user/theme-desktop-setup.md.
+ * other rule. This themes the browser chrome only; the about: pages are themed
+ * by the separate shell-content.css, and web content is untouched. Firefox's
+ * chrome variables are internal and have been renamed across releases (verified
+ * against Firefox 157), so this sheet may need upkeep after an update. See
+ * docs/user/theme-desktop-setup.md.
  */
 
 :root {
@@ -20,6 +21,7 @@
     --shell-muted: {{muted}};
     --shell-selection: {{selection}};
     --shell-accent: {{accent}};
+    --shell-on-accent: {{on_accent}};
     --shell-bright-foreground: {{bright_foreground}};
 }
 
@@ -45,4 +47,43 @@
     --sidebar-border-color: var(--shell-selection) !important;
     --lwt-accent-color: var(--shell-background) !important;
     --lwt-text-color: var(--shell-foreground) !important;
+}
+
+/* Accent. Firefox routes every attention color through this token family, but
+ * a few consumers (the toolbar attention icon, the tab spinner) hardcode a raw
+ * color instead of reading --color-accent-primary, so they are set too. Hover
+ * and active mix toward the foreground, which darkens on a light palette and
+ * lightens on a dark one, the direction Firefox's own accent ladder uses. The
+ * on-accent ink keeps primary-button text readable against the accent. Names
+ * verified against Firefox 157: tokens-shared.css, tab.tokens.css. */
+:root {
+    --color-accent-primary: var(--shell-accent) !important;
+    --color-accent-primary-hover: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+    --color-accent-primary-active: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+    --color-accent-primary-selected: var(--shell-accent) !important;
+    --focus-outline-color: var(--shell-accent) !important;
+    --link-color: var(--shell-accent) !important;
+    --link-color-hover: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+    --link-color-active: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+    --button-background-color-primary: var(--shell-accent) !important;
+    --button-background-color-primary-hover: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+    --button-background-color-primary-active: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+    --button-text-color-primary: var(--shell-on-accent) !important;
+    --toolbarbutton-icon-fill-attention: var(--shell-accent) !important;
+    --tab-loading-fill: var(--shell-accent) !important;
+    --toolbar-field-border-color-focus: var(--shell-accent) !important;
+}
+
+/* The address bar's search-engine switcher is a `type="muted"` moz-button. Its
+ * background comes from --button-background-color-muted, which is currentColor
+ * based, so on a light palette under a dark system scheme it stays a dark pill.
+ * Firefox exposes no switcher-specific variable, so scope the muted button
+ * tokens to the switcher (verified in urlbar.css and moz-button.css). */
+.searchmode-switcher {
+    --button-background-color-muted: var(--shell-lighter-background) !important;
+    --button-background-color-muted-hover: var(--shell-selection) !important;
+    --button-background-color-muted-active: var(--shell-selection) !important;
+    --button-text-color-muted: var(--shell-foreground) !important;
+    --button-text-color-muted-hover: var(--shell-foreground) !important;
+    --button-text-color-muted-active: var(--shell-foreground) !important;
 }

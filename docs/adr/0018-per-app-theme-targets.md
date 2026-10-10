@@ -113,7 +113,7 @@ braces, so CSS braces in a template do not trip it.
   palette instead, because a comment-only file would wipe the prompt or leave
   hyprlock's `$theme_*` undefined.
 - `docs/user/theme-desktop-setup.md` and `CONTEXT.md` say the retint writes six
-  files. Both move to nine targets (eleven files) and gain Firefox, Vencord, and
+  files. Both move to nine targets (twelve files) and gain Firefox, Vencord, and
   Spicetify wiring sections.
 - The Firefox root resolves to `${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox`
   (falling back to `$HOME/.mozilla/firefox`), so tests redirect both
@@ -158,3 +158,35 @@ braces, so CSS braces in a template do not trip it.
   and the UI needs no reorder. The user still enables the theme once and
   restarts Discord once. `!important` remains rejected (see the alternatives
   above); the fix raises specificity instead.
+- 2026-10-10 (Firefox accent and content sheets): live testing on a light
+  palette (background `#eee8da`, accent `#795334`) found the chrome accent
+  unmapped. The original template defined `--shell-accent` but no Firefox
+  token read it, so focus rings, attention icons, primary buttons, the urlbar
+  focus border, checkboxes, and panel links kept Firefox's default accent. The
+  `about:newtab`/`about:home` pages followed the system dark scheme, because
+  they are content documents `userChrome.css` cannot reach. The chrome
+  sheet now maps the palette accent onto Firefox 157's tokens
+  (`--color-accent-primary` and its hover/active/selected variants,
+  `--focus-outline-color`, `--link-color`, the primary-button background and
+  text, `--toolbarbutton-icon-fill-attention`, `--tab-loading-fill`,
+  `--toolbar-field-border-color-focus`) with the on-accent ink
+  (`--shell-on-accent`, the black-or-white ink chosen against the accent) for
+  primary-button text and `color-mix` ladders toward the foreground for
+  hover/active. The guessed `--toolbar-field-focus-border-color` does not exist
+  in 157; the real token is `--toolbar-field-border-color-focus`. The
+  search-engine switcher pill has no token of its own, so a scoped
+  `.searchmode-switcher` rule themes its muted-button variables. Firefox now
+  contributes three files: the chrome sheet, a second generated
+  `chrome/shell-content.css` scoped with
+  `@-moz-document url("about:newtab"), url("about:home"),
+  url("about:privatebrowsing")` that sets the newtab page's own `--newtab-*`
+  variables, the search box element's `--content-search-handoff-ui-*` values,
+  the `html.private` canvas/text/link/banner/info/promo colors
+  `about:privatebrowsing` paints from its own sheet, and a `color-scheme`
+  matching the palette mode, from the palette, and `user.js`. The user imports
+  `shell-content.css` from
+  their own `userContent.css` as its first line, exactly as they import
+  `shell-palette.css` from `userChrome.css`; the renderer still never creates or
+  edits a user sheet, so the earlier "never names `userContent.css`" rule
+  relaxes to "never writes `userContent.css`". Disabled, both sheets are
+  comment-only.
