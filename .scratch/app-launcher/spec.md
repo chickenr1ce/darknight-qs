@@ -99,9 +99,13 @@ no category pills.
   tested under node through `tests/qmljs.js`.
 - **Launch.** `DesktopEntry.execute()` / `DesktopAction.execute()` for normal
   entries. `execute()` ignores `runInTerminal`, so terminal entries run
-  `Quickshell.execDetached` with the terminal prefix (`kitty -e`, an
-  `AppService` constant) plus `entry.command`. Every launch closes the dashboard
-  unless it came from middle-click or "Open and keep dashboard".
+  `Quickshell.execDetached` with the terminal prefix plus `entry.command`. Every
+  launch closes the dashboard unless it came from middle-click or "Open and keep
+  dashboard".
+- **Terminal command.** The terminal command is a Settings value under Apps,
+  default `kitty -e`, stored as `terminal` in the `app-launcher` state file.
+  `AppLogic.terminalArgv` parses it into an argv prefix, and every terminal
+  launch path uses it: `launch`, `launchOnWorkspace`, and `runQuery`.
 - **Running windows.** An entry matches a `Hyprland.toplevels` item when the
   entry's keys (`startupClass`, `id`, the id's last reverse-DNS segment)
   match the toplevel's class sources by the same rules as
@@ -171,7 +175,6 @@ no category pills.
 - A detail pane or drawer (variants 1 and 5).
 - Drag to pin or reorder; pins order by when they were pinned.
 - Calculator, file, web, or command-history search.
-- A configurable terminal; `kitty -e` is a constant for now.
 - Editing desktop entries (Quickshell exposes no entry path).
 - Removing the rofi script, before the native path verifies live.
 

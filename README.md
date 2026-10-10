@@ -32,7 +32,7 @@ Omarchy trademark disclaimer are in [NOTICE](NOTICE).
 | `mpc` | MPD control; playback pauses on suspend |
 | `gcalcli` | the opt-in multi-calendar backend (see [Calendar setup](docs/user/calendar.md)) |
 | `awww` | applies theme backgrounds |
-| [`kitty`](https://sw.kovidgoyal.net/kitty/) | terminal apps and the launcher's Run row |
+| [`kitty`](https://sw.kovidgoyal.net/kitty/) | the default terminal for terminal apps and the launcher's Run row |
 | one of `hyprlock`, `betterlockscreen`, `i3lock` | the power menu's Lock action |
 
 Every optional tool degrades one feature when absent; the shell still starts.

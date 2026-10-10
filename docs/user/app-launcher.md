@@ -112,10 +112,9 @@ The `Run "query"` row's menu has only Run (↵) and Copy command.
 ## Terminal apps
 
 An entry marked `Terminal=true` (btop, yazi, nvim, and the like) opens inside a
-terminal: the shell runs `kitty -e` plus the entry's command. The `Run "query"`
-row runs its text with `kitty -e sh -c`. The terminal is fixed to `kitty`, so
-kitty must be installed: without it, terminal entries and the `Run "query"` row
-have no terminal to open.
+terminal, and the `Run "query"` row runs its text in one too. Both use the
+terminal command from Settings → Apps → Terminal, which defaults to `kitty -e`.
+Set your own, for example `foot`, `alacritty -e`, or `wezterm start --`.
 
 ## Pin, hide, and unhide
 
@@ -142,10 +141,12 @@ to a different app.
 
 ## Where the state lives
 
-Pins, hidden ids, and the recent list persist in
+Pins, hidden ids, the recent list, and the terminal command persist in
 `${XDG_STATE_HOME:-~/.local/state}/quickshell/app-launcher` as
-`{ "pinned": [...], "hidden": [...], "recent": [...] }`. The recent list keeps
-the last 8 launches. A missing or unreadable file reads as three empty lists.
+`{ "pinned": [...], "hidden": [...], "recent": [...], "terminal": "" }`.
+The recent list keeps the last 8 launches. An empty terminal uses the default
+`kitty -e`. A missing or unreadable file reads as three empty lists and an empty
+terminal.
 
 ## Set up the Super key
 
@@ -175,7 +176,6 @@ Keep the rofi script in place until the native path has a week of daily use.
   its window. T3 Code Nightly is one example. Adding `StartupWMClass` to the
   entry fixes it.
 - No force-kill of a hung app.
-- The terminal is fixed to `kitty`.
 - Out of scope: category filters or pills, a detail pane, drag-to-reorder,
   calculator, file, web, or command-history search, and editing desktop
   entries.

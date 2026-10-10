@@ -201,6 +201,13 @@ function shellCommand(argv) {
     return out.join(" ");
 }
 
+function terminalArgv(value) {
+    const text = String(value ?? "").trim();
+    if (text === "")
+        return [];
+    return text.split(/\s+/);
+}
+
 function stringList(value) {
     const out = [];
     if (!Array.isArray(value))
@@ -218,6 +225,7 @@ function parseState(jsonText) {
     out["pinned"] = [];
     out["hidden"] = [];
     out["recent"] = [];
+    out["terminal"] = "";
     let parsed = null;
     try {
         parsed = JSON.parse(jsonText);
@@ -229,6 +237,7 @@ function parseState(jsonText) {
     out["pinned"] = stringList(parsed.pinned);
     out["hidden"] = stringList(parsed.hidden);
     out["recent"] = stringList(parsed.recent).slice(0, 8);
+    out["terminal"] = typeof parsed.terminal === "string" ? parsed.terminal : "";
     return out;
 }
 

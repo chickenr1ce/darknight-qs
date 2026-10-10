@@ -49,7 +49,7 @@ Singleton {
         {
             key: "apps",
             title: qsTr("Apps"),
-            options: [qsTr("Hidden"), qsTr("Launcher")].concat(AppService.hiddenEntries.map(app => app.name)),
+            options: [qsTr("Hidden"), qsTr("Launcher"), qsTr("Terminal")].concat(AppService.hiddenEntries.map(app => app.name)),
             comingSoon: false
         },
         {

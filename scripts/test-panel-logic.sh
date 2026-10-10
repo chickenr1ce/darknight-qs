@@ -1080,6 +1080,12 @@ grep -q 'AppService.hiddenEntries' "$APPSVIEW" \
     || fail "AppsSettingsView does not read the resolved hidden entries"
 grep -q 'AppIcon' "$APPSVIEW" \
     || fail "AppsSettingsView does not compose the shared app icon"
+grep -q 'SettingsTextRow' "$APPSVIEW" \
+    || fail "AppsSettingsView does not compose the shared text row"
+grep -q 'AppService.terminalCommand' "$APPSVIEW" \
+    || fail "AppsSettingsView does not bind the terminal command"
+grep -q 'AppService.setTerminal' "$APPSVIEW" \
+    || fail "AppsSettingsView cannot set the terminal command"
 grep -qF 'SettingsFilter.matches(root.filter, qsTr("Hidden"))' "$APPSVIEW" \
     || fail "AppsSettingsView does not match its Hidden search label, so searching it shows an empty body"
 grep -qF 'SettingsFilter.matches(root.filter, qsTr("Launcher"))' "$APPSVIEW" \
@@ -1094,6 +1100,10 @@ grep -qF 'qsTr("Hidden")' "$SSVC" \
     || fail "SettingsService apps options do not list Hidden"
 grep -qF 'qsTr("Launcher")' "$SSVC" \
     || fail "SettingsService apps options do not list Launcher"
+grep -qF 'qsTr("Terminal")' "$SSVC" \
+    || fail "SettingsService apps options do not list Terminal"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Terminal"))' "$APPSVIEW" \
+    || fail "AppsSettingsView does not match its Terminal search label"
 grep -qF 'AppService.hiddenEntries.map' "$SSVC" \
     || fail "SettingsService apps options do not derive from the hidden app names"
 grep -q 'function unhide' "$APPSVC" \

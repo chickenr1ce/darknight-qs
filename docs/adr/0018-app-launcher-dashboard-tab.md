@@ -79,7 +79,9 @@ window.
   with POSIX single quotes and `MonitorLogic.escapeLua` escapes the result, so
   Hyprland's `/bin/sh -c` sees one quoted argument per element and a file name
   with spaces, `$(...)`, backticks, or redirection cannot split or inject.
-  Terminal entries keep the `kitty -e` prefix.
+  Terminal entries and the `Run` row use the terminal command from
+  Settings → Apps → Terminal (default `kitty -e`), parsed into an argv prefix by
+  `AppLogic.terminalArgv`.
 - **Menu inside the card.** `components/ContextMenu.qml` is a shared, generic
   menu. It fits inside the dashboard window without growing it: its width fits
   the widest item between `Globals.menuWidth` and `Globals.menuMaxWidth` (the
@@ -121,7 +123,8 @@ window.
   dashboard, but there is no second launcher surface.
 - An app whose window class differs from its desktop id and declares no
   `StartupWMClass` shows no running dot, for example T3 Code Nightly. There is
-  no force-kill of a hung app, and the terminal is fixed to `kitty`.
+  no force-kill of a hung app, and the terminal command is a Settings value
+  (default `kitty -e`) rather than a constant.
 - The launcher is a dashboard tab, so its behavior depends on the dashboard's
   placement and grab rules (ADR 0008). The user page is
   `docs/user/app-launcher.md`; the `dashboard apps` target is in

@@ -17,7 +17,22 @@ ColumnLayout {
     readonly property bool appsRelevant: SettingsFilter.matches(root.filter, qsTr("Hidden"))
         || SettingsFilter.matches(root.filter, qsTr("Launcher"))
 
+    readonly property bool terminalRelevant: SettingsFilter.matches(root.filter, qsTr("Terminal"))
+        || SettingsFilter.matches(root.filter, qsTr("Launcher"))
+
     spacing: Globals.spacing
+
+    SettingsTextRow {
+        id: idTerminalRow
+
+        Layout.fillWidth: true
+
+        label: qsTr("Terminal")
+        hint: qsTr("Command the launcher opens Terminal apps and Run queries with, for example kitty -e.")
+        value: AppService.terminalCommand
+        visible: root.terminalRelevant
+        onEdited: text => AppService.setTerminal(text)
+    }
 
     Text {
         id: idAppsHint

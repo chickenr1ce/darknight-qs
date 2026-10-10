@@ -10,7 +10,12 @@ import "MonitorLogic.js" as MonitorLogic
 Singleton {
     id: root
 
-    readonly property var terminalPrefix: ["kitty", "-e"]
+    readonly property string defaultTerminal: "kitty -e"
+    readonly property string terminalCommand: {
+        const text = String(root.state.terminal || "").trim();
+        return text === "" ? root.defaultTerminal : text;
+    }
+    readonly property var terminalPrefix: AppLogic.terminalArgv(root.terminalCommand)
 
     property var state: ({})
 
@@ -338,6 +343,16 @@ Singleton {
         next["pinned"] = pinned || [];
         next["hidden"] = hidden || [];
         next["recent"] = recent || [];
+        next["terminal"] = root.state.terminal || "";
+        root.state = next;
+    }
+
+    function setTerminal(value): void {
+        const next = {};
+        next["pinned"] = root.pinned;
+        next["hidden"] = root.hidden;
+        next["recent"] = root.recent;
+        next["terminal"] = String(value ?? "").trim();
         root.state = next;
     }
 
@@ -402,6 +417,7 @@ Singleton {
         payload["pinned"] = root.pinned;
         payload["hidden"] = root.hidden;
         payload["recent"] = root.recent;
+        payload["terminal"] = root.state.terminal || "";
         idAppState.saveJson(payload);
     }
 }

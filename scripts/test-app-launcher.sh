@@ -47,12 +47,24 @@ grep -q 'function escapeHtml' "$LOGIC" \
 # --- 2. persistence, launch, and terminal prefix ---
 grep -q 'name: "app-launcher"' "$SVC" \
     || fail "AppService does not persist to the app-launcher state file"
-grep -q 'readonly property var terminalPrefix: \["kitty", "-e"\]' "$SVC" \
-    || fail "AppService terminal prefix is not kitty -e"
+grep -q 'readonly property string defaultTerminal: "kitty -e"' "$SVC" \
+    || fail "AppService default terminal is not kitty -e"
+grep -q 'AppLogic.terminalArgv' "$SVC" \
+    || fail "AppService does not delegate terminalArgv to AppLogic"
+grep -q 'function terminalArgv' "$LOGIC" \
+    || fail "AppLogic.js has no terminalArgv"
+grep -q 'function setTerminal' "$SVC" \
+    || fail "AppService has no setTerminal"
+grep -q 'payload\["terminal"\]' "$SVC" \
+    || fail "AppService saveState does not persist the terminal"
 grep -q 'Quickshell.execDetached' "$SVC" \
     || fail "AppService does not launch through execDetached"
 grep -q 'record.runInTerminal' "$SVC" \
     || fail "AppService ignores runInTerminal"
+grep -qF 'root.terminalPrefix.concat(record.command' "$SVC" \
+    || fail "AppService launch paths drop the terminal prefix"
+grep -qF 'root.terminalPrefix.concat(["sh", "-c"' "$SVC" \
+    || fail "AppService runQuery drops the terminal prefix"
 grep -q 'Quickshell.iconPath' "$SVC" \
     || fail "AppService has no iconPath lookup"
 grep -q 'root.iconCache' "$SVC" \
@@ -938,19 +950,25 @@ check('match/none', al.matchRanges('Firefox', 'zz'), []);
 check('markup/highlight', al.markup('Firefox', 'fi', '#abc'), '<font color="#abc">Fi</font>refox');
 check('markup/escape', al.markup('A & <b>', 'zz', '#fff'), 'A &amp; &lt;b&gt;');
 
-// parseState: missing or corrupt input loads as empty lists.
-check('state/corrupt', al.parseState('{ not json'), { pinned: [], hidden: [], recent: [] });
-check('state/null', al.parseState('null'), { pinned: [], hidden: [], recent: [] });
-check('state/array', al.parseState('[1, 2]'), { pinned: [], hidden: [], recent: [] });
+// parseState: missing or corrupt input loads as empty lists plus an empty
+// terminal; the pinned/hidden/recent keys still parse alongside it.
+check('state/corrupt', al.parseState('{ not json'), { pinned: [], hidden: [], recent: [], terminal: '' });
+check('state/null', al.parseState('null'), { pinned: [], hidden: [], recent: [], terminal: '' });
+check('state/array', al.parseState('[1, 2]'), { pinned: [], hidden: [], recent: [], terminal: '' });
 check('state/strings',
       al.parseState('{"pinned":["a","b"],"hidden":["c"],"recent":["d","e"]}'),
-      { pinned: ['a', 'b'], hidden: ['c'], recent: ['d', 'e'] });
+      { pinned: ['a', 'b'], hidden: ['c'], recent: ['d', 'e'], terminal: '' });
 check('state/non-strings',
       al.parseState('{"pinned":["a",7,""],"hidden":"x","recent":null}'),
-      { pinned: ['a'], hidden: [], recent: [] });
+      { pinned: ['a'], hidden: [], recent: [], terminal: '' });
 check('state/recent-cap',
       al.parseState('{"recent":["a","b","c","d","e","f","g","h","i"]}').recent.length,
       8);
+check('state/terminal-kept',
+      al.parseState('{"pinned":["a"],"hidden":["b"],"recent":["c"],"terminal":"kitty -e"}'),
+      { pinned: ['a'], hidden: ['b'], recent: ['c'], terminal: 'kitty -e' });
+check('state/terminal-missing', al.parseState('{"pinned":["a"]}').terminal, '');
+check('state/terminal-non-string', al.parseState('{"terminal":7}').terminal, '');
 
 // sections: empty query builds Pinned (pin order), Recent (no pins, max 4),
 // All apps (A-Z with count); a query collapses to one unsectioned list.
@@ -1445,6 +1463,14 @@ check('command/argv',
       al.shellCommand(['wine', 'C:\\a b\\x.lnk']),
       "'wine' 'C:\\a b\\x.lnk'");
 check('command/empty-argv', al.shellCommand([]), '');
+
+// terminalArgv: trim the configured terminal, split on whitespace, and fall to
+// an empty argv for a blank or non-string value.
+check('terminal/kitty', al.terminalArgv('kitty -e'), ['kitty', '-e']);
+check('terminal/trim', al.terminalArgv('  foot  '), ['foot']);
+check('terminal/empty', al.terminalArgv(''), []);
+check('terminal/undefined', al.terminalArgv(undefined), []);
+check('terminal/wezterm', al.terminalArgv('wezterm start --').length, 3);
 
 // The composed dispatch string: shell-join then Lua-escape; backslashes double
 // once and the quotes stay single.
