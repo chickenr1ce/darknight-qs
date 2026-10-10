@@ -1845,6 +1845,71 @@ grep -q 'backgroundQueuedPath' "$TSVC" \
     || fail "a second background pick is not queued (L2)"
 grep -q 'render-theme.sh exited non-zero' "$TSVC" \
     || fail "a non-zero renderer exit is not logged (L4)"
+# Per-app target gating: the target list, its per-key state behind the
+# theme-targets StateFile, the comma-joined enabled key string, and the render
+# command that passes that string as the renderer's second argument. The first
+# render waits for both the palette and the target state (targetsLoaded), so a
+# fresh install never renders all-enabled and then re-renders the disabled
+# layers.
+grep -q 'readonly property var themeTargets' "$TSVC" \
+    || fail "ThemeService exposes no theme target list"
+for pair in "hyprland:Hyprland borders" "kitty:kitty" "hyprlock:hyprlock" "starship:starship" "yazi:yazi" "btop:btop" "firefox:Firefox" "vencord:Vencord" "spicetify:Spicetify"; do
+    key="${pair%%:*}"
+    title="${pair##*:}"
+    grep -q "\"$key\"" "$TSVC" \
+        || fail "ThemeService target list misses key $key"
+    grep -qF "qsTr(\"$title\")" "$TSVC" \
+        || fail "ThemeService target list misses title $title"
+done
+grep -q 'property var themeTargetEnabled: ({})' "$TSVC" \
+    || fail "ThemeService has no themeTargetEnabled map"
+grep -q 'function isThemeTargetEnabled' "$TSVC" \
+    || fail "ThemeService has no isThemeTargetEnabled()"
+grep -q 'function setThemeTargetEnabled' "$TSVC" \
+    || fail "ThemeService has no setThemeTargetEnabled()"
+grep -q 'name: "theme-targets"' "$TSVC" \
+    || fail "ThemeService does not persist target state to theme-targets"
+grep -q 'ThemeParsers.parseTargets' "$TSVC" \
+    || fail "ThemeService does not parse targets through ThemeParsers"
+grep -q 'ThemeParsers.serializeTargets' "$TSVC" \
+    || fail "ThemeService does not serialize targets through ThemeParsers"
+grep -q 'readonly property string enabledThemeTargetKeys' "$TSVC" \
+    || fail "ThemeService exposes no enabledThemeTargetKeys"
+grep -qF 'root.renderScriptPath, root.renderPaletteJson, root.enabledThemeTargetKeys' "$TSVC" \
+    || fail "the render command does not pass the enabled target keys as the second argument"
+grep -q 'onThemeTargetEnabledChanged' "$TSVC" \
+    || fail "ThemeService does not react to a target change"
+grep -q 'property bool targetsLoaded' "$TSVC" \
+    || fail "ThemeService has no targetsLoaded first-render gate"
+grep -q 'property bool paletteResolved' "$TSVC" \
+    || fail "ThemeService has no paletteResolved first-render gate"
+grep -qF 'if (!root.paletteResolved || !root.targetsLoaded)' "$TSVC" \
+    || fail "renderDesktop does not gate the first render on palette and targets"
+
+# parseTargets / serializeTargets: the target map defaults all-on, only an
+# explicit false disables, an unknown key is dropped, and serialization emits
+# every known key as a boolean. Mirrors StateParsers.parseVisibility.
+node - "$ROOT/tests/qmljs.js" "$TPARSE" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const tp = qmljs.load(process.argv[3]);
+const KEYS = ['hyprland', 'kitty', 'hyprlock', 'starship', 'yazi', 'btop', 'firefox', 'vencord', 'spicetify'];
+const all = () => ({ hyprland: true, kitty: true, hyprlock: true, starship: true, yazi: true, btop: true, firefox: true, vencord: true, spicetify: true });
+const targets = text => tp.parseTargets(text, KEYS);
+check('targets/default', targets(''), all());
+check('targets/malformed', targets('{nope'), all());
+check('targets/list', targets('[1, 2]'), all());
+check('targets/disable', targets('{"yazi": false}').yazi, false);
+check('targets/kept', targets('{"yazi": false}').btop, true);
+check('targets/unknown', targets('{"nope": false}'), all());
+check('targets/nonbool', targets('{"kitty": 0}').kitty, true);
+check('targets/serialize-all', tp.serializeTargets(all(), KEYS), JSON.stringify(all()) + '\n');
+check('targets/serialize-missing-is-on', tp.serializeTargets({}, KEYS), JSON.stringify(all()) + '\n');
+check('targets/serialize-disabled', tp.serializeTargets({ yazi: false }, KEYS), JSON.stringify(Object.assign(all(), { yazi: false })) + '\n');
+check('targets/serialize-drops-unknown', tp.serializeTargets({ nope: false, yazi: false }, KEYS), JSON.stringify(Object.assign(all(), { yazi: false })) + '\n');
+check('targets/serialize-null', tp.serializeTargets(null, KEYS), JSON.stringify(all()) + '\n');
+check('targets/serialize-nonmap', tp.serializeTargets('nope', KEYS), JSON.stringify(all()) + '\n');
+NODEEOF
 
 # Run the shipped parser under node: ThemeParsers.parseColors and its cascade,
 # isTrustedStat, and parseSelection / serializeSelection, then the B1

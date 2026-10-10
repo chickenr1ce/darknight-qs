@@ -531,3 +531,36 @@ function parseSelection(jsonText) {
 function serializeSelection(theme, backgroundsJson) {
     return JSON.stringify({ "theme": theme, "backgrounds": parseBackgrounds(backgroundsJson) }) + "\n";
 }
+
+// The per-app target map is one boolean per known key. A key the file does not
+// name reads as enabled, only an explicit false disables, and a key outside the
+// known set is dropped, so a stale or renamed key can never leave a target off.
+function parseTargets(jsonText, keys) {
+    const out = {};
+    for (let i = 0; i < keys.length; i++)
+        out[keys[i]] = true;
+    let parsed = null;
+    try {
+        parsed = JSON.parse(jsonText);
+    } catch (e) {
+        return out;
+    }
+    if (!parsed || typeof parsed !== "object")
+        return out;
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        if (parsed[key] === false)
+            out[key] = false;
+    }
+    return out;
+}
+
+function serializeTargets(map, keys) {
+    const src = (map && typeof map === "object") ? map : {};
+    const out = {};
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        out[key] = !(src[key] === false);
+    }
+    return JSON.stringify(out) + "\n";
+}

@@ -17,6 +17,29 @@ Singleton {
     readonly property string defaultThemeName: "darknight"
     property string activeTheme: ""
     property bool selectionKnown: false
+    property bool targetsLoaded: false
+    property bool paletteResolved: false
+    property var themeTargetEnabled: ({})
+    readonly property var themeTargets: [
+        { key: "hyprland", title: qsTr("Hyprland borders") },
+        { key: "kitty", title: qsTr("kitty") },
+        { key: "hyprlock", title: qsTr("hyprlock") },
+        { key: "starship", title: qsTr("starship") },
+        { key: "yazi", title: qsTr("yazi") },
+        { key: "btop", title: qsTr("btop") },
+        { key: "firefox", title: qsTr("Firefox") },
+        { key: "vencord", title: qsTr("Vencord") },
+        { key: "spicetify", title: qsTr("Spicetify") }
+    ]
+    readonly property string enabledThemeTargetKeys: {
+        const keys = [];
+        for (let i = 0; i < root.themeTargets.length; i++) {
+            const key = root.themeTargets[i].key;
+            if (root.isThemeTargetEnabled(key))
+                keys.push(key);
+        }
+        return keys.join(",");
+    }
     readonly property string activeDisplayName: root.catalogDisplayName(root.activeTheme)
     property string backgroundsJson: "{}"
     readonly property var backgrounds: ThemeParsers.parseBackgrounds(root.backgroundsJson)
@@ -98,7 +121,14 @@ Singleton {
         root.saveSelection();
     }
     onBackgroundsJsonChanged: root.saveSelection()
-    onRenderPaletteJsonChanged: Qt.callLater(root.renderDesktop)
+    onThemeTargetEnabledChanged: {
+        root.saveTargets();
+        Qt.callLater(root.renderDesktop);
+    }
+    onRenderPaletteJsonChanged: {
+        root.paletteResolved = true;
+        Qt.callLater(root.renderDesktop);
+    }
     Component.onCompleted: root.refresh()
 
     StateFile {
@@ -108,6 +138,15 @@ Singleton {
         createDir: true
         onParsed: text => root.applySelection(text)
         onLoadedChanged: Qt.callLater(root.applyDefaultTheme)
+    }
+
+    StateFile {
+        id: idTargetsState
+
+        name: "theme-targets"
+        createDir: true
+        onParsed: text => root.applyTargets(text)
+        onLoadedChanged: root.resolveTargetsLoaded()
     }
 
     Process {
@@ -122,6 +161,8 @@ Singleton {
                 root.catalogReady = true;
                 root.reconcileActiveTheme();
                 root.applyDefaultTheme();
+                if (root.catalogReady && root.activeTheme === "")
+                    root.markPaletteResolved();
                 if (root.activeTheme !== "" && root.hasPalette && root.effectiveMode("") !== root.mode)
                     root.applyPalette(ThemeParsers.parseColors(idPaletteFile.text(), root.catalogMode(root.activeTheme)));
                 if (root.catalogQueued) {
@@ -142,7 +183,7 @@ Singleton {
     Process {
         id: idRenderProcess
 
-        command: ["sh", root.renderScriptPath, root.renderPaletteJson]
+        command: ["sh", root.renderScriptPath, root.renderPaletteJson, root.enabledThemeTargetKeys]
         onExited: code => {
             if (code !== 0)
                 console.warn("ThemeService: render-theme.sh exited non-zero (" + code + ")");
@@ -189,7 +230,10 @@ Singleton {
         path: root.colorsTrusted && root.colorsPath !== "" ? "file://" + root.colorsPath : ""
         watchChanges: true
         printErrors: false
-        onLoaded: root.applyPalette(ThemeParsers.parseColors(idPaletteFile.text(), root.catalogMode(root.activeTheme)))
+        onLoaded: {
+            root.applyPalette(ThemeParsers.parseColors(idPaletteFile.text(), root.catalogMode(root.activeTheme)));
+            root.markPaletteResolved();
+        }
         onLoadFailed: root.paletteLoadFailed()
         onFileChanged: root.reloadPalette()
     }
@@ -313,7 +357,79 @@ Singleton {
         return true;
     }
 
+    function hasThemeTarget(key: string): bool {
+        for (let i = 0; i < root.themeTargets.length; i++) {
+            if (root.themeTargets[i].key === key)
+                return true;
+        }
+        return false;
+    }
+
+    function isThemeTargetEnabled(key: string): bool {
+        return !(root.themeTargetEnabled[key] === false);
+    }
+
+    function sameTargets(a, b): bool {
+        for (let i = 0; i < root.themeTargets.length; i++) {
+            const key = root.themeTargets[i].key;
+            if (!(a[key] === b[key]))
+                return false;
+        }
+        return true;
+    }
+
+    function themeTargetKeys(): var {
+        const keys = [];
+        for (let i = 0; i < root.themeTargets.length; i++)
+            keys.push(root.themeTargets[i].key);
+        return keys;
+    }
+
+    function parseTargets(jsonText: string): var {
+        return ThemeParsers.parseTargets(jsonText, root.themeTargetKeys());
+    }
+
+    function serializeTargets(map): string {
+        return ThemeParsers.serializeTargets(map, root.themeTargetKeys());
+    }
+
+    function applyTargets(jsonText: string): void {
+        const next = root.parseTargets(jsonText);
+        if (root.sameTargets(root.themeTargetEnabled, next))
+            return;
+        root.themeTargetEnabled = next;
+    }
+
+    function saveTargets(): void {
+        idTargetsState.save(root.serializeTargets(root.themeTargetEnabled));
+    }
+
+    function setThemeTargetEnabled(key: string, enabled: bool): void {
+        if (!root.hasThemeTarget(key) || root.isThemeTargetEnabled(key) === enabled)
+            return;
+        const next = {};
+        for (let i = 0; i < root.themeTargets.length; i++) {
+            const targetKey = root.themeTargets[i].key;
+            next[targetKey] = targetKey === key ? enabled : root.isThemeTargetEnabled(targetKey);
+        }
+        root.themeTargetEnabled = next;
+    }
+
+    function resolveTargetsLoaded(): void {
+        if (root.targetsLoaded)
+            return;
+        root.targetsLoaded = true;
+        Qt.callLater(root.renderDesktop);
+    }
+
+    function markPaletteResolved(): void {
+        root.paletteResolved = true;
+        Qt.callLater(root.renderDesktop);
+    }
+
     function renderDesktop(): void {
+        if (!root.paletteResolved || !root.targetsLoaded)
+            return;
         if (idRenderProcess.running) {
             root.renderQueued = true;
             return;
@@ -418,7 +534,7 @@ Singleton {
         root.colorsTrusted = false;
         root.applyPalette(null);
         if (root.activeTheme === "") {
-            Qt.callLater(root.renderDesktop);
+            root.markPaletteResolved();
             return;
         }
         Qt.callLater(root.statPalette);
@@ -427,6 +543,7 @@ Singleton {
     function paletteLoadFailed(): void {
         root.colorsTrusted = false;
         root.applyPalette(null);
+        root.markPaletteResolved();
     }
 
     function statPalette(): void {
@@ -446,6 +563,7 @@ Singleton {
         } else {
             root.colorsTrusted = false;
             root.applyPalette(null);
+            root.markPaletteResolved();
         }
         if (root.statQueued) {
             root.statQueued = false;
