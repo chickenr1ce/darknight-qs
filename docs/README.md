@@ -1,15 +1,18 @@
 # Documentation
 
 Docs are organized by audience, and a new doc goes in the folder matching its
-reader. `user/` holds end-user setup and how-to pages (linked from the README's
-Optional integrations); `dev/` holds agent and contributor reference.
-Cross-cutting records — ADRs, the glossary, plans — stay at the root.
+reader. `user/` holds end-user setup and how-to pages (linked from the README);
+`dev/` holds agent and contributor reference. Cross-cutting records — ADRs, the
+glossary, plans — stay at the root.
 
 ## User docs — [`user/`](user/)
 
-Setup and how-to pages for someone running the shell. The README links these from
-its Optional integrations section.
+Setup and how-to pages for someone running the shell. The README links these
+from its Documentation section.
 
+- [`user/monitors.md`](user/monitors.md) — the two-monitor layout, picking the primary, and the fixed workspace split.
+- [`user/notifications.md`](user/notifications.md) — owning the notification bus, and Do Not Disturb.
+- [`user/fonts.md`](user/fonts.md) — the three font families and their fallbacks.
 - [`user/calendar.md`](user/calendar.md) — Google Calendar secret iCal URLs, and the `gcalcli` path for birthdays and per-calendar toggles.
 - [`user/weather.md`](user/weather.md) — weather block, cache, and city search.
 - [`user/spotify-connect.md`](user/spotify-connect.md) — one-time Spotify app authorization for the dashboard player.

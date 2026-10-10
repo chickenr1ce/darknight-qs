@@ -1,17 +1,18 @@
 # darknight-qs
 
-A Quickshell bar and desktop shell for a Hyprland desktop. It
-replaces waybar with one unified slab: workspaces, tray, media and audio, CPU, a
-dashboard, quick panels, notifications, and a power menu.
+A Quickshell bar and desktop shell for a Hyprland desktop. It replaces waybar
+with one unified slab: workspaces, tray, media and audio, CPU, a dashboard,
+quick panels, notifications, and a power menu.
 
 Please note that this project was mostly vibecoded.
 
 ![The desktop shell with dashboard open](assets/desktop.png)
 
 This is personal-use software. Some modules assume my hardware and habits, so
-read the [monitor](#monitors) and [notification](#notifications) notes before you
-rely on it. MIT licensed, see [LICENSE](LICENSE); third-party notices and the
-Omarchy trademark disclaimer are in [NOTICE](NOTICE).
+read the [monitor](docs/user/monitors.md) and
+[notification](docs/user/notifications.md) notes before you rely on it. MIT
+licensed, see [LICENSE](LICENSE); third-party notices and the Omarchy trademark
+disclaimer are in [NOTICE](NOTICE).
 
 ## Requirements
 
@@ -59,7 +60,10 @@ paru -S otf-geist gcalcli
 
 The AUR line assumes `paru`; substitute your AUR helper. `ttc-iosevka` is the
 official Iosevka package, and `wireplumber` provides `wpctl`, which the audio
-module calls to change the default sink.
+module calls to change the default sink. The three font families the shell names
+are covered in [fonts](docs/user/fonts.md).
+
+### Clone and run
 
 Clone anywhere and run the checkout by path:
 
@@ -69,11 +73,10 @@ git clone https://github.com/chickenr1ce/darknight-qs ~/src/darknight-qs
 quickshell -p ~/src/darknight-qs
 ```
 
-`scripts/install.sh` reports the required and optional tools, the three font
-families the shell names, and whether another daemon holds the notification bus.
-It then symlinks `scripts/qs-theme.sh` to `~/.local/bin/qs-theme`, seeds the
-bundled `darknight` theme (palette plus two backgrounds) into
-`~/.local/share/quickshell/themes`, and offers to link the clone into
+`scripts/install.sh` reports the required and optional tools, the font families,
+and whether another daemon holds the notification bus. It symlinks
+`scripts/qs-theme.sh` to `~/.local/bin/qs-theme`, seeds the bundled `darknight`
+theme into `~/.local/share/quickshell/themes`, and offers to link the clone into
 `~/.config/quickshell` so plain `quickshell` loads it:
 
 ```sh
@@ -82,13 +85,10 @@ quickshell
 ```
 
 `quickshell -p <dir>` works from any clone path; the link is only a shortcut.
+The installer also offers to wire your themed apps; see [Theme desktop
+setup](docs/user/theme-desktop-setup.md).
 
-`install.sh` also runs `scripts/wire-themed-apps.sh --check`, which reports what
-the themed apps (Hyprland, kitty, hyprlock, btop, Firefox, Vencord, Spicetify)
-still need wired, and offers to apply it: `--wire-apps` applies without asking,
-`--no-wire-apps` reports only, and the default asks on a terminal. Applying
-backs each edited file up first; see
-[Theme desktop setup](docs/user/theme-desktop-setup.md).
+### Autostart
 
 Add autostart to your own Hyprland config. The installer prints this line and
 never edits your config:
@@ -99,59 +99,6 @@ exec-once = quickshell -p /home/<you>/src/darknight-qs
 
 Once the clone is linked into `~/.config/quickshell`, `exec-once = quickshell`
 is enough.
-
-### Fonts
-
-The shell names three families: Iosevka (bar text), Geist (reading surfaces),
-and GeistMono Nerd Font (icons). Without Iosevka or Geist the text falls back
-to a default face, but the icons still work because they use GeistMono Nerd
-Font. Without **GeistMono Nerd Font**, `config/Icons.qml` renders boxes instead
-of glyphs. `scripts/install.sh` warns about a missing family and names the
-package for it.
-
-### Monitors
-
-The bar is built for a two-monitor layout. The primary monitor shows the full
-bar; every other screen shows the minimal bar (clock and workspaces). By default
-the primary is the first connected screen by position (x, then y, then name).
-Pick another under Settings → Monitors, or choose Auto to return to the
-positional default; the choice persists.
-
-The workspace split is still fixed: the second monitor's workspaces are 6–10
-(`modules/Workspaces.qml`).
-
-### Notifications
-
-The shell claims `org.freedesktop.Notifications` at startup. Stop `mako` or
-`dunst` and disable its autostart first, or the shell cannot own the bus. The
-installer warns when one holds it.
-
-### App launcher
-
-The dashboard's Apps tab is the launcher: Pinned and Recent sections, a ranked
-search over installed apps, and inline Focus, Kill, and Pin on a running app.
-Point your Super key at the `dashboard apps` IPC target to open it from
-anywhere; the [app launcher guide](docs/user/app-launcher.md) covers the
-keybind, the keys and mouse, the context menu, and hiding and unhiding apps.
-
-### Polkit
-
-The shell registers its own polkit authentication agent, so privileged prompts
-are the shell's dialog and no external agent is needed. Stop and disable the
-other agents so the shell is the only one registered. The
-[polkit setup](docs/user/polkit.md) page covers that, the keys the dialog takes,
-and troubleshooting.
-
-### Themes
-
-On a fresh install with no saved selection, the shell starts on the bundled
-`darknight` theme. `install.sh` seeds it into
-`~/.local/share/quickshell/themes`, so the Settings → Theme picker and the
-dashboard Theme block list it with two backgrounds on first run. Switch themes,
-add backgrounds, or install omarchy v4 themes from a git URL with
-[qs-theme](docs/user/qs-theme.md); the seeded palette also retints Hyprland,
-kitty, hyprlock, starship, yazi, and btop when those targets are wired up
-([desktop setup](docs/user/theme-desktop-setup.md)).
 
 ## Updating
 
@@ -175,26 +122,16 @@ fast-forward only, re-checks dependencies, and restarts the shell on this clone:
 ~/src/darknight-qs/scripts/update.sh
 ```
 
-## Optional integrations
+## Documentation
 
-Each of these is optional; the shell runs without it.
+Setup and how-to pages live under [`docs/`](docs/README.md). The most used ones:
 
-- [Calendar setup](docs/user/calendar.md) (optional) — the calendar panel reads
-  Google Calendar secret iCal URLs; write the URL file once, and add `gcalcli`
-  for the birthdays calendar and per-calendar toggles.
-- [Weather and city search](docs/user/weather.md) (optional) — the dashboard
-  weather block works with `curl` and no API key; the doc covers the cache and
-  location search.
-- [Spotify Connect](docs/user/spotify-connect.md) (optional) — the dashboard
-  player block needs a one-time Spotify app authorization.
-- [Theme desktop setup](docs/user/theme-desktop-setup.md) (optional) — retint
-  Hyprland, kitty, hyprlock, starship, yazi, and btop from the active theme.
-- [qs-theme](docs/user/qs-theme.md) (optional) — install and switch omarchy v4
-  themes, and manage backgrounds, from the CLI.
-- [Power menu keybind](docs/user/power-menu.md) (optional) — open the power
-  menu from a Hyprland keybind through the shell's `power` IPC target. The
-  [IPC targets](docs/user/ipc.md) page covers that target and the rest
-  (calendar, notifications, dashboard, DND, and volume).
+- [Monitors](docs/user/monitors.md), [notifications](docs/user/notifications.md), and [fonts](docs/user/fonts.md).
+- [qs-theme](docs/user/qs-theme.md) and [theme desktop setup](docs/user/theme-desktop-setup.md) for themes and backgrounds.
+- [Polkit](docs/user/polkit.md) for the authentication prompt.
+- [App launcher](docs/user/app-launcher.md) for the dashboard Apps tab.
+- [IPC targets](docs/user/ipc.md) for keybind-driven panels.
+- [Calendar](docs/user/calendar.md), [weather](docs/user/weather.md), and [Spotify Connect](docs/user/spotify-connect.md) for the optional integrations.
 
 ## Trademarks and third-party notices
 
