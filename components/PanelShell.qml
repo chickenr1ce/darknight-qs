@@ -23,6 +23,12 @@ PanelWindow {
     property real windowHeight: root.panelMaxHeight
     property bool attachedToBar: false
     property int junctionRadius: 0
+    // Extra item whose rect joins the input mask, for content drawn past the
+    // card inside the window (the Apps context menu hanging below a short card).
+    property Item inputOverlay: null
+    // The panel's current slide offset (negative mid-slide, 0 when settled),
+    // so a host can measure positions against the settled layout.
+    readonly property real slideOffset: idPanel.y
 
     signal outsideClicked()
 
@@ -104,7 +110,9 @@ PanelWindow {
         x: 0
         y: 0
         width: root.visible ? idPanel.width : 0
-        height: root.visible ? idPanel.height : 0
+        // Attached panels take input only on the part slid into view, so a
+        // click on the strip not yet covered still reaches the desktop.
+        height: root.visible ? Math.round(idPanel.height * (root.attachedToBar ? idPanel.reveal : 1)) : 0
 
         Region {
             x: 0
@@ -138,6 +146,11 @@ PanelWindow {
             height: 2 * root.effectiveJunctionRadius
             shape: RegionShape.Ellipse
             intersection: Intersection.Subtract
+        }
+
+        Region {
+            item: root.inputOverlay
+            intersection: Intersection.Combine
         }
     }
 

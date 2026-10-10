@@ -17,6 +17,13 @@ Item {
     // True while the dashboard window is on screen, including its close slide,
     // so the rows (and the panel height) hold until the slide finishes.
     property bool windowShown: DashboardService.dashboardVisible
+    // Height of the dashboard window, set by the host; the context menu may
+    // hang below the card down to the window's bottom edge.
+    property real windowRoom: 0
+    // The host panel's slide offset, so a menu opened mid-slide measures
+    // against the settled card position.
+    property real slideOffset: 0
+    readonly property Item menuInputBox: idAppsContextMenu.inputBox
 
     readonly property bool launcherActive: root.visible && root.windowShown
     readonly property bool querying: root.query.trim() !== ""
@@ -125,6 +132,8 @@ Item {
         function onDashboardVisibleChanged(): void {
             if (DashboardService.dashboardVisible)
                 root.resetSearch();
+            else
+                idAppsContextMenu.closeMenu();
         }
     }
 
@@ -945,7 +954,16 @@ Item {
             return;
         root.menuRow = row;
         root.menuPinned = row.record ? AppService.isPinned(row.record.id) : false;
+        idAppsContextMenu.boundsHeight = root.menuBoundsHeight();
         idAppsContextMenu.openAt(point.x, point.y);
+    }
+
+    // The menu may extend past the card toward the window's bottom edge, so a
+    // short list (one search hit) still shows the whole menu.
+    function menuBoundsHeight(): real {
+        if (root.windowRoom <= 0)
+            return root.height;
+        return Math.max(root.height, root.windowRoom - (root.mapToItem(null, 0, 0).y - root.slideOffset));
     }
 
     function openMenuForSelection(): void {

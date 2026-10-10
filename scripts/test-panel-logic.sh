@@ -558,6 +558,33 @@ grep -q 'property bool attachedToBar: false' "$ROOT/components/PanelShell.qml" \
     || fail "PanelShell attachedToBar switch is missing or defaults wrong; quick panels keep their gap"
 grep -q 'attachedToBar: true' "$DCENTER" \
     || fail "DashboardCenter does not attach to the bar"
+
+# Attached panels slide from behind the bar; floating panels fade (ADR 0005).
+PSHELL="$ROOT/components/PanelShell.qml"
+grep -q 'property real reveal: root.panelVisible ? 1 : 0' "$PSHELL" \
+    || fail "PanelShell has no reveal driver"
+grep -qF 'y: root.attachedToBar ? -idPanel.height * (1 - idPanel.reveal)' "$PSHELL" \
+    || fail "attached panels no longer slide from behind the bar"
+grep -qF 'visible: root.panelVisible || idPanel.reveal > 0' "$PSHELL" \
+    || fail "the panel hides before its close slide finishes"
+grep -qF ': -8 * (1 - idPanel.reveal)' "$PSHELL" \
+    || fail "floating panels lost their 8px drop"
+grep -qF 'opacity: root.attachedToBar ? 1 : idPanel.reveal' "$PSHELL" \
+    || fail "floating panels no longer fade, or attached panels fade while sliding"
+grep -qF 'root.attachedToBar && root.panelVisible ? Easing.InCubic : Easing.OutCubic' "$PSHELL" \
+    || fail "the slide easing is no longer inverted; see CODING_STANDARDS on Behavior durations"
+grep -qF 'root.panelVisible ? Globals.dashboardCloseMs : Globals.dashboardOpenMs' "$PSHELL" \
+    || fail "the dashboard slide timing is missing or no longer inverted"
+grep -qF "idPanel.height * (root.attachedToBar ? idPanel.reveal : 1)" "$PSHELL" \
+    || fail "the input mask does not follow the slide"
+grep -q 'property int dashboardOpenMs: 240' "$ROOT/config/Globals.qml" \
+    || fail "Globals dashboardOpenMs is missing or no longer 240 (ADR 0005)"
+grep -q 'property int dashboardCloseMs: 180' "$ROOT/config/Globals.qml" \
+    || fail "Globals dashboardCloseMs is missing or no longer 180 (ADR 0005)"
+grep -A1 'item: root.inputOverlay' "$PSHELL" | grep -q 'intersection: Intersection.Combine' \
+    || fail "PanelShell does not join inputOverlay to its mask"
+grep -q 'WlrLayershell.namespace: "quickshell-dashboard"' "$DCENTER" \
+    || fail "the dashboard lost its own layer namespace; the Hyprland no_anim rule stops matching"
 grep -q 'attachedToBar ? -Globals.panelSeamOverlap : Globals.panelTopGap' "$ROOT/components/PanelShell.qml" \
     || fail "PanelShell top margin does not branch on attachedToBar; attached underlaps the bar to hide the seam"
 

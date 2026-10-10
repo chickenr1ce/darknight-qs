@@ -259,13 +259,21 @@ Timer { id: idMediaTimer }
   a `duration: visible ? openMs : closeMs` inside the animated `Behavior`
   still holds the previous value when the animation starts, so open runs at
   close speed and close at open speed (verified live 2026-09-16: open 220 /
-  close 1000 appeared swapped). Read the inverted ternary in `PanelShell`
-  (`panelVisible ? centerCloseMs : centerOpenMs`); do not "fix" it back.
-- **Nothing renders outside the panel layout**: `PanelShell` masks the window
-  to the layout rect, so an overlay popup or floating list is clipped and dead
-  on arrival. Grow the layout in-flow instead — the expanding dropdown list
-  pushes rows down exactly like the calendar settings view (verified live
-  2026-09-16).
+  close 1000 appeared swapped). Read the inverted ternaries in `PanelShell`
+  (`panelVisible ? centerCloseMs : centerOpenMs`, the dashboard pair
+  `panelVisible ? dashboardCloseMs : dashboardOpenMs`, and the easing
+  `root.attachedToBar && root.panelVisible ? Easing.InCubic :
+  Easing.OutCubic`, so floating panels always use OutCubic); do not "fix"
+  any of them back.
+- **Nothing outside the panel layout takes input by default**: `PanelShell`
+  masks the window's input to the layout rect, so an overlay drawn past it,
+  still inside the window canvas, shows but is dead to clicks. Grow the layout
+  in-flow by default: the expanding dropdown list pushes rows down exactly like
+  the calendar settings view (verified live 2026-09-16). An overlay that must
+  hang past the card, like the Apps context menu below a short card, passes its
+  rect item to `PanelShell.inputOverlay`, which joins the mask (verified live
+  2026-10-10). A separate `PopupWindow` received no pointer input over the
+  dashboard on Hyprland, so do not use one for this.
 - **Centered `Repeater` rows round upward**: per-item `AlignVCenter` floors
   fractional centers, biasing a mirror axis ~0.7px high at scale 1 (measured
   live via `grim` plus per-column pixel midpoints, 2026-09-16). Correct with an

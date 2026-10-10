@@ -273,6 +273,56 @@ if grep -q 'idAppsContextMenu.anchorY\|idAppsContextMenu.contentHeight' "$VIEW";
 fi
 grep -q 'implicitHeight: idAppsLayout.implicitHeight' "$VIEW" \
     || fail "DashboardAppsView height is not just the search field plus list"
+grep -q 'idAppsContextMenu.boundsHeight = root.menuBoundsHeight()' "$VIEW" \
+    || fail "the Apps menu cannot hang below a short card"
+grep -q 'property real boundsHeight: root.height' "$CTX" \
+    || fail "ContextMenu has no boundsHeight override for hanging below the card"
+grep -qF 'root.boundsHeight - 2 * Globals.menuMargin' "$CTX" \
+    || fail "ContextMenu caps its height at the card instead of boundsHeight"
+grep -qF 'root.boundsHeight - root.menuHeight - Globals.menuMargin' "$CTX" \
+    || fail "ContextMenu menuY ignores boundsHeight; a hanging menu overshoots"
+grep -qF 'root.boundsHeight - root.submenuHeight - Globals.menuMargin' "$CTX" \
+    || fail "ContextMenu submenuY ignores boundsHeight; a hanging submenu overshoots"
+grep -q 'readonly property Item inputBox: idMenuInputBox' "$CTX" \
+    || fail "ContextMenu does not expose its menu bounding box for the input mask"
+grep -q 'readonly property Item menuInputBox: idAppsContextMenu.inputBox' "$VIEW" \
+    || fail "DashboardAppsView does not forward the menu input box to the dashboard"
+grep -q 'inputOverlay: idDashboardAppsView.menuInputBox' "$ROOT/windows/DashboardCenter.qml" \
+    || fail "the hanging Apps menu is not in the dashboard input mask"
+grep -A1 'item: root.inputOverlay' "$ROOT/components/PanelShell.qml" | grep -q 'intersection: Intersection.Combine' \
+    || fail "PanelShell does not join inputOverlay to its mask"
+grep -q 'width: !root.opened ? 0' "$CTX" \
+    || fail "a closed menu still claims input past the card"
+grep -q 'height: !root.opened ? 0' "$CTX" \
+    || fail "a closed menu still claims input past the card"
+for line in 'hasSubmenu: idSubmenu.visible' 'Math.min(idMenu.x, idSubmenu.x)' \
+    'Math.min(idMenu.y, idSubmenu.y)' \
+    'Math.max(idMenu.x + idMenu.width, idSubmenu.x + idSubmenu.width)' \
+    'Math.max(idMenu.y + idMenu.height, idSubmenu.y + idSubmenu.height)'; do
+    grep -qF "$line" "$CTX" \
+        || fail "the menu input box lost '$line'; a hanging submenu is visible but dead to clicks"
+done
+grep -qF 'root.windowRoom - (root.mapToItem(null, 0, 0).y - root.slideOffset)' "$VIEW" \
+    || fail "the Apps menu bounds do not reach the settled window bottom"
+grep -q 'id: idOverhangScrim' "$CTX" \
+    || fail "clicks beside a hanging submenu are swallowed instead of closing the menu"
+SCRIM=$(sed -n '/id: idOverhangScrim/,/^    }/p' "$CTX")
+for line in 'x: idMenuInputBox.x' 'y: idMenuInputBox.y' 'width: idMenuInputBox.width' \
+    'height: idMenuInputBox.height' 'visible: root.opened' 'onPressed: root.closeMenu()'; do
+    grep -qF "$line" <<<"$SCRIM" \
+        || fail "idOverhangScrim lost '$line'; clicks beside a hanging submenu no longer close the menu"
+done
+grep -q 'windowRoom: root.windowHeight$' "$ROOT/windows/DashboardCenter.qml" \
+    || fail "the Apps menu room is not the dashboard window height"
+if grep 'windowRoom:' "$ROOT/windows/DashboardCenter.qml" | grep -q 'panelEdgeMargin'; then
+    fail "the Apps menu room subtracts panelEdgeMargin; the menu stops short of the window bottom"
+fi
+grep -q 'readonly property real slideOffset: idPanel.y' "$ROOT/components/PanelShell.qml" \
+    || fail "PanelShell does not expose the slide offset"
+grep -q 'slideOffset: root.slideOffset' "$ROOT/windows/DashboardCenter.qml" \
+    || fail "DashboardCenter does not pass the slide offset to the Apps view"
+grep -q 'property real slideOffset' "$VIEW" \
+    || fail "DashboardAppsView has no slideOffset input"
 grep -q 'Icons.openInApp' "$VIEW" \
     || fail "DashboardAppsView does not give open-keep its own glyph"
 if grep -q 'Icons.chevronRight' "$VIEW"; then

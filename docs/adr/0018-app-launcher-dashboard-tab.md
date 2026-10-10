@@ -129,3 +129,23 @@ window.
   placement and grab rules (ADR 0008). The user page is
   `docs/user/app-launcher.md`; the `dashboard apps` target is in
   `docs/user/ipc.md`.
+
+## Amendments
+
+- 2026-10-10 (dashboard-slide): the menu may hang below the card. With one
+  search hit the Apps view was barely taller than the search field, so the
+  capped menu was a sliver that scrolled after two items. Growing the card
+  while the menu was open fixed that, but the jump was jarring. Now the menu
+  keeps the card's width but its height bound is
+  `ContextMenu.boundsHeight`. The Apps view sets that to the room down to the
+  dashboard window's bottom edge, because the window is already a fixed
+  canvas of `appsMaxHeight`. `ContextMenu.inputBox`, the box around the open
+  menu and submenu, joins the window's input mask through
+  `PanelShell.inputOverlay`. The card never changes size, keyboard focus stays
+  where it was, and the focus grab is untouched. A `PopupWindow` was tried
+  first and rejected because it got no pointer input. The bounds are measured
+  against the settled card (`PanelShell.slideOffset`), so a menu opened
+  mid-slide does not overshoot. A transparent `MouseArea` under the menus
+  covers the input box, so a click in its empty corners beside a submenu closes
+  the menu. A click below the card outside that box still goes to the desktop
+  and closes the dashboard, the same as any click outside the card.

@@ -24,6 +24,7 @@ PanelShell {
     windowHeight: root.appsMaxHeight
     attachedToBar: true
     junctionRadius: DashboardService.junctionRadius
+    inputOverlay: idDashboardAppsView.menuInputBox
     // Own namespace so Hyprland can skip its layer fade (no_anim layer rule);
     // the slide in PanelShell is the only motion.
     WlrLayershell.namespace: "quickshell-dashboard"
@@ -183,6 +184,8 @@ PanelShell {
 
         visible: DashboardService.activeTab === "apps"
         windowShown: root.visible
+        windowRoom: root.windowHeight
+        slideOffset: root.slideOffset
     }
 
     SettingsView {

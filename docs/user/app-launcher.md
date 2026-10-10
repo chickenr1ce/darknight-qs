@@ -84,8 +84,10 @@ move, → opens the "Open on workspace" submenu, ← leaves a submenu and on the
 top level closes the menu back to search, and Enter runs the highlighted item.
 Typing a printable character closes the menu and sends the text to the search
 field. The menu is as wide as its widest item, up to a cap, so a long label
-like "Open, keep dashboard" is never cut off; it stays inside the card and the
-submenu fits its own content the same way. Items, in order:
+like "Open, keep dashboard" is never cut off. It keeps within the card's width,
+and when the card is short (say, one search hit) it hangs below the card
+instead of shrinking; the submenu fits its own content the same way. Items, in
+order:
 
 1. Open (↵)
 2. Open on workspace ▸: a label per enabled monitor, the dashboard's monitor

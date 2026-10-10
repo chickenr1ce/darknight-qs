@@ -7,10 +7,12 @@ import qs.config
 
 // Generic in-card context menu. The caller supplies a descriptor list and a
 // header and positions the menu with openAt(). The menu fits itself inside the
-// host's bounds: its width fits the widest item between Globals.menuWidth and
+// host's width and boundsHeight (default: the host height; a host may raise it
+// so the menu hangs below a short card, and then adds inputBox to its window's
+// input mask). Its width fits the widest item between Globals.menuWidth and
 // Globals.menuMaxWidth, it opens at the anchor, shifts up when it would
 // overflow the bottom, and caps its height with a scrollable item column when
-// the content is taller than the host. Descriptors:
+// the content is taller than the bounds. Descriptors:
 //   { kind: "item"|"separator"|"label", id, text, hint, danger, enabled,
 //     image, actionIndex, submenu: [ ...same shape... ] }
 // "image" is a resolved icon source; "glyph" is a font glyph. One submenu
@@ -27,10 +29,14 @@ Item {
     property int activeIndex: -1
     property int submenuFor: -1
     property real submenuAnchorY: 0
+    // Vertical room below the host's top edge, in host coordinates.
+    property real boundsHeight: root.height
 
     property real mainWidth: Globals.menuWidth
     property real submenuWidth: Globals.menuWidth
     readonly property real contentWidth: root.mainWidth
+    // Bounding box of the open menu and submenu, empty when closed.
+    readonly property Item inputBox: idMenuInputBox
     readonly property var submenuItems: {
         if (root.submenuFor < 0 || root.submenuFor >= root.items.length)
             return [];
@@ -49,7 +55,7 @@ Item {
             out.push({ item: root.submenuItems[i], index: i, level: 1 });
         return out;
     }
-    readonly property real availableHeight: Math.max(0, root.height - 2 * Globals.menuMargin)
+    readonly property real availableHeight: Math.max(0, root.boundsHeight - 2 * Globals.menuMargin)
     readonly property real menuHeight: Math.min(root.availableHeight,
         idMenuHeader.height + idMenuContent.implicitHeight + 2 * Globals.menuMargin)
     readonly property real submenuHeight: Math.min(root.availableHeight,
@@ -58,7 +64,7 @@ Item {
     readonly property real menuX: Math.max(Globals.menuMargin,
         Math.min(root.anchorX, root.width - root.contentWidth - Globals.menuMargin))
     readonly property real menuY: Math.max(Globals.menuMargin,
-        Math.min(root.anchorY, root.height - root.menuHeight - Globals.menuMargin))
+        Math.min(root.anchorY, root.boundsHeight - root.menuHeight - Globals.menuMargin))
     readonly property real submenuX: {
         const right = idMenu.x + idMenu.width + Globals.menuSubmenuGap;
         if (right + root.submenuWidth + Globals.menuMargin <= root.width)
@@ -66,7 +72,7 @@ Item {
         return Math.max(Globals.menuMargin, idMenu.x - root.submenuWidth - Globals.menuSubmenuGap);
     }
     readonly property real submenuY: Math.max(Globals.menuMargin,
-        Math.min(root.submenuAnchorY, root.height - root.submenuHeight - Globals.menuMargin))
+        Math.min(root.submenuAnchorY, root.boundsHeight - root.submenuHeight - Globals.menuMargin))
 
     signal closed()
     signal triggered(var item)
@@ -294,6 +300,36 @@ Item {
         hoverEnabled: true
         acceptedButtons: Qt.AllButtons
         onPressed: root.closeMenu()
+    }
+
+    // Catches clicks in the input box's empty corners (beside a submenu that
+    // hangs past the host) so they close the menu instead of being swallowed.
+    MouseArea {
+        id: idOverhangScrim
+
+        x: idMenuInputBox.x
+        y: idMenuInputBox.y
+        width: idMenuInputBox.width
+        height: idMenuInputBox.height
+        visible: root.opened
+        enabled: root.opened
+        acceptedButtons: Qt.AllButtons
+        onPressed: root.closeMenu()
+    }
+
+    Item {
+        id: idMenuInputBox
+
+        readonly property bool hasSubmenu: idSubmenu.visible
+
+        x: idMenuInputBox.hasSubmenu ? Math.min(idMenu.x, idSubmenu.x) : idMenu.x
+        y: idMenuInputBox.hasSubmenu ? Math.min(idMenu.y, idSubmenu.y) : idMenu.y
+        width: !root.opened ? 0 : (idMenuInputBox.hasSubmenu
+            ? Math.max(idMenu.x + idMenu.width, idSubmenu.x + idSubmenu.width) - idMenuInputBox.x
+            : idMenu.width)
+        height: !root.opened ? 0 : (idMenuInputBox.hasSubmenu
+            ? Math.max(idMenu.y + idMenu.height, idSubmenu.y + idSubmenu.height) - idMenuInputBox.y
+            : idMenu.height)
     }
 
     Rectangle {

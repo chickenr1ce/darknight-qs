@@ -94,3 +94,5 @@ The verdict came from `.scratch/dashboard-settings/prototype-junction.html`
   a `no_anim` layer rule (documented in `docs/user/app-launcher.md`) turns that
   fade off. Second, the launcher emptied its rows as soon as close began, which
   collapsed the card before it slid. Its rows now stay until the window unmaps.
+  The input mask's height follows the slide (`height × reveal`), so during the
+  slide a click on the strip the card has not yet covered reaches the desktop.
