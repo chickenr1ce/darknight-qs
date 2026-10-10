@@ -145,3 +145,8 @@ three gaps, now closed. Firefox contributes three files, not two.
   doc one-liners guard a resolved-but-empty profile (`[ -n "$d" ] || exit 1`),
   silence the missing-`installs.ini` error, and note that an `@import` present
   but not on line 1 is ignored and must be moved to line 1.
+- 2026-10-10 (chrome color-scheme): a light palette on a dark system left the
+  hamburger panel unreadable (palette background, near-white `light-dark()`
+  text), so the chrome sheet now pins `color-scheme` on `:root`, `menupopup`,
+  and `panel` plus `--toolbar-color-scheme` and `--panel-text-color` on `:root`
+  (and the panel pair on menupopups), all from the palette `mode`.

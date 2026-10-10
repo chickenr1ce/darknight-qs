@@ -190,3 +190,13 @@ braces, so CSS braces in a template do not trip it.
   edits a user sheet, so the earlier "never names `userContent.css`" rule
   relaxes to "never writes `userContent.css`". Disabled, both sheets are
   comment-only.
+- 2026-10-10 (Firefox chrome scheme): a light palette on a dark system left the
+  hamburger panel's text near-white on the palette background, because Firefox's
+  chrome tokens resolve through `light-dark()` while the root and the popups
+  declare `color-scheme: light dark` and so follow the system scheme; the chrome
+  sheet now pins `color-scheme` on `:root`, `menupopup`, and `panel`, pins
+  `--toolbar-color-scheme` from the same palette mode, takes `--panel-text-color`
+  from the palette, and pins that pair on menupopups (popup.css sets it on the
+  element, which outranks the inherited `:root` value). The web-content context
+  menu therefore follows the palette rather than the page's preferred scheme,
+  on purpose: its colors are palette-pinned, so its scheme must match them.

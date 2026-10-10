@@ -25,12 +25,38 @@
     --shell-bright-foreground: {{bright_foreground}};
 }
 
+/* Firefox's chrome resolves most of its tokens through light-dark(), and both
+ * the browser root (browser-shared.css:60) and every popup (popup.css:35)
+ * declare `color-scheme: light dark`, so they follow the system scheme. A light
+ * palette on a dark system then takes the dark branch of every light-dark():
+ * --panel-text-color resolves to near-white (tokens-shared.css:457) while
+ * --panel-background-color is already ours, which is what makes the hamburger
+ * panel unreadable. Pin the palette's own scheme, from the same
+ * {{page_scheme}} token the content sheet uses.
+ *
+ * menupopup/panel too, not just :root: their own `color-scheme: light dark` is
+ * a declaration on the element, so it outranks the inherited :root value, and
+ * a submenu carries its parent's scheme through `color-scheme: inherit`
+ * (popup.css:103). !important is required because the built-in sheets are
+ * author-origin and would otherwise win over this user-origin sheet. */
+:root,
+menupopup,
+panel {
+    color-scheme: {{page_scheme}} !important;
+}
+
 /* Map the palette onto Firefox's own chrome variables. These are set on
  * :root so the chrome reads them everywhere; !important keeps a built-in
  * theme rule of equal specificity from winning back over the palette. */
 :root {
     --toolbar-background-color: var(--shell-background) !important;
     --toolbar-text-color: var(--shell-foreground) !important;
+    /* The find bar and the customize view derive their own color-scheme from
+     * --toolbar-color-scheme (browser-shared.css:704, customizeMode.css:34), and
+     * the selected tab's comes from it through --tab-selected-color-scheme
+     * (tabs.css:63). It defaults to `light dark` (global-shared.css:47), which
+     * follows the system scheme, so pin it to the palette. */
+    --toolbar-color-scheme: {{page_scheme}} !important;
     --tab-background-color-selected: var(--shell-lighter-background) !important;
     --tab-text-color-selected: var(--shell-bright-foreground) !important;
     --urlbar-box-background-color: var(--shell-selection) !important;
@@ -42,11 +68,29 @@
     --toolbar-field-text-color-focus: var(--shell-foreground) !important;
     --panel-background-color: var(--shell-dark-background) !important;
     --panel-border-color: var(--shell-selection) !important;
+    /* The panel text token is a light-dark() default (tokens-shared.css:457)
+     * that follows the system scheme; the backdrop is ours, so take the text
+     * from the palette. The arrow panels (the hamburger, the urlbar results)
+     * read this inherited value, so setting it here is enough for them. */
+    --panel-text-color: var(--shell-foreground) !important;
     --sidebar-background-color: var(--shell-background) !important;
     --sidebar-text-color: var(--shell-foreground) !important;
     --sidebar-border-color: var(--shell-selection) !important;
     --lwt-accent-color: var(--shell-background) !important;
     --lwt-text-color: var(--shell-foreground) !important;
+}
+
+/* A plain menupopup sets --panel-background-color/--panel-text-color on itself
+ * (popup.css:15-16, to the system Menu/MenuText), and a declaration on the
+ * element beats the inherited :root value whatever its origin, so pin the
+ * palette pair there too and let the context menus match the panels. The
+ * web-content context menu follows the palette too, not the page's preferred
+ * scheme. Only menupopup: the search popup, #confirmation-hint, and
+ * #ctrlTab-panel set their own pair deliberately; the urlbar results popup
+ * inherits the :root pair. */
+menupopup {
+    --panel-background-color: var(--shell-dark-background) !important;
+    --panel-text-color: var(--shell-foreground) !important;
 }
 
 /* Accent. Firefox routes every attention color through this token family, but

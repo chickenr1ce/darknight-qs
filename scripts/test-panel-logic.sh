@@ -3055,6 +3055,20 @@ grep -q -- '--button-text-color-muted-hover: var(--shell-foreground)' "$FF_TPL" 
     || fail "the Firefox switcher rule does not theme the muted hover text"
 grep -q -- '--button-text-color-muted-active: var(--shell-foreground)' "$FF_TPL" \
     || fail "the Firefox switcher rule does not theme the muted active text"
+# A light palette on a dark system otherwise takes the dark branch of Firefox's
+# light-dark() tokens; the chrome sheet pins the palette's own color-scheme on
+# the root, popups and panels, the toolbar scheme the find bar and tabs read,
+# and the panel text pair (popup.css sets the text on menupopup itself).
+grep -q -- 'color-scheme: {{page_scheme}} !important' "$FF_TPL" \
+    || fail "the Firefox chrome template does not pin color-scheme from the palette mode"
+grep -q -- '--toolbar-color-scheme: {{page_scheme}} !important' "$FF_TPL" \
+    || fail "the Firefox chrome template does not pin --toolbar-color-scheme"
+grep -q -- '--panel-text-color: var(--shell-foreground) !important' "$FF_TPL" \
+    || fail "the Firefox chrome template does not take the panel text from the palette"
+grep -q '^menupopup {' "$FF_TPL" \
+    || fail "the Firefox chrome template does not cover menupopups"
+grep -q '^:root,$' "$FF_TPL" \
+    || fail "the Firefox chrome template does not pin color-scheme on :root"
 # The content sheet reaches about:newtab/home/privatebrowsing (which userChrome
 # cannot) via @-moz-document, and paints the newtab page's own variables.
 grep -q '^@-moz-document url("about:newtab"), url("about:home"), url("about:privatebrowsing") {' "$FF_CONTENT_TPL" \
@@ -3167,6 +3181,13 @@ grep -q -- '--shell-on-accent: #000000' "$FF_CSS" \
     || fail "the Firefox on-accent ink is not the ink chosen against the accent"
 grep -q -- '--button-text-color-primary: var(--shell-on-accent)' "$FF_CSS" \
     || fail "the Firefox primary-button text is not the on-accent ink"
+# The chrome pins the palette's color scheme: the default fixture carries no
+# mode, so it renders dark, and the panel text comes from the palette instead of
+# the system-scheme light-dark() default that made a light palette unreadable.
+grep -q 'color-scheme: dark !important' "$FF_CSS" \
+    || fail "the dark chrome sheet does not pin color-scheme dark"
+grep -q -- '--panel-text-color: var(--shell-foreground)' "$FF_CSS" \
+    || fail "the chrome sheet does not take the panel text from the palette"
 grep -q '\.searchmode-switcher' "$FF_CSS" \
     || fail "the Firefox sheet does not carry the scoped switcher rule"
 if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$FF_CSS"; then
@@ -3232,6 +3253,13 @@ grep -q -- '--shell-on-accent: #ffffff' "$FF_LIGHT_CSS" \
     || fail "the light on-accent ink is not white against the dark accent"
 grep -q -- '--color-accent-primary: var(--shell-accent)' "$FF_LIGHT_CSS" \
     || fail "the light Firefox accent does not resolve from the palette accent"
+# The light chrome sheet pins color-scheme light and the palette panel text, so
+# a light palette under a dark system scheme reads light rather than following
+# the dark branch of Firefox's light-dark() tokens.
+grep -q 'color-scheme: light !important' "$FF_LIGHT_CSS" \
+    || fail "the light palette mode did not reach the chrome sheet color-scheme"
+grep -q -- '--panel-text-color: var(--shell-foreground)' "$FF_LIGHT_CSS" \
+    || fail "the light chrome sheet does not take the panel text from the palette"
 grep -q -- '--shell-background: #eee8da' "$FF_LIGHT_CONTENT" \
     || fail "the light palette background did not reach the newtab content sheet"
 grep -q -- '--newtab-background-color: var(--shell-background)' "$FF_LIGHT_CONTENT" \
