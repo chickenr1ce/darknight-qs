@@ -157,3 +157,11 @@ three gaps, now closed. Firefox contributes three files, not two.
   `--toolbarbutton-background-color-hover`/`-active` toward it, and flattens
   `--toolbox-background-color` and both `--toolbox-background-color-gradient-*`
   stops to the palette background.
+- 2026-10-10 (inactive window): `:-moz-window-inactive` repaints the toolbox and
+  the tabs from `--toolbox-background-color-inactive` /
+  `--toolbox-text-color-inactive` (Firefox feeds them on Linux from
+  `-moz-headerbarinactive`/`InactiveCaption`; Nova uses `transparent`), so an
+  unfocused window flashed system colors; the chrome sheet now pins both
+  inactive tokens plus `--toolbox-text-color` and `--lwt-accent-color-inactive`
+  to the palette on `:root`, and the deliberate `--inactive-titlebar-opacity`
+  fade is left alone.

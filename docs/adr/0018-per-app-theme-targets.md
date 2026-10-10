@@ -219,3 +219,18 @@ braces, so CSS braces in a template do not trip it.
   `--toolbarbutton-background-color-hover`/`-active` toward it at Firefox's own
   non-Nova strengths, and flattens `--toolbox-background-color` and both
   `--toolbox-background-color-gradient-*` stops to the palette background.
+- 2026-10-10 (Firefox inactive window): Firefox repaints the toolbox and the
+  tabs when the window loses focus, from `--toolbox-background-color-inactive`
+  and `--toolbox-text-color-inactive` under `:-moz-window-inactive`
+  (`browser-shared.css:255-259`; `tabs.css:713-723`, `:806-815`, `:886-893`,
+  `:2967-2969`; `browser.css:247-249`), fed on Linux from the native
+  `-moz-headerbarinactive` / `-moz-headerbarinactivetext` or `InactiveCaption`
+  (`browser-colors.css:24-25`, `:30-31`, `tokens-platform.css:98-100`,
+  `:160-163`) or Nova's `transparent` (`tokens-shared.css:1036`,
+  `tokens-platform.css:298`). The chrome sheet sets none of them, so an
+  unfocused window showed system colors until refocus. It now pins both inactive
+  tokens plus `--toolbox-text-color` and `--lwt-accent-color-inactive` to the
+  palette on `:root`; every built-in redeclaration is on a `:root`-family
+  selector, so the user-origin `!important` values win. The
+  `--inactive-titlebar-opacity` fade (`browser-shared.css:325`) stays, as a
+  deliberate dim rather than a recolor.

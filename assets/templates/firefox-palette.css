@@ -10,7 +10,9 @@
  * against Firefox 157), so this sheet may need upkeep after an update. Besides
  * the surface/text tokens, it also pins the icon fills and the Nova toolbox
  * gradient, so the toolbar glyphs match the toolbar text instead of keeping
- * Firefox's violet ramp. See docs/user/theme-desktop-setup.md.
+ * Firefox's violet ramp, and pins the inactive-toolbox tokens so an unfocused
+ * window keeps the palette instead of flashing system colors. See
+ * docs/user/theme-desktop-setup.md.
  */
 
 :root {
@@ -80,6 +82,30 @@ panel {
     --sidebar-border-color: var(--shell-selection) !important;
     --lwt-accent-color: var(--shell-background) !important;
     --lwt-text-color: var(--shell-foreground) !important;
+}
+
+/* Firefox repaints the toolbox and the tabs when the window loses focus.
+ * `body:-moz-window-inactive` and the tab rules read
+ * --toolbox-background-color-inactive / --toolbox-text-color-inactive
+ * (browser-shared.css:255-259; tabs.css:713-723, :806-815, :886-893,
+ * :2967-2969; browser.css:247-249 on the Breeze GTK family), and the lwtheme
+ * findbar reads --lwt-accent-color-inactive (browser-shared.css:722-723). On
+ * Linux Firefox feeds the inactive pair from the native
+ * -moz-headerbarinactive / -moz-headerbarinactivetext (browser-colors.css:24-25,
+ * tokens-platform.css:98-100, :160-163) or InactiveCaption
+ * (browser-colors.css:30-31), and Nova sets the background to transparent
+ * (tokens-shared.css:1036, tokens-platform.css:298). None of those is the
+ * palette, which is why an unfocused window switched to system colors. Every
+ * redeclaration of these tokens is on a :root-family selector, so these
+ * user-origin !important values win. --toolbox-text-color is pinned too,
+ * because the body and the tab rows read it in the focused window.
+ * --inactive-titlebar-opacity (browser-shared.css:325) is left alone: it is a
+ * deliberate fade of the titlebar, not a recolor. */
+:root {
+    --toolbox-text-color: var(--shell-foreground) !important;
+    --toolbox-background-color-inactive: var(--shell-background) !important;
+    --toolbox-text-color-inactive: var(--shell-foreground) !important;
+    --lwt-accent-color-inactive: var(--shell-background) !important;
 }
 
 /* A plain menupopup sets --panel-background-color/--panel-text-color on itself

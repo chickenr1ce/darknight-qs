@@ -3040,7 +3040,7 @@ grep -q '^// END quickshell$' "$FF_USER_TPL" \
     || fail "the Firefox user.js template has no END marker"
 # The chrome variable names are Firefox internals that have been renamed across
 # releases; this list is verified against Firefox 157.0.1 and may need upkeep.
-for var in toolbar-background-color toolbar-text-color tab-background-color-selected tab-text-color-selected urlbar-box-background-color urlbar-box-background-color-focus urlbar-box-text-color toolbar-field-background-color toolbar-field-background-color-focus toolbar-field-text-color toolbar-field-text-color-focus panel-background-color panel-border-color sidebar-background-color sidebar-text-color sidebar-border-color lwt-accent-color lwt-text-color; do
+for var in toolbar-background-color toolbar-text-color tab-background-color-selected tab-text-color-selected urlbar-box-background-color urlbar-box-background-color-focus urlbar-box-text-color toolbar-field-background-color toolbar-field-background-color-focus toolbar-field-text-color toolbar-field-text-color-focus panel-background-color panel-border-color sidebar-background-color sidebar-text-color sidebar-border-color lwt-accent-color lwt-text-color toolbox-text-color toolbox-background-color-inactive toolbox-text-color-inactive lwt-accent-color-inactive; do
     grep -q -- "--$var: var(--shell-" "$FF_TPL" \
         || fail "the Firefox template does not map --$var onto a shell variable"
 done
@@ -3233,6 +3233,18 @@ grep -q -- '--panel-text-color: var(--shell-foreground)' "$FF_CSS" \
     || fail "the chrome sheet does not take the panel text from the palette"
 grep -q '\.searchmode-switcher' "$FF_CSS" \
     || fail "the Firefox sheet does not carry the scoped switcher rule"
+# An unfocused window repaints the toolbox and the tabs from Firefox's inactive
+# tokens, which on Linux are fed from the native headerbar/caption colors; the
+# rendered sheet must carry the palette pair (and the lwtheme accent) so the
+# theme does not fall away on blur.
+grep -q -- '--toolbox-background-color-inactive: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not keep the toolbox background on blur"
+grep -q -- '--toolbox-text-color-inactive: var(--shell-foreground)' "$FF_CSS" \
+    || fail "the Firefox sheet does not keep the toolbox text on blur"
+grep -q -- '--lwt-accent-color-inactive: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not keep the lwtheme accent on blur"
+grep -q -- '--toolbox-text-color: var(--shell-foreground)' "$FF_CSS" \
+    || fail "the Firefox sheet does not take the toolbox text from the palette"
 if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$FF_CSS"; then
     fail "the Firefox sheet left an unresolved placeholder"
 fi
