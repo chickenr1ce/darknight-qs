@@ -6,6 +6,7 @@
 #   ~/.config/starship.toml
 #   ~/.config/yazi/theme.toml
 #   ~/.config/btop/themes/theme.theme
+#   ~/.config/Vencord/themes/quickshell.theme.css
 #
 # Usage: render-theme.sh '<palette-json>' [<enabled-target-keys>]
 #
@@ -20,8 +21,8 @@
 # spicetify). An absent argument enables every target; an empty string enables
 # none. Each target renders in isolation, so one failure never aborts the rest,
 # and a disabled target writes a valid unthemed layer instead of a missing file.
-# The firefox, vencord, and spicetify keys are accepted but have no render case
-# until their tickets land.
+# The firefox and spicetify keys are accepted but have no render case until
+# their tickets land.
 #
 # Output paths follow XDG_CONFIG_HOME, falling back to HOME/.config, so the
 # headless gate can redirect them. See docs/user/theme-desktop-setup.md for the
@@ -339,8 +340,24 @@ def render_btop(enabled):
     return emit(dest, load("btop-theme.theme", tokens))
 
 
-# Render order. `firefox`, `vencord`, and `spicetify` are valid keys with no
-# render case yet, so they are simply accepted and have no effect.
+# Vencord lives under the app's own config root. When that root is absent the
+# user has no Discord to recolor, so the target skips as success instead of
+# creating a directory for an install that is not there. Enablement and theme
+# ordering stay manual: the renderer never touches Vencord's settings file,
+# which is not watched for reload and would clobber an edit.
+def render_vencord(enabled):
+    vencord_root = os.path.join(config_home, "Vencord")
+    if not os.path.isdir(vencord_root):
+        sys.stderr.write("vencord: not installed\n")
+        return False
+    dest = os.path.join(vencord_root, "themes", "quickshell.theme.css")
+    if not enabled:
+        return emit(dest, load("vencord-theme-disabled.css", {}))
+    return emit(dest, load("vencord-theme.css", tokens))
+
+
+# Render order. `firefox` and `spicetify` are valid keys with no render case
+# yet, so they are simply accepted and have no effect.
 TARGETS = ("hyprland", "kitty", "hyprlock", "starship", "yazi", "btop",
            "firefox", "vencord", "spicetify")
 RENDERERS = {
@@ -350,6 +367,7 @@ RENDERERS = {
     "starship": render_starship,
     "yazi": render_yazi,
     "btop": render_btop,
+    "vencord": render_vencord,
 }
 
 if enabled_raw == "__ALL__":

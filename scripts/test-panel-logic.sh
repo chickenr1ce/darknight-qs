@@ -2690,8 +2690,9 @@ grep -q '\$theme_accent = rgb(122, 162, 247)' "$RENDER_OFF1/hypr/hyprlock/colors
 test "$(cat "$RENDER_OFF1/btop/themes/theme.theme")" = "# quickshell theme target disabled" \
     || fail "a single-target-off render did not write the disabled layer for the omitted target"
 
-# Target keys whose render case has not landed yet are accepted and have no
-# effect, so the future keys never fail a run.
+# Target keys with no render case yet (firefox, spicetify) are accepted and
+# have no effect, so a future key never fails a run. vencord is implemented but
+# skips itself here because this HOME has no Vencord install.
 RENDER_FUTURE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 HOME="$RENDER_FUTURE" XDG_CONFIG_HOME="$RENDER_FUTURE" sh "$RENDER" "$RENDER_PALETTE" \
     "firefox,vencord,spicetify" \
@@ -2746,7 +2747,207 @@ grep -qF -- '-- probe 7aa2f7 e0af68 #e0af68 #f7768e #ffffff #ffffff #d5d6db #c0c
     "$RENDER_BRACE/hypr/theme.lua" \
     || fail "the optional, bare-hex, ink, or text-ramp tokens did not render"
 
-rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7" "$RENDER_OFF" "$RENDER_OFF1" "$RENDER_FUTURE" "$RENDER_BAD" "$RENDER_BRACE" "$RENDER_TMP" "$RENDER_STUB"
+# Vencord recolors Discord by overriding system24's own namespace on :root,
+# so the rendered file sets only the base variables and leaves system24's
+# derived ones alone. It writes under Vencord's own config root, skips as
+# success when that root is absent, and keeps its banner and metadata header
+# when disabled, so an enabledThemes entry never points at a missing file.
+test -f "$ROOT/assets/templates/vencord-theme.css" \
+    || fail "assets/templates/vencord-theme.css is missing"
+grep -q '@name quickshell' "$ROOT/assets/templates/vencord-theme.css" \
+    || fail "the Vencord template has no BetterDiscord metadata header"
+grep -q '@description Shell palette' "$ROOT/assets/templates/vencord-theme.css" \
+    || fail "the Vencord metadata header is not the agreed description"
+# The enabled and disabled templates share a banner and a BetterDiscord
+# metadata header. Assert the invariant header lines match between the two
+# files so they cannot drift: the metadata block must be byte-identical, and
+# the banner's fixed preamble (the rendered-by and do-not-edit lines plus the
+# blank separator) must be too. Only the banner body differs on purpose, because
+# the disabled file explains that the theme is switched off.
+VENCORD_TPL="$ROOT/assets/templates/vencord-theme.css"
+VENCORD_TPL_OFF="$ROOT/assets/templates/vencord-theme-disabled.css"
+sed -n '/^\/\*\*$/,/^ \*\/$/p' "$VENCORD_TPL" > "$RENDER_TMP/vencord-meta-on"
+sed -n '/^\/\*\*$/,/^ \*\/$/p' "$VENCORD_TPL_OFF" > "$RENDER_TMP/vencord-meta-off"
+test -s "$RENDER_TMP/vencord-meta-on" \
+    || fail "the Vencord templates' metadata header was not found"
+if ! cmp -s "$RENDER_TMP/vencord-meta-on" "$RENDER_TMP/vencord-meta-off"; then
+    fail "the Vencord templates' metadata headers differ"
+fi
+head -n 3 "$VENCORD_TPL" > "$RENDER_TMP/vencord-banner-on"
+head -n 3 "$VENCORD_TPL_OFF" > "$RENDER_TMP/vencord-banner-off"
+if ! cmp -s "$RENDER_TMP/vencord-banner-on" "$RENDER_TMP/vencord-banner-off"; then
+    fail "the Vencord templates' banner preambles differ"
+fi
+if grep -q 'settings.json' "$RENDER"; then
+    fail "the renderer names settings.json; Vencord enablement and ordering stay manual"
+fi
+
+# An installed Vencord: the enabled target writes the palette-derived theme
+# under the app's own config root.
+RENDER_VENCORD="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+mkdir -p "$RENDER_VENCORD/Vencord"
+HOME="$RENDER_VENCORD" XDG_CONFIG_HOME="$RENDER_VENCORD" sh "$RENDER" "$RENDER_PALETTE"
+VENCORD_FILE="$RENDER_VENCORD/Vencord/themes/quickshell.theme.css"
+test -f "$VENCORD_FILE" \
+    || fail "renderer wrote no Vencord theme"
+grep -q '@name quickshell' "$VENCORD_FILE" \
+    || fail "the Vencord theme has no metadata header"
+grep -q -- '--colors: on' "$VENCORD_FILE" \
+    || fail "the Vencord theme does not enable system24 colors"
+grep -q -- '--bg-4: #1a1b26' "$VENCORD_FILE" \
+    || fail "the Vencord main background does not come from the palette"
+grep -q -- '--text-0: #000000' "$VENCORD_FILE" \
+    || fail "the Vencord --text-0 is not the ink chosen against accent"
+if grep -q '!important' "$VENCORD_FILE"; then
+    fail "the Vencord theme uses !important; it must rely on cascade order"
+fi
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$VENCORD_FILE"; then
+    fail "the Vencord theme holds an unresolved token"
+fi
+
+# The same theme against the light fixture, so the background and text ladders
+# are checked for both modes.
+RENDER_VENCORD_LIGHT="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+mkdir -p "$RENDER_VENCORD_LIGHT/Vencord"
+HOME="$RENDER_VENCORD_LIGHT" XDG_CONFIG_HOME="$RENDER_VENCORD_LIGHT" sh "$RENDER" "$RENDER_PALETTE7"
+VENCORD_LIGHT="$RENDER_VENCORD_LIGHT/Vencord/themes/quickshell.theme.css"
+
+# Resolve the rendered CSS the way a browser would: the :root custom-property
+# set must be exactly the base variables of the ticket (no derived variable
+# survives), the four background surfaces must stay distinct, every hue ladder
+# must keep five distinct stops, and the text ramp must stay ordered and
+# contrast against the background.
+python3 - "$VENCORD_FILE" "$VENCORD_LIGHT" <<'PYEOF'
+import re
+import sys
+
+def fail(message):
+    print("panel-logic FAIL: " + message, file=sys.stderr)
+    sys.exit(1)
+
+EXPECTED = {"--colors"}
+for i in range(1, 5):
+    EXPECTED.add("--bg-%d" % i)
+for i in range(0, 6):
+    EXPECTED.add("--text-%d" % i)
+for hue in ("red", "green", "blue", "yellow", "purple"):
+    for i in range(1, 6):
+        EXPECTED.add("--%s-%d" % (hue, i))
+
+# system24 derives these from the base variables, so the override must not set
+# them (an override would freeze a derived color instead of following the base).
+FORBIDDEN = re.compile(
+    r"^--(mention|accent|border|hover|active|message-hover|online|"
+    r"accent-new|button-border|background-|text-normal|brand-)")
+
+def channels(value):
+    text = value.strip().lstrip("#")
+    if len(text) == 3:
+        text = "".join(c * 2 for c in text)
+    return tuple(int(text[i:i + 2], 16) for i in (0, 2, 4))
+
+def resolve(value):
+    value = value.strip()
+    if value.startswith("#"):
+        return channels(value)
+    match = re.match(
+        r"color-mix\(in srgb,\s*([^,]+?)\s+([0-9.]+)%,\s*([^)]+?)\)", value)
+    if not match:
+        fail("unresolvable color value %r" % value)
+    first = resolve(match.group(1))
+    weight = float(match.group(2)) / 100.0
+    second = resolve(match.group(3))
+    return tuple(round(first[i] * weight + second[i] * (1 - weight))
+                 for i in range(3))
+
+def luminance(value):
+    def channel(c):
+        c = c / 255.0
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = value
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+for path, light in ((sys.argv[1], False), (sys.argv[2], True)):
+    with open(path, encoding="utf-8") as handle:
+        css = handle.read()
+    block = re.search(r":root\s*\{(.*?)\}", css, re.S)
+    if not block:
+        fail("%s has no :root block" % path)
+    body = re.sub(r"/\*.*?\*/", "", block.group(1), flags=re.S)
+    props = {}
+    for name, value in re.findall(r"(--[A-Za-z0-9-]+)\s*:\s*([^;]+);", body):
+        if name in props:
+            fail("%s declares %s twice" % (path, name))
+        props[name] = value.strip()
+    if set(props) != EXPECTED:
+        fail("%s base variables differ (missing %s, extra %s)" % (
+            path, sorted(EXPECTED - set(props)), sorted(set(props) - EXPECTED)))
+    for name in props:
+        if FORBIDDEN.match(name):
+            fail("%s sets the derived variable %s" % (path, name))
+    if props["--colors"].lower() != "on":
+        fail("%s does not set --colors: on" % path)
+    bgs = [resolve(props["--bg-%d" % i]) for i in range(1, 5)]
+    if len(set(bgs)) != 4:
+        fail("%s background ladder collapsed: %s" % (path, bgs))
+    if bgs[0] == bgs[3]:
+        fail("%s --bg-1 equals --bg-4" % path)
+    for hue in ("red", "green", "blue", "yellow", "purple"):
+        stops = [resolve(props["--%s-%d" % (hue, i)]) for i in range(1, 6)]
+        if len(set(stops)) != 5:
+            fail("%s %s ladder collapsed: %s" % (path, hue, stops))
+    ramp = [resolve(props["--text-%d" % i]) for i in range(1, 6)]
+    background = resolve(props["--bg-4"])
+    ratios = [contrast(value, background) for value in ramp]
+    if ratios != sorted(ratios, reverse=True):
+        fail("%s text ramp is not ordered by contrast: %s" % (path, ratios))
+    if ratios[0] < 4.5:
+        fail("%s text ramp does not contrast against the background: %s" % (
+            path, ratios))
+    if light and ratios[1] < 4.5:
+        fail("%s light text ramp does not contrast against the background: %s" % (
+            path, ratios))
+PYEOF
+
+# Disabled: the destination keeps the banner and metadata header and no :root
+# overrides, so Vencord still lists the theme.
+RENDER_VOFF="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+mkdir -p "$RENDER_VOFF/Vencord"
+HOME="$RENDER_VOFF" XDG_CONFIG_HOME="$RENDER_VOFF" sh "$RENDER" "$RENDER_PALETTE" "kitty"
+VENCORD_OFF="$RENDER_VOFF/Vencord/themes/quickshell.theme.css"
+test -f "$VENCORD_OFF" \
+    || fail "a disabled Vencord target wrote no file"
+grep -q '@name quickshell' "$VENCORD_OFF" \
+    || fail "a disabled Vencord file dropped its metadata header"
+grep -q '@description Shell palette' "$VENCORD_OFF" \
+    || fail "a disabled Vencord file dropped its description"
+if grep -q ':root' "$VENCORD_OFF"; then
+    fail "a disabled Vencord file still carries a :root block"
+fi
+if grep -qE -- '--[A-Za-z]' "$VENCORD_OFF"; then
+    fail "a disabled Vencord file still carries color variables"
+fi
+
+# No install: the target logs and skips as success, so the retint never creates
+# a Vencord directory for a Discord that is not installed.
+RENDER_NOVENCORD="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+if ! HOME="$RENDER_NOVENCORD" XDG_CONFIG_HOME="$RENDER_NOVENCORD" sh "$RENDER" \
+    "$RENDER_PALETTE" "vencord" 2>"$RENDER_NOVENCORD/vencord.log"; then
+    fail "an absent Vencord root failed the render"
+fi
+test ! -d "$RENDER_NOVENCORD/Vencord" \
+    || fail "the renderer created a Vencord directory for a Discord that is not installed"
+test ! -e "$RENDER_NOVENCORD/Vencord/themes/quickshell.theme.css" \
+    || fail "the renderer wrote a Vencord theme with no Vencord install"
+grep -q 'vencord: not installed' "$RENDER_NOVENCORD/vencord.log" \
+    || fail "an absent Vencord root was not logged"
+
+rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7" "$RENDER_OFF" "$RENDER_OFF1" "$RENDER_FUTURE" "$RENDER_BAD" "$RENDER_BRACE" "$RENDER_TMP" "$RENDER_STUB" "$RENDER_VENCORD" "$RENDER_VENCORD_LIGHT" "$RENDER_VOFF" "$RENDER_NOVENCORD"
 
 # --- 18. dashboard Theme block: live palette, name, settings target ---
 # The block is the switcher's second home: a palette strip bound to the mapped
