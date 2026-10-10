@@ -9,6 +9,8 @@
 #   ~/.config/Vencord/themes/quickshell.theme.css
 #   <firefox-profile>/chrome/shell-palette.css
 #   <firefox-profile>/user.js
+#   ~/.config/spicetify/Themes/quickshell/color.ini
+#   ~/.config/spicetify/Themes/quickshell/user.css
 #
 # Usage: render-theme.sh '<palette-json>' [<enabled-target-keys>]
 #
@@ -23,7 +25,6 @@
 # spicetify). An absent argument enables every target; an empty string enables
 # none. Each target renders in isolation, so one failure never aborts the rest,
 # and a disabled target writes a valid unthemed layer instead of a missing file.
-# The spicetify key is accepted but has no render case until its ticket lands.
 #
 # Output paths follow XDG_CONFIG_HOME, falling back to HOME/.config, so the
 # headless gate can redirect them. The Firefox root is the exception: it reads
@@ -55,6 +56,8 @@ exec python3 - "$palette" "$template_dir" "$config_home" "$enabled_keys" <<'PY'
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 
 palette_raw, template_dir, config_home, enabled_raw = sys.argv[1:5]
@@ -371,13 +374,8 @@ USERJS_PREF = re.compile(
     r"""user_pref\s*\(\s*["']toolkit\.legacyUserProfileCustomizations\.stylesheets["']""")
 
 
-def parse_ini(path):
-    """Ordered (section, key/value dict) pairs; a missing file yields none."""
-    try:
-        with open(path, encoding="utf-8") as handle:
-            text = handle.read()
-    except OSError:
-        return []
+def parse_ini_text(text):
+    """Ordered (section, key/value dict) pairs from INI text."""
     entries = []
     section = None
     values = {}
@@ -398,6 +396,16 @@ def parse_ini(path):
     if section is not None:
         entries.append((section, values))
     return entries
+
+
+def parse_ini(path):
+    """Ordered (section, key/value dict) pairs; a missing file yields none."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return []
+    return parse_ini_text(text)
 
 
 def firefox_root():
@@ -507,8 +515,88 @@ def render_firefox(enabled):
     return emit_userjs(os.path.join(profile, "user.js"), user_block) or wrote
 
 
-# Render order. `spicetify` is a valid key with no render case yet, so it is
-# simply accepted and has no effect.
+# Spicetify follows the shell through the community `text` theme, vendored as
+# the spicetify-color.ini and spicetify-user.css templates. The renderer owns
+# Themes/quickshell/ under the app's config root and writes only its own two
+# files there, so it never edits a theme the user installed or the user's own
+# Spicetify config (selection stays a manual step). An absent config root means
+# there is no Spicetify to recolor, so the target skips as success. After a real
+# byte change it refreshes the client best-effort; it never runs the
+# version-gated restore command, which force-restarts Spotify.
+SPICETIFY_COLOR_TEMPLATE = "spicetify-color.ini"
+SPICETIFY_USER_TEMPLATE = "spicetify-user.css"
+
+
+def spicetify_theme():
+    """The vendored color.ini text and its own [Spicetify] default values.
+
+    The disabled [Quickshell] layer reads these values straight from the
+    shipped template, so the fallback cannot drift from the theme it ships."""
+    with open(os.path.join(template_dir, SPICETIFY_COLOR_TEMPLATE),
+              encoding="utf-8") as handle:
+        text = handle.read()
+    for section, values in parse_ini_text(text):
+        if section == "Spicetify":
+            return text, values
+    raise RenderError("no [Spicetify] section in %s" % SPICETIFY_COLOR_TEMPLATE)
+
+
+def spicetify_disabled_color(text, defaults):
+    """The vendored template with [Quickshell]'s palette values replaced by the
+    theme's own [Spicetify] defaults, key for key."""
+    out = []
+    in_quickshell = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_quickshell = stripped[1:-1].strip() == "Quickshell"
+            out.append(line)
+            continue
+        if in_quickshell and "=" in stripped and stripped[0] not in "#;":
+            key = stripped.partition("=")[0].strip()
+            if key in defaults:
+                line = "%s = %s\n" % (key, defaults[key])
+        out.append(line)
+    result = "".join(out)
+    if UNRESOLVED.search(result):
+        raise RenderError("unresolved placeholder in %s" % SPICETIFY_COLOR_TEMPLATE)
+    return result
+
+
+def refresh_spicetify():
+    """Best-effort refresh; only the on-PATH client, failures never fail the
+    run. Only the refresh subcommand is ever invoked."""
+    executable = shutil.which("spicetify")
+    if executable is None:
+        return
+    try:
+        subprocess.run([executable, "refresh"], check=False, timeout=60,
+                       stdin=subprocess.DEVNULL,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+def render_spicetify(enabled):
+    spicetify_root = os.path.join(config_home, "spicetify")
+    if not os.path.isdir(spicetify_root):
+        sys.stderr.write("spicetify: not installed\n")
+        return False
+    theme_dir = os.path.join(spicetify_root, "Themes", "quickshell")
+    if enabled:
+        color = load(SPICETIFY_COLOR_TEMPLATE, tokens)
+    else:
+        template_text, defaults = spicetify_theme()
+        color = spicetify_disabled_color(template_text, defaults)
+    css = load(SPICETIFY_USER_TEMPLATE, tokens)
+    wrote_color = emit(os.path.join(theme_dir, "color.ini"), color)
+    wrote_css = emit(os.path.join(theme_dir, "user.css"), css)
+    if wrote_color or wrote_css:
+        refresh_spicetify()
+    return wrote_color or wrote_css
+
+
+# Render order.
 TARGETS = ("hyprland", "kitty", "hyprlock", "starship", "yazi", "btop",
            "firefox", "vencord", "spicetify")
 RENDERERS = {
@@ -520,6 +608,7 @@ RENDERERS = {
     "btop": render_btop,
     "firefox": render_firefox,
     "vencord": render_vencord,
+    "spicetify": render_spicetify,
 }
 
 if enabled_raw == "__ALL__":

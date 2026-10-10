@@ -91,3 +91,13 @@ palette-built option.
 renderer owns `Themes/quickshell/` rather than `Themes/text/` so a future
 Marketplace install of `text` cannot collide. Bundling means the repo maintains
 the upstream `user.css`; note that obligation in ticket 04.
+
+Vendored 2026-10-10. The pinned commit
+`33a08ea009687f5a42ff678015c28797fe142a7c` (2026-09-22, "feat(text): add
+BloodMoon color scheme") was re-checked at vendor time and is the latest commit
+touching `text/`. Hashes of the vendored upstream files:
+`text/user.css` sha256 `ac0fc97d0475e85c204d26c677892fdd80509869fbe538fd92572a29d8dbf344`,
+`text/color.ini` sha256 `2d020d9dc922608781af03c0424011ef6c132c5ddb164b19a4ac2ba5adeea9b5`.
+Both hashes and the commit are recorded in a comment atop their template
+(`assets/templates/spicetify-user.css`, `assets/templates/spicetify-color.ini`)
+and the license in `NOTICE`.

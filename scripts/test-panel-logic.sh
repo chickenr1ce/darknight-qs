@@ -2460,9 +2460,17 @@ if grep -q 'colors.toml' "$RENDER"; then
 fi
 
 # A stub spicetify on PATH keeps the gate from ever driving the live Spotify
-# session; assert the stub resolves ahead of any installed binary.
+# session; assert the stub resolves ahead of any installed binary. The stub
+# records each invocation so the Spicetify refresh case can count them, and it
+# never touches the live config because every render below redirects HOME and
+# XDG_CONFIG_HOME.
 RENDER_STUB="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-stub-XXXXXX")"
-printf '#!/bin/sh\nexit 0\n' > "$RENDER_STUB/spicetify"
+RENDER_STUB_LOG="$RENDER_STUB/refresh.log"
+cat > "$RENDER_STUB/spicetify" <<STUB
+#!/bin/sh
+printf '%s\n' "\$*" >> "$RENDER_STUB_LOG"
+exit 0
+STUB
 chmod +x "$RENDER_STUB/spicetify"
 PATH="$RENDER_STUB:$PATH"
 test "$(command -v spicetify)" = "$RENDER_STUB/spicetify" \
@@ -2690,14 +2698,13 @@ grep -q '\$theme_accent = rgb(122, 162, 247)' "$RENDER_OFF1/hypr/hyprlock/colors
 test "$(cat "$RENDER_OFF1/btop/themes/theme.theme")" = "# quickshell theme target disabled" \
     || fail "a single-target-off render did not write the disabled layer for the omitted target"
 
-# Target keys with no render case yet (spicetify) are accepted and have no
-# effect, so a future key never fails a run. vencord is implemented but skips
-# itself here because this HOME has no Vencord install, and firefox skips
-# itself because this HOME has no Firefox root.
+# Every key in the CSV is implemented, and each app target skips itself as
+# success when its root is absent: vencord has no Vencord install, firefox has
+# no Firefox root, and spicetify has no config root under this HOME.
 RENDER_FUTURE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 HOME="$RENDER_FUTURE" XDG_CONFIG_HOME="$RENDER_FUTURE" sh "$RENDER" "$RENDER_PALETTE" \
     "firefox,vencord,spicetify" \
-    || fail "an unimplemented target key failed the run"
+    || fail "an app target with an absent root failed the run"
 test "$(cat "$RENDER_FUTURE/hypr/theme.lua")" = "-- quickshell theme target disabled" \
     || fail "an unimplemented target key changed a real target's output"
 
@@ -3196,7 +3203,240 @@ if grep -q 'legacyUserProfileCustomizations' "$FF_OFF2_USERJS"; then
     fail "a disabled Firefox target edited an existing user.js"
 fi
 
-rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7" "$RENDER_OFF" "$RENDER_OFF1" "$RENDER_FUTURE" "$RENDER_BAD" "$RENDER_BRACE" "$RENDER_TMP" "$RENDER_STUB" "$RENDER_VENCORD" "$RENDER_VENCORD_LIGHT" "$RENDER_VOFF" "$RENDER_NOVENCORD" "$RENDER_FIREFOX"
+# Spicetify follows the shell through the vendored community `text` theme. The
+# renderer owns Themes/quickshell/ under the app config root: it writes only
+# its own color.ini and user.css, keeps every default color option, appends a
+# [Quickshell] option built from the palette, refreshes the client only on a
+# real byte change, and skips as success when the config root is absent.
+SP_TPL_CSS="$ROOT/assets/templates/spicetify-user.css"
+SP_TPL_INI="$ROOT/assets/templates/spicetify-color.ini"
+test -f "$SP_TPL_CSS" \
+    || fail "assets/templates/spicetify-user.css is missing"
+test -f "$SP_TPL_INI" \
+    || fail "assets/templates/spicetify-color.ini is missing"
+grep -q 'morpheusthewhite' "$SP_TPL_CSS" \
+    || fail "the Spicetify user.css banner drops the upstream attribution"
+grep -q '33a08ea009687f5a42ff678015c28797fe142a7c' "$SP_TPL_INI" \
+    || fail "the Spicetify color.ini banner drops the pinned commit"
+grep -q '^\[Quickshell\]' "$SP_TPL_INI" \
+    || fail "the Spicetify color.ini template has no [Quickshell] section"
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$SP_TPL_CSS"; then
+    fail "the Spicetify user.css template holds a token; it is verbatim"
+fi
+# The renderer never selects the theme (a manual step), never uses the
+# version-gated restore path, and never names the user-owned config file.
+if grep -qE 'current_theme|color_scheme' "$RENDER"; then
+    fail "the renderer sets current_theme or color_scheme; selection stays manual"
+fi
+if grep -qw apply "$RENDER"; then
+    fail "the renderer names the version-gated restore path; only refresh is allowed"
+fi
+if grep -q 'config-xpui' "$RENDER"; then
+    fail "the renderer names config-xpui.ini; the user owns it"
+fi
+
+# An installed Spicetify: the enabled target creates Themes/quickshell/, writes
+# the palette-derived color.ini and the verbatim user.css, leaves an installed
+# theme and the config file untouched, and refreshes once because bytes changed.
+SP_HOME="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-spicetify-XXXXXX")"
+mkdir -p "$SP_HOME/spicetify/Themes/text"
+printf 'foreign theme\n' > "$SP_HOME/spicetify/Themes/text/user.css"
+printf 'foreign config\n' > "$SP_HOME/spicetify/config-xpui.ini"
+rm -f "$RENDER_STUB_LOG"
+HOME="$SP_HOME" XDG_CONFIG_HOME="$SP_HOME" sh "$RENDER" "$RENDER_PALETTE" "spicetify"
+SP_DIR="$SP_HOME/spicetify/Themes/quickshell"
+SP_COLOR="$SP_DIR/color.ini"
+SP_CSS="$SP_DIR/user.css"
+test -f "$SP_COLOR" || fail "the Spicetify target wrote no color.ini"
+test -f "$SP_CSS" || fail "the Spicetify target wrote no user.css"
+grep -q 'foreign theme' "$SP_HOME/spicetify/Themes/text/user.css" \
+    || fail "the Spicetify target edited a theme the user installed"
+grep -q 'foreign config' "$SP_HOME/spicetify/config-xpui.ini" \
+    || fail "the Spicetify target edited config-xpui.ini"
+cmp -s "$SP_CSS" "$SP_TPL_CSS" \
+    || fail "the Spicetify user.css is not the vendored template verbatim"
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$SP_CSS"; then
+    fail "the rendered Spicetify user.css holds an unresolved token"
+fi
+test "$(cat "$RENDER_STUB_LOG" 2>/dev/null)" = "refresh" \
+    || fail "the Spicetify refresh stub was not invoked exactly once with refresh"
+
+# color.ini: every default option survives, the [Quickshell] key set equals the
+# union of the default options' keys, and the [Quickshell] values are bare
+# palette hex.
+python3 - "$SP_COLOR" "$SP_TPL_INI" "$RENDER_PALETTE" <<'PYEOF'
+import json
+import re
+import sys
+
+def fail(message):
+    print("panel-logic FAIL: " + message, file=sys.stderr)
+    sys.exit(1)
+
+def parse(text):
+    entries = []
+    section = None
+    values = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped[0] in "#;":
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if section is not None:
+                entries.append((section, values))
+            section = stripped[1:-1].strip()
+            values = {}
+            continue
+        if section is None or "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        values[key.strip()] = value.strip()
+    if section is not None:
+        entries.append((section, values))
+    return entries
+
+dest = parse(open(sys.argv[1], encoding="utf-8").read())
+template = parse(open(sys.argv[2], encoding="utf-8").read())
+palette = json.loads(sys.argv[3])
+if [section for section, _ in dest] != [section for section, _ in template]:
+    fail("color.ini sections differ from the vendored template")
+default_keys = set()
+quickshell = None
+for section, values in dest:
+    if section == "Quickshell":
+        quickshell = values
+    else:
+        default_keys.update(values)
+if quickshell is None:
+    fail("color.ini has no [Quickshell] section")
+if set(quickshell) != default_keys:
+    fail("[Quickshell] key set differs (missing %s, extra %s)" % (
+        sorted(default_keys - set(quickshell)),
+        sorted(set(quickshell) - default_keys)))
+expected = {
+    "accent": palette["accent"],
+    "accent-active": palette["accent"],
+    "accent-inactive": palette["selection"],
+    "banner": palette["accent"],
+    "border-active": palette["accent"],
+    "border-inactive": palette["muted"],
+    "header": palette["muted"],
+    "highlight": palette["selection"],
+    "main": palette["background"],
+    "notification": palette["accent"],
+    "notification-error": palette["red"],
+    "subtext": palette["muted"],
+    "text": palette["foreground"],
+}
+for key, value in quickshell.items():
+    if value.startswith("#"):
+        fail("[Quickshell] %s keeps a leading # (%s)" % (key, value))
+    if not re.fullmatch(r"[0-9A-Fa-f]{6}", value):
+        fail("[Quickshell] %s is not a bare 6-hex value (%s)" % (key, value))
+    if value != expected[key].lstrip("#"):
+        fail("[Quickshell] %s is %s, expected %s" % (
+            key, value, expected[key].lstrip("#")))
+if re.search(r"\{\{[A-Za-z0-9_]+\}\}", open(sys.argv[1], encoding="utf-8").read()):
+    fail("color.ini left an unresolved placeholder")
+PYEOF
+
+# A stray file the user dropped into the shell-owned directory survives, and an
+# identical second render neither rewrites the files nor refreshes again.
+printf 'keep me\n' > "$SP_DIR/keepme.txt"
+SP_STAMP="$(stat -c '%y' "$SP_COLOR")"
+sleep 1
+HOME="$SP_HOME" XDG_CONFIG_HOME="$SP_HOME" sh "$RENDER" "$RENDER_PALETTE" "spicetify"
+test -f "$SP_DIR/keepme.txt" \
+    || fail "the Spicetify target deleted an unknown file in its directory"
+test "$SP_STAMP" = "$(stat -c '%y' "$SP_COLOR")" \
+    || fail "the Spicetify target rewrote an unchanged color.ini"
+test "$(grep -c '^refresh$' "$RENDER_STUB_LOG")" -eq 1 \
+    || fail "an identical Spicetify render refreshed the client again"
+if grep -qvx refresh "$RENDER_STUB_LOG"; then
+    fail "an identical Spicetify render logged a non-refresh invocation"
+fi
+
+# A real palette change refreshes again.
+SP_PALETTE2="$(printf '%s' "$RENDER_PALETTE" | sed 's/"accent":"#7aa2f7"/"accent":"#abcdef"/')"
+HOME="$SP_HOME" XDG_CONFIG_HOME="$SP_HOME" sh "$RENDER" "$SP_PALETTE2" "spicetify"
+grep -qE '^accent[[:space:]]+= abcdef$' "$SP_COLOR" \
+    || fail "a changed palette did not reach the Spicetify color.ini"
+test "$(grep -c '^refresh$' "$RENDER_STUB_LOG")" -eq 2 \
+    || fail "a real Spicetify change did not refresh the client"
+if grep -qvx refresh "$RENDER_STUB_LOG"; then
+    fail "a real Spicetify change logged a non-refresh invocation"
+fi
+
+# Disabled: the [Quickshell] section carries the theme's own [Spicetify]
+# defaults, and user.css is still written (it is the theme's layout).
+SP_OFF="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-spicetify-XXXXXX")"
+mkdir -p "$SP_OFF/spicetify/Themes"
+HOME="$SP_OFF" XDG_CONFIG_HOME="$SP_OFF" sh "$RENDER" "$RENDER_PALETTE" "kitty"
+SP_OFF_DIR="$SP_OFF/spicetify/Themes/quickshell"
+test -f "$SP_OFF_DIR/user.css" \
+    || fail "a disabled Spicetify target wrote no user.css"
+python3 - "$SP_OFF_DIR/color.ini" "$SP_TPL_INI" <<'PYEOF'
+import re
+import sys
+
+def fail(message):
+    print("panel-logic FAIL: " + message, file=sys.stderr)
+    sys.exit(1)
+
+def parse(text):
+    entries = []
+    section = None
+    values = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped[0] in "#;":
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if section is not None:
+                entries.append((section, values))
+            section = stripped[1:-1].strip()
+            values = {}
+            continue
+        if section is None or "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        values[key.strip()] = value.strip()
+    if section is not None:
+        entries.append((section, values))
+    return entries
+
+dest = parse(open(sys.argv[1], encoding="utf-8").read())
+template = parse(open(sys.argv[2], encoding="utf-8").read())
+defaults = {}
+for section, values in template:
+    if section == "Spicetify":
+        defaults = values
+quickshell = None
+for section, values in dest:
+    if section == "Quickshell":
+        quickshell = values
+if quickshell is None:
+    fail("a disabled Spicetify color.ini has no [Quickshell] section")
+if not defaults:
+    fail("the vendored template has no [Spicetify] defaults")
+if quickshell != defaults:
+    fail("a disabled [Quickshell] section is not the theme's [Spicetify] defaults")
+if re.search(r"\{\{[A-Za-z0-9_]+\}\}", open(sys.argv[1], encoding="utf-8").read()):
+    fail("a disabled color.ini left an unresolved placeholder")
+PYEOF
+
+# No Spicetify config root: skip as success, log the skip, write nothing.
+SP_NONE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-spicetify-XXXXXX")"
+if ! HOME="$SP_NONE" XDG_CONFIG_HOME="$SP_NONE" sh "$RENDER" "$RENDER_PALETTE" \
+    "spicetify" 2>"$SP_NONE/log"; then
+    fail "an absent Spicetify config root failed the render"
+fi
+grep -q 'spicetify: not installed' "$SP_NONE/log" \
+    || fail "an absent Spicetify config root was not logged"
+test ! -e "$SP_NONE/spicetify" \
+    || fail "the renderer created a Spicetify root that was not installed"
+
+rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7" "$RENDER_OFF" "$RENDER_OFF1" "$RENDER_FUTURE" "$RENDER_BAD" "$RENDER_BRACE" "$RENDER_TMP" "$RENDER_STUB" "$RENDER_VENCORD" "$RENDER_VENCORD_LIGHT" "$RENDER_VOFF" "$RENDER_NOVENCORD" "$RENDER_FIREFOX" "$SP_HOME" "$SP_OFF" "$SP_NONE"
 
 # --- 18. dashboard Theme block: live palette, name, settings target ---
 # The block is the switcher's second home: a palette strip bound to the mapped
