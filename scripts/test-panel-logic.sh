@@ -2369,8 +2369,10 @@ NODEEOF
 # scripts/render-theme.sh substitutes the resolved palette into the templates
 # under assets/templates/ and writes the six desktop files. It reads no theme
 # directory, so this gate runs the real script against a fixture palette with
-# XDG_CONFIG_HOME redirected, then checks the bytes, the border fallback and
-# override, the empty-palette default, and idempotency.
+# XDG_CONFIG_HOME redirected (and HOME, because the future Firefox, Vencord, and
+# Spicetify destinations all resolve under a home), then checks the bytes, the
+# border fallback and override, the empty-palette default, idempotency, and the
+# per-target enable/disable and isolation contract.
 RENDER="$ROOT/scripts/render-theme.sh"
 test -f "$RENDER" \
     || fail "scripts/render-theme.sh is missing"
@@ -2392,9 +2394,18 @@ if grep -q 'colors.toml' "$RENDER"; then
     fail "render-theme.sh names colors.toml; it must consume only the resolved palette"
 fi
 
+# A stub spicetify on PATH keeps the gate from ever driving the live Spotify
+# session; assert the stub resolves ahead of any installed binary.
+RENDER_STUB="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-stub-XXXXXX")"
+printf '#!/bin/sh\nexit 0\n' > "$RENDER_STUB/spicetify"
+chmod +x "$RENDER_STUB/spicetify"
+PATH="$RENDER_STUB:$PATH"
+test "$(command -v spicetify)" = "$RENDER_STUB/spicetify" \
+    || fail "the spicetify stub does not resolve ahead of the real binary"
+
 RENDER_HOME="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE='{"accent":"#7aa2f7","selection":"#33467c","muted":"#565f89","background":"#1a1b26","dark_background":"#16161e","darker_background":"#101014","lighter_background":"#292e42","foreground":"#c0caf5","dark_foreground":"#a9b1d6","light_foreground":"#d5d6db","bright_foreground":"#ffffff","red":"#f7768e","yellow":"#e0af68","green":"#9ece6a","cyan":"#7dcfff","blue":"#7aa2f7","magenta":"#bb9af7","bright_red":"#ff7a93","bright_yellow":"#ff9e64","bright_green":"#b9f27c","bright_cyan":"#7ff7ff","bright_blue":"#7aa2ff","bright_magenta":"#c7a9ff"}'
-XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
+HOME="$RENDER_HOME" XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
 test -f "$RENDER_HOME/hypr/theme.lua" \
     || fail "renderer wrote no hypr theme.lua"
 test -f "$RENDER_HOME/kitty/theme.conf" \
@@ -2453,7 +2464,7 @@ grep -q 'theme\[proc_banner_fg\]="#000000"' "$RENDER_HOME/btop/themes/theme.them
     || fail "btop banner text is not the contrast ink for accent"
 grep -q 'theme\[followed_fg\]="#000000"' "$RENDER_HOME/btop/themes/theme.theme" \
     || fail "btop followed text is not the contrast ink for blue"
-if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml" "$RENDER_HOME/yazi/theme.toml" "$RENDER_HOME/btop/themes/theme.theme"; then
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml" "$RENDER_HOME/yazi/theme.toml" "$RENDER_HOME/btop/themes/theme.theme"; then
     fail "renderer left an unresolved template placeholder"
 fi
 
@@ -2465,7 +2476,7 @@ before_yazi="$(cat "$RENDER_HOME/yazi/theme.toml")"
 before_btop="$(cat "$RENDER_HOME/btop/themes/theme.theme")"
 stamp="$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")"
 sleep 1
-XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
+HOME="$RENDER_HOME" XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
 test "$before_lua" = "$(cat "$RENDER_HOME/hypr/theme.lua")" \
     || fail "renderer is not idempotent: theme.lua changed on an identical rerun"
 test "$before_kitty" = "$(cat "$RENDER_HOME/kitty/theme.conf")" \
@@ -2483,7 +2494,7 @@ test "$stamp" = "$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")" \
 
 RENDER_HOME2="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE2="$(printf '%s' "$RENDER_PALETTE" | sed 's/}$/,"hyprland_active_border":"#ff0000","hyprland_inactive_border":"#00ff0080"}/')"
-XDG_CONFIG_HOME="$RENDER_HOME2" sh "$RENDER" "$RENDER_PALETTE2"
+HOME="$RENDER_HOME2" XDG_CONFIG_HOME="$RENDER_HOME2" sh "$RENDER" "$RENDER_PALETTE2"
 grep -q 'rgba(ff0000ff)' "$RENDER_HOME2/hypr/theme.lua" \
     || fail "hypr does not honor hyprland_active_border"
 grep -q 'rgba(00ff0080)' "$RENDER_HOME2/hypr/theme.lua" \
@@ -2493,7 +2504,7 @@ grep -q 'rgba(00ff0080)' "$RENDER_HOME2/hypr/theme.lua" \
 # default so the bar's fallback and the desktop files agree (M1). A palette that
 # is present but missing required roles is still a no-op.
 RENDER_HOME3="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
-XDG_CONFIG_HOME="$RENDER_HOME3" sh "$RENDER" ""
+HOME="$RENDER_HOME3" XDG_CONFIG_HOME="$RENDER_HOME3" sh "$RENDER" ""
 test -f "$RENDER_HOME3/hypr/theme.lua" \
     || fail "renderer wrote no default theme.lua for an empty palette"
 grep -q 'rgba(b4befe' "$RENDER_HOME3/hypr/theme.lua" \
@@ -2512,13 +2523,13 @@ grep -q 'theme\[hi_fg\]="#b4befe"' "$RENDER_HOME3/btop/themes/theme.theme" \
     || fail "the empty-palette default does not use the fallback accent for btop"
 
 RENDER_HOME3B="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
-XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
+HOME="$RENDER_HOME3B" XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
 test -z "$(find "$RENDER_HOME3B" -type f)" \
     || fail "renderer wrote files for a palette missing required roles"
 
 RENDER_HOME4="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE4="$(printf '%s' "$RENDER_PALETTE" | sed 's/}$/,"hyprland_active_border":"not-a-color"}/')"
-XDG_CONFIG_HOME="$RENDER_HOME4" sh "$RENDER" "$RENDER_PALETTE4"
+HOME="$RENDER_HOME4" XDG_CONFIG_HOME="$RENDER_HOME4" sh "$RENDER" "$RENDER_PALETTE4"
 test -f "$RENDER_HOME4/hypr/theme.lua" \
     || fail "renderer stopped writing when an optional border key is malformed"
 grep -q 'rgba(7aa2f7ff)' "$RENDER_HOME4/hypr/theme.lua" \
@@ -2528,7 +2539,7 @@ grep -q 'rgba(7aa2f7ff)' "$RENDER_HOME4/hypr/theme.lua" \
 # kitty reads the same colour hypr and hyprlock get.
 RENDER_HOME5="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE5="$(printf '%s' "$RENDER_PALETTE" | sed 's/"accent":"#7aa2f7"/"accent":"#abc"/')"
-XDG_CONFIG_HOME="$RENDER_HOME5" sh "$RENDER" "$RENDER_PALETTE5"
+HOME="$RENDER_HOME5" XDG_CONFIG_HOME="$RENDER_HOME5" sh "$RENDER" "$RENDER_PALETTE5"
 grep -q 'cursor *#aabbcc' "$RENDER_HOME5/kitty/theme.conf" \
     || fail "renderer did not expand a three-digit accent for kitty"
 grep -q 'rgba(aabbccff)' "$RENDER_HOME5/hypr/theme.lua" \
@@ -2553,7 +2564,7 @@ RENDER_PALETTE6="$(printf '%s' "$RENDER_PALETTE" | sed \
     -e 's/"red":"#f7768e"/"red":"#b14752"/' \
     -e 's/"yellow":"#e0af68"/"yellow":"#dc8164"/' \
     -e 's/"magenta":"#bb9af7"/"magenta":"#8a5b81"/')"
-XDG_CONFIG_HOME="$RENDER_HOME6" sh "$RENDER" "$RENDER_PALETTE6"
+HOME="$RENDER_HOME6" XDG_CONFIG_HOME="$RENDER_HOME6" sh "$RENDER" "$RENDER_PALETTE6"
 grep -q "selection_ink = '#000000'" "$RENDER_HOME6/starship.toml" \
     || fail "the pill ink is not the higher-contrast of black and white"
 grep -q "text_blue = '#000000'" "$RENDER_HOME6/starship.toml" \
@@ -2572,11 +2583,105 @@ RENDER_PALETTE7="$(printf '%s' "$RENDER_PALETTE" | sed \
     -e 's/"lighter_background":"#292e42"/"lighter_background":"#ffffff"/' \
     -e 's/"foreground":"#c0caf5"/"foreground":"#222222"/' \
     -e 's/"cyan":"#7dcfff"/"cyan":"#d0f0f0"/')"
-XDG_CONFIG_HOME="$RENDER_HOME7" sh "$RENDER" "$RENDER_PALETTE7"
+HOME="$RENDER_HOME7" XDG_CONFIG_HOME="$RENDER_HOME7" sh "$RENDER" "$RENDER_PALETTE7"
 grep -q 'cwd = { fg = "#000000" }' "$RENDER_HOME7/yazi/theme.toml" \
     || fail "yazi did not fall a low-contrast body hue back to the background ink"
 
-rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7"
+# The nine target keys. A one-argument invocation above already renders every
+# target (backward compatibility); the cases below cover the two-argument form.
+# A disabled target writes a valid unthemed layer: the two whole-config targets
+# (starship, hyprlock) render the built-in default palette so the prompt and the
+# hyprlock `$theme_*` variables stay defined, and every other destination writes
+# a comment-only no-op in its own syntax.
+RENDER_OFF="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+HOME="$RENDER_OFF" XDG_CONFIG_HOME="$RENDER_OFF" sh "$RENDER" "$RENDER_PALETTE" ""
+test "$(cat "$RENDER_OFF/hypr/theme.lua")" = "-- quickshell theme target disabled" \
+    || fail "an all-off render left hypr theme.lua themed or malformed"
+test "$(cat "$RENDER_OFF/kitty/theme.conf")" = "# quickshell theme target disabled" \
+    || fail "an all-off render left kitty theme.conf themed"
+test "$(cat "$RENDER_OFF/yazi/theme.toml")" = "# quickshell theme target disabled" \
+    || fail "an all-off render left yazi theme.toml themed"
+test "$(cat "$RENDER_OFF/btop/themes/theme.theme")" = "# quickshell theme target disabled" \
+    || fail "an all-off render left btop theme.theme themed"
+grep -q "accent = '#b4befe'" "$RENDER_OFF/starship.toml" \
+    || fail "disabled starship does not carry the default palette values"
+grep -q 'theme_accent = rgb(180, 190, 254)' "$RENDER_OFF/hypr/hyprlock/colors.conf" \
+    || fail "disabled hyprlock does not carry the default palette values"
+if grep -q 'quickshell theme target disabled' "$RENDER_OFF/starship.toml" "$RENDER_OFF/hypr/hyprlock/colors.conf"; then
+    fail "a whole-config target wrote a comment instead of the default palette"
+fi
+
+# A single target off: the rest keep palette values and only that destination
+# takes the disabled layer. btop is omitted from the CSV here.
+RENDER_OFF1="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+HOME="$RENDER_OFF1" XDG_CONFIG_HOME="$RENDER_OFF1" sh "$RENDER" "$RENDER_PALETTE" \
+    "hyprland,kitty,hyprlock,starship,yazi"
+grep -q 'background *#1a1b26' "$RENDER_OFF1/kitty/theme.conf" \
+    || fail "a single-target-off render dropped an enabled target"
+grep -q "accent = '#7aa2f7'" "$RENDER_OFF1/starship.toml" \
+    || fail "a single-target-off render dropped the palette from starship"
+grep -q '\$theme_accent = rgb(122, 162, 247)' "$RENDER_OFF1/hypr/hyprlock/colors.conf" \
+    || fail "a single-target-off render dropped the palette from hyprlock"
+test "$(cat "$RENDER_OFF1/btop/themes/theme.theme")" = "# quickshell theme target disabled" \
+    || fail "a single-target-off render did not write the disabled layer for the omitted target"
+
+# Target keys whose render case has not landed yet are accepted and have no
+# effect, so the future keys never fail a run.
+RENDER_FUTURE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+HOME="$RENDER_FUTURE" XDG_CONFIG_HOME="$RENDER_FUTURE" sh "$RENDER" "$RENDER_PALETTE" \
+    "firefox,vencord,spicetify" \
+    || fail "an unimplemented target key failed the run"
+test "$(cat "$RENDER_FUTURE/hypr/theme.lua")" = "-- quickshell theme target disabled" \
+    || fail "an unimplemented target key changed a real target's output"
+
+# A temp copy mirrors the repo layout ($TMP/scripts/render-theme.sh beside
+# $TMP/assets/templates/) because the script resolves its templates relative to
+# its own directory, so a broken template never edits the shipped files.
+RENDER_TMP="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-src-XXXXXX")"
+mkdir -p "$RENDER_TMP/scripts" "$RENDER_TMP/assets"
+cp "$RENDER" "$RENDER_TMP/scripts/render-theme.sh"
+cp -r "$ROOT/assets/templates" "$RENDER_TMP/assets/templates"
+
+# Isolation: a template with an unresolved token skips only its target, the
+# other targets still write, and the run exits non-zero with a line naming the
+# failed target.
+printf 'unresolved {{nope}} token\n' >> "$RENDER_TMP/assets/templates/yazi-theme.toml"
+RENDER_BAD="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+if HOME="$RENDER_BAD" XDG_CONFIG_HOME="$RENDER_BAD" sh "$RENDER_TMP/scripts/render-theme.sh" \
+    "$RENDER_PALETTE" >/dev/null 2>"$RENDER_TMP/isolation.log"; then
+    fail "a broken template did not fail the run"
+fi
+test -f "$RENDER_BAD/kitty/theme.conf" \
+    || fail "isolation: one broken target aborted the others"
+# btop renders after the broken yazi, so this proves a failure does not abort
+# the targets that follow it, not just the ones before.
+test -f "$RENDER_BAD/btop/themes/theme.theme" \
+    || fail "isolation: one broken target aborted a later target"
+test ! -f "$RENDER_BAD/yazi/theme.toml" \
+    || fail "isolation: the broken target still wrote its file"
+grep -q '^yazi:' "$RENDER_TMP/isolation.log" \
+    || fail "isolation: the failure line does not name the target"
+cp "$ROOT/assets/templates/yazi-theme.toml" "$RENDER_TMP/assets/templates/yazi-theme.toml"
+
+# The unresolved-token guard matches a {{name}} shape, so a literal `{{` renders
+# and is not stripped. The probe also covers the optional roles (orange/brown
+# fall back to yellow/red), the bare <role>_hex form, the background ink, and
+# the five-step text ramp, none of which the shipped templates consume yet.
+RENDER_BRACE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+{
+    printf -- '-- literal {{ braces\n'
+    printf -- '-- probe {{accent_hex}} {{orange_hex}} {{orange}} {{brown}} {{background_ink}} {{text_1}} {{text_2}} {{text_3}} {{text_4}} {{text_5}}\n'
+} >> "$RENDER_TMP/assets/templates/hypr-theme.lua"
+HOME="$RENDER_BRACE" XDG_CONFIG_HOME="$RENDER_BRACE" sh "$RENDER_TMP/scripts/render-theme.sh" \
+    "$RENDER_PALETTE" "hyprland" \
+    || fail "a literal brace pair failed the render"
+grep -qF -- '-- literal {{ braces' "$RENDER_BRACE/hypr/theme.lua" \
+    || fail "a literal brace pair was stripped or rejected"
+grep -qF -- '-- probe 7aa2f7 e0af68 #e0af68 #f7768e #ffffff #ffffff #d5d6db #c0caf5 #a9b1d6 #565f89' \
+    "$RENDER_BRACE/hypr/theme.lua" \
+    || fail "the optional, bare-hex, ink, or text-ramp tokens did not render"
+
+rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7" "$RENDER_OFF" "$RENDER_OFF1" "$RENDER_FUTURE" "$RENDER_BAD" "$RENDER_BRACE" "$RENDER_TMP" "$RENDER_STUB"
 
 # --- 18. dashboard Theme block: live palette, name, settings target ---
 # The block is the switcher's second home: a palette strip bound to the mapped

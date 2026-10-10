@@ -7,7 +7,7 @@
 #   ~/.config/yazi/theme.toml
 #   ~/.config/btop/themes/theme.theme
 #
-# Usage: render-theme.sh '<palette-json>'
+# Usage: render-theme.sh '<palette-json>' [<enabled-target-keys>]
 #
 # The palette JSON is the resolved role set parsed from the active theme
 # palette. This script substitutes those roles into the templates under
@@ -15,19 +15,27 @@
 # directory, and it writes a file only when the rendered bytes change. An empty
 # palette argument renders the built-in no-theme default below.
 #
+# The optional second argument is a comma-separated list of enabled target keys
+# (hyprland, kitty, hyprlock, starship, yazi, btop, firefox, vencord,
+# spicetify). An absent argument enables every target; an empty string enables
+# none. Each target renders in isolation, so one failure never aborts the rest,
+# and a disabled target writes a valid unthemed layer instead of a missing file.
+# The firefox, vencord, and spicetify keys are accepted but have no render case
+# until their tickets land.
+#
 # Output paths follow XDG_CONFIG_HOME, falling back to HOME/.config, so the
 # headless gate can redirect them. See docs/user/theme-desktop-setup.md for the
 # user-side include lines.
 set -eu
 
 palette=${1:-}
-# No palette means no active theme. The bar falls back to its hardcoded Colors
-# values, so the desktop files must fall back to the same look rather than keep
-# the previous theme (a medium finding in the merge review). This default
-# mirrors the pre-theme hexes in config/Colors.qml; the required roles that
-# Colors does not name are given coherent values.
-if [ -z "$palette" ]; then
-    palette='{"mode":"dark","accent":"#b4befe","selection":"#282936","muted":"#9d93ad","background":"#141118","dark_background":"#27222f","darker_background":"#0f0d13","lighter_background":"#282936","foreground":"#cac4d4","dark_foreground":"#4f455f","light_foreground":"#e8e3f0","bright_foreground":"#ffffff","red":"#ff5252","yellow":"#d7d370","green":"#a6d189","cyan":"#7dcfff","blue":"#82a1ff","magenta":"#a980db","bright_red":"#ff7a93","bright_yellow":"#e8c96a","bright_green":"#c0e8a0","bright_cyan":"#9bd4e8","bright_blue":"#a6c1ff","bright_magenta":"#c7a9ff"}'
+# ${2:-} collapses an absent second argument and an empty one to the same
+# string, so test the argument count: only a missing argument means all-on.
+# Pass the sentinel through verbatim; Python reads it before it splits the CSV.
+if [ "$#" -ge 2 ]; then
+    enabled_keys=$2
+else
+    enabled_keys=__ALL__
 fi
 
 # CDPATH= is cleared for cd; shellcheck 0.11 misreads it as SC1007.
@@ -40,19 +48,58 @@ if [ -z "$config_home" ]; then
     config_home=$HOME/.config
 fi
 
-exec python3 - "$palette" "$template_dir" "$config_home" <<'PY'
+exec python3 - "$palette" "$template_dir" "$config_home" "$enabled_keys" <<'PY'
 import json
 import os
+import re
 import sys
 
-palette_raw, template_dir, config_home = sys.argv[1:4]
+palette_raw, template_dir, config_home, enabled_raw = sys.argv[1:5]
 
-try:
-    palette = json.loads(palette_raw)
-except (TypeError, ValueError):
-    sys.exit(0)
-if not isinstance(palette, dict):
-    sys.exit(0)
+# No palette means no active theme. The bar falls back to its hardcoded Colors
+# values, so the desktop files must fall back to the same look rather than keep
+# the previous theme (a medium finding in the merge review). This default
+# mirrors the pre-theme hexes in config/Colors.qml; the required roles Colors
+# does not name are given coherent values. It is also the disabled layer for the
+# whole-config targets below, so this literal lives here alone.
+DEFAULT_PALETTE = {
+    "mode": "dark",
+    "accent": "#b4befe",
+    "selection": "#282936",
+    "muted": "#9d93ad",
+    "background": "#141118",
+    "dark_background": "#27222f",
+    "darker_background": "#0f0d13",
+    "lighter_background": "#282936",
+    "foreground": "#cac4d4",
+    "dark_foreground": "#4f455f",
+    "light_foreground": "#e8e3f0",
+    "bright_foreground": "#ffffff",
+    "red": "#ff5252",
+    "yellow": "#d7d370",
+    "green": "#a6d189",
+    "cyan": "#7dcfff",
+    "blue": "#82a1ff",
+    "magenta": "#a980db",
+    "orange": "#f0a868",
+    "brown": "#a97b5e",
+    "bright_red": "#ff7a93",
+    "bright_yellow": "#e8c96a",
+    "bright_green": "#c0e8a0",
+    "bright_cyan": "#9bd4e8",
+    "bright_blue": "#a6c1ff",
+    "bright_magenta": "#c7a9ff",
+}
+
+if palette_raw == "":
+    palette = DEFAULT_PALETTE
+else:
+    try:
+        palette = json.loads(palette_raw)
+    except (TypeError, ValueError):
+        sys.exit(0)
+    if not isinstance(palette, dict):
+        sys.exit(0)
 
 HEX_DIGITS = set("0123456789abcdefABCDEF")
 
@@ -63,6 +110,39 @@ REQUIRED = (
     "bright_red", "bright_yellow", "bright_green", "bright_cyan",
     "bright_blue", "bright_magenta", "bright_foreground",
 )
+
+# Every role a template may name. The optional ones a palette need not carry
+# fall back to a required role, so a Vencord `--bg-4` or a Spicetify `header`
+# resolves instead of failing the unresolved-token check. They stay out of
+# REQUIRED: a palette missing a required role is still a no-op.
+ROLES = REQUIRED + (
+    "darker_background", "dark_foreground", "light_foreground", "orange",
+    "brown",
+)
+OPTIONAL = {
+    "darker_background": "dark_background",
+    "dark_foreground": "muted",
+    "light_foreground": "foreground",
+    "orange": "yellow",
+    "brown": "red",
+}
+
+# The unresolved-token check matches a {{name}} shape, not any brace pair, so
+# CSS and Lua braces in a template render without failing (ADR 0018).
+UNRESOLVED = re.compile(r"\{\{[A-Za-z0-9_]+\}\}")
+
+PILL_TEXT_MIN = 3.0
+
+# Comment-only disabled layers, one per comment syntax. The whole-config
+# targets (starship, hyprlock) render their template from DEFAULT_PALETTE
+# instead, because a comment-only file would wipe the prompt or leave the
+# hyprlock `$theme_*` variables undefined.
+DISABLED_LUA = "-- quickshell theme target disabled\n"
+DISABLED_HASH = "# quickshell theme target disabled\n"
+
+
+class RenderError(Exception):
+    pass
 
 
 def channels(value):
@@ -94,26 +174,6 @@ def hypr_rgba(value, alpha=None):
     return parts[3][:6] + (alpha if alpha is not None else parts[3][6:8])
 
 
-for key in REQUIRED:
-    if channels(palette.get(key)) is None:
-        sys.exit(0)
-
-tokens = {key: "#" + channels(palette[key])[3][:6] for key in REQUIRED}
-active = palette.get("hyprland_active_border")
-tokens["active_hex"] = hypr_rgba(
-    active if channels(active) else palette["accent"])
-inactive = palette.get("hyprland_inactive_border")
-tokens["inactive_hex"] = hypr_rgba(
-    inactive if channels(inactive) else palette["accent"],
-    None if channels(inactive) else "aa")
-for key, suffix in (("background", "background_rgb"),
-                    ("foreground", "foreground_rgb"),
-                    ("accent", "accent_rgb"),
-                    ("muted", "muted_rgb"),
-                    ("red", "red_rgb")):
-    tokens[suffix] = rgb(palette[key])
-
-
 # starship paints each pill with `bg:selection` and a per-module hue for its
 # text. A hue only reads when it contrasts with the pill; when it does not (a
 # light theme whose selection and hues are all mid-tone) the text falls back to
@@ -142,37 +202,81 @@ def ink(value):
     return "#000000" if contrast("#000000", value) >= contrast("#ffffff", value) else "#ffffff"
 
 
-PILL_TEXT_MIN = 3.0
-selection = tokens["selection"]
-tokens["selection_ink"] = ink(selection)
-for key in ("accent", "red", "yellow", "magenta", "blue", "cyan"):
-    tokens["text_" + key] = tokens[key] if contrast(tokens[key], selection) >= PILL_TEXT_MIN else tokens["selection_ink"]
-# yazi paints chip text on a colored background and body text on the app
-# background. Each hue gets a black-or-white ink chosen against itself for the
-# chips, and a background-contrast variant for body text, so a light theme with
-# mid-tone hues stays readable.
-background_ink = ink(tokens["background"])
-for key in ("accent", "red", "yellow", "blue", "magenta", "cyan"):
-    tokens["on_" + key] = ink(tokens[key])
-    tokens["readable_" + key] = (
-        tokens[key] if contrast(tokens[key], tokens["background"]) >= PILL_TEXT_MIN
-        else background_ink)
+def build_tokens(palette):
+    tokens = {}
+    for role in ROLES:
+        value = palette.get(role)
+        if channels(value) is None and role in OPTIONAL:
+            value = palette.get(OPTIONAL[role])
+        if channels(value) is not None:
+            tokens[role] = "#" + channels(value)[3][:6]
+    # A bare six-digit form of every role for the INI target; {{role}} stays
+    # #rrggbb. Replace order is safe: `{{accent}}` never matches `{{accent_hex}}`.
+    for role in ROLES:
+        if role in tokens:
+            tokens[role + "_hex"] = tokens[role][1:]
+    active = palette.get("hyprland_active_border")
+    tokens["active_hex"] = hypr_rgba(
+        active if channels(active) else palette["accent"])
+    inactive = palette.get("hyprland_inactive_border")
+    tokens["inactive_hex"] = hypr_rgba(
+        inactive if channels(inactive) else palette["accent"],
+        None if channels(inactive) else "aa")
+    for key, suffix in (("background", "background_rgb"),
+                        ("foreground", "foreground_rgb"),
+                        ("accent", "accent_rgb"),
+                        ("muted", "muted_rgb"),
+                        ("red", "red_rgb")):
+        tokens[suffix] = rgb(tokens[key])
+    selection = tokens["selection"]
+    tokens["selection_ink"] = ink(selection)
+    for key in ("accent", "red", "yellow", "magenta", "blue", "cyan"):
+        tokens["text_" + key] = tokens[key] if contrast(tokens[key], selection) >= PILL_TEXT_MIN else tokens["selection_ink"]
+    # yazi paints chip text on a colored background and body text on the app
+    # background. Each hue gets a black-or-white ink chosen against itself for
+    # the chips, and a background-contrast variant for body text, so a light
+    # theme with mid-tone hues stays readable.
+    background_ink = ink(tokens["background"])
+    tokens["background_ink"] = background_ink
+    for key in ("accent", "red", "yellow", "blue", "magenta", "cyan"):
+        tokens["on_" + key] = ink(tokens[key])
+        tokens["readable_" + key] = (
+            tokens[key] if contrast(tokens[key], tokens["background"]) >= PILL_TEXT_MIN
+            else background_ink)
+    # A five-step text ramp for the Vencord template, which is pure
+    # substitution and cannot branch on mode: the palette's foreground roles
+    # ordered by contrast against the background, text_1 the highest contrast
+    # down to text_5 the lowest.
+    ramp = ("bright_foreground", "foreground", "light_foreground", "muted",
+            "dark_foreground")
+    ordered = sorted(
+        (tokens.get(role, tokens["foreground"]) for role in ramp),
+        key=lambda value: contrast(value, tokens["background"]),
+        reverse=True)
+    for index, value in enumerate(ordered, start=1):
+        tokens["text_%d" % index] = value
+    return tokens
 
-JOBS = (
-    ("hypr-theme.lua", os.path.join(config_home, "hypr", "theme.lua")),
-    ("kitty-theme.conf", os.path.join(config_home, "kitty", "theme.conf")),
-    ("hyprlock-colors.conf",
-     os.path.join(config_home, "hypr", "hyprlock", "colors.conf")),
-    ("starship-theme.toml", os.path.join(config_home, "starship.toml")),
-    ("yazi-theme.toml", os.path.join(config_home, "yazi", "theme.toml")),
-    ("btop-theme.theme",
-     os.path.join(config_home, "btop", "themes", "theme.theme")),
-)
+
+for key in REQUIRED:
+    if channels(palette.get(key)) is None:
+        sys.exit(0)
+
+tokens = build_tokens(palette)
+default_tokens = build_tokens(DEFAULT_PALETTE)
 
 
-def substitute(text):
-    for key, value in tokens.items():
+def substitute(text, source_tokens):
+    for key, value in source_tokens.items():
         text = text.replace("{{%s}}" % key, value)
+    return text
+
+
+def load(name, source_tokens):
+    with open(os.path.join(template_dir, name), encoding="utf-8") as handle:
+        text = substitute(handle.read(), source_tokens)
+    if UNRESOLVED.search(text):
+        raise RenderError("unresolved placeholder in %s" % name)
     return text
 
 
@@ -180,7 +284,7 @@ def write_if_changed(path, data):
     try:
         with open(path, "rb") as handle:
             if handle.read() == data:
-                return
+                return False
     except OSError:
         pass
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -188,16 +292,91 @@ def write_if_changed(path, data):
     with open(tmp, "wb") as handle:
         handle.write(data)
     os.replace(tmp, path)
+    return True
 
 
-rendered = []
-for name, dest in JOBS:
-    with open(os.path.join(template_dir, name), encoding="utf-8") as handle:
-        text = substitute(handle.read())
-    if "{{" in text:
-        sys.exit(1)
-    rendered.append((dest, text.encode("utf-8")))
+def emit(path, text):
+    return write_if_changed(path, text.encode("utf-8"))
 
-for dest, data in rendered:
-    write_if_changed(dest, data)
+
+def render_hyprland(enabled):
+    dest = os.path.join(config_home, "hypr", "theme.lua")
+    if not enabled:
+        return emit(dest, DISABLED_LUA)
+    return emit(dest, load("hypr-theme.lua", tokens))
+
+
+def render_kitty(enabled):
+    dest = os.path.join(config_home, "kitty", "theme.conf")
+    if not enabled:
+        return emit(dest, DISABLED_HASH)
+    return emit(dest, load("kitty-theme.conf", tokens))
+
+
+def render_hyprlock(enabled):
+    dest = os.path.join(config_home, "hypr", "hyprlock", "colors.conf")
+    return emit(dest, load(
+        "hyprlock-colors.conf", tokens if enabled else default_tokens))
+
+
+def render_starship(enabled):
+    dest = os.path.join(config_home, "starship.toml")
+    return emit(dest, load(
+        "starship-theme.toml", tokens if enabled else default_tokens))
+
+
+def render_yazi(enabled):
+    dest = os.path.join(config_home, "yazi", "theme.toml")
+    if not enabled:
+        return emit(dest, DISABLED_HASH)
+    return emit(dest, load("yazi-theme.toml", tokens))
+
+
+def render_btop(enabled):
+    dest = os.path.join(config_home, "btop", "themes", "theme.theme")
+    if not enabled:
+        return emit(dest, DISABLED_HASH)
+    return emit(dest, load("btop-theme.theme", tokens))
+
+
+# Render order. `firefox`, `vencord`, and `spicetify` are valid keys with no
+# render case yet, so they are simply accepted and have no effect.
+TARGETS = ("hyprland", "kitty", "hyprlock", "starship", "yazi", "btop",
+           "firefox", "vencord", "spicetify")
+RENDERERS = {
+    "hyprland": render_hyprland,
+    "kitty": render_kitty,
+    "hyprlock": render_hyprlock,
+    "starship": render_starship,
+    "yazi": render_yazi,
+    "btop": render_btop,
+}
+
+if enabled_raw == "__ALL__":
+    enabled_keys = set(TARGETS)
+else:
+    enabled_keys = set()
+    for entry in enabled_raw.split(","):
+        key = entry.strip()
+        if key in TARGETS:
+            enabled_keys.add(key)
+
+# Each renderer returns whether it wrote, so a target can decide whether a
+# change-dependent side effect is due; those side effects (e.g. a Spicetify
+# refresh, ticket 05) live inside the renderer, which alone knows whether the
+# bytes changed. Catch Exception, not a fixed tuple: a future target's
+# unexpected error (configparser, subprocess) must log one clean line and skip
+# rather than abort every later target.
+failed = False
+for key in TARGETS:
+    renderer = RENDERERS.get(key)
+    if renderer is None:
+        continue
+    try:
+        renderer(key in enabled_keys)
+    except Exception as exc:
+        sys.stderr.write("%s: %s\n" % (key, exc))
+        failed = True
+
+sys.exit(1 if failed else 0)
 PY
