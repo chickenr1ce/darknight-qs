@@ -215,10 +215,21 @@ Timer { id: idMediaTimer }
   no state (verified live 2026-10-06, Hyprland 0.56.2 with the quattro Lua
   config). Configure monitors through `hyprctl eval 'hl.monitor({ … })'`;
   ADR 0016.
-- **SNI theme icons arrive as `image://icon/` and draw `currentColor` black**:
-  Qt renders monochrome panel SVGs (e.g. Papirus `spotify-linux-32`,
-  `steam_tray_mono`) as black on the dark bar, so tint theme sources to text
-  and pass pixmaps through untinted (verified live 2026-09-13).
+- **SNI theme icons are tint-worthy only when their name resolves in the Qt
+  icon theme**: monochrome panel SVGs (e.g. Papirus `steam_tray_mono`) render in
+  the icon theme's own color, not the panel text, so tint them (verified live
+  2026-09-13). Tint an `image://icon/<name>` source only when
+  `Quickshell.iconPath(<name>, true)` finds the name, and pass pixmaps
+  (`image://qspixmap/…`) and theme misses through untinted (verified live
+  2026-10-10). An item with `IconThemePath` ships
+  `image://icon/<name>?path=<dir>`; the provider serves the theme's icon when
+  the name resolves and otherwise the app's own file (Spotify's
+  `spotify-linux-32` misses under hicolor and loads
+  `/usr/share/spotify/icons/spotify-linux-32.png`), so keying on the URL shape
+  instead collapses a full-color brand icon to a flat silhouette (verified live
+  2026-10-10). A resolving name is assumed mono by panel-icon convention; a
+  full-color asset under a tinted name would still collapse, but no tray name
+  does that today.
 - **No comments unless absolutely necessary** (verdict 2026-09-16,
   supersedes the why-only rule above): the code states the what, `docs/`
   keeps the why. Keepers are machine directives (`// qmllint disable ...`,

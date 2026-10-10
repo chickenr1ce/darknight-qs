@@ -40,9 +40,10 @@ ModuleBox {
             readonly property bool isHovered: idTrayItemMouseArea.containsMouse
             readonly property bool isPressed: idTrayItemMouseArea.pressed
 
-            // Panel theme icons draw currentColor as black, so tint them; pixmaps stay full-color.
+            // Tint theme glyphs; pixmaps and app-file fallbacks keep their own colors.
             readonly property string iconSource: String(idTrayItem.modelData.icon)
-            readonly property bool isThemedIcon: idTrayItem.iconSource.startsWith("image://icon/")
+            readonly property string themeIconName: idTrayItem.iconSource.startsWith("image://icon/") ? idTrayItem.iconSource.slice("image://icon/".length).split("?")[0] : ""
+            readonly property bool isThemedIcon: idTrayItem.themeIconName !== "" && Quickshell.iconPath(idTrayItem.themeIconName, true) !== ""
 
             implicitWidth: 22
             implicitHeight: 20
