@@ -81,6 +81,13 @@ quickshell
 
 `quickshell -p <dir>` works from any clone path; the link is only a shortcut.
 
+`install.sh` also runs `scripts/wire-themed-apps.sh --check`, which reports what
+the themed apps (Hyprland, kitty, hyprlock, btop, Firefox, Vencord, Spicetify)
+still need wired, and offers to apply it: `--wire-apps` applies without asking,
+`--no-wire-apps` reports only, and the default asks on a terminal. Applying
+backs each edited file up first; see
+[Theme desktop setup](docs/user/theme-desktop-setup.md).
+
 Add autostart to your own Hyprland config. The installer prints this line and
 never edits your config:
 

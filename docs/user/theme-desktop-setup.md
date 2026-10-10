@@ -31,6 +31,44 @@ renderer through a `Process`, so the UI thread never blocks.
 
 ## One-time wiring
 
+### Automatic
+
+`scripts/wire-themed-apps.sh` reports or applies every step below. Its targets
+are `hyprland`, `kitty`, `hyprlock`, `btop`, `firefox`, `vencord`, and
+`spicetify`; naming one or more limits the run to those, and no arguments means
+all of them. `--check` is the default and changes nothing; `--apply` performs
+the wiring.
+
+```
+scripts/wire-themed-apps.sh --check            # report
+scripts/wire-themed-apps.sh --apply kitty btop # wire two targets
+```
+
+Before its first edit of a file the script copies it to
+`<file>.bak-quickshell-<timestamp>` next to the real file, so a rerun changes no
+bytes and makes no new backup (a stamp that already exists gains a numeric
+suffix rather than being overwritten). A config the user manages with symlinks
+stays a symlink: the script edits the file the link points at, not the link. It
+refuses to write btop's or Discord's config while that app is running, because
+each rewrites its file on exit; close the app and rerun.
+
+The Hyprland check follows symlinked module files and skips a `require("theme")`
+inside a Lua comment, so a commented-out line still reports `todo`.
+
+`scripts/install.sh` runs `--check` after seeding and, when something is
+`todo`, offers to apply it. `--wire-apps` applies without asking,
+`--no-wire-apps` reports only, and the default asks on a terminal and prints a
+note otherwise. A failed apply is reported as a warning; the install itself
+still succeeds.
+
+Two steps stay manual. hyprlock widget colors must reference the `$theme_*`
+names by hand, since the script only adds the `source` line. Firefox and
+Discord must be restarted once for their changes to load (Spicetify restarts
+Spotify as part of `--apply`).
+
+The per-app sections below are the reference for what the script does and for
+wiring by hand.
+
 Some files outside this repo must be pointed at the rendered output once. The
 renderer does not touch them. Starship and yazi have no include directive, so
 the renderer owns `~/.config/starship.toml` and `~/.config/yazi/theme.toml`
@@ -41,11 +79,14 @@ one-time selection in the app.
 
 ### Hyprland borders
 
-Add `require("theme")` at the **end** of `~/.config/hypr/modules/looks.lua`. It
-must come after the file's own `hl.config({ general = ... })` so the rendered
-border colors win:
+Add `require("theme")` at the **end** of whichever of your Hyprland config files
+runs last. That is usually the entry file `~/.config/hypr/hyprland.lua`: its
+last statement runs after every module it requires, so the rendered border
+colors win whatever layout you use. It must come after your own
+`hl.config({ general = ... })`:
 
 ```lua
+-- quickshell: rendered border colors; keep this the last line
 require("theme")
 ```
 
@@ -65,6 +106,11 @@ include theme.conf
 The `# BEGIN_KITTY_THEME` / `# END_KITTY_THEME` markers can stay; only the
 included file changes.
 
+`scripts/wire-themed-apps.sh` does exactly this: it replaces everything between
+the two markers with `include theme.conf`, appends the line when there are no
+markers, and leaves a file with only one of the two markers alone (reporting it
+as an unmatched marker to fix by hand).
+
 ### btop
 
 Select the rendered theme in btop's own options menu: press `Esc`, move to
@@ -75,11 +121,13 @@ every palette load; the selected name does not change. btop re-scans its themes
 directory whenever the options menu opens, so a file that appeared after btop
 started is still listed, and `Ctrl+R` reloads it.
 
-Pick it from the menu rather than hand-editing `color_theme`. btop lists user
-themes by their absolute path, so a hand-written `color_theme = "theme"` loads
-but the menu cannot match it: the counter is off by one (`<n>/<n-1>`) and the
-arrow keys start from the wrong place. Selecting it in the menu stores the path
-and the counter reads correctly.
+Pick it from the menu rather than hand-editing `color_theme`, or let
+`scripts/wire-themed-apps.sh` write the entry. The menu stores the theme's
+absolute path, and the script writes
+`color_theme = "<config home>/btop/themes/theme.theme"` — the same absolute path
+— so either one matches. A hand-written `color_theme = "theme"` loads but the
+menu cannot match it: the counter is off by one (`<n>/<n-1>`) and the arrow keys
+start from the wrong place.
 
 `scripts/install.sh` seeds a default `theme.theme` when the file is absent, so
 btop lists `theme` even before the shell has rendered a palette; the renderer

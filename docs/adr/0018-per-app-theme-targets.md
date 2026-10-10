@@ -234,3 +234,17 @@ braces, so CSS braces in a template do not trip it.
   selector, so the user-origin `!important` values win. The
   `--inactive-titlebar-opacity` fade (`browser-shared.css:325`) stays, as a
   deliberate dim rather than a recolor.
+- 2026-10-10 (user-run wiring command): the two rejected alternatives above —
+  injecting the Firefox `@import` and enabling the Vencord theme in
+  `settings.json` — stay rejected *for the renderer*, which writes on every
+  palette load with no user in the loop. A separate, explicit
+  `scripts/wire-themed-apps.sh` is a different trade-off, so the same edits are
+  offered there. It runs only when invoked: `--check` reports and changes
+  nothing, `--apply` performs the wiring after copying each file to a
+  timestamped `.bak-quickshell-<stamp>` beside it, and it refuses to write
+  Discord's or btop's config while that app runs, because each rewrites its file
+  on exit. Consent is therefore per run and a running app cannot clobber the
+  wired line. `scripts/install.sh` runs `--check` after seeding and offers
+  `--apply` behind a prompt, with `--wire-apps`/`--no-wire-apps` to force or
+  suppress it. The renderer is unchanged: it never injects an `@import` into a
+  user sheet and never writes `settings.json`.
