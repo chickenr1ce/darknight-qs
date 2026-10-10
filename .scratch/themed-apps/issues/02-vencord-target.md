@@ -106,3 +106,14 @@ order left system24's own `:root` base variables overriding ours. The template's
 block now selects `:root:root` (0,2,0), outranking system24's plain `:root`
 (0,1,0) whatever the load order, so ordering no longer matters. `!important`
 stays forbidden. See docs/adr/0018-per-app-theme-targets.md.
+
+**2026-10-10 status-color amendment:** criteria 2 and 4's five hue scales become
+three. `--red-1..5`, `--green-1..5`, and `--yellow-1..5` are removed from the
+template entirely, so system24's own defaults apply. system24 derives its status
+dots from them (`--online: var(--green-2)`, `--dnd: var(--red-2)`,
+`--idle: var(--yellow-2)`), so mapping the scales from a monochrome or muted
+palette repainted the online/dnd/idle dots gray or olive. Status colors stay
+Discord/system24-standard, as the user chose on 2026-10-10. The `--blue-1..5`
+and accent-driven `--purple-1..5` scales are unchanged (criterion 3 still
+holds). Section 17 of `scripts/test-panel-logic.sh` now asserts the rendered
+file sets none of the three removed scales.

@@ -7,8 +7,10 @@
  * other rule. This themes the browser chrome only; the about: pages are themed
  * by the separate shell-content.css, and web content is untouched. Firefox's
  * chrome variables are internal and have been renamed across releases (verified
- * against Firefox 157), so this sheet may need upkeep after an update. See
- * docs/user/theme-desktop-setup.md.
+ * against Firefox 157), so this sheet may need upkeep after an update. Besides
+ * the surface/text tokens, it also pins the icon fills and the Nova toolbox
+ * gradient, so the toolbar glyphs match the toolbar text instead of keeping
+ * Firefox's violet ramp. See docs/user/theme-desktop-setup.md.
  */
 
 :root {
@@ -91,6 +93,40 @@ panel {
 menupopup {
     --panel-background-color: var(--shell-dark-background) !important;
     --panel-text-color: var(--shell-foreground) !important;
+}
+
+/* Firefox 157's Nova chrome (browser.nova.enabled, on by default) tints the
+ * chrome violet through @layer tokens-*-nova rules: the toolbar glyphs take
+ * --toolbarbutton-icon-fill from a violet ramp (tokens-shared.css:1025,
+ * tokens-platform.css:293), the button pill hovers mix violet
+ * (tokens-shared.css:1023-1024), and the toolbox paints a violet-to-orange
+ * gradient (stops at tokens-shared.css:1034-1035, consumed at 1038-1042 and
+ * tokens-platform.css:300-304). Our
+ * sheet set none of them, so the icons, the hover pill and the toolbar
+ * background kept Nova's violet/orange instead of the palette. Pin them: the
+ * glyph fills to the foreground, the hover/active pill toward the foreground
+ * at Firefox's own non-Nova strengths (tokens-shared.css:525-526, the same
+ * pair tokens-platform.css:227-228 uses), and the toolbox background plus both
+ * gradient stops to the palette background so the gradient flattens to it.
+ * --toolbarbutton-icon-fill-attention stays on the accent in the block below.
+ *
+ * These are :root user-origin !important values, which beat the @layer
+ * author-origin tokens-*-nova values whatever their importance. A declaration
+ * on a specific element would still beat the inherited :root value (as with
+ * menupopup above), but the chrome consumers only read these (the toolbar's
+ * `.toolbarbutton-1` fill in toolbarbutton-icons.css:7-10, the sidebar divider
+ * in sidebar.css:318, the sidebar's own buttons in sidebar-main.css:108) and
+ * the only relevant element-level redeclarations are deliberate (popups in
+ * popup.css:10/40, and the remote-control and panel-banner icons). */
+:root {
+    --toolbarbutton-icon-fill: var(--shell-foreground) !important;
+    --icon-color: var(--shell-foreground) !important;
+    --button-icon-fill: var(--shell-foreground) !important;
+    --toolbarbutton-background-color-hover: color-mix(in srgb, var(--shell-foreground) 17%, transparent) !important;
+    --toolbarbutton-background-color-active: color-mix(in srgb, var(--shell-foreground) 30%, transparent) !important;
+    --toolbox-background-color: var(--shell-background) !important;
+    --toolbox-background-color-gradient-leading: var(--shell-background) !important;
+    --toolbox-background-color-gradient-trailing: var(--shell-background) !important;
 }
 
 /* Accent. Firefox routes every attention color through this token family, but

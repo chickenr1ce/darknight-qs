@@ -2860,11 +2860,19 @@ mkdir -p "$RENDER_VENCORD_LIGHT/Vencord"
 HOME="$RENDER_VENCORD_LIGHT" XDG_CONFIG_HOME="$RENDER_VENCORD_LIGHT" sh "$RENDER" "$RENDER_PALETTE7"
 VENCORD_LIGHT="$RENDER_VENCORD_LIGHT/Vencord/themes/quickshell.theme.css"
 
+# Discord's status colors stay standard: the theme sets none of the red, green
+# or yellow scales, so system24's own --online/--dnd/--idle derivation survives.
+if grep -qE '^[[:space:]]*--(red|green|yellow)-[1-5][[:space:]]*:' \
+    "$VENCORD_FILE" "$VENCORD_LIGHT"; then
+    fail "the Vencord theme sets a red, green or yellow scale; status colors must stay system24's"
+fi
+
 # Resolve the rendered CSS the way a browser would: the :root:root
 # custom-property set must be exactly the base variables of the ticket (no
 # derived variable survives), the four background surfaces must stay distinct,
-# every hue ladder must keep five distinct stops, and the text ramp must stay
-# ordered and contrast against the background.
+# the blue and purple hue ladders must keep five distinct stops, the red, green
+# and yellow status scales must stay unset, and the text ramp must stay ordered
+# and contrast against the background.
 python3 - "$VENCORD_FILE" "$VENCORD_LIGHT" <<'PYEOF'
 import re
 import sys
@@ -2878,7 +2886,7 @@ for i in range(1, 5):
     EXPECTED.add("--bg-%d" % i)
 for i in range(0, 6):
     EXPECTED.add("--text-%d" % i)
-for hue in ("red", "green", "blue", "yellow", "purple"):
+for hue in ("blue", "purple"):
     for i in range(1, 6):
         EXPECTED.add("--%s-%d" % (hue, i))
 
@@ -2939,6 +2947,13 @@ for path, light in ((sys.argv[1], False), (sys.argv[2], True)):
     for name in props:
         if FORBIDDEN.match(name):
             fail("%s sets the derived variable %s" % (path, name))
+    # system24 derives its status dots from these scales (--online:
+    # var(--green-2), --dnd: var(--red-2), --idle: var(--yellow-2)), so the
+    # theme leaves them unset and Discord's standard status colors apply.
+    for name in props:
+        if name.startswith(("--red-", "--green-", "--yellow-")):
+            fail("%s sets %s; the status scales must stay system24's" % (
+                path, name))
     if props["--colors"].lower() != "on":
         fail("%s does not set --colors: on" % path)
     bgs = [resolve(props["--bg-%d" % i]) for i in range(1, 5)]
@@ -2946,7 +2961,7 @@ for path, light in ((sys.argv[1], False), (sys.argv[2], True)):
         fail("%s background ladder collapsed: %s" % (path, bgs))
     if bgs[0] == bgs[3]:
         fail("%s --bg-1 equals --bg-4" % path)
-    for hue in ("red", "green", "blue", "yellow", "purple"):
+    for hue in ("blue", "purple"):
         stops = [resolve(props["--%s-%d" % (hue, i)]) for i in range(1, 6)]
         if len(set(stops)) != 5:
             fail("%s %s ladder collapsed: %s" % (path, hue, stops))
@@ -3028,6 +3043,25 @@ grep -q '^// END quickshell$' "$FF_USER_TPL" \
 for var in toolbar-background-color toolbar-text-color tab-background-color-selected tab-text-color-selected urlbar-box-background-color urlbar-box-background-color-focus urlbar-box-text-color toolbar-field-background-color toolbar-field-background-color-focus toolbar-field-text-color toolbar-field-text-color-focus panel-background-color panel-border-color sidebar-background-color sidebar-text-color sidebar-border-color lwt-accent-color lwt-text-color; do
     grep -q -- "--$var: var(--shell-" "$FF_TPL" \
         || fail "the Firefox template does not map --$var onto a shell variable"
+done
+# Firefox 157's Nova chrome tints the toolbar glyphs, the button hover pill and
+# the toolbox background violet through @layer tokens-*-nova; the sheet set
+# none of them, so the icons and hover kept Nova's ramp. It must pin the glyph
+# fills to the palette foreground, mix the hover/active pill toward it, and
+# flatten the toolbox background and both gradient stops to the palette
+# background. Names verified in chrome/omni.ja's design-system
+# tokens-shared.css (:1018-1042) and tokens-platform.css (:227-304).
+for var in toolbarbutton-icon-fill icon-color button-icon-fill; do
+    grep -q -- "--$var: var(--shell-foreground)" "$FF_TPL" \
+        || fail "the Firefox template does not take --$var from the palette foreground"
+done
+for var in toolbarbutton-background-color-hover toolbarbutton-background-color-active; do
+    grep -q -- "--$var: color-mix(in srgb, var(--shell-foreground)" "$FF_TPL" \
+        || fail "the Firefox template does not mix --$var off the palette foreground"
+done
+for var in toolbox-background-color toolbox-background-color-gradient-leading toolbox-background-color-gradient-trailing; do
+    grep -q -- "--$var: var(--shell-background)" "$FF_TPL" \
+        || fail "the Firefox template does not flatten --$var to the palette background"
 done
 # The accent family: each Attention color reads --shell-accent, and the primary
 # button text takes the on-accent ink. The hover/active variants are color-mix
@@ -3168,6 +3202,15 @@ grep -q -- '--shell-background: #1a1b26' "$FF_CSS" \
     || fail "the Firefox sheet does not carry the palette background"
 grep -q -- '--toolbar-background-color: var(--shell-background)' "$FF_CSS" \
     || fail "the Firefox sheet does not map the palette onto the toolbar"
+# The Nova icon and toolbox tints are flattened to the palette too: the glyph
+# fills come from the foreground and the toolbox background and gradient stops
+# from the palette background.
+grep -q -- '--toolbarbutton-icon-fill: var(--shell-foreground)' "$FF_CSS" \
+    || fail "the Firefox sheet does not tint the toolbar glyphs from the palette"
+grep -q -- '--toolbox-background-color: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not flatten the toolbox background"
+grep -q -- '--toolbox-background-color-gradient-leading: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not flatten the Nova toolbox gradient"
 # The accent resolves to the palette accent: --shell-accent is the fixture
 # accent and every accent token reads it (directly or through color-mix), and
 # the on-accent ink is the black-or-white ink chosen against that accent.

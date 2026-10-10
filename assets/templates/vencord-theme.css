@@ -38,30 +38,19 @@
     /* Hue ladders, lightest to base. system24 derives its accent, links and
      * hover borders from --purple-*, so the purple scale maps from the shell
      * accent. magenta and cyan have no scale here: system24 takes neither as a
-     * base variable, so they are intentionally unused. */
-    --red-1: {{bright_red}};
-    --red-2: color-mix(in srgb, {{bright_red}} 75%, {{red}});
-    --red-3: color-mix(in srgb, {{bright_red}} 50%, {{red}});
-    --red-4: color-mix(in srgb, {{bright_red}} 25%, {{red}});
-    --red-5: {{red}};
-
-    --green-1: {{bright_green}};
-    --green-2: color-mix(in srgb, {{bright_green}} 75%, {{green}});
-    --green-3: color-mix(in srgb, {{bright_green}} 50%, {{green}});
-    --green-4: color-mix(in srgb, {{bright_green}} 25%, {{green}});
-    --green-5: {{green}};
-
+     * base variable, so they are intentionally unused.
+     *
+     * red, green and yellow are deliberately absent. system24 derives its
+     * status dots from them (--online: var(--green-2), --dnd: var(--red-2),
+     * --idle: var(--yellow-2)), so mapping the scales from the palette
+     * repainted the online/dnd/idle dots and a monochrome or muted palette
+     * washed them out. Leaving the scales unset keeps Discord's standard status
+     * colors (user decision, 2026-10-10). */
     --blue-1: {{bright_blue}};
     --blue-2: color-mix(in srgb, {{bright_blue}} 75%, {{blue}});
     --blue-3: color-mix(in srgb, {{bright_blue}} 50%, {{blue}});
     --blue-4: color-mix(in srgb, {{bright_blue}} 25%, {{blue}});
     --blue-5: {{blue}};
-
-    --yellow-1: {{bright_yellow}};
-    --yellow-2: color-mix(in srgb, {{bright_yellow}} 75%, {{yellow}});
-    --yellow-3: color-mix(in srgb, {{bright_yellow}} 50%, {{yellow}});
-    --yellow-4: color-mix(in srgb, {{bright_yellow}} 25%, {{yellow}});
-    --yellow-5: {{yellow}};
 
     --purple-1: color-mix(in srgb, {{accent}} 55%, {{bright_foreground}});
     --purple-2: color-mix(in srgb, {{accent}} 70%, {{bright_foreground}});

@@ -200,3 +200,22 @@ braces, so CSS braces in a template do not trip it.
   element, which outranks the inherited `:root` value). The web-content context
   menu therefore follows the palette rather than the page's preferred scheme,
   on purpose: its colors are palette-pinned, so its scheme must match them.
+- 2026-10-10 (Vencord status colors): the generated Vencord theme no longer sets
+  the `--red-1..5`, `--green-1..5`, and `--yellow-1..5` scales. system24 derives
+  its presence dots from them (`--online: var(--green-2)`,
+  `--dnd: var(--red-2)`, `--idle: var(--yellow-2)`), so recoloring the scales
+  turned the online/dnd/idle dots gray or olive on monochrome or muted palettes.
+  Leaving those three scales unset keeps Discord's standard status colors, which
+  the user chose on 2026-10-10. The `--bg-*`, `--text-*`, `--blue-*`, and
+  accent-driven `--purple-*` scales are unchanged, and `--colors: on` stays.
+  Danger, warning, and success surfaces that share the red, green, and yellow
+  scales use
+  system24's defaults as well.
+- 2026-10-10 (Firefox Nova icon and toolbox tints): Firefox 157's Nova chrome
+  (on by default) tints the toolbar glyphs, the button hover pill, and the
+  toolbox background violet/orange through `@layer tokens-*-nova`, so the
+  chrome sheet now pins `--toolbarbutton-icon-fill`, `--icon-color`, and
+  `--button-icon-fill` to the palette foreground, mixes
+  `--toolbarbutton-background-color-hover`/`-active` toward it at Firefox's own
+  non-Nova strengths, and flattens `--toolbox-background-color` and both
+  `--toolbox-background-color-gradient-*` stops to the palette background.

@@ -150,3 +150,10 @@ three gaps, now closed. Firefox contributes three files, not two.
   text), so the chrome sheet now pins `color-scheme` on `:root`, `menupopup`,
   and `panel` plus `--toolbar-color-scheme` and `--panel-text-color` on `:root`
   (and the panel pair on menupopups), all from the palette `mode`.
+- 2026-10-10 (Nova icon tints): Firefox 157's Nova chrome tints the toolbar
+  glyphs, the button hover pill, and the toolbox background violet/orange via
+  `@layer tokens-*-nova`, so the chrome sheet now takes `--toolbarbutton-icon-fill`,
+  `--icon-color`, and `--button-icon-fill` from the palette foreground, mixes
+  `--toolbarbutton-background-color-hover`/`-active` toward it, and flattens
+  `--toolbox-background-color` and both `--toolbox-background-color-gradient-*`
+  stops to the palette background.

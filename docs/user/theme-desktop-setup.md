@@ -243,8 +243,12 @@ Discord is recolored through the installed `system24` theme. The renderer writes
 `~/.config/Vencord/themes/quickshell.theme.css`, which overrides `system24`'s
 own namespace variables and leaves its layout and its derived colors
 alone. `--text-0` is the one deliberate override: it carries the on-accent ink,
-so icons and badges are not painted with the background. Enable the theme once
-in Vencord.
+so icons and badges are not painted with the background. Status colors stay
+Discord-standard: the theme leaves system24's `--red-*`, `--green-*`, and
+`--yellow-*` scales unset, so the online, dnd, and idle dots keep Discord's own
+colors. Danger, warning, and success surfaces that share those scales
+(danger buttons, input errors, notices) use system24's defaults too. Enable the
+theme once in Vencord.
 
 The override block uses the `:root:root` selector, which outranks `system24`'s
 plain `:root` on specificity, so the shell palette wins whatever order Vencord
