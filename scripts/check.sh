@@ -41,6 +41,7 @@ run "app launcher" ./scripts/test-app-launcher.sh
 run "qs-theme" ./scripts/test-qs-theme.sh
 run "seed-themes" ./scripts/test-seed-themes.sh
 run "seed-btop-theme" ./scripts/test-seed-btop-theme.sh
+run "wire-themed-apps" ./scripts/test-wire-themed-apps.sh
 run "dashboard data" ./scripts/test-dashboard-data.sh
 run "spotify connect" ./scripts/test-spotify-connect.sh
 run "calendar clock" ./scripts/test-calendar-clock.sh

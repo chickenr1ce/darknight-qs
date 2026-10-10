@@ -268,6 +268,15 @@ ColumnLayout {
                             filter: root.bodyFilter
                         }
 
+                        ThemedAppsSettingsView {
+                            id: idThemedAppsSection
+
+                            Layout.fillWidth: true
+
+                            visible: root.hasSection && root.currentSection.key === "themed-apps"
+                            filter: root.bodyFilter
+                        }
+
                         DashboardSettingsView {
                             id: idDashboardSection
 

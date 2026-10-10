@@ -1,0 +1,195 @@
+/* Rendered by scripts/render-theme.sh from the active theme palette.
+ * Do not edit: the next palette load overwrites this file.
+ *
+ * Import this once from the profile's userChrome.css as its FIRST line:
+ *     @import url("shell-palette.css");
+ * An @import after any other rule is ignored, so it must come before every
+ * other rule. This themes the browser chrome only; the about: pages are themed
+ * by the separate shell-content.css, and web content is untouched. Firefox's
+ * chrome variables are internal and have been renamed across releases (verified
+ * against Firefox 157), so this sheet may need upkeep after an update. Besides
+ * the surface/text tokens, it also pins the icon fills and the Nova toolbox
+ * gradient, so the toolbar glyphs match the toolbar text instead of keeping
+ * Firefox's violet ramp, and pins the inactive-toolbox tokens so an unfocused
+ * window keeps the palette instead of flashing system colors. See
+ * docs/user/theme-desktop-setup.md.
+ */
+
+:root {
+    --shell-background: {{background}};
+    --shell-dark-background: {{dark_background}};
+    --shell-darker-background: {{darker_background}};
+    --shell-lighter-background: {{lighter_background}};
+    --shell-foreground: {{foreground}};
+    --shell-light-foreground: {{light_foreground}};
+    --shell-muted: {{muted}};
+    --shell-selection: {{selection}};
+    --shell-accent: {{accent}};
+    --shell-on-accent: {{on_accent}};
+    --shell-bright-foreground: {{bright_foreground}};
+}
+
+/* Firefox's chrome resolves most of its tokens through light-dark(), and both
+ * the browser root (browser-shared.css:60) and every popup (popup.css:35)
+ * declare `color-scheme: light dark`, so they follow the system scheme. A light
+ * palette on a dark system then takes the dark branch of every light-dark():
+ * --panel-text-color resolves to near-white (tokens-shared.css:457) while
+ * --panel-background-color is already ours, which is what makes the hamburger
+ * panel unreadable. Pin the palette's own scheme, from the same
+ * {{page_scheme}} token the content sheet uses.
+ *
+ * menupopup/panel too, not just :root: their own `color-scheme: light dark` is
+ * a declaration on the element, so it outranks the inherited :root value, and
+ * a submenu carries its parent's scheme through `color-scheme: inherit`
+ * (popup.css:103). !important is required because the built-in sheets are
+ * author-origin and would otherwise win over this user-origin sheet. */
+:root,
+menupopup,
+panel {
+    color-scheme: {{page_scheme}} !important;
+}
+
+/* Map the palette onto Firefox's own chrome variables. These are set on
+ * :root so the chrome reads them everywhere; !important keeps a built-in
+ * theme rule of equal specificity from winning back over the palette. */
+:root {
+    --toolbar-background-color: var(--shell-background) !important;
+    --toolbar-text-color: var(--shell-foreground) !important;
+    /* The find bar and the customize view derive their own color-scheme from
+     * --toolbar-color-scheme (browser-shared.css:704, customizeMode.css:34), and
+     * the selected tab's comes from it through --tab-selected-color-scheme
+     * (tabs.css:63). It defaults to `light dark` (global-shared.css:47), which
+     * follows the system scheme, so pin it to the palette. */
+    --toolbar-color-scheme: {{page_scheme}} !important;
+    --tab-background-color-selected: var(--shell-lighter-background) !important;
+    --tab-text-color-selected: var(--shell-bright-foreground) !important;
+    --urlbar-box-background-color: var(--shell-selection) !important;
+    --urlbar-box-background-color-focus: var(--shell-lighter-background) !important;
+    --urlbar-box-text-color: var(--shell-foreground) !important;
+    --toolbar-field-background-color: var(--shell-dark-background) !important;
+    --toolbar-field-background-color-focus: var(--shell-lighter-background) !important;
+    --toolbar-field-text-color: var(--shell-foreground) !important;
+    --toolbar-field-text-color-focus: var(--shell-foreground) !important;
+    --panel-background-color: var(--shell-dark-background) !important;
+    --panel-border-color: var(--shell-selection) !important;
+    /* The panel text token is a light-dark() default (tokens-shared.css:457)
+     * that follows the system scheme; the backdrop is ours, so take the text
+     * from the palette. The arrow panels (the hamburger, the urlbar results)
+     * read this inherited value, so setting it here is enough for them. */
+    --panel-text-color: var(--shell-foreground) !important;
+    --sidebar-background-color: var(--shell-background) !important;
+    --sidebar-text-color: var(--shell-foreground) !important;
+    --sidebar-border-color: var(--shell-selection) !important;
+    --lwt-accent-color: var(--shell-background) !important;
+    --lwt-text-color: var(--shell-foreground) !important;
+}
+
+/* Firefox repaints the toolbox and the tabs when the window loses focus.
+ * `body:-moz-window-inactive` and the tab rules read
+ * --toolbox-background-color-inactive / --toolbox-text-color-inactive
+ * (browser-shared.css:255-259; tabs.css:713-723, :806-815, :886-893,
+ * :2967-2969; browser.css:247-249 on the Breeze GTK family), and the lwtheme
+ * findbar reads --lwt-accent-color-inactive (browser-shared.css:722-723). On
+ * Linux Firefox feeds the inactive pair from the native
+ * -moz-headerbarinactive / -moz-headerbarinactivetext (browser-colors.css:24-25,
+ * tokens-platform.css:98-100, :160-163) or InactiveCaption
+ * (browser-colors.css:30-31), and Nova sets the background to transparent
+ * (tokens-shared.css:1036, tokens-platform.css:298). None of those is the
+ * palette, which is why an unfocused window switched to system colors. Every
+ * redeclaration of these tokens is on a :root-family selector, so these
+ * user-origin !important values win. --toolbox-text-color is pinned too,
+ * because the body and the tab rows read it in the focused window.
+ * --inactive-titlebar-opacity (browser-shared.css:325) is left alone: it is a
+ * deliberate fade of the titlebar, not a recolor. */
+:root {
+    --toolbox-text-color: var(--shell-foreground) !important;
+    --toolbox-background-color-inactive: var(--shell-background) !important;
+    --toolbox-text-color-inactive: var(--shell-foreground) !important;
+    --lwt-accent-color-inactive: var(--shell-background) !important;
+}
+
+/* A plain menupopup sets --panel-background-color/--panel-text-color on itself
+ * (popup.css:15-16, to the system Menu/MenuText), and a declaration on the
+ * element beats the inherited :root value whatever its origin, so pin the
+ * palette pair there too and let the context menus match the panels. The
+ * web-content context menu follows the palette too, not the page's preferred
+ * scheme. Only menupopup: the search popup, #confirmation-hint, and
+ * #ctrlTab-panel set their own pair deliberately; the urlbar results popup
+ * inherits the :root pair. */
+menupopup {
+    --panel-background-color: var(--shell-dark-background) !important;
+    --panel-text-color: var(--shell-foreground) !important;
+}
+
+/* Firefox 157's Nova chrome (browser.nova.enabled, on by default) tints the
+ * chrome violet through @layer tokens-*-nova rules: the toolbar glyphs take
+ * --toolbarbutton-icon-fill from a violet ramp (tokens-shared.css:1025,
+ * tokens-platform.css:293), the button pill hovers mix violet
+ * (tokens-shared.css:1023-1024), and the toolbox paints a violet-to-orange
+ * gradient (stops at tokens-shared.css:1034-1035, consumed at 1038-1042 and
+ * tokens-platform.css:300-304). Our
+ * sheet set none of them, so the icons, the hover pill and the toolbar
+ * background kept Nova's violet/orange instead of the palette. Pin them: the
+ * glyph fills to the foreground, the hover/active pill toward the foreground
+ * at Firefox's own non-Nova strengths (tokens-shared.css:525-526, the same
+ * pair tokens-platform.css:227-228 uses), and the toolbox background plus both
+ * gradient stops to the palette background so the gradient flattens to it.
+ * --toolbarbutton-icon-fill-attention stays on the accent in the block below.
+ *
+ * These are :root user-origin !important values, which beat the @layer
+ * author-origin tokens-*-nova values whatever their importance. A declaration
+ * on a specific element would still beat the inherited :root value (as with
+ * menupopup above), but the chrome consumers only read these (the toolbar's
+ * `.toolbarbutton-1` fill in toolbarbutton-icons.css:7-10, the sidebar divider
+ * in sidebar.css:318, the sidebar's own buttons in sidebar-main.css:108) and
+ * the only relevant element-level redeclarations are deliberate (popups in
+ * popup.css:10/40, and the remote-control and panel-banner icons). */
+:root {
+    --toolbarbutton-icon-fill: var(--shell-foreground) !important;
+    --icon-color: var(--shell-foreground) !important;
+    --button-icon-fill: var(--shell-foreground) !important;
+    --toolbarbutton-background-color-hover: color-mix(in srgb, var(--shell-foreground) 17%, transparent) !important;
+    --toolbarbutton-background-color-active: color-mix(in srgb, var(--shell-foreground) 30%, transparent) !important;
+    --toolbox-background-color: var(--shell-background) !important;
+    --toolbox-background-color-gradient-leading: var(--shell-background) !important;
+    --toolbox-background-color-gradient-trailing: var(--shell-background) !important;
+}
+
+/* Accent. Firefox routes every attention color through this token family, but
+ * a few consumers (the toolbar attention icon, the tab spinner) hardcode a raw
+ * color instead of reading --color-accent-primary, so they are set too. Hover
+ * and active mix toward the foreground, which darkens on a light palette and
+ * lightens on a dark one, the direction Firefox's own accent ladder uses. The
+ * on-accent ink keeps primary-button text readable against the accent. Names
+ * verified against Firefox 157: tokens-shared.css, tab.tokens.css. */
+:root {
+    --color-accent-primary: var(--shell-accent) !important;
+    --color-accent-primary-hover: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+    --color-accent-primary-active: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+    --color-accent-primary-selected: var(--shell-accent) !important;
+    --focus-outline-color: var(--shell-accent) !important;
+    --link-color: var(--shell-accent) !important;
+    --link-color-hover: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+    --link-color-active: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+    --button-background-color-primary: var(--shell-accent) !important;
+    --button-background-color-primary-hover: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+    --button-background-color-primary-active: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+    --button-text-color-primary: var(--shell-on-accent) !important;
+    --toolbarbutton-icon-fill-attention: var(--shell-accent) !important;
+    --tab-loading-fill: var(--shell-accent) !important;
+    --toolbar-field-border-color-focus: var(--shell-accent) !important;
+}
+
+/* The address bar's search-engine switcher is a `type="muted"` moz-button. Its
+ * background comes from --button-background-color-muted, which is currentColor
+ * based, so on a light palette under a dark system scheme it stays a dark pill.
+ * Firefox exposes no switcher-specific variable, so scope the muted button
+ * tokens to the switcher (verified in urlbar.css and moz-button.css). */
+.searchmode-switcher {
+    --button-background-color-muted: var(--shell-lighter-background) !important;
+    --button-background-color-muted-hover: var(--shell-selection) !important;
+    --button-background-color-muted-active: var(--shell-selection) !important;
+    --button-text-color-muted: var(--shell-foreground) !important;
+    --button-text-color-muted-hover: var(--shell-foreground) !important;
+    --button-text-color-muted-active: var(--shell-foreground) !important;
+}

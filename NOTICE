@@ -36,6 +36,41 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ======================================================================
 
+spicetify-themes
+
+https://github.com/spicetify/spicetify-themes
+
+The bundled Spicetify theme (`assets/templates/spicetify-user.css` and
+`assets/templates/spicetify-color.ini`) is vendored from the repository's
+`text` theme, pinned to commit
+`33a08ea009687f5a42ff678015c28797fe142a7c`. It is released under the MIT
+License, reproduced in full below.
+
+----------------------------------------------------------------------
+
+Copyright (c) 2019 morpheusthewhite
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+======================================================================
+
 Bundled background images
 
 The bundled `darknight` theme under `assets/themes/darknight/` ships two

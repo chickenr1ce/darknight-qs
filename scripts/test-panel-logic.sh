@@ -1336,6 +1336,36 @@ grep -qF 'ThemeService.catalog.map(theme => theme.displayName)' "$SSVC" \
 grep -qF 'options: [qsTr("Theme")]' "$SSVC" \
     || fail "SettingsService theme options do not list Theme"
 
+# Themed apps section: one toggle per renderer target, deriving its labels from
+# ThemeService.themeTargets so the registry and the view cannot drift, and
+# filtering each row through the shared SettingsFilter.
+TAV="$ROOT/windows/ThemedAppsSettingsView.qml"
+test -f "$TAV" \
+    || fail "windows/ThemedAppsSettingsView.qml is missing"
+grep -q 'property string filter' "$TAV" \
+    || fail "ThemedAppsSettingsView has no filter property"
+grep -q 'model: ThemeService.themeTargets' "$TAV" \
+    || fail "ThemedAppsSettingsView does not list the renderer targets"
+grep -q 'SettingsToggleRow' "$TAV" \
+    || fail "ThemedAppsSettingsView does not compose the shared toggle row"
+grep -q 'ThemeService.isThemeTargetEnabled' "$TAV" \
+    || fail "ThemedAppsSettingsView does not read the shared target state"
+grep -q 'ThemeService.setThemeTargetEnabled' "$TAV" \
+    || fail "ThemedAppsSettingsView does not write the shared target state"
+grep -qF 'SettingsFilter.matches(root.filter, modelData.title)' "$TAV" \
+    || fail "ThemedAppsSettingsView does not filter each row by its label"
+grep -q 'ThemedAppsSettingsView' "$SCENTER" \
+    || fail "SettingsView does not compose the Themed apps section"
+grep -qF 'root.currentSection.key === "themed-apps"' "$SCENTER" \
+    || fail "SettingsView does not gate the Themed apps section"
+grep -qF 'key: "themed-apps"' "$SSVC" \
+    || fail "SettingsService has no themed-apps section"
+grep -qF 'ThemeService.themeTargets.map' "$SSVC" \
+    || fail "SettingsService themed-apps options do not derive from ThemeService.themeTargets"
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$TAV"; then
+    fail "themed apps settings surface carries raw hex; palette tokens only"
+fi
+
 # Settings filtering lives once: every view delegates to the shared
 # SettingsFilter rather than copying the predicate into its own matches().
 FILTER="$ROOT/services/SettingsFilter.qml"
@@ -1845,6 +1875,71 @@ grep -q 'backgroundQueuedPath' "$TSVC" \
     || fail "a second background pick is not queued (L2)"
 grep -q 'render-theme.sh exited non-zero' "$TSVC" \
     || fail "a non-zero renderer exit is not logged (L4)"
+# Per-app target gating: the target list, its per-key state behind the
+# theme-targets StateFile, the comma-joined enabled key string, and the render
+# command that passes that string as the renderer's second argument. The first
+# render waits for both the palette and the target state (targetsLoaded), so a
+# fresh install never renders all-enabled and then re-renders the disabled
+# layers.
+grep -q 'readonly property var themeTargets' "$TSVC" \
+    || fail "ThemeService exposes no theme target list"
+for pair in "hyprland:Hyprland borders" "kitty:kitty" "hyprlock:hyprlock" "starship:starship" "yazi:yazi" "btop:btop" "firefox:Firefox" "vencord:Vencord" "spicetify:Spicetify"; do
+    key="${pair%%:*}"
+    title="${pair##*:}"
+    grep -q "\"$key\"" "$TSVC" \
+        || fail "ThemeService target list misses key $key"
+    grep -qF "qsTr(\"$title\")" "$TSVC" \
+        || fail "ThemeService target list misses title $title"
+done
+grep -q 'property var themeTargetEnabled: ({})' "$TSVC" \
+    || fail "ThemeService has no themeTargetEnabled map"
+grep -q 'function isThemeTargetEnabled' "$TSVC" \
+    || fail "ThemeService has no isThemeTargetEnabled()"
+grep -q 'function setThemeTargetEnabled' "$TSVC" \
+    || fail "ThemeService has no setThemeTargetEnabled()"
+grep -q 'name: "theme-targets"' "$TSVC" \
+    || fail "ThemeService does not persist target state to theme-targets"
+grep -q 'ThemeParsers.parseTargets' "$TSVC" \
+    || fail "ThemeService does not parse targets through ThemeParsers"
+grep -q 'ThemeParsers.serializeTargets' "$TSVC" \
+    || fail "ThemeService does not serialize targets through ThemeParsers"
+grep -q 'readonly property string enabledThemeTargetKeys' "$TSVC" \
+    || fail "ThemeService exposes no enabledThemeTargetKeys"
+grep -qF 'root.renderScriptPath, root.renderPaletteJson, root.enabledThemeTargetKeys' "$TSVC" \
+    || fail "the render command does not pass the enabled target keys as the second argument"
+grep -q 'onThemeTargetEnabledChanged' "$TSVC" \
+    || fail "ThemeService does not react to a target change"
+grep -q 'property bool targetsLoaded' "$TSVC" \
+    || fail "ThemeService has no targetsLoaded first-render gate"
+grep -q 'property bool paletteResolved' "$TSVC" \
+    || fail "ThemeService has no paletteResolved first-render gate"
+grep -qF 'if (!root.paletteResolved || !root.targetsLoaded)' "$TSVC" \
+    || fail "renderDesktop does not gate the first render on palette and targets"
+
+# parseTargets / serializeTargets: the target map defaults all-on, only an
+# explicit false disables, an unknown key is dropped, and serialization emits
+# every known key as a boolean. Mirrors StateParsers.parseVisibility.
+node - "$ROOT/tests/qmljs.js" "$TPARSE" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const tp = qmljs.load(process.argv[3]);
+const KEYS = ['hyprland', 'kitty', 'hyprlock', 'starship', 'yazi', 'btop', 'firefox', 'vencord', 'spicetify'];
+const all = () => ({ hyprland: true, kitty: true, hyprlock: true, starship: true, yazi: true, btop: true, firefox: true, vencord: true, spicetify: true });
+const targets = text => tp.parseTargets(text, KEYS);
+check('targets/default', targets(''), all());
+check('targets/malformed', targets('{nope'), all());
+check('targets/list', targets('[1, 2]'), all());
+check('targets/disable', targets('{"yazi": false}').yazi, false);
+check('targets/kept', targets('{"yazi": false}').btop, true);
+check('targets/unknown', targets('{"nope": false}'), all());
+check('targets/nonbool', targets('{"kitty": 0}').kitty, true);
+check('targets/serialize-all', tp.serializeTargets(all(), KEYS), JSON.stringify(all()) + '\n');
+check('targets/serialize-missing-is-on', tp.serializeTargets({}, KEYS), JSON.stringify(all()) + '\n');
+check('targets/serialize-disabled', tp.serializeTargets({ yazi: false }, KEYS), JSON.stringify(Object.assign(all(), { yazi: false })) + '\n');
+check('targets/serialize-drops-unknown', tp.serializeTargets({ nope: false, yazi: false }, KEYS), JSON.stringify(Object.assign(all(), { yazi: false })) + '\n');
+check('targets/serialize-null', tp.serializeTargets(null, KEYS), JSON.stringify(all()) + '\n');
+check('targets/serialize-nonmap', tp.serializeTargets('nope', KEYS), JSON.stringify(all()) + '\n');
+NODEEOF
 
 # Run the shipped parser under node: ThemeParsers.parseColors and its cascade,
 # isTrustedStat, and parseSelection / serializeSelection, then the B1
@@ -2367,10 +2462,12 @@ NODEEOF
 
 # --- 17. desktop retint: the renderer writes repo-owned templates ---
 # scripts/render-theme.sh substitutes the resolved palette into the templates
-# under assets/templates/ and writes the six desktop files. It reads no theme
+# under assets/templates/ and writes the desktop files. It reads no theme
 # directory, so this gate runs the real script against a fixture palette with
-# XDG_CONFIG_HOME redirected, then checks the bytes, the border fallback and
-# override, the empty-palette default, and idempotency.
+# XDG_CONFIG_HOME redirected (and HOME, because the Firefox, Vencord, and
+# Spicetify destinations all resolve under a home), then checks the bytes, the
+# border fallback and override, the empty-palette default, idempotency, and the
+# per-target enable/disable and isolation contract.
 RENDER="$ROOT/scripts/render-theme.sh"
 test -f "$RENDER" \
     || fail "scripts/render-theme.sh is missing"
@@ -2392,9 +2489,26 @@ if grep -q 'colors.toml' "$RENDER"; then
     fail "render-theme.sh names colors.toml; it must consume only the resolved palette"
 fi
 
+# A stub spicetify on PATH keeps the gate from ever driving the live Spotify
+# session; assert the stub resolves ahead of any installed binary. The stub
+# records each invocation so the Spicetify refresh case can count them, and it
+# never touches the live config because every render below redirects HOME and
+# XDG_CONFIG_HOME.
+RENDER_STUB="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-stub-XXXXXX")"
+RENDER_STUB_LOG="$RENDER_STUB/refresh.log"
+cat > "$RENDER_STUB/spicetify" <<STUB
+#!/bin/sh
+printf '%s\n' "\$*" >> "$RENDER_STUB_LOG"
+exit 0
+STUB
+chmod +x "$RENDER_STUB/spicetify"
+PATH="$RENDER_STUB:$PATH"
+test "$(command -v spicetify)" = "$RENDER_STUB/spicetify" \
+    || fail "the spicetify stub does not resolve ahead of the real binary"
+
 RENDER_HOME="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE='{"accent":"#7aa2f7","selection":"#33467c","muted":"#565f89","background":"#1a1b26","dark_background":"#16161e","darker_background":"#101014","lighter_background":"#292e42","foreground":"#c0caf5","dark_foreground":"#a9b1d6","light_foreground":"#d5d6db","bright_foreground":"#ffffff","red":"#f7768e","yellow":"#e0af68","green":"#9ece6a","cyan":"#7dcfff","blue":"#7aa2f7","magenta":"#bb9af7","bright_red":"#ff7a93","bright_yellow":"#ff9e64","bright_green":"#b9f27c","bright_cyan":"#7ff7ff","bright_blue":"#7aa2ff","bright_magenta":"#c7a9ff"}'
-XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
+HOME="$RENDER_HOME" XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
 test -f "$RENDER_HOME/hypr/theme.lua" \
     || fail "renderer wrote no hypr theme.lua"
 test -f "$RENDER_HOME/kitty/theme.conf" \
@@ -2453,7 +2567,7 @@ grep -q 'theme\[proc_banner_fg\]="#000000"' "$RENDER_HOME/btop/themes/theme.them
     || fail "btop banner text is not the contrast ink for accent"
 grep -q 'theme\[followed_fg\]="#000000"' "$RENDER_HOME/btop/themes/theme.theme" \
     || fail "btop followed text is not the contrast ink for blue"
-if grep -q '{{' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml" "$RENDER_HOME/yazi/theme.toml" "$RENDER_HOME/btop/themes/theme.theme"; then
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$RENDER_HOME/hypr/theme.lua" "$RENDER_HOME/kitty/theme.conf" "$RENDER_HOME/hypr/hyprlock/colors.conf" "$RENDER_HOME/starship.toml" "$RENDER_HOME/yazi/theme.toml" "$RENDER_HOME/btop/themes/theme.theme"; then
     fail "renderer left an unresolved template placeholder"
 fi
 
@@ -2465,7 +2579,7 @@ before_yazi="$(cat "$RENDER_HOME/yazi/theme.toml")"
 before_btop="$(cat "$RENDER_HOME/btop/themes/theme.theme")"
 stamp="$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")"
 sleep 1
-XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
+HOME="$RENDER_HOME" XDG_CONFIG_HOME="$RENDER_HOME" sh "$RENDER" "$RENDER_PALETTE"
 test "$before_lua" = "$(cat "$RENDER_HOME/hypr/theme.lua")" \
     || fail "renderer is not idempotent: theme.lua changed on an identical rerun"
 test "$before_kitty" = "$(cat "$RENDER_HOME/kitty/theme.conf")" \
@@ -2483,7 +2597,7 @@ test "$stamp" = "$(stat -c '%y' "$RENDER_HOME/kitty/theme.conf")" \
 
 RENDER_HOME2="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE2="$(printf '%s' "$RENDER_PALETTE" | sed 's/}$/,"hyprland_active_border":"#ff0000","hyprland_inactive_border":"#00ff0080"}/')"
-XDG_CONFIG_HOME="$RENDER_HOME2" sh "$RENDER" "$RENDER_PALETTE2"
+HOME="$RENDER_HOME2" XDG_CONFIG_HOME="$RENDER_HOME2" sh "$RENDER" "$RENDER_PALETTE2"
 grep -q 'rgba(ff0000ff)' "$RENDER_HOME2/hypr/theme.lua" \
     || fail "hypr does not honor hyprland_active_border"
 grep -q 'rgba(00ff0080)' "$RENDER_HOME2/hypr/theme.lua" \
@@ -2493,7 +2607,7 @@ grep -q 'rgba(00ff0080)' "$RENDER_HOME2/hypr/theme.lua" \
 # default so the bar's fallback and the desktop files agree (M1). A palette that
 # is present but missing required roles is still a no-op.
 RENDER_HOME3="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
-XDG_CONFIG_HOME="$RENDER_HOME3" sh "$RENDER" ""
+HOME="$RENDER_HOME3" XDG_CONFIG_HOME="$RENDER_HOME3" sh "$RENDER" ""
 test -f "$RENDER_HOME3/hypr/theme.lua" \
     || fail "renderer wrote no default theme.lua for an empty palette"
 grep -q 'rgba(b4befe' "$RENDER_HOME3/hypr/theme.lua" \
@@ -2512,13 +2626,13 @@ grep -q 'theme\[hi_fg\]="#b4befe"' "$RENDER_HOME3/btop/themes/theme.theme" \
     || fail "the empty-palette default does not use the fallback accent for btop"
 
 RENDER_HOME3B="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
-XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
+HOME="$RENDER_HOME3B" XDG_CONFIG_HOME="$RENDER_HOME3B" sh "$RENDER" '{"accent":"#7aa2f7"}'
 test -z "$(find "$RENDER_HOME3B" -type f)" \
     || fail "renderer wrote files for a palette missing required roles"
 
 RENDER_HOME4="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE4="$(printf '%s' "$RENDER_PALETTE" | sed 's/}$/,"hyprland_active_border":"not-a-color"}/')"
-XDG_CONFIG_HOME="$RENDER_HOME4" sh "$RENDER" "$RENDER_PALETTE4"
+HOME="$RENDER_HOME4" XDG_CONFIG_HOME="$RENDER_HOME4" sh "$RENDER" "$RENDER_PALETTE4"
 test -f "$RENDER_HOME4/hypr/theme.lua" \
     || fail "renderer stopped writing when an optional border key is malformed"
 grep -q 'rgba(7aa2f7ff)' "$RENDER_HOME4/hypr/theme.lua" \
@@ -2528,7 +2642,7 @@ grep -q 'rgba(7aa2f7ff)' "$RENDER_HOME4/hypr/theme.lua" \
 # kitty reads the same colour hypr and hyprlock get.
 RENDER_HOME5="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 RENDER_PALETTE5="$(printf '%s' "$RENDER_PALETTE" | sed 's/"accent":"#7aa2f7"/"accent":"#abc"/')"
-XDG_CONFIG_HOME="$RENDER_HOME5" sh "$RENDER" "$RENDER_PALETTE5"
+HOME="$RENDER_HOME5" XDG_CONFIG_HOME="$RENDER_HOME5" sh "$RENDER" "$RENDER_PALETTE5"
 grep -q 'cursor *#aabbcc' "$RENDER_HOME5/kitty/theme.conf" \
     || fail "renderer did not expand a three-digit accent for kitty"
 grep -q 'rgba(aabbccff)' "$RENDER_HOME5/hypr/theme.lua" \
@@ -2553,7 +2667,7 @@ RENDER_PALETTE6="$(printf '%s' "$RENDER_PALETTE" | sed \
     -e 's/"red":"#f7768e"/"red":"#b14752"/' \
     -e 's/"yellow":"#e0af68"/"yellow":"#dc8164"/' \
     -e 's/"magenta":"#bb9af7"/"magenta":"#8a5b81"/')"
-XDG_CONFIG_HOME="$RENDER_HOME6" sh "$RENDER" "$RENDER_PALETTE6"
+HOME="$RENDER_HOME6" XDG_CONFIG_HOME="$RENDER_HOME6" sh "$RENDER" "$RENDER_PALETTE6"
 grep -q "selection_ink = '#000000'" "$RENDER_HOME6/starship.toml" \
     || fail "the pill ink is not the higher-contrast of black and white"
 grep -q "text_blue = '#000000'" "$RENDER_HOME6/starship.toml" \
@@ -2572,11 +2686,1038 @@ RENDER_PALETTE7="$(printf '%s' "$RENDER_PALETTE" | sed \
     -e 's/"lighter_background":"#292e42"/"lighter_background":"#ffffff"/' \
     -e 's/"foreground":"#c0caf5"/"foreground":"#222222"/' \
     -e 's/"cyan":"#7dcfff"/"cyan":"#d0f0f0"/')"
-XDG_CONFIG_HOME="$RENDER_HOME7" sh "$RENDER" "$RENDER_PALETTE7"
+HOME="$RENDER_HOME7" XDG_CONFIG_HOME="$RENDER_HOME7" sh "$RENDER" "$RENDER_PALETTE7"
 grep -q 'cwd = { fg = "#000000" }' "$RENDER_HOME7/yazi/theme.toml" \
     || fail "yazi did not fall a low-contrast body hue back to the background ink"
 
-rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7"
+# The nine target keys. A one-argument invocation above already renders every
+# target (backward compatibility); the cases below cover the two-argument form.
+# A disabled target writes a valid unthemed layer: the two whole-config targets
+# (starship, hyprlock) render the built-in default palette so the prompt and the
+# hyprlock `$theme_*` variables stay defined, and every other destination writes
+# a comment-only no-op in its own syntax.
+RENDER_OFF="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+HOME="$RENDER_OFF" XDG_CONFIG_HOME="$RENDER_OFF" sh "$RENDER" "$RENDER_PALETTE" ""
+test "$(cat "$RENDER_OFF/hypr/theme.lua")" = "-- quickshell theme target disabled" \
+    || fail "an all-off render left hypr theme.lua themed or malformed"
+test "$(cat "$RENDER_OFF/kitty/theme.conf")" = "# quickshell theme target disabled" \
+    || fail "an all-off render left kitty theme.conf themed"
+test "$(cat "$RENDER_OFF/yazi/theme.toml")" = "# quickshell theme target disabled" \
+    || fail "an all-off render left yazi theme.toml themed"
+test "$(cat "$RENDER_OFF/btop/themes/theme.theme")" = "# quickshell theme target disabled" \
+    || fail "an all-off render left btop theme.theme themed"
+grep -q "accent = '#b4befe'" "$RENDER_OFF/starship.toml" \
+    || fail "disabled starship does not carry the default palette values"
+grep -q 'theme_accent = rgb(180, 190, 254)' "$RENDER_OFF/hypr/hyprlock/colors.conf" \
+    || fail "disabled hyprlock does not carry the default palette values"
+if grep -q 'quickshell theme target disabled' "$RENDER_OFF/starship.toml" "$RENDER_OFF/hypr/hyprlock/colors.conf"; then
+    fail "a whole-config target wrote a comment instead of the default palette"
+fi
+
+# A single target off: the rest keep palette values and only that destination
+# takes the disabled layer. btop is omitted from the CSV here.
+RENDER_OFF1="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+HOME="$RENDER_OFF1" XDG_CONFIG_HOME="$RENDER_OFF1" sh "$RENDER" "$RENDER_PALETTE" \
+    "hyprland,kitty,hyprlock,starship,yazi"
+grep -q 'background *#1a1b26' "$RENDER_OFF1/kitty/theme.conf" \
+    || fail "a single-target-off render dropped an enabled target"
+grep -q "accent = '#7aa2f7'" "$RENDER_OFF1/starship.toml" \
+    || fail "a single-target-off render dropped the palette from starship"
+grep -q '\$theme_accent = rgb(122, 162, 247)' "$RENDER_OFF1/hypr/hyprlock/colors.conf" \
+    || fail "a single-target-off render dropped the palette from hyprlock"
+test "$(cat "$RENDER_OFF1/btop/themes/theme.theme")" = "# quickshell theme target disabled" \
+    || fail "a single-target-off render did not write the disabled layer for the omitted target"
+
+# Every key in the CSV is implemented, and each app target skips itself as
+# success when its root is absent: vencord has no Vencord install, firefox has
+# no Firefox root, and spicetify has no config root under this HOME.
+RENDER_FUTURE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+HOME="$RENDER_FUTURE" XDG_CONFIG_HOME="$RENDER_FUTURE" sh "$RENDER" "$RENDER_PALETTE" \
+    "firefox,vencord,spicetify" \
+    || fail "an app target with an absent root failed the run"
+test "$(cat "$RENDER_FUTURE/hypr/theme.lua")" = "-- quickshell theme target disabled" \
+    || fail "an unimplemented target key changed a real target's output"
+
+# A temp copy mirrors the repo layout ($TMP/scripts/render-theme.sh beside
+# $TMP/assets/templates/) because the script resolves its templates relative to
+# its own directory, so a broken template never edits the shipped files.
+RENDER_TMP="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-src-XXXXXX")"
+mkdir -p "$RENDER_TMP/scripts" "$RENDER_TMP/assets"
+cp "$RENDER" "$RENDER_TMP/scripts/render-theme.sh"
+cp -r "$ROOT/assets/templates" "$RENDER_TMP/assets/templates"
+
+# Isolation: a template with an unresolved token skips only its target, the
+# other targets still write, and the run exits non-zero with a line naming the
+# failed target.
+printf 'unresolved {{nope}} token\n' >> "$RENDER_TMP/assets/templates/yazi-theme.toml"
+RENDER_BAD="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+if HOME="$RENDER_BAD" XDG_CONFIG_HOME="$RENDER_BAD" sh "$RENDER_TMP/scripts/render-theme.sh" \
+    "$RENDER_PALETTE" >/dev/null 2>"$RENDER_TMP/isolation.log"; then
+    fail "a broken template did not fail the run"
+fi
+test -f "$RENDER_BAD/kitty/theme.conf" \
+    || fail "isolation: one broken target aborted the others"
+# btop renders after the broken yazi, so this proves a failure does not abort
+# the targets that follow it, not just the ones before.
+test -f "$RENDER_BAD/btop/themes/theme.theme" \
+    || fail "isolation: one broken target aborted a later target"
+test ! -f "$RENDER_BAD/yazi/theme.toml" \
+    || fail "isolation: the broken target still wrote its file"
+grep -q '^yazi:' "$RENDER_TMP/isolation.log" \
+    || fail "isolation: the failure line does not name the target"
+cp "$ROOT/assets/templates/yazi-theme.toml" "$RENDER_TMP/assets/templates/yazi-theme.toml"
+
+# The unresolved-token guard matches a {{name}} shape, so a literal `{{` renders
+# and is not stripped. The probe also covers the optional roles (orange/brown
+# fall back to yellow/red), the bare <role>_hex form, the background ink, and
+# the five-step text ramp, none of which the shipped templates consume yet.
+RENDER_BRACE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+{
+    printf -- '-- literal {{ braces\n'
+    printf -- '-- probe {{accent_hex}} {{orange_hex}} {{orange}} {{brown}} {{background_ink}} {{text_1}} {{text_2}} {{text_3}} {{text_4}} {{text_5}}\n'
+} >> "$RENDER_TMP/assets/templates/hypr-theme.lua"
+HOME="$RENDER_BRACE" XDG_CONFIG_HOME="$RENDER_BRACE" sh "$RENDER_TMP/scripts/render-theme.sh" \
+    "$RENDER_PALETTE" "hyprland" \
+    || fail "a literal brace pair failed the render"
+grep -qF -- '-- literal {{ braces' "$RENDER_BRACE/hypr/theme.lua" \
+    || fail "a literal brace pair was stripped or rejected"
+grep -qF -- '-- probe 7aa2f7 e0af68 #e0af68 #f7768e #ffffff #ffffff #d5d6db #c0caf5 #a9b1d6 #565f89' \
+    "$RENDER_BRACE/hypr/theme.lua" \
+    || fail "the optional, bare-hex, ink, or text-ramp tokens did not render"
+
+# Vencord recolors Discord by overriding system24's own namespace on :root,
+# so the rendered file sets only the base variables and leaves system24's
+# derived ones alone. The block selects :root:root, which outranks system24's
+# plain :root (0,2,0 against 0,1,0) so the override wins whatever order
+# Vencord loads the themes in; !important stays forbidden. It writes under
+# Vencord's own config root, skips as success when that root is absent, and
+# keeps its banner and metadata header when disabled, so an enabledThemes entry
+# never points at a missing file.
+test -f "$ROOT/assets/templates/vencord-theme.css" \
+    || fail "assets/templates/vencord-theme.css is missing"
+grep -q ':root:root[[:space:]]*{' "$ROOT/assets/templates/vencord-theme.css" \
+    || fail "the Vencord template selector is not :root:root"
+grep -q '@name quickshell' "$ROOT/assets/templates/vencord-theme.css" \
+    || fail "the Vencord template has no BetterDiscord metadata header"
+grep -q '@description Shell palette' "$ROOT/assets/templates/vencord-theme.css" \
+    || fail "the Vencord metadata header is not the agreed description"
+# The enabled and disabled templates share a banner and a BetterDiscord
+# metadata header. Assert the invariant header lines match between the two
+# files so they cannot drift: the metadata block must be byte-identical, and
+# the banner's fixed preamble (the rendered-by and do-not-edit lines plus the
+# blank separator) must be too. Only the banner body differs on purpose, because
+# the disabled file explains that the theme is switched off.
+VENCORD_TPL="$ROOT/assets/templates/vencord-theme.css"
+VENCORD_TPL_OFF="$ROOT/assets/templates/vencord-theme-disabled.css"
+sed -n '/^\/\*\*$/,/^ \*\/$/p' "$VENCORD_TPL" > "$RENDER_TMP/vencord-meta-on"
+sed -n '/^\/\*\*$/,/^ \*\/$/p' "$VENCORD_TPL_OFF" > "$RENDER_TMP/vencord-meta-off"
+test -s "$RENDER_TMP/vencord-meta-on" \
+    || fail "the Vencord templates' metadata header was not found"
+if ! cmp -s "$RENDER_TMP/vencord-meta-on" "$RENDER_TMP/vencord-meta-off"; then
+    fail "the Vencord templates' metadata headers differ"
+fi
+head -n 3 "$VENCORD_TPL" > "$RENDER_TMP/vencord-banner-on"
+head -n 3 "$VENCORD_TPL_OFF" > "$RENDER_TMP/vencord-banner-off"
+if ! cmp -s "$RENDER_TMP/vencord-banner-on" "$RENDER_TMP/vencord-banner-off"; then
+    fail "the Vencord templates' banner preambles differ"
+fi
+if grep -q 'settings.json' "$RENDER"; then
+    fail "the renderer names settings.json; Vencord enablement stays manual"
+fi
+
+# An installed Vencord: the enabled target writes the palette-derived theme
+# under the app's own config root.
+RENDER_VENCORD="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+mkdir -p "$RENDER_VENCORD/Vencord"
+HOME="$RENDER_VENCORD" XDG_CONFIG_HOME="$RENDER_VENCORD" sh "$RENDER" "$RENDER_PALETTE"
+VENCORD_FILE="$RENDER_VENCORD/Vencord/themes/quickshell.theme.css"
+test -f "$VENCORD_FILE" \
+    || fail "renderer wrote no Vencord theme"
+grep -q '@name quickshell' "$VENCORD_FILE" \
+    || fail "the Vencord theme has no metadata header"
+grep -q -- '--colors: on' "$VENCORD_FILE" \
+    || fail "the Vencord theme does not enable system24 colors"
+grep -q -- '--bg-4: #1a1b26' "$VENCORD_FILE" \
+    || fail "the Vencord main background does not come from the palette"
+grep -q -- '--text-0: #000000' "$VENCORD_FILE" \
+    || fail "the Vencord --text-0 is not the ink chosen against accent"
+grep -q ':root:root[[:space:]]*{' "$VENCORD_FILE" \
+    || fail "the Vencord theme does not outrank system24's :root with :root:root"
+if grep -qE '^[[:space:]]*:root[[:space:]]*\{' "$VENCORD_FILE"; then
+    fail "the Vencord theme still uses a bare :root selector"
+fi
+if grep -q '!important' "$VENCORD_FILE"; then
+    fail "the Vencord theme uses !important; it must outrank system24 by specificity"
+fi
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$VENCORD_FILE"; then
+    fail "the Vencord theme holds an unresolved token"
+fi
+
+# The same theme against the light fixture, so the background and text ladders
+# are checked for both modes.
+RENDER_VENCORD_LIGHT="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+mkdir -p "$RENDER_VENCORD_LIGHT/Vencord"
+HOME="$RENDER_VENCORD_LIGHT" XDG_CONFIG_HOME="$RENDER_VENCORD_LIGHT" sh "$RENDER" "$RENDER_PALETTE7"
+VENCORD_LIGHT="$RENDER_VENCORD_LIGHT/Vencord/themes/quickshell.theme.css"
+
+# Discord's status colors stay standard: the theme sets none of the red, green
+# or yellow scales, so system24's own --online/--dnd/--idle derivation survives.
+if grep -qE '^[[:space:]]*--(red|green|yellow)-[1-5][[:space:]]*:' \
+    "$VENCORD_FILE" "$VENCORD_LIGHT"; then
+    fail "the Vencord theme sets a red, green or yellow scale; status colors must stay system24's"
+fi
+
+# Resolve the rendered CSS the way a browser would: the :root:root
+# custom-property set must be exactly the base variables of the ticket (no
+# derived variable survives), the four background surfaces must stay distinct,
+# the blue and purple hue ladders must keep five distinct stops, the red, green
+# and yellow status scales must stay unset, and the text ramp must stay ordered
+# and contrast against the background.
+python3 - "$VENCORD_FILE" "$VENCORD_LIGHT" <<'PYEOF'
+import re
+import sys
+
+def fail(message):
+    print("panel-logic FAIL: " + message, file=sys.stderr)
+    sys.exit(1)
+
+EXPECTED = {"--colors"}
+for i in range(1, 5):
+    EXPECTED.add("--bg-%d" % i)
+for i in range(0, 6):
+    EXPECTED.add("--text-%d" % i)
+for hue in ("blue", "purple"):
+    for i in range(1, 6):
+        EXPECTED.add("--%s-%d" % (hue, i))
+
+# system24 derives these from the base variables, so the override must not set
+# them (an override would freeze a derived color instead of following the base).
+FORBIDDEN = re.compile(
+    r"^--(mention|accent|border|hover|active|message-hover|online|"
+    r"accent-new|button-border|background-|text-normal|brand-|"
+    r"reply|dnd|idle|streaming|offline)")
+
+def channels(value):
+    text = value.strip().lstrip("#")
+    if len(text) == 3:
+        text = "".join(c * 2 for c in text)
+    return tuple(int(text[i:i + 2], 16) for i in (0, 2, 4))
+
+def resolve(value):
+    value = value.strip()
+    if value.startswith("#"):
+        return channels(value)
+    match = re.match(
+        r"color-mix\(in srgb,\s*([^,]+?)\s+([0-9.]+)%,\s*([^)]+?)\)", value)
+    if not match:
+        fail("unresolvable color value %r" % value)
+    first = resolve(match.group(1))
+    weight = float(match.group(2)) / 100.0
+    second = resolve(match.group(3))
+    return tuple(round(first[i] * weight + second[i] * (1 - weight))
+                 for i in range(3))
+
+def luminance(value):
+    def channel(c):
+        c = c / 255.0
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = value
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+def contrast(a, b):
+    la, lb = luminance(a), luminance(b)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+for path, light in ((sys.argv[1], False), (sys.argv[2], True)):
+    with open(path, encoding="utf-8") as handle:
+        css = handle.read()
+    block = re.search(r":root:root\s*\{(.*?)\}", css, re.S)
+    if not block:
+        fail("%s has no :root:root block" % path)
+    body = re.sub(r"/\*.*?\*/", "", block.group(1), flags=re.S)
+    props = {}
+    for name, value in re.findall(r"(--[A-Za-z0-9-]+)\s*:\s*([^;]+);", body):
+        if name in props:
+            fail("%s declares %s twice" % (path, name))
+        props[name] = value.strip()
+    if set(props) != EXPECTED:
+        fail("%s base variables differ (missing %s, extra %s)" % (
+            path, sorted(EXPECTED - set(props)), sorted(set(props) - EXPECTED)))
+    for name in props:
+        if FORBIDDEN.match(name):
+            fail("%s sets the derived variable %s" % (path, name))
+    # system24 derives its status dots from these scales (--online:
+    # var(--green-2), --dnd: var(--red-2), --idle: var(--yellow-2)), so the
+    # theme leaves them unset and Discord's standard status colors apply.
+    for name in props:
+        if name.startswith(("--red-", "--green-", "--yellow-")):
+            fail("%s sets %s; the status scales must stay system24's" % (
+                path, name))
+    if props["--colors"].lower() != "on":
+        fail("%s does not set --colors: on" % path)
+    bgs = [resolve(props["--bg-%d" % i]) for i in range(1, 5)]
+    if len(set(bgs)) != 4:
+        fail("%s background ladder collapsed: %s" % (path, bgs))
+    if bgs[0] == bgs[3]:
+        fail("%s --bg-1 equals --bg-4" % path)
+    for hue in ("blue", "purple"):
+        stops = [resolve(props["--%s-%d" % (hue, i)]) for i in range(1, 6)]
+        if len(set(stops)) != 5:
+            fail("%s %s ladder collapsed: %s" % (path, hue, stops))
+    ramp = [resolve(props["--text-%d" % i]) for i in range(1, 6)]
+    background = resolve(props["--bg-4"])
+    ratios = [contrast(value, background) for value in ramp]
+    if ratios != sorted(ratios, reverse=True):
+        fail("%s text ramp is not ordered by contrast: %s" % (path, ratios))
+    if ratios[0] < 4.5:
+        fail("%s text ramp does not contrast against the background: %s" % (
+            path, ratios))
+    if light and ratios[1] < 4.5:
+        fail("%s light text ramp does not contrast against the background: %s" % (
+            path, ratios))
+PYEOF
+
+# Disabled: the destination keeps the banner and metadata header and no :root
+# overrides, so Vencord still lists the theme.
+RENDER_VOFF="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+mkdir -p "$RENDER_VOFF/Vencord"
+HOME="$RENDER_VOFF" XDG_CONFIG_HOME="$RENDER_VOFF" sh "$RENDER" "$RENDER_PALETTE" "kitty"
+VENCORD_OFF="$RENDER_VOFF/Vencord/themes/quickshell.theme.css"
+test -f "$VENCORD_OFF" \
+    || fail "a disabled Vencord target wrote no file"
+grep -q '@name quickshell' "$VENCORD_OFF" \
+    || fail "a disabled Vencord file dropped its metadata header"
+grep -q '@description Shell palette' "$VENCORD_OFF" \
+    || fail "a disabled Vencord file dropped its description"
+if grep -q ':root' "$VENCORD_OFF"; then
+    fail "a disabled Vencord file still carries a :root block"
+fi
+if grep -qE -- '--[A-Za-z]' "$VENCORD_OFF"; then
+    fail "a disabled Vencord file still carries color variables"
+fi
+
+# No install: the target logs and skips as success, so the retint never creates
+# a Vencord directory for a Discord that is not installed.
+RENDER_NOVENCORD="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
+if ! HOME="$RENDER_NOVENCORD" XDG_CONFIG_HOME="$RENDER_NOVENCORD" sh "$RENDER" \
+    "$RENDER_PALETTE" "vencord" 2>"$RENDER_NOVENCORD/vencord.log"; then
+    fail "an absent Vencord root failed the render"
+fi
+test ! -d "$RENDER_NOVENCORD/Vencord" \
+    || fail "the renderer created a Vencord directory for a Discord that is not installed"
+test ! -e "$RENDER_NOVENCORD/Vencord/themes/quickshell.theme.css" \
+    || fail "the renderer wrote a Vencord theme with no Vencord install"
+grep -q 'vencord: not installed' "$RENDER_NOVENCORD/vencord.log" \
+    || fail "an absent Vencord root was not logged"
+
+# Firefox is themed at the chrome: a generated sheet the user's own
+# userChrome.css imports once carries the palette as --shell-* variables and
+# the rules mapping them onto Firefox's own chrome variables, and a managed
+# block in user.js turns on legacy stylesheet support. The profile comes from
+# installs.ini, not profiles.ini's Default=1 stub, and the write goes through
+# the profile path (the psd symlink) without resolving it.
+FF_TPL="$ROOT/assets/templates/firefox-palette.css"
+FF_CONTENT_TPL="$ROOT/assets/templates/firefox-content.css"
+FF_USER_TPL="$ROOT/assets/templates/firefox-user.js"
+test -f "$FF_TPL" \
+    || fail "assets/templates/firefox-palette.css is missing"
+test -f "$FF_CONTENT_TPL" \
+    || fail "assets/templates/firefox-content.css is missing"
+test -f "$FF_USER_TPL" \
+    || fail "assets/templates/firefox-user.js is missing"
+grep -q -- '--shell-background: {{background}}' "$FF_TPL" \
+    || fail "the Firefox template does not expose the palette as --shell-* variables"
+grep -q -- '--shell-on-accent: {{on_accent}}' "$FF_TPL" \
+    || fail "the Firefox template has no --shell-on-accent from the on-accent ink"
+grep -q -- '--shell-on-accent: {{on_accent}}' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template has no --shell-on-accent from the on-accent ink"
+grep -q '^// BEGIN quickshell$' "$FF_USER_TPL" \
+    || fail "the Firefox user.js template has no BEGIN marker"
+grep -q 'toolkit.legacyUserProfileCustomizations.stylesheets", true' "$FF_USER_TPL" \
+    || fail "the Firefox user.js template does not set the legacy-sheets pref"
+grep -q '^// END quickshell$' "$FF_USER_TPL" \
+    || fail "the Firefox user.js template has no END marker"
+# The chrome variable names are Firefox internals that have been renamed across
+# releases; this list is verified against Firefox 157.0.1 and may need upkeep.
+for var in toolbar-background-color toolbar-text-color tab-background-color-selected tab-text-color-selected urlbar-box-background-color urlbar-box-background-color-focus urlbar-box-text-color toolbar-field-background-color toolbar-field-background-color-focus toolbar-field-text-color toolbar-field-text-color-focus panel-background-color panel-border-color sidebar-background-color sidebar-text-color sidebar-border-color lwt-accent-color lwt-text-color toolbox-text-color toolbox-background-color-inactive toolbox-text-color-inactive lwt-accent-color-inactive; do
+    grep -q -- "--$var: var(--shell-" "$FF_TPL" \
+        || fail "the Firefox template does not map --$var onto a shell variable"
+done
+# Firefox 157's Nova chrome tints the toolbar glyphs, the button hover pill and
+# the toolbox background violet through @layer tokens-*-nova; the sheet set
+# none of them, so the icons and hover kept Nova's ramp. It must pin the glyph
+# fills to the palette foreground, mix the hover/active pill toward it, and
+# flatten the toolbox background and both gradient stops to the palette
+# background. Names verified in chrome/omni.ja's design-system
+# tokens-shared.css (:1018-1042) and tokens-platform.css (:227-304).
+for var in toolbarbutton-icon-fill icon-color button-icon-fill; do
+    grep -q -- "--$var: var(--shell-foreground)" "$FF_TPL" \
+        || fail "the Firefox template does not take --$var from the palette foreground"
+done
+for var in toolbarbutton-background-color-hover toolbarbutton-background-color-active; do
+    grep -q -- "--$var: color-mix(in srgb, var(--shell-foreground)" "$FF_TPL" \
+        || fail "the Firefox template does not mix --$var off the palette foreground"
+done
+for var in toolbox-background-color toolbox-background-color-gradient-leading toolbox-background-color-gradient-trailing; do
+    grep -q -- "--$var: var(--shell-background)" "$FF_TPL" \
+        || fail "the Firefox template does not flatten --$var to the palette background"
+done
+# The accent family: each Attention color reads --shell-accent, and the primary
+# button text takes the on-accent ink. The hover/active variants are color-mix
+# ladders off the accent. --toolbar-field-focus-border-color does not exist in
+# Firefox 157; the real token is --toolbar-field-border-color-focus. Names
+# verified in chrome/omni.ja's design-system tokens-shared.css and
+# browser/omni.ja's tab.tokens.css.
+for var in color-accent-primary color-accent-primary-selected focus-outline-color link-color button-background-color-primary toolbarbutton-icon-fill-attention tab-loading-fill toolbar-field-border-color-focus; do
+    grep -q -- "--$var: var(--shell-" "$FF_TPL" \
+        || fail "the Firefox template does not map --$var onto a shell variable"
+done
+for var in color-accent-primary-hover color-accent-primary-active link-color-hover link-color-active button-background-color-primary-hover button-background-color-primary-active; do
+    grep -q -- "$var: color-mix(in srgb, var(--shell-accent)" "$FF_TPL" \
+        || fail "the Firefox accent variant $var is not a color-mix off the accent"
+done
+grep -q -- '--button-text-color-primary: var(--shell-on-accent)' "$FF_TPL" \
+    || fail "the Firefox template does not paint primary-button text with the on-accent ink"
+# The search-engine switcher pill has no switcher-specific token, so a scoped
+# rule themes its muted button variables from the palette.
+grep -q '\.searchmode-switcher' "$FF_TPL" \
+    || fail "the Firefox template does not scope the searchmode switcher"
+grep -q -- '--button-background-color-muted: var(--shell-' "$FF_TPL" \
+    || fail "the Firefox switcher rule does not theme the muted button background"
+grep -q -- '--button-text-color-muted-hover: var(--shell-foreground)' "$FF_TPL" \
+    || fail "the Firefox switcher rule does not theme the muted hover text"
+grep -q -- '--button-text-color-muted-active: var(--shell-foreground)' "$FF_TPL" \
+    || fail "the Firefox switcher rule does not theme the muted active text"
+# A light palette on a dark system otherwise takes the dark branch of Firefox's
+# light-dark() tokens; the chrome sheet pins the palette's own color-scheme on
+# the root, popups and panels, the toolbar scheme the find bar and tabs read,
+# and the panel text pair (popup.css sets the text on menupopup itself).
+grep -q -- 'color-scheme: {{page_scheme}} !important' "$FF_TPL" \
+    || fail "the Firefox chrome template does not pin color-scheme from the palette mode"
+grep -q -- '--toolbar-color-scheme: {{page_scheme}} !important' "$FF_TPL" \
+    || fail "the Firefox chrome template does not pin --toolbar-color-scheme"
+grep -q -- '--panel-text-color: var(--shell-foreground) !important' "$FF_TPL" \
+    || fail "the Firefox chrome template does not take the panel text from the palette"
+grep -q '^menupopup {' "$FF_TPL" \
+    || fail "the Firefox chrome template does not cover menupopups"
+grep -q '^:root,$' "$FF_TPL" \
+    || fail "the Firefox chrome template does not pin color-scheme on :root"
+# The content sheet reaches about:newtab/home/privatebrowsing (which userChrome
+# cannot) via @-moz-document, and paints the newtab page's own variables.
+grep -q '^@-moz-document url("about:newtab"), url("about:home"), url("about:privatebrowsing") {' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not scope about:newtab/home/privatebrowsing"
+for var in newtab-background-color newtab-background-color-secondary newtab-background-card newtab-text-primary-color newtab-text-secondary-text newtab-text-secondary-color newtab-primary-action-background newtab-primary-element-text-color; do
+    grep -q -- "--$var: var(--shell-" "$FF_CONTENT_TPL" \
+        || fail "the Firefox content template does not map --$var onto a shell variable"
+done
+grep -q -- '--content-search-handoff-ui-background-color: var(--shell-' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not theme the search box"
+# about:privatebrowsing paints from html.private in its own sheet, which pins
+# --background-color-canvas and paints a bare content-search-handoff-ui with no
+# .search-wrapper ancestor; the content sheet overrides both. It also carries
+# the palette mode as color-scheme so native controls match.
+grep -q -- 'html.private' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not theme about:privatebrowsing"
+grep -q -- '--background-color-canvas: var(--shell-' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not override the private-browsing canvas"
+grep -q '^    content-search-handoff-ui {' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template gates the search box behind .search-wrapper"
+grep -q -- '--in-content-banner-background: var(--shell-' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not theme the private-browsing banner"
+grep -q -- 'color-scheme: {{page_scheme}}' "$FF_CONTENT_TPL" \
+    || fail "the Firefox content template does not set color-scheme from the palette mode"
+# aboutPrivateBrowsing.css pins `a:link`, `.text-link` and `.promo a` to
+# `color: inherit` (:36-48, :394-398), which outranks the shared --link-color
+# consumer, and the Nova branch that would read --link-color is off by default,
+# so mapping the variable is not enough: the sheet must set the links' color
+# explicitly, and carry :visited through --link-color-visited
+# (common-shared.css:462).
+ff_link_rule="$(awk '/^[[:space:]]*html\.private a,$/{r=1} r{print} r&&/^[[:space:]]*}$/{exit}' "$FF_CONTENT_TPL")"
+if ! printf '%s\n' "$ff_link_rule" | grep -q 'color: var(--shell-accent) !important'; then
+    fail "the content template does not paint html.private links with an explicit color"
+fi
+grep -q -- '--link-color-visited: var(--shell-' "$FF_CONTENT_TPL" \
+    || fail "the content template does not map the visited link color"
+# The target never writes a backup tree or the user-owned userContent.css (the
+# user imports shell-content.css from it), and never rewrites prefs.js.
+if grep -qE '(emit|write_if_changed|open)\([^)]*userContent' "$RENDER"; then
+    fail "the renderer writes userContent.css; only the shell-* sheets are generated"
+fi
+if grep -q -- '-backup' "$RENDER"; then
+    fail "the renderer names a -backup path; the profile path is the only write"
+fi
+if grep -q 'prefs.js' "$RENDER"; then
+    fail "the renderer names prefs.js; the pref is managed through user.js"
+fi
+
+# One fixture home builder, reused by every Firefox case below.
+make_firefox_fixture() {
+    local root="$1/mozilla/firefox"
+    mkdir -p "$root/b5dxo71e.default-release" \
+             "$root/b5dxo71e.default-release-backup" \
+             "$root/b5dxo71e.default-release-back-ovfs" \
+             "$root/b5dxo71e.default-release-backup-crashrecovery-20260319_072438" \
+             "$root/ikenjxfu.default"
+    cat > "$root/installs.ini" <<'FXINI'
+[4F96D1932A9F858E]
+Default=b5dxo71e.default-release
+Locked=1
+FXINI
+    cat > "$root/profiles.ini" <<'FXPROF'
+[Install4F96D1932A9F858E]
+Default=b5dxo71e.default-release
+Locked=1
+
+[Profile1]
+Name=default
+IsRelative=1
+Path=ikenjxfu.default
+Default=1
+
+[Profile0]
+Name=default-release
+IsRelative=1
+Path=b5dxo71e.default-release
+FXPROF
+}
+
+RENDER_FIREFOX="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-firefox-XXXXXX")"
+
+# The enabled target writes the palette-derived sheet and the managed block
+# into the install-default profile, and leaves the stub profile and every
+# psd sibling (-backup, -back-ovfs, -crashrecovery-*) untouched.
+FF_ON="$RENDER_FIREFOX/on"
+mkdir -p "$FF_ON"
+make_firefox_fixture "$FF_ON"
+HOME="$FF_ON" XDG_CONFIG_HOME="$FF_ON" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+FF_ROOT="$FF_ON/mozilla/firefox"
+FF_PROFILE="$FF_ROOT/b5dxo71e.default-release"
+FF_CSS="$FF_PROFILE/chrome/shell-palette.css"
+FF_CONTENT_CSS="$FF_PROFILE/chrome/shell-content.css"
+FF_USERJS="$FF_PROFILE/user.js"
+test -f "$FF_CSS" \
+    || fail "the Firefox target wrote no shell-palette.css"
+grep -q -- '--shell-background: #1a1b26' "$FF_CSS" \
+    || fail "the Firefox sheet does not carry the palette background"
+grep -q -- '--toolbar-background-color: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not map the palette onto the toolbar"
+# The Nova icon and toolbox tints are flattened to the palette too: the glyph
+# fills come from the foreground and the toolbox background and gradient stops
+# from the palette background.
+grep -q -- '--toolbarbutton-icon-fill: var(--shell-foreground)' "$FF_CSS" \
+    || fail "the Firefox sheet does not tint the toolbar glyphs from the palette"
+grep -q -- '--toolbox-background-color: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not flatten the toolbox background"
+grep -q -- '--toolbox-background-color-gradient-leading: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not flatten the Nova toolbox gradient"
+# The accent resolves to the palette accent: --shell-accent is the fixture
+# accent and every accent token reads it (directly or through color-mix), and
+# the on-accent ink is the black-or-white ink chosen against that accent.
+grep -q -- '--shell-accent: #7aa2f7' "$FF_CSS" \
+    || fail "the Firefox sheet does not carry the palette accent"
+grep -q -- '--color-accent-primary: var(--shell-accent)' "$FF_CSS" \
+    || fail "the Firefox accent does not resolve from the palette accent"
+grep -q -- '--tab-loading-fill: var(--shell-accent)' "$FF_CSS" \
+    || fail "the Firefox tab spinner does not resolve from the palette accent"
+grep -q -- '--shell-on-accent: #000000' "$FF_CSS" \
+    || fail "the Firefox on-accent ink is not the ink chosen against the accent"
+grep -q -- '--button-text-color-primary: var(--shell-on-accent)' "$FF_CSS" \
+    || fail "the Firefox primary-button text is not the on-accent ink"
+# The chrome pins the palette's color scheme: the default fixture carries no
+# mode, so it renders dark, and the panel text comes from the palette instead of
+# the system-scheme light-dark() default that made a light palette unreadable.
+grep -q 'color-scheme: dark !important' "$FF_CSS" \
+    || fail "the dark chrome sheet does not pin color-scheme dark"
+grep -q -- '--panel-text-color: var(--shell-foreground)' "$FF_CSS" \
+    || fail "the chrome sheet does not take the panel text from the palette"
+grep -q '\.searchmode-switcher' "$FF_CSS" \
+    || fail "the Firefox sheet does not carry the scoped switcher rule"
+# An unfocused window repaints the toolbox and the tabs from Firefox's inactive
+# tokens, which on Linux are fed from the native headerbar/caption colors; the
+# rendered sheet must carry the palette pair (and the lwtheme accent) so the
+# theme does not fall away on blur.
+grep -q -- '--toolbox-background-color-inactive: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not keep the toolbox background on blur"
+grep -q -- '--toolbox-text-color-inactive: var(--shell-foreground)' "$FF_CSS" \
+    || fail "the Firefox sheet does not keep the toolbox text on blur"
+grep -q -- '--lwt-accent-color-inactive: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not keep the lwtheme accent on blur"
+grep -q -- '--toolbox-text-color: var(--shell-foreground)' "$FF_CSS" \
+    || fail "the Firefox sheet does not take the toolbox text from the palette"
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$FF_CSS"; then
+    fail "the Firefox sheet left an unresolved placeholder"
+fi
+# The content sheet carries the palette onto the newtab page and the search box.
+test -f "$FF_CONTENT_CSS" \
+    || fail "the Firefox target wrote no shell-content.css"
+grep -q '^@-moz-document url("about:newtab")' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not scope about:newtab"
+grep -q -- '--newtab-background-color: var(--shell-background)' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not map the newtab background"
+grep -q -- '--shell-background: #1a1b26' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not carry the palette background"
+grep -q -- '--newtab-primary-action-background: var(--shell-accent)' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not map the newtab accent"
+# about:privatebrowsing is themed: its html.private canvas pin is overridden,
+# the search box rule is bare (no .search-wrapper gate), the promo CTA reads the
+# palette accent, and color-scheme follows the palette mode (dark here, since
+# the fixture carries no mode).
+grep -q -- '--background-color-canvas: var(--shell-background)' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not override the private-browsing canvas"
+grep -q 'html.private .promo-cta .primary' "$FF_CONTENT_CSS" \
+    || fail "the content sheet does not theme the private-browsing CTA"
+grep -q 'color-scheme: dark' "$FF_CONTENT_CSS" \
+    || fail "the dark content sheet does not pin color-scheme dark"
+if grep -q '\.search-wrapper content-search-handoff-ui' "$FF_CONTENT_CSS"; then
+    fail "the content sheet still gates the search box behind .search-wrapper"
+fi
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$FF_CONTENT_CSS"; then
+    fail "the Firefox content sheet left an unresolved placeholder"
+fi
+test -f "$FF_USERJS" \
+    || fail "the Firefox target wrote no user.js"
+grep -q '^// BEGIN quickshell$' "$FF_USERJS" \
+    || fail "the generated user.js has no BEGIN marker"
+grep -q 'toolkit.legacyUserProfileCustomizations.stylesheets", true' "$FF_USERJS" \
+    || fail "the generated user.js does not set the legacy-sheets pref"
+grep -q '^// END quickshell$' "$FF_USERJS" \
+    || fail "the generated user.js has no END marker"
+test ! -e "$FF_ROOT/ikenjxfu.default/chrome" \
+    || fail "the Firefox target wrote into the Default=1 stub profile"
+for sibling in "$FF_ROOT/b5dxo71e.default-release-backup" \
+                "$FF_ROOT/b5dxo71e.default-release-back-ovfs" \
+                "$FF_ROOT/b5dxo71e.default-release-backup-crashrecovery-20260319_072438"; do
+    test ! -e "$sibling/chrome" && test ! -e "$sibling/user.js" \
+        || fail "the Firefox target wrote into a psd sibling: $sibling"
+done
+
+# A light palette: the accent is applied and the on-accent ink is chosen
+# against it (white on this dark accent), and the content sheet carries the
+# light background, so a light theme under a dark system scheme is themed.
+FF_LIGHT="$RENDER_FIREFOX/light"
+mkdir -p "$FF_LIGHT"
+make_firefox_fixture "$FF_LIGHT"
+RENDER_PALETTE_LIGHT='{"mode":"light","accent":"#795334","selection":"#d9cdb8","muted":"#8a7d6a","background":"#eee8da","dark_background":"#e2dccb","darker_background":"#d6cfbc","lighter_background":"#f7f2e8","foreground":"#3b3428","dark_foreground":"#5a5245","light_foreground":"#241f17","bright_foreground":"#000000","red":"#a33a3a","yellow":"#9a7b2e","green":"#5a7a3a","cyan":"#3a7a7a","blue":"#4a6a9a","magenta":"#7a4a7a","bright_red":"#b55252","bright_yellow":"#b0913e","bright_green":"#6f8f4f","bright_cyan":"#4f8f8f","bright_blue":"#5f7faf","bright_magenta":"#8f5f8f"}'
+HOME="$FF_LIGHT" XDG_CONFIG_HOME="$FF_LIGHT" sh "$RENDER" "$RENDER_PALETTE_LIGHT" "firefox"
+FF_LIGHT_CSS="$FF_LIGHT/mozilla/firefox/b5dxo71e.default-release/chrome/shell-palette.css"
+FF_LIGHT_CONTENT="$FF_LIGHT/mozilla/firefox/b5dxo71e.default-release/chrome/shell-content.css"
+grep -q -- '--shell-accent: #795334' "$FF_LIGHT_CSS" \
+    || fail "the light palette accent did not reach the Firefox sheet"
+grep -q -- '--shell-on-accent: #ffffff' "$FF_LIGHT_CSS" \
+    || fail "the light on-accent ink is not white against the dark accent"
+grep -q -- '--color-accent-primary: var(--shell-accent)' "$FF_LIGHT_CSS" \
+    || fail "the light Firefox accent does not resolve from the palette accent"
+# The light chrome sheet pins color-scheme light and the palette panel text, so
+# a light palette under a dark system scheme reads light rather than following
+# the dark branch of Firefox's light-dark() tokens.
+grep -q 'color-scheme: light !important' "$FF_LIGHT_CSS" \
+    || fail "the light palette mode did not reach the chrome sheet color-scheme"
+grep -q -- '--panel-text-color: var(--shell-foreground)' "$FF_LIGHT_CSS" \
+    || fail "the light chrome sheet does not take the panel text from the palette"
+grep -q -- '--shell-background: #eee8da' "$FF_LIGHT_CONTENT" \
+    || fail "the light palette background did not reach the newtab content sheet"
+grep -q -- '--newtab-background-color: var(--shell-background)' "$FF_LIGHT_CONTENT" \
+    || fail "the light content sheet does not map the newtab background"
+grep -q 'color-scheme: light' "$FF_LIGHT_CONTENT" \
+    || fail "the light palette mode did not reach the content sheet color-scheme"
+grep -q -- '--background-color-canvas: var(--shell-background)' "$FF_LIGHT_CONTENT" \
+    || fail "the light content sheet does not override the private-browsing canvas"
+
+# A pre-existing user.js keeps its own prefs, gains the block once, and an
+# appended edit survives the next render.
+FF_KEEP="$RENDER_FIREFOX/keep"
+mkdir -p "$FF_KEEP"
+make_firefox_fixture "$FF_KEEP"
+FF_KEEP_USERJS="$FF_KEEP/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref("browser.startup.homepage", "about:blank");\nuser_pref("browser.tabs.warnOnClose", false);\n' > "$FF_KEEP_USERJS"
+HOME="$FF_KEEP" XDG_CONFIG_HOME="$FF_KEEP" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+grep -q 'browser.startup.homepage' "$FF_KEEP_USERJS" \
+    || fail "the Firefox target dropped a hand-written pref"
+grep -q 'browser.tabs.warnOnClose' "$FF_KEEP_USERJS" \
+    || fail "the Firefox target dropped a hand-written pref"
+grep -q '^// BEGIN quickshell$' "$FF_KEEP_USERJS" \
+    || fail "the Firefox target did not add the managed block to an existing user.js"
+test "$(grep -c 'legacyUserProfileCustomizations.stylesheets' "$FF_KEEP_USERJS")" -eq 1 \
+    || fail "the Firefox target added the legacy-sheets pref twice"
+printf 'user_pref("app.update.auto", false);\n' >> "$FF_KEEP_USERJS"
+HOME="$FF_KEEP" XDG_CONFIG_HOME="$FF_KEEP" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+grep -q 'app.update.auto' "$FF_KEEP_USERJS" \
+    || fail "the Firefox target lost an appended edit on the next render"
+test "$(grep -c '^// BEGIN quickshell$' "$FF_KEEP_USERJS")" -eq 1 \
+    || fail "the Firefox managed block duplicated on a rerun"
+
+# A pref set outside the markers is adopted into the block, not duplicated.
+FF_ADOPT="$RENDER_FIREFOX/adopt"
+mkdir -p "$FF_ADOPT"
+make_firefox_fixture "$FF_ADOPT"
+FF_ADOPT_USERJS="$FF_ADOPT/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref("browser.startup.homepage", "about:blank");\nuser_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);\nuser_pref("browser.tabs.warnOnClose", false);\n' > "$FF_ADOPT_USERJS"
+HOME="$FF_ADOPT" XDG_CONFIG_HOME="$FF_ADOPT" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test "$(grep -c 'legacyUserProfileCustomizations.stylesheets' "$FF_ADOPT_USERJS")" -eq 1 \
+    || fail "a loose legacy-sheets pref was duplicated instead of adopted"
+grep -q 'browser.startup.homepage' "$FF_ADOPT_USERJS" \
+    || fail "adopting the loose pref dropped a neighbouring pref"
+grep -q 'browser.tabs.warnOnClose' "$FF_ADOPT_USERJS" \
+    || fail "adopting the loose pref dropped a neighbouring pref"
+# The single pref now sits inside the managed block.
+if ! awk '/^\/\/ BEGIN quickshell$/{on=1} on&&/legacyUserProfileCustomizations/{seen=1} /^\/\/ END quickshell$/{on=0; if(!seen) exit 1} END{exit seen?0:1}' "$FF_ADOPT_USERJS"; then
+    fail "the adopted legacy-sheets pref is not inside the managed block"
+fi
+
+# A loose pref written with unusual whitespace is still recognised and adopted,
+# not duplicated.
+FF_SPACED="$RENDER_FIREFOX/spaced"
+mkdir -p "$FF_SPACED"
+make_firefox_fixture "$FF_SPACED"
+FF_SPACED_USERJS="$FF_SPACED/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref( "toolkit.legacyUserProfileCustomizations.stylesheets" , true );\n' > "$FF_SPACED_USERJS"
+HOME="$FF_SPACED" XDG_CONFIG_HOME="$FF_SPACED" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test "$(grep -c 'legacyUserProfileCustomizations.stylesheets' "$FF_SPACED_USERJS")" -eq 1 \
+    || fail "a spaced loose legacy-sheets pref was duplicated instead of adopted"
+
+# A BEGIN marker whose END was lost (a hand-edit truncation) must not swallow
+# the lines that follow it: they survive as user prefs, and exactly one
+# well-formed block is written.
+FF_TRUNC="$RENDER_FIREFOX/trunc"
+mkdir -p "$FF_TRUNC"
+make_firefox_fixture "$FF_TRUNC"
+FF_TRUNC_USERJS="$FF_TRUNC/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref("browser.startup.homepage", "about:blank");\n// BEGIN quickshell\nuser_pref("browser.tabs.warnOnClose", false);\n' > "$FF_TRUNC_USERJS"
+HOME="$FF_TRUNC" XDG_CONFIG_HOME="$FF_TRUNC" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+grep -q 'browser.startup.homepage' "$FF_TRUNC_USERJS" \
+    || fail "an unterminated managed block dropped the pref before BEGIN"
+grep -q 'browser.tabs.warnOnClose' "$FF_TRUNC_USERJS" \
+    || fail "an unterminated managed block swallowed the user's following pref"
+test "$(grep -c '^// BEGIN quickshell$' "$FF_TRUNC_USERJS")" -eq 1 \
+    || fail "an unterminated managed block produced no single BEGIN marker"
+test "$(grep -c '^// END quickshell$' "$FF_TRUNC_USERJS")" -eq 1 \
+    || fail "an unterminated managed block produced no END marker"
+
+# An IsRelative=0 profile resolves to its absolute Path.
+FF_ABS="$RENDER_FIREFOX/abs"
+mkdir -p "$FF_ABS/mozilla/firefox" "$FF_ABS/abs-profile"
+printf '[4F96D1932A9F858E]\nDefault=abs-profile\n' > "$FF_ABS/mozilla/firefox/installs.ini"
+printf '[Profile0]\nName=abs\nIsRelative=0\nPath=%s\n' "$FF_ABS/abs-profile" > "$FF_ABS/mozilla/firefox/profiles.ini"
+HOME="$FF_ABS" XDG_CONFIG_HOME="$FF_ABS" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test -f "$FF_ABS/abs-profile/chrome/shell-palette.css" \
+    || fail "an IsRelative=0 absolute profile Path did not resolve"
+test -f "$FF_ABS/abs-profile/user.js" \
+    || fail "an IsRelative=0 absolute profile Path wrote no user.js"
+
+# The profile symlink is written through, not resolved.
+FF_SYM="$RENDER_FIREFOX/sym"
+mkdir -p "$FF_SYM/mozilla/firefox/real-target"
+ln -s real-target "$FF_SYM/mozilla/firefox/link.default"
+printf '[4F96D1932A9F858E]\nDefault=link.default\n' > "$FF_SYM/mozilla/firefox/installs.ini"
+HOME="$FF_SYM" XDG_CONFIG_HOME="$FF_SYM" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test -L "$FF_SYM/mozilla/firefox/link.default" \
+    || fail "the Firefox target resolved the profile symlink"
+test -f "$FF_SYM/mozilla/firefox/link.default/user.js" \
+    || fail "the Firefox target did not write through the profile symlink"
+
+# More than one install section: the first wins, and the choice is noted.
+FF_MULTI="$RENDER_FIREFOX/multi"
+mkdir -p "$FF_MULTI/mozilla/firefox/alpha.default" "$FF_MULTI/mozilla/firefox/beta.default"
+printf '[4F96D1932A9F858E]\nDefault=alpha.default\n\n[DEADBEEFDEADBEEF]\nDefault=beta.default\n' > "$FF_MULTI/mozilla/firefox/installs.ini"
+HOME="$FF_MULTI" XDG_CONFIG_HOME="$FF_MULTI" sh "$RENDER" "$RENDER_PALETTE" "firefox" 2>"$FF_MULTI/log"
+test -f "$FF_MULTI/mozilla/firefox/alpha.default/chrome/shell-palette.css" \
+    || fail "the first install section's default profile was not used"
+test ! -e "$FF_MULTI/mozilla/firefox/beta.default/chrome" \
+    || fail "a later install section's default profile was used"
+grep -q 'multiple install sections; using 4F96D1932A9F858E' "$FF_MULTI/log" \
+    || fail "a multi-section installs.ini was not noted with the winning section"
+
+# No installs.ini: skip as success, log the skip, and write nothing.
+FF_NONE="$RENDER_FIREFOX/none"
+mkdir -p "$FF_NONE/mozilla/firefox"
+if ! HOME="$FF_NONE" XDG_CONFIG_HOME="$FF_NONE" sh "$RENDER" "$RENDER_PALETTE" \
+    "firefox" 2>"$FF_NONE/log"; then
+    fail "a Firefox root with no installs.ini failed the render"
+fi
+grep -q 'firefox: no profile' "$FF_NONE/log" \
+    || fail "a missing Firefox profile was not logged"
+test -z "$(find "$FF_NONE/mozilla" -type f)" \
+    || fail "a missing Firefox profile still wrote a file"
+
+# Disabled: shell-palette.css is comment-only, and user.js is neither created
+# nor touched.
+FF_OFF="$RENDER_FIREFOX/off"
+mkdir -p "$FF_OFF"
+make_firefox_fixture "$FF_OFF"
+HOME="$FF_OFF" XDG_CONFIG_HOME="$FF_OFF" sh "$RENDER" "$RENDER_PALETTE" "kitty"
+FF_OFF_CSS="$FF_OFF/mozilla/firefox/b5dxo71e.default-release/chrome/shell-palette.css"
+FF_OFF_CONTENT="$FF_OFF/mozilla/firefox/b5dxo71e.default-release/chrome/shell-content.css"
+test "$(cat "$FF_OFF_CSS")" = "/* quickshell theme target disabled */" \
+    || fail "a disabled Firefox target did not write a comment-only palette sheet"
+test "$(cat "$FF_OFF_CONTENT")" = "/* quickshell theme target disabled */" \
+    || fail "a disabled Firefox target did not write a comment-only content sheet"
+test ! -e "$FF_OFF/mozilla/firefox/b5dxo71e.default-release/user.js" \
+    || fail "a disabled Firefox target created a user.js"
+
+# The renderer never writes the user-owned userContent.css: it generates the
+# shell-* sheets only, and the user imports shell-content.css from their own
+# file. A sentinel in userContent.css must survive an enabled render byte for
+# byte.
+FF_UCS="$RENDER_FIREFOX/usercontent"
+mkdir -p "$FF_UCS"
+make_firefox_fixture "$FF_UCS"
+FF_UCS_FILE="$FF_UCS/mozilla/firefox/b5dxo71e.default-release/chrome/userContent.css"
+mkdir -p "$(dirname "$FF_UCS_FILE")"
+printf '@import url("shell-content.css");\n/* my own rule */\n' > "$FF_UCS_FILE"
+HOME="$FF_UCS" XDG_CONFIG_HOME="$FF_UCS" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test "$(cat "$FF_UCS_FILE")" = '@import url("shell-content.css");
+/* my own rule */' \
+    || fail "the Firefox target wrote userContent.css; the user owns it"
+test -f "$FF_UCS/mozilla/firefox/b5dxo71e.default-release/chrome/shell-content.css" \
+    || fail "the Firefox target wrote no shell-content.css beside userContent.css"
+
+FF_OFF2="$RENDER_FIREFOX/off2"
+mkdir -p "$FF_OFF2"
+make_firefox_fixture "$FF_OFF2"
+FF_OFF2_USERJS="$FF_OFF2/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref("browser.startup.homepage", "about:blank");\n' > "$FF_OFF2_USERJS"
+HOME="$FF_OFF2" XDG_CONFIG_HOME="$FF_OFF2" sh "$RENDER" "$RENDER_PALETTE" "kitty"
+grep -q 'browser.startup.homepage' "$FF_OFF2_USERJS" \
+    || fail "a disabled Firefox target clobbered an existing user.js"
+if grep -q 'legacyUserProfileCustomizations' "$FF_OFF2_USERJS"; then
+    fail "a disabled Firefox target edited an existing user.js"
+fi
+
+# Spicetify follows the shell through the vendored community `text` theme. The
+# renderer owns Themes/quickshell/ under the app config root: it writes only
+# its own color.ini and user.css, keeps every default color option, appends a
+# [Quickshell] option built from the palette, refreshes the client only on a
+# real byte change, and skips as success when the config root is absent.
+SP_TPL_CSS="$ROOT/assets/templates/spicetify-user.css"
+SP_TPL_INI="$ROOT/assets/templates/spicetify-color.ini"
+test -f "$SP_TPL_CSS" \
+    || fail "assets/templates/spicetify-user.css is missing"
+test -f "$SP_TPL_INI" \
+    || fail "assets/templates/spicetify-color.ini is missing"
+grep -q 'morpheusthewhite' "$SP_TPL_CSS" \
+    || fail "the Spicetify user.css banner drops the upstream attribution"
+grep -q '33a08ea009687f5a42ff678015c28797fe142a7c' "$SP_TPL_INI" \
+    || fail "the Spicetify color.ini banner drops the pinned commit"
+grep -q '^\[Quickshell\]' "$SP_TPL_INI" \
+    || fail "the Spicetify color.ini template has no [Quickshell] section"
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$SP_TPL_CSS"; then
+    fail "the Spicetify user.css template holds a token; it is verbatim"
+fi
+# The renderer never selects the theme (a manual step), never uses the
+# version-gated restore path, and never names the user-owned config file.
+if grep -qE 'current_theme|color_scheme' "$RENDER"; then
+    fail "the renderer sets current_theme or color_scheme; selection stays manual"
+fi
+if grep -qw apply "$RENDER"; then
+    fail "the renderer names the version-gated restore path; only refresh is allowed"
+fi
+if grep -q 'config-xpui' "$RENDER"; then
+    fail "the renderer names config-xpui.ini; the user owns it"
+fi
+
+# An installed Spicetify: the enabled target creates Themes/quickshell/, writes
+# the palette-derived color.ini and the verbatim user.css, leaves an installed
+# theme and the config file untouched, and refreshes once because bytes changed.
+SP_HOME="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-spicetify-XXXXXX")"
+mkdir -p "$SP_HOME/spicetify/Themes/text"
+printf 'foreign theme\n' > "$SP_HOME/spicetify/Themes/text/user.css"
+printf 'foreign config\n' > "$SP_HOME/spicetify/config-xpui.ini"
+rm -f "$RENDER_STUB_LOG"
+HOME="$SP_HOME" XDG_CONFIG_HOME="$SP_HOME" sh "$RENDER" "$RENDER_PALETTE" "spicetify"
+SP_DIR="$SP_HOME/spicetify/Themes/quickshell"
+SP_COLOR="$SP_DIR/color.ini"
+SP_CSS="$SP_DIR/user.css"
+test -f "$SP_COLOR" || fail "the Spicetify target wrote no color.ini"
+test -f "$SP_CSS" || fail "the Spicetify target wrote no user.css"
+grep -q 'foreign theme' "$SP_HOME/spicetify/Themes/text/user.css" \
+    || fail "the Spicetify target edited a theme the user installed"
+grep -q 'foreign config' "$SP_HOME/spicetify/config-xpui.ini" \
+    || fail "the Spicetify target edited config-xpui.ini"
+cmp -s "$SP_CSS" "$SP_TPL_CSS" \
+    || fail "the Spicetify user.css is not the vendored template verbatim"
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$SP_CSS"; then
+    fail "the rendered Spicetify user.css holds an unresolved token"
+fi
+test "$(cat "$RENDER_STUB_LOG" 2>/dev/null)" = "refresh" \
+    || fail "the Spicetify refresh stub was not invoked exactly once with refresh"
+
+# color.ini: every default option survives, the [Quickshell] key set equals the
+# union of the default options' keys, and the [Quickshell] values are bare
+# palette hex.
+python3 - "$SP_COLOR" "$SP_TPL_INI" "$RENDER_PALETTE" <<'PYEOF'
+import json
+import re
+import sys
+
+def fail(message):
+    print("panel-logic FAIL: " + message, file=sys.stderr)
+    sys.exit(1)
+
+def parse(text):
+    entries = []
+    section = None
+    values = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped[0] in "#;":
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if section is not None:
+                entries.append((section, values))
+            section = stripped[1:-1].strip()
+            values = {}
+            continue
+        if section is None or "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        values[key.strip()] = value.strip()
+    if section is not None:
+        entries.append((section, values))
+    return entries
+
+dest = parse(open(sys.argv[1], encoding="utf-8").read())
+template = parse(open(sys.argv[2], encoding="utf-8").read())
+palette = json.loads(sys.argv[3])
+if [section for section, _ in dest] != [section for section, _ in template]:
+    fail("color.ini sections differ from the vendored template")
+default_keys = set()
+quickshell = None
+for section, values in dest:
+    if section == "Quickshell":
+        quickshell = values
+    else:
+        default_keys.update(values)
+if quickshell is None:
+    fail("color.ini has no [Quickshell] section")
+if set(quickshell) != default_keys:
+    fail("[Quickshell] key set differs (missing %s, extra %s)" % (
+        sorted(default_keys - set(quickshell)),
+        sorted(set(quickshell) - default_keys)))
+expected = {
+    "accent": palette["accent"],
+    "accent-active": palette["accent"],
+    "accent-inactive": palette["selection"],
+    "banner": palette["accent"],
+    "border-active": palette["accent"],
+    "border-inactive": palette["muted"],
+    "header": palette["muted"],
+    "highlight": palette["selection"],
+    "main": palette["background"],
+    "notification": palette["accent"],
+    "notification-error": palette["red"],
+    "subtext": palette["muted"],
+    "text": palette["foreground"],
+}
+for key, value in quickshell.items():
+    if value.startswith("#"):
+        fail("[Quickshell] %s keeps a leading # (%s)" % (key, value))
+    if not re.fullmatch(r"[0-9A-Fa-f]{6}", value):
+        fail("[Quickshell] %s is not a bare 6-hex value (%s)" % (key, value))
+    if value != expected[key].lstrip("#"):
+        fail("[Quickshell] %s is %s, expected %s" % (
+            key, value, expected[key].lstrip("#")))
+if re.search(r"\{\{[A-Za-z0-9_]+\}\}", open(sys.argv[1], encoding="utf-8").read()):
+    fail("color.ini left an unresolved placeholder")
+PYEOF
+
+# A stray file the user dropped into the shell-owned directory survives, and an
+# identical second render neither rewrites the files nor refreshes again.
+printf 'keep me\n' > "$SP_DIR/keepme.txt"
+SP_STAMP="$(stat -c '%y' "$SP_COLOR")"
+sleep 1
+HOME="$SP_HOME" XDG_CONFIG_HOME="$SP_HOME" sh "$RENDER" "$RENDER_PALETTE" "spicetify"
+test -f "$SP_DIR/keepme.txt" \
+    || fail "the Spicetify target deleted an unknown file in its directory"
+test "$SP_STAMP" = "$(stat -c '%y' "$SP_COLOR")" \
+    || fail "the Spicetify target rewrote an unchanged color.ini"
+test "$(grep -c '^refresh$' "$RENDER_STUB_LOG")" -eq 1 \
+    || fail "an identical Spicetify render refreshed the client again"
+if grep -qvx refresh "$RENDER_STUB_LOG"; then
+    fail "an identical Spicetify render logged a non-refresh invocation"
+fi
+
+# A real palette change refreshes again.
+SP_PALETTE2="$(printf '%s' "$RENDER_PALETTE" | sed 's/"accent":"#7aa2f7"/"accent":"#abcdef"/')"
+HOME="$SP_HOME" XDG_CONFIG_HOME="$SP_HOME" sh "$RENDER" "$SP_PALETTE2" "spicetify"
+grep -qE '^accent[[:space:]]+= abcdef$' "$SP_COLOR" \
+    || fail "a changed palette did not reach the Spicetify color.ini"
+test "$(grep -c '^refresh$' "$RENDER_STUB_LOG")" -eq 2 \
+    || fail "a real Spicetify change did not refresh the client"
+if grep -qvx refresh "$RENDER_STUB_LOG"; then
+    fail "a real Spicetify change logged a non-refresh invocation"
+fi
+
+# Disabled: the [Quickshell] section carries the theme's own [Spicetify]
+# defaults, and user.css is still written (it is the theme's layout).
+SP_OFF="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-spicetify-XXXXXX")"
+mkdir -p "$SP_OFF/spicetify/Themes"
+HOME="$SP_OFF" XDG_CONFIG_HOME="$SP_OFF" sh "$RENDER" "$RENDER_PALETTE" "kitty"
+SP_OFF_DIR="$SP_OFF/spicetify/Themes/quickshell"
+test -f "$SP_OFF_DIR/user.css" \
+    || fail "a disabled Spicetify target wrote no user.css"
+python3 - "$SP_OFF_DIR/color.ini" "$SP_TPL_INI" <<'PYEOF'
+import re
+import sys
+
+def fail(message):
+    print("panel-logic FAIL: " + message, file=sys.stderr)
+    sys.exit(1)
+
+def parse(text):
+    entries = []
+    section = None
+    values = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped[0] in "#;":
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if section is not None:
+                entries.append((section, values))
+            section = stripped[1:-1].strip()
+            values = {}
+            continue
+        if section is None or "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        values[key.strip()] = value.strip()
+    if section is not None:
+        entries.append((section, values))
+    return entries
+
+dest = parse(open(sys.argv[1], encoding="utf-8").read())
+template = parse(open(sys.argv[2], encoding="utf-8").read())
+defaults = {}
+for section, values in template:
+    if section == "Spicetify":
+        defaults = values
+quickshell = None
+for section, values in dest:
+    if section == "Quickshell":
+        quickshell = values
+if quickshell is None:
+    fail("a disabled Spicetify color.ini has no [Quickshell] section")
+if not defaults:
+    fail("the vendored template has no [Spicetify] defaults")
+if quickshell != defaults:
+    fail("a disabled [Quickshell] section is not the theme's [Spicetify] defaults")
+if re.search(r"\{\{[A-Za-z0-9_]+\}\}", open(sys.argv[1], encoding="utf-8").read()):
+    fail("a disabled color.ini left an unresolved placeholder")
+PYEOF
+
+# No Spicetify config root: skip as success, log the skip, write nothing.
+SP_NONE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-spicetify-XXXXXX")"
+if ! HOME="$SP_NONE" XDG_CONFIG_HOME="$SP_NONE" sh "$RENDER" "$RENDER_PALETTE" \
+    "spicetify" 2>"$SP_NONE/log"; then
+    fail "an absent Spicetify config root failed the render"
+fi
+grep -q 'spicetify: not installed' "$SP_NONE/log" \
+    || fail "an absent Spicetify config root was not logged"
+test ! -e "$SP_NONE/spicetify" \
+    || fail "the renderer created a Spicetify root that was not installed"
+
+rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7" "$RENDER_OFF" "$RENDER_OFF1" "$RENDER_FUTURE" "$RENDER_BAD" "$RENDER_BRACE" "$RENDER_TMP" "$RENDER_STUB" "$RENDER_VENCORD" "$RENDER_VENCORD_LIGHT" "$RENDER_VOFF" "$RENDER_NOVENCORD" "$RENDER_FIREFOX" "$SP_HOME" "$SP_OFF" "$SP_NONE"
 
 # --- 18. dashboard Theme block: live palette, name, settings target ---
 # The block is the switcher's second home: a palette strip bound to the mapped

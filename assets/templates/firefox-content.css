@@ -1,0 +1,184 @@
+/* Rendered by scripts/render-theme.sh from the active theme palette.
+ * Do not edit: the next palette load overwrites this file.
+ *
+ * about:newtab, about:home, and about:privatebrowsing are content documents,
+ * so the chrome sheet (shell-palette.css) cannot reach them. Import this once
+ * from the profile's userContent.css as its FIRST line:
+ *     @import url("shell-content.css");
+ * An @import after any other rule is ignored, so it must come before every
+ * other rule. Firefox's newtab variables are internal and have been renamed
+ * across releases (verified against Firefox 157), so this sheet may need
+ * upkeep after an update. See docs/user/theme-desktop-setup.md.
+ */
+
+@-moz-document url("about:newtab"), url("about:home"), url("about:privatebrowsing") {
+    :root {
+        --shell-background: {{background}};
+        --shell-dark-background: {{dark_background}};
+        --shell-darker-background: {{darker_background}};
+        --shell-lighter-background: {{lighter_background}};
+        --shell-foreground: {{foreground}};
+        --shell-muted: {{muted}};
+        --shell-selection: {{selection}};
+        --shell-accent: {{accent}};
+        --shell-on-accent: {{on_accent}};
+
+        /* The newtab page paints its own surfaces and text from these; !important
+         * because a user stylesheet loses to the page's author rules otherwise.
+         * Names verified in browser/omni.ja's newtab activity-stream.css. */
+        --newtab-background-color: var(--shell-background) !important;
+        --newtab-background-color-secondary: var(--shell-dark-background) !important;
+        --newtab-background-card: var(--shell-lighter-background) !important;
+        --newtab-text-primary-color: var(--shell-foreground) !important;
+        --newtab-text-secondary-text: var(--shell-muted) !important;
+        --newtab-text-secondary-color: var(--shell-muted) !important;
+        --newtab-contextual-text-primary-color: var(--shell-foreground) !important;
+        --newtab-contextual-text-secondary-color: var(--shell-muted) !important;
+        --newtab-primary-action-background: var(--shell-accent) !important;
+        --newtab-primary-element-text-color: var(--shell-on-accent) !important;
+        --newtab-element-hover-color: color-mix(in srgb, var(--shell-foreground) 10%, transparent) !important;
+        --newtab-element-active-color: color-mix(in srgb, var(--shell-foreground) 18%, transparent) !important;
+        --newtab-element-secondary-color: color-mix(in srgb, var(--shell-foreground) 6%, transparent) !important;
+        --newtab-element-secondary-hover-color: color-mix(in srgb, var(--shell-foreground) 12%, transparent) !important;
+        --newtab-element-secondary-active-color: color-mix(in srgb, var(--shell-foreground) 22%, transparent) !important;
+        --newtab-button-background: var(--shell-lighter-background) !important;
+        --newtab-button-hover-background: var(--shell-selection) !important;
+        --newtab-button-active-background: var(--shell-selection) !important;
+        --newtab-button-text: var(--shell-foreground) !important;
+        --newtab-button-static-background: var(--shell-lighter-background) !important;
+        --newtab-button-static-hover-background: var(--shell-selection) !important;
+        --newtab-button-static-active-background: var(--shell-darker-background) !important;
+        --newtab-wordmark-color: var(--shell-foreground) !important;
+
+        /* color-scheme drives native form controls and scrollbars, and PB's own
+         * sheet pins it dark; follow the palette mode instead. */
+        color-scheme: {{page_scheme}} !important;
+        /* --newtab-text-topic-label-color and --newtab-weather-background-color are intentionally left to Firefox. */
+    }
+
+    /* The search box is a content-search-handoff-ui custom element whose own
+     * :host rule sets the Field/FieldText system colors, so the page's
+     * --newtab-* overrides do not reach it; set its variables on the element.
+     * Names verified in browser/omni.ja's contentSearchHandoffUI.css. The
+     * selector is bare because about:privatebrowsing nests it inside
+     * .search-inner-wrapper, with no .search-wrapper ancestor (about
+     * PrivateBrowsing.html), and the @-moz-document scope already limits this
+     * to the three about: pages. */
+    content-search-handoff-ui {
+        --content-search-handoff-ui-background-color: var(--shell-dark-background) !important;
+        --content-search-handoff-ui-color: var(--shell-foreground) !important;
+        --content-search-handoff-ui-fill: var(--shell-muted) !important;
+        --content-search-handoff-ui-caret-color: var(--shell-foreground) !important;
+        --content-search-handoff-ui-unfocused-border-color: transparent !important;
+        --content-search-handoff-ui-fakefocus-border-color: var(--shell-accent) !important;
+        --content-search-handoff-ui-fakefocus-box-shadow-inner: var(--shell-selection) !important;
+        --content-search-handoff-ui-fakefocus-box-shadow-outer: transparent !important;
+    }
+
+    /* about:privatebrowsing paints from html.private in browser/omni.ja's
+     * privatebrowsing/aboutPrivateBrowsing.css, which is author-origin, so this
+     * user-origin !important wins over every rule there, including the promo
+     * CTA's own !important. That sheet gates its palette on @media not
+     * (prefers-contrast) so a high-contrast system scheme keeps the system
+     * colors; mirror the gate so this does not override them.
+     *
+     * Covered: the canvas the page reads from --background-color-canvas,
+     * pinned on html.private (aboutPrivateBrowsing.css:9) and re-asserted by
+     * Nova (:469-480; the consumer is toolkit in-content/common-shared.css:56),
+     * plus the legacy purple gradient (:455-459), the body text color, the
+     * --link-color family the Nova rules use (:477-479), the in-content banner
+     * pair (:13-14), and the muted in-content buttons (:15-16). */
+    @media not (prefers-contrast) {
+        html.private {
+            --background-color-canvas: var(--shell-background) !important;
+            background: var(--shell-background) !important;
+            color: var(--shell-foreground) !important;
+            --link-color: var(--shell-accent) !important;
+            --link-color-hover: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+            --link-color-active: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+            --link-color-visited: var(--shell-accent) !important;
+            --in-content-banner-background: var(--shell-lighter-background) !important;
+            --in-content-banner-text-color: var(--shell-foreground) !important;
+            --button-background-color-hover: var(--shell-selection) !important;
+            --button-background-color-active: var(--shell-lighter-background) !important;
+        }
+
+        /* aboutPrivateBrowsing.css pins `a:link`, `.text-link` and `.promo a`
+         * to `color: inherit` (:36-48, :394-398); that outranks the shared
+         * --link-color consumer above, and the Nova branch that would read
+         * --link-color is off by default (`browser.nova.enabled`), so the links
+         * need an explicit color. :visited rides on --link-color-visited, read
+         * by common-shared.css:462. */
+        html.private a,
+        html.private .text-link,
+        html.private .promo a {
+            color: var(--shell-accent) !important;
+        }
+
+        html.private a:hover,
+        html.private .text-link:hover,
+        html.private .promo a:hover {
+            color: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+        }
+
+        html.private a:hover:active,
+        html.private .text-link:hover:active,
+        html.private .promo a:hover:active {
+            color: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+        }
+
+        html.private a:visited,
+        html.private .text-link:visited,
+        html.private .promo a:visited {
+            color: var(--shell-accent) !important;
+        }
+
+        /* The info card (:224-251) and the promos (:101-109, :283-294, :447-453)
+         * are the only other surfaces the sheet paints, all in the legacy purple
+         * or a translucent black. The CTA button is a hardcoded cyan (:339-359). */
+        html.private .info,
+        html.private .promo-visible,
+        html.private .promo.below-search.promo-visible {
+            background-color: var(--shell-lighter-background) !important;
+        }
+
+        html.private .info {
+            color: var(--shell-muted) !important;
+        }
+
+        html.private .info-border {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        /* .promo.top keeps a hardcoded rgba(255, 255, 255, 0.3) bottom border
+         * (:108); take its color from the palette. */
+        html.private .promo.top {
+            background: var(--shell-dark-background) !important;
+            border-bottom-color: var(--shell-selection) !important;
+        }
+
+        /* Nova (`browser.nova.enabled`, off by default) paints a fixed fox-tail
+         * over the page (:482-489); drop it so a light palette is not covered. */
+        html.private body::before {
+            background: none !important;
+        }
+
+        html.private .promo-cta .primary {
+            background-color: var(--shell-accent) !important;
+            color: var(--shell-on-accent) !important;
+        }
+
+        html.private .promo-cta .primary:focus-visible {
+            outline-color: var(--shell-accent) !important;
+        }
+
+        html.private .promo-cta .primary:hover {
+            background-color: color-mix(in srgb, var(--shell-accent) 82%, var(--shell-foreground)) !important;
+        }
+
+        html.private .promo-cta .primary:hover:active {
+            background-color: color-mix(in srgb, var(--shell-accent) 68%, var(--shell-foreground)) !important;
+        }
+    }
+}

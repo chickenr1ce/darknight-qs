@@ -1,8 +1,9 @@
 # Theme desktop setup
 
-The theme switcher renders the active palette into six desktop config files.
-The renderer, `scripts/render-theme.sh`, runs on every palette load and change,
-so the files stay in step with the selected theme. It writes:
+The theme switcher renders the active palette into the desktop config files for
+nine targets and twelve files, because Firefox contributes three and Spicetify
+two. The renderer, `scripts/render-theme.sh`, runs on every palette load and
+change, so the files stay in step with the selected theme. It writes:
 
 - `~/.config/hypr/theme.lua`
 - `~/.config/kitty/theme.conf`
@@ -10,30 +11,82 @@ so the files stay in step with the selected theme. It writes:
 - `~/.config/starship.toml`
 - `~/.config/yazi/theme.toml`
 - `~/.config/btop/themes/theme.theme`
+- the active Firefox profile's `chrome/shell-palette.css`,
+  `chrome/shell-content.css`, and `user.js`
+- `~/.config/Vencord/themes/quickshell.theme.css`
+- `~/.config/spicetify/Themes/quickshell/color.ini` and `user.css`
 
 The renderer substitutes colors into templates this repo owns
 (`assets/templates/`) and never reads or evaluates a theme directory. It writes
 a file only when the rendered bytes change, so a hand edit is reconciled on the
 next palette load.
 
+Settings → Themed apps turns each target on or off. A target renders in
+isolation, so a broken template skips that app and the rest still write (the run
+exits non-zero), and a switched-off target writes a valid unthemed layer instead
+of a missing file.
+
 The shell (`services/ThemeService.qml`) passes the resolved palette to the
 renderer through a `Process`, so the UI thread never blocks.
 
 ## One-time wiring
 
+### Automatic
+
+`scripts/wire-themed-apps.sh` reports or applies every step below. Its targets
+are `hyprland`, `kitty`, `hyprlock`, `btop`, `firefox`, `vencord`, and
+`spicetify`; naming one or more limits the run to those, and no arguments means
+all of them. `--check` is the default and changes nothing; `--apply` performs
+the wiring.
+
+```
+scripts/wire-themed-apps.sh --check            # report
+scripts/wire-themed-apps.sh --apply kitty btop # wire two targets
+```
+
+Before its first edit of a file the script copies it to
+`<file>.bak-quickshell-<timestamp>` next to the real file, so a rerun changes no
+bytes and makes no new backup (a stamp that already exists gains a numeric
+suffix rather than being overwritten). A config the user manages with symlinks
+stays a symlink: the script edits the file the link points at, not the link. It
+refuses to write btop's or Discord's config while that app is running, because
+each rewrites its file on exit; close the app and rerun.
+
+The Hyprland check follows symlinked module files and skips a `require("theme")`
+inside a Lua comment, so a commented-out line still reports `todo`.
+
+`scripts/install.sh` runs `--check` after seeding and, when something is
+`todo`, offers to apply it. `--wire-apps` applies without asking,
+`--no-wire-apps` reports only, and the default asks on a terminal and prints a
+note otherwise. A failed apply is reported as a warning; the install itself
+still succeeds.
+
+Two steps stay manual. hyprlock widget colors must reference the `$theme_*`
+names by hand, since the script only adds the `source` line. Firefox and
+Discord must be restarted once for their changes to load (Spicetify restarts
+Spotify as part of `--apply`).
+
+The per-app sections below are the reference for what the script does and for
+wiring by hand.
+
 Some files outside this repo must be pointed at the rendered output once. The
 renderer does not touch them. Starship and yazi have no include directive, so
 the renderer owns `~/.config/starship.toml` and `~/.config/yazi/theme.toml`
-outright and there is nothing to add. Hyprland, kitty, and hyprlock each need a
-line added; btop needs a one-time pick in its own options menu.
+outright and there is nothing to add. Hyprland, kitty, hyprlock, and Firefox
+each need a line added (Firefox needs two, one per sheet); btop needs a
+one-time pick in its own options menu; and Vencord and Spicetify each need a
+one-time selection in the app.
 
 ### Hyprland borders
 
-Add `require("theme")` at the **end** of `~/.config/hypr/modules/looks.lua`. It
-must come after the file's own `hl.config({ general = ... })` so the rendered
-border colors win:
+Add `require("theme")` at the **end** of whichever of your Hyprland config files
+runs last. That is usually the entry file `~/.config/hypr/hyprland.lua`: its
+last statement runs after every module it requires, so the rendered border
+colors win whatever layout you use. It must come after your own
+`hl.config({ general = ... })`:
 
 ```lua
+-- quickshell: rendered border colors; keep this the last line
 require("theme")
 ```
 
@@ -53,6 +106,11 @@ include theme.conf
 The `# BEGIN_KITTY_THEME` / `# END_KITTY_THEME` markers can stay; only the
 included file changes.
 
+`scripts/wire-themed-apps.sh` does exactly this: it replaces everything between
+the two markers with `include theme.conf`, appends the line when there are no
+markers, and leaves a file with only one of the two markers alone (reporting it
+as an unmatched marker to fix by hand).
+
 ### btop
 
 Select the rendered theme in btop's own options menu: press `Esc`, move to
@@ -63,11 +121,13 @@ every palette load; the selected name does not change. btop re-scans its themes
 directory whenever the options menu opens, so a file that appeared after btop
 started is still listed, and `Ctrl+R` reloads it.
 
-Pick it from the menu rather than hand-editing `color_theme`. btop lists user
-themes by their absolute path, so a hand-written `color_theme = "theme"` loads
-but the menu cannot match it: the counter is off by one (`<n>/<n-1>`) and the
-arrow keys start from the wrong place. Selecting it in the menu stores the path
-and the counter reads correctly.
+Pick it from the menu rather than hand-editing `color_theme`, or let
+`scripts/wire-themed-apps.sh` write the entry. The menu stores the theme's
+absolute path, and the script writes
+`color_theme = "<config home>/btop/themes/theme.theme"` — the same absolute path
+— so either one matches. A hand-written `color_theme = "theme"` loads but the
+menu cannot match it: the counter is off by one (`<n>/<n-1>`) and the arrow keys
+start from the wrong place.
 
 `scripts/install.sh` seeds a default `theme.theme` when the file is absent, so
 btop lists `theme` even before the shell has rendered a palette; the renderer
@@ -153,6 +213,153 @@ load, and `package.toml` can keep a flavor installed even once nothing points
 at it. Unlike starship, yazi reads `theme.toml` once at startup, so an already
 running yazi keeps its old colors until it is reopened.
 
+### Firefox
+
+Firefox follows the palette through three generated files in the active
+profile: two sheets and a pref block. The browser chrome reads
+`chrome/shell-palette.css`. The `about:newtab`, `about:home`, and
+`about:privatebrowsing` pages read `chrome/shell-content.css`, because they are
+content documents the chrome sheet cannot reach. `user.js` enables custom
+stylesheets. The renderer writes all three and never edits either of your own
+user sheets (`userChrome.css`, `userContent.css`).
+
+Point your own `userChrome.css` and `userContent.css` at the generated sheets
+once. Each `@import` must be the file's **first** line: CSS ignores an
+`@import` that follows any other rule.
+
+```css
+@import url("shell-palette.css");
+```
+
+```css
+@import url("shell-content.css");
+```
+
+This one-liner finds the default profile from `installs.ini` and prepends the
+chrome import, creating `userChrome.css` if it is absent and doing nothing if
+the line is already there. It is safe to paste into fish:
+
+```bash
+bash -c 'r=~/.config/mozilla/firefox; [ -d "$r" ] || r=~/.mozilla/firefox; d=$(sed -n "s/^Default=//p" "$r/installs.ini" 2>/dev/null | head -1); [ -n "$d" ] || { echo "no firefox profile found" >&2; exit 1; }; f=$r/$d/chrome/userChrome.css; l="@import url(\"shell-palette.css\");"; grep -qxF "$l" "$f" 2>/dev/null || { mkdir -p "$(dirname "$f")"; printf "%s\n" "$l" | cat - "$f" 2>/dev/null > "$f.tmp"; mv "$f.tmp" "$f"; }'
+```
+
+The matching one for `userContent.css`:
+
+```bash
+bash -c 'r=~/.config/mozilla/firefox; [ -d "$r" ] || r=~/.mozilla/firefox; d=$(sed -n "s/^Default=//p" "$r/installs.ini" 2>/dev/null | head -1); [ -n "$d" ] || { echo "no firefox profile found" >&2; exit 1; }; f=$r/$d/chrome/userContent.css; l="@import url(\"shell-content.css\");"; grep -qxF "$l" "$f" 2>/dev/null || { mkdir -p "$(dirname "$f")"; printf "%s\n" "$l" | cat - "$f" 2>/dev/null > "$f.tmp"; mv "$f.tmp" "$f"; }'
+```
+
+If the `@import` line is already in the file but not on line 1, these one-liners
+leave it alone and it is ignored; move it to line 1 yourself. Use the one-liner
+only on a file whose first line is the import or nothing.
+
+The pref block is managed between markers, so a hand-written `user.js` keeps
+its other lines:
+
+```
+// BEGIN quickshell
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+// END quickshell
+```
+
+Only that block is managed: the other prefs in a hand-written `user.js` survive,
+a pref set outside the markers is adopted into the block rather than duplicated,
+and `prefs.js` is never rewritten. The one pref covers `userContent.css` as well
+as `userChrome.css`.
+
+The sheets were verified against Firefox 157.0.1. Their chrome and newtab
+variables are Firefox internals and have been renamed across releases, so the
+templates may need upkeep after a Firefox upgrade; a renamed variable fails
+cosmetically (the surface falls back to its built-in value), not as a render
+error.
+
+The renderer resolves the default profile from `installs.ini` (its `Default=`)
+and writes through the profile path, which Profile-sync-daemon syncs back; the
+path is valid whether psd is running or stopped, and its symlink is followed,
+never resolved. The root is
+`${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox`, falling back to
+`$HOME/.mozilla/firefox`; Snap and Flatpak Firefox roots are not supported. With
+no profile, the target logs `firefox: no profile` and skips as success (the run
+still exits zero), unlike a broken template, which fails the run. A restart
+applies the change. Switching Firefox off in Themed apps writes a comment-only
+`shell-palette.css` and `shell-content.css` (stock Firefox and stock newtab
+through the same imports) and leaves `user.js` untouched.
+
+### Vencord
+
+Discord is recolored through the installed `system24` theme. The renderer writes
+`~/.config/Vencord/themes/quickshell.theme.css`, which overrides `system24`'s
+own namespace variables and leaves its layout and its derived colors
+alone. `--text-0` is the one deliberate override: it carries the on-accent ink,
+so icons and badges are not painted with the background. Status colors stay
+Discord-standard: the theme leaves system24's `--red-*`, `--green-*`, and
+`--yellow-*` scales unset, so the online, dnd, and idle dots keep Discord's own
+colors. Danger, warning, and success surfaces that share those scales
+(danger buttons, input errors, notices) use system24's defaults too. Enable the
+theme once in Vencord.
+
+The override block uses the `:root:root` selector, which outranks `system24`'s
+plain `:root` on specificity, so the shell palette wins whatever order Vencord
+loads the themes in. The `enabledThemes` order does not matter, which is what
+makes the theme work despite Vencord's UI not offering a way to reorder enabled
+themes. Vencord reads the list once at launch, so restart Discord once after
+enabling it. The shell never edits `settings.json`; enablement stays manual.
+
+The generated theme depends on a `system24`/midnight-style base theme by design:
+if the base theme changes or is removed, the variables the file sets are
+consumed by nothing. Once enabled, the file hot-reloads through Vencord's theme
+watcher, so later retints show without a restart.
+
+Two known limits:
+
+- `midnight.css` ships upstream debug placeholders (for example a disabled
+  danger button stays `lime`, and the outline-brand hover and active states stay
+  blue and magenta). They are literal values in the base theme, not derived from
+  the variables this shell sets, so any namespace override leaves them in place.
+  Expect a few unthemed accents rather than none.
+- On a light palette, links, hover borders, and accent buttons can be hard to
+  read: system24 builds its accent ladder by mixing the accent toward white,
+  which loses contrast on a light background.
+
+### Spicetify
+
+The renderer ships the community `text` theme as a shell-owned theme under
+`${XDG_CONFIG_HOME:-$HOME/.config}/spicetify/Themes/quickshell/`, as two files:
+`color.ini` and `user.css`. The theme keeps the default color options it ships
+(MIT, copyright 2019 morpheusthewhite), and the renderer appends one `Quickshell`
+color option built from the palette. This repo maintains the vendored `user.css`,
+pinned to upstream commit `33a08ea009687f5a42ff678015c28797fe142a7c`; upstream
+changes do not reach you until that template is updated. The renderer owns only
+those two files: it never edits a theme you installed (for example
+`Themes/text/`) or `config-xpui.ini`, and it does not delete unknown files in the
+directory.
+
+Select the theme and its color option with these two commands:
+
+```
+spicetify config current_theme quickshell color_scheme Quickshell
+spicetify restore backup apply
+```
+
+`restore backup apply` restarts Spotify. A theme selection only reaches the
+generated `xpui/index.html` through `apply`, so `config` plus `refresh` alone
+does not take effect. Plain `spicetify apply` refuses with "Preprocessed Spotify
+data is outdated" when the installed CLI outpaces the recorded backup, which is
+why the `restore` form is the one that works; it replaces whatever theme was
+selected before (for example a Marketplace-managed theme — the Marketplace app
+itself stays). Re-run the apply step after every Spotify update, as with any
+Spicetify setup.
+
+After selection, the renderer refreshes the client with `spicetify refresh`
+best-effort whenever a Spicetify file's bytes change; it never runs
+`spicetify apply`. A refresh stages the new colors in `xpui/colors.css`, and they
+appear on the **next Spotify start**, not live. When Spicetify's config directory
+is absent, the target logs `spicetify: not installed` and skips as success (the
+run still exits zero), unlike a broken template, which fails the run. Switching
+Spicetify off in Themed apps renders the theme's own `[Spicetify]` default colors
+into `color.ini` and still writes `user.css`, which is the theme's layout, not a
+color layer.
+
 ## Verify
 
 Switch themes (dashboard Theme block or `qs-theme set <name>`), then confirm the
@@ -161,8 +368,22 @@ rendered files match the palette:
 ```
 grep -h . ~/.config/hypr/theme.lua ~/.config/kitty/theme.conf \
     ~/.config/hypr/hyprlock/colors.conf ~/.config/starship.toml \
-    ~/.config/yazi/theme.toml ~/.config/btop/themes/theme.theme
+    ~/.config/yazi/theme.toml ~/.config/btop/themes/theme.theme \
+    ~/.config/Vencord/themes/quickshell.theme.css \
+    ~/.config/spicetify/Themes/quickshell/color.ini \
+    ~/.config/spicetify/Themes/quickshell/user.css
+grep -h . ~/.config/mozilla/firefox/*/chrome/shell-palette.css \
+    ~/.config/mozilla/firefox/*/chrome/shell-content.css \
+    ~/.config/mozilla/firefox/*/user.js
+# under the fallback root:
+grep -h . ~/.mozilla/firefox/*/chrome/shell-palette.css \
+    ~/.mozilla/firefox/*/chrome/shell-content.css \
+    ~/.mozilla/firefox/*/user.js
 ```
+
+The two Firefox paths are profile-relative because the profile name varies; the
+root follows `XDG_CONFIG_HOME` and falls back to `~/.mozilla/firefox` when that
+root is absent. Neither Firefox file exists until a profile resolves.
 
 For a visual check, capture a bordered window and a kitty window with
 `grim -g "x,y WxH"` and compare the border and background to the active
@@ -171,18 +392,28 @@ For a visual check, capture a bordered window and a kitty window with
 ## Running the renderer by hand
 
 The renderer takes the palette as JSON, the same object `ThemeParsers.parseColors`
-returns:
+returns, and an optional second argument: a comma-separated list of the target
+keys to write (`hyprland`, `kitty`, `hyprlock`, `starship`, `yazi`, `btop`,
+`firefox`, `vencord`, `spicetify`). With no second argument every target is
+enabled; an empty string disables all of them. The shell passes the list from
+Settings → Themed apps.
 
 ```
 sh scripts/render-theme.sh '{"mode":"dark","accent":"#7aa2f7", ...}'
+sh scripts/render-theme.sh '{"mode":"dark","accent":"#7aa2f7", ...}' kitty,firefox
 ```
 
+Each target renders in isolation: a broken template is skipped with a line on
+stderr naming it, the other targets still write, and the script exits non-zero.
+A disabled target writes a valid unthemed layer instead of a missing file.
+
 Output paths follow `XDG_CONFIG_HOME`, falling back to `HOME/.config`, so a test
-can redirect them. An empty palette renders the built-in no-theme default, so the
-desktop files match the bar's fallback; the shell normally starts on the bundled
-darknight theme, so this default is reached only when no theme is active. A
-malformed palette or a template with an unresolved placeholder exits without
-writing.
+can redirect them — except Firefox, whose root the script resolves from the
+environment as `${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox`, falling back
+to `$HOME/.mozilla/firefox`. An empty palette renders the built-in no-theme
+default, so the desktop files match the bar's fallback; the shell normally starts
+on the bundled darknight theme, so this default is reached only when no theme is
+active. A malformed palette is a no-op.
 
 ## Backgrounds
 

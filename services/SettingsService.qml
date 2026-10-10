@@ -72,6 +72,7 @@ Singleton {
             options: [qsTr("Theme")].concat(ThemeService.catalog.map(theme => theme.name), ThemeService.catalog.map(theme => theme.displayName)),
             comingSoon: false
         },
+        { key: "themed-apps", title: qsTr("Themed apps"), options: ThemeService.themeTargets.map(target => target.title), comingSoon: false },
         { key: "weather", title: qsTr("Weather"), options: [qsTr("City"), qsTr("Location")], comingSoon: false }
     ]
 

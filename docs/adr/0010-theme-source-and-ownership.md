@@ -118,3 +118,9 @@ itself.
   The format lives in `assets/templates/btop-theme.theme`, mapping box outlines
   and graph gradients onto the named hues and painting process-state text with
   the black-or-white `on_<role>` ink, matching the yazi chips.
+- 2026-10-09 (per-app targets): Firefox and Vencord join the retint targets, and
+  a target can now be switched off on its own. Firefox is themed at the chrome
+  through a generated profile sheet the user's `userChrome.css` imports; Vencord
+  is recolored by overriding its base theme's namespace. A disabled target writes
+  a no-op layer rather than a missing file. This changes the model, not just the
+  target list, so it is recorded in ADR 0018.

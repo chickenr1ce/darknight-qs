@@ -13,7 +13,7 @@ its Optional integrations section.
 - [`user/calendar.md`](user/calendar.md) — Google Calendar secret iCal URLs, and the `gcalcli` path for birthdays and per-calendar toggles.
 - [`user/weather.md`](user/weather.md) — weather block, cache, and city search.
 - [`user/spotify-connect.md`](user/spotify-connect.md) — one-time Spotify app authorization for the dashboard player.
-- [`user/theme-desktop-setup.md`](user/theme-desktop-setup.md) — retint Hyprland, kitty, hyprlock, starship, yazi, and btop from the active theme.
+- [`user/theme-desktop-setup.md`](user/theme-desktop-setup.md) — retint the desktop apps (Hyprland, kitty, hyprlock, starship, yazi, btop, Firefox, Vencord, Spicetify) from the active theme.
 - [`user/qs-theme.md`](user/qs-theme.md) — the `qs-theme` CLI: install, switch, and manage themes and backgrounds.
 - [`user/polkit.md`](user/polkit.md): keep the shell the only polkit authentication agent, and troubleshoot prompts, lockouts, and stuck helpers.
 - [`user/ipc.md`](user/ipc.md) — the shell's IPC targets (`power`, `calendar`, `notifications`, `dashboard`, `dnd`, `volume`): functions, placement, and Lua keybind examples.

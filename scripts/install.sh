@@ -16,12 +16,17 @@
 # background is never overwritten, so a user's replacement survives an update.
 # When btop is installed it also seeds a default btop theme into
 # <config>/btop/themes, so btop lists the retint theme before the shell has ever
-# rendered a palette.
-# It never edits your Hyprland config; it prints the exec-once line
-# instead. An existing real file or directory is never replaced elsewhere on
-# disk. Run from any clone path.
+# rendered a palette. After seeding it runs scripts/wire-themed-apps.sh --check
+# and reports which app configs still need a one-time hook (Hyprland, kitty,
+# hyprlock, btop, Firefox, Vencord, Spicetify). With --wire-apps, or by
+# answering the prompt on a terminal, it runs --apply, which backs each edited
+# file up first; --no-wire-apps reports only.
+# It never adds the Hyprland exec-once line; it prints that instead, so the
+# autostart stays yours to add. An existing real file or directory is never
+# replaced elsewhere on disk. Run from any clone path.
 #
-# Usage: scripts/install.sh [--link|--no-link] [--seed|--no-seed] [--help]
+# Usage: scripts/install.sh [--link|--no-link] [--seed|--no-seed]
+#                           [--wire-apps|--no-wire-apps] [--help]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
@@ -33,6 +38,7 @@ BT_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 LINK_MODE=ask
 SEED_MODE=yes
+WIRE_MODE=ask
 MISSING_REQUIRED=()
 
 usage() {
@@ -40,23 +46,30 @@ usage() {
 install.sh — check this machine and wire the common Quickshell paths.
 
 Usage: scripts/install.sh [--link|--no-link] [--seed|--no-seed]
+                          [--wire-apps|--no-wire-apps]
 
 Options:
-  --link       link this clone into $CONFIG_LINK (overwrites a symlink, not a real path)
-  --no-link    skip both symlinks, but still seed the bundled themes
-  --seed       seed the bundled themes and the btop theme (default)
-  --no-seed    skip seeding the bundled themes and the btop theme
-  --help       this message
+  --link          link this clone into $CONFIG_LINK (overwrites a symlink, not a real path)
+  --no-link       skip both symlinks, but still seed the bundled themes
+  --seed          seed the bundled themes and the btop theme (default)
+  --no-seed       skip seeding the bundled themes and the btop theme
+  --wire-apps     wire the themed apps (backs each edited file up; Spicetify restarts Spotify)
+  --no-wire-apps  only report the themed app wiring, change nothing
+  --help          this message
 
-Without a flag the clone link is offered on a terminal and skipped when not.
-The qs-theme symlink is created unless --no-link is given; the theme seed
-unless --no-seed is given.
+Without a flag the clone link and the themed app wiring are offered on a
+terminal and skipped when not. The qs-theme symlink is created unless
+--no-link is given; the theme seed unless --no-seed is given.
 EOF
 }
 
 ok()   { printf 'ok    %s\n' "$*"; }
 warn() { printf 'warn  %s\n' "$*"; }
 miss() { printf 'FAIL  %s\n' "$*"; }
+
+# Strip control characters from untrusted text before printing it, so a
+# newline, tab, or escape sequence in an argument cannot inject terminal lines.
+safe() { printf '%s' "$1" | LC_ALL=C tr -d '[:cntrl:]'; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -238,14 +251,70 @@ seed_btop_theme() {
     return 0
 }
 
+# Report which app configs still need a one-time hook, then offer to apply it.
+# wire-themed-apps.sh owns the per-app rules and prints one status line per
+# target (ok/todo/wired/skip/note). A missing script and a failed check or
+# apply are warnings, never install failures.
+wire_apps() {
+    local script="$ROOT/scripts/wire-themed-apps.sh" out line todo=no rc=0
+    if [[ ! -f "$script" ]]; then
+        warn "wire-themed-apps.sh not found; skipping themed app wiring"
+        return 0
+    fi
+    out="$(bash "$script" --check)" || rc=$?
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        printf '%s\n' "$line"
+        case "$line" in todo*) todo=yes ;; esac
+    done <<<"$out"
+    if [[ "$rc" -ne 0 ]]; then
+        warn "themed app wiring check failed"
+        return 0
+    fi
+    if [[ "$todo" != yes ]]; then
+        return 0
+    fi
+    case "$WIRE_MODE" in
+        no) : ;;
+        yes) wire_apply "$script" ;;
+        ask)
+            if [[ -t 0 ]]; then
+                local reply
+                read -r -p "Wire these apps now? Backs up each edited file; Spicetify restarts Spotify. [y/N] " reply
+                case "$reply" in
+                    y|Y|yes|YES) wire_apply "$script" ;;
+                    *) : ;;
+                esac
+            else
+                printf 'note    %s\n' "not a terminal; rerun with --wire-apps to wire the apps"
+            fi
+            ;;
+    esac
+}
+
+wire_apply() {
+    local script="$1" out line rc=0
+    out="$(bash "$script" --apply)" || rc=$?
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        case "$line" in ok*) continue ;; esac
+        printf '%s\n' "$line"
+    done <<<"$out"
+    if [[ "$rc" -ne 0 ]]; then
+        warn "themed app wiring failed; rerun scripts/wire-themed-apps.sh --apply"
+    fi
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --link)    LINK_MODE=yes ;;
         --no-link) LINK_MODE=no ;;
         --seed)    SEED_MODE=yes ;;
         --no-seed) SEED_MODE=no ;;
+        --wire-apps)    WIRE_MODE=yes ;;
+        --no-wire-apps) WIRE_MODE=no ;;
         -h|--help) usage; exit 0 ;;
-        *) echo "install: unknown arg $1" >&2; usage >&2; exit 2 ;;
+        *) echo "install: unknown arg $(safe "$1")" >&2; usage >&2; exit 2 ;;
     esac
     shift
 done
@@ -322,13 +391,19 @@ if [[ "$SEED_MODE" == "yes" ]]; then
 fi
 
 echo
+echo "install: themed app wiring"
+wire_apps
+
+echo
 echo "install: optional Hyprland autostart (add it yourself, this never edits your config)"
 printf '  exec-once = quickshell -p %s\n' "$ROOT"
 printf '  exec-once = quickshell    # after linking the clone into %s\n' "$CONFIG_LINK"
 
 echo
-echo "install: optional app retint (add it yourself, this never edits your config)"
-echo '  see docs/user/theme-desktop-setup.md (btop: pick "theme" in the options menu)'
+echo "install: themed app retint (rerun any time; --apply backs up each file it edits)"
+echo "  $ROOT/scripts/wire-themed-apps.sh --check   # report"
+echo "  $ROOT/scripts/wire-themed-apps.sh --apply   # wire"
+echo '  see docs/user/theme-desktop-setup.md for what stays manual'
 
 echo
 if [[ ${#MISSING_REQUIRED[@]} -gt 0 ]]; then
