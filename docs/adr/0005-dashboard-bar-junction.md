@@ -80,3 +80,17 @@ The verdict came from `.scratch/dashboard-settings/prototype-junction.html`
   Settings Dashboard section exposes it over `0..Globals.junctionRadiusMax`
   through `components/Slider.qml`. The default, `Globals.junctionRadiusMax`,
   and the geometry are unchanged.
+
+- 2026-10-10 (dashboard-slide): attached mode no longer fades. It slides
+  down from behind the bar: `PanelShell` drives one `reveal` value (0..1) and
+  places the panel at `-height × (1 − reveal)`, so the window's top edge clips
+  it and the shaped top never crosses the bar. Open runs 240ms with OutCubic,
+  close runs 180ms with InCubic (`Globals.dashboardOpenMs`/`dashboardCloseMs`).
+  Floating panels keep the fade and 8px drop, but the fade now renders through
+  a layer while it runs. Unlayered, the translucent chrome and the cards
+  stacked on it faded separately, so the cards seemed to outlive the panel.
+  Two more fixes came out of a 120fps capture. First, Hyprland's own layer fade
+  ran on top of the slide, so the dashboard maps as `quickshell-dashboard` and
+  a `no_anim` layer rule (documented in `docs/user/app-launcher.md`) turns that
+  fade off. Second, the launcher emptied its rows as soon as close began, which
+  collapsed the card before it slid. Its rows now stay until the window unmaps.

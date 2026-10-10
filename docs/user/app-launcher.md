@@ -169,6 +169,21 @@ hl.bind(mainMod .. " + SUPER_R", hl.dsp.exec_cmd("quickshell ipc call dashboard 
 opens the launcher from any focused window with the cursor already in search.
 Keep the rofi script in place until the native path has a week of daily use.
 
+## Turn off Hyprland's fade for the dashboard
+
+The dashboard slides down from the bar on its own. Hyprland also fades every
+layer surface in and out, which stacks a fade on top of that slide. The dashboard
+maps under its own namespace, `quickshell-dashboard`, so one layer rule turns
+the fade off for it alone. Add it to `~/.config/hypr/modules/windowrules.lua`:
+
+```lua
+hl.layer_rule({
+    name  = "quickshell-dashboard-noanim",
+    match = { namespace = "^quickshell-dashboard$" },
+    no_anim = true,
+})
+```
+
 ## Known limits
 
 - An app whose window class differs from its desktop id and whose entry has no

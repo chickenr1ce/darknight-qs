@@ -661,8 +661,12 @@ LAUNCHER_DECL="$(grep 'readonly property bool launcherActive' "$VIEW")"
 test -n "$LAUNCHER_DECL" || fail "the Apps view has no active-tab gate property"
 echo "$LAUNCHER_DECL" | grep -q 'root.visible' \
     || fail "launcherActive ignores the view visibility"
-echo "$LAUNCHER_DECL" | grep -q 'DashboardService.dashboardVisible' \
+echo "$LAUNCHER_DECL" | grep -q 'root.windowShown' \
     || fail "launcherActive ignores dashboard visibility"
+grep -q 'property bool windowShown: DashboardService.dashboardVisible' "$VIEW" \
+    || fail "windowShown does not default to dashboard visibility"
+grep -q 'windowShown: root.visible' "$ROOT/windows/DashboardCenter.qml" \
+    || fail "the dashboard does not hold launcher rows through its close slide"
 BROWSE_GATE="$(awk '/readonly property var browseRows/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
 test -n "$BROWSE_GATE" || fail "the Apps view has no browse row model"
 echo "$BROWSE_GATE" | grep -q 'if (!root.launcherActive)' \

@@ -42,6 +42,8 @@ QtObject {
     readonly property real polkitScrimOpacity: 0.55
     readonly property int centerOpenMs: 140
     readonly property int centerCloseMs: 140
+    readonly property int dashboardOpenMs: 240
+    readonly property int dashboardCloseMs: 180
     readonly property int dashboardWidth: 720
     readonly property int dashboardMaxHeight: 600
     readonly property real dashboardAppsMaxFraction: 0.8

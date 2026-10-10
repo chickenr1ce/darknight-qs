@@ -82,7 +82,7 @@ PanelWindow {
 
     implicitWidth: root.windowWidth
     implicitHeight: root.windowHeight
-    visible: root.panelVisible || idPanel.opacity > 0
+    visible: root.panelVisible || idPanel.reveal > 0
 
     Component.onCompleted: PanelGrab.register(root)
     Component.onDestruction: PanelGrab.unregister(root)
@@ -144,20 +144,37 @@ PanelWindow {
     Item {
         id: idPanel
 
+        // 0 = hidden, 1 = shown. Attached panels slide down from behind the
+        // bar (the window's top edge clips them) at full opacity; floating
+        // panels fade with an 8px drop.
+        property real reveal: root.panelVisible ? 1 : 0
+
         anchors.left: parent.left
         anchors.right: parent.right
 
-        y: -8 * (1 - opacity)
-        opacity: root.panelVisible ? 1 : 0
+        height: Math.min(root.panelMaxHeight, idShellLayout.implicitHeight + 2 * Globals.panelPadding)
+        y: root.attachedToBar ? -idPanel.height * (1 - idPanel.reveal) : -8 * (1 - idPanel.reveal)
+        opacity: root.attachedToBar ? 1 : idPanel.reveal
 
-        Behavior on opacity {
+        // Composite the fade as one surface: unlayered, the translucent
+        // chrome and the cards over it fade separately, so the cards seem
+        // to outlive the panel.
+        layer.enabled: !root.attachedToBar && idPanel.reveal > 0 && idPanel.reveal < 1
+
+        // Inverted ternaries: the Behavior starts before these bindings
+        // refresh (CODING_STANDARDS.md), so they read the previous state.
+        Behavior on reveal {
             NumberAnimation {
-                duration: Globals.reducedMotion ? 0 : (root.panelVisible ? Globals.centerCloseMs : Globals.centerOpenMs)
-                easing.type: Easing.OutCubic
+                duration: {
+                    if (Globals.reducedMotion)
+                        return 0;
+                    if (root.attachedToBar)
+                        return root.panelVisible ? Globals.dashboardCloseMs : Globals.dashboardOpenMs;
+                    return root.panelVisible ? Globals.centerCloseMs : Globals.centerOpenMs;
+                }
+                easing.type: root.attachedToBar && root.panelVisible ? Easing.InCubic : Easing.OutCubic
             }
         }
-
-        height: Math.min(root.panelMaxHeight, idShellLayout.implicitHeight + 2 * Globals.panelPadding)
 
         Rectangle {
             id: idPanelChrome

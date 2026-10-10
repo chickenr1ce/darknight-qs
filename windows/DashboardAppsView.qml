@@ -14,8 +14,11 @@ Item {
     property string query: ""
     property var menuRow: null
     property bool menuPinned: false
+    // True while the dashboard window is on screen, including its close slide,
+    // so the rows (and the panel height) hold until the slide finishes.
+    property bool windowShown: DashboardService.dashboardVisible
 
-    readonly property bool launcherActive: root.visible && DashboardService.dashboardVisible
+    readonly property bool launcherActive: root.visible && root.windowShown
     readonly property bool querying: root.query.trim() !== ""
 
     readonly property var browseRows: {

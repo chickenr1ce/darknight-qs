@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Wayland
 import qs.components
 import qs.config
 import qs.dev
@@ -23,6 +24,9 @@ PanelShell {
     windowHeight: root.appsMaxHeight
     attachedToBar: true
     junctionRadius: DashboardService.junctionRadius
+    // Own namespace so Hyprland can skip its layer fade (no_anim layer rule);
+    // the slide in PanelShell is the only motion.
+    WlrLayershell.namespace: "quickshell-dashboard"
     onOutsideClicked: DashboardService.closeDashboardFromOutside()
     onPanelVisibleChanged: if (root.panelVisible) {
         SystemInfo.refresh();
@@ -178,6 +182,7 @@ PanelShell {
         Layout.fillHeight: true
 
         visible: DashboardService.activeTab === "apps"
+        windowShown: root.visible
     }
 
     SettingsView {
