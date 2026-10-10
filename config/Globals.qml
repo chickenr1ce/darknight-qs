@@ -116,6 +116,7 @@ QtObject {
     readonly property int appRailWidth: 3
     readonly property int scrollbarWidth: 6
     readonly property int scrollbarRadius: 3
+    readonly property int scrollbarGutter: 8
     readonly property int panelRadius: slabRadius
     readonly property int headerHeight: 34
     readonly property int dayCellGap: 4

@@ -136,6 +136,7 @@ ColumnLayout {
 
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
+                Layout.bottomMargin: Globals.spacing / 2
 
                 visible: root.hasSection
 
@@ -158,7 +159,6 @@ ColumnLayout {
                 Layout.fillHeight: true
                 Layout.minimumWidth: 0
                 Layout.preferredHeight: Math.min(idSettingsScroll.contentHeight, Globals.settingsBodyMaxHeight)
-                Layout.maximumHeight: Globals.settingsBodyMaxHeight
 
                 Flickable {
                     id: idSettingsScroll
@@ -175,7 +175,7 @@ ColumnLayout {
                     ColumnLayout {
                         id: idSettingsSectionBody
 
-                        width: idSettingsScroll.width - Globals.scrollbarWidth
+                        width: idSettingsScroll.width - Globals.scrollbarWidth - Globals.scrollbarGutter
                         spacing: Globals.spacing
 
                         CavaSettingsView {
