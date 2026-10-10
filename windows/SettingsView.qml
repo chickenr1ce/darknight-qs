@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import qs.components
 import qs.config
@@ -150,8 +151,8 @@ ColumnLayout {
                 }
             }
 
-            Flickable {
-                id: idSettingsScroll
+            Item {
+                id: idSettingsBodySlot
 
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -159,159 +160,181 @@ ColumnLayout {
                 Layout.preferredHeight: Math.min(idSettingsScroll.contentHeight, Globals.settingsBodyMaxHeight)
                 Layout.maximumHeight: Globals.settingsBodyMaxHeight
 
-                contentWidth: width
-                contentHeight: idSettingsSectionBody.implicitHeight
-                clip: true
-                interactive: contentHeight > height
-                boundsBehavior: Flickable.StopAtBounds
+                Flickable {
+                    id: idSettingsScroll
 
-                ColumnLayout {
-                    id: idSettingsSectionBody
+                    anchors.fill: parent
 
-                    width: idSettingsScroll.width
-                    spacing: Globals.spacing
+                    contentWidth: width
+                    contentHeight: idSettingsSectionBody.implicitHeight
+                    clip: true
+                    interactive: contentHeight > height
+                    boundsBehavior: Flickable.StopAtBounds
+                    Controls.ScrollBar.vertical: ScrollBar { id: idSettingsScrollBar }
 
-                    CavaSettingsView {
-                        id: idCavaSection
+                    ColumnLayout {
+                        id: idSettingsSectionBody
 
-                        Layout.fillWidth: true
+                        width: idSettingsScroll.width - Globals.scrollbarWidth
+                        spacing: Globals.spacing
 
-                        visible: root.hasSection && root.currentSection.key === "cava"
-                        filter: root.bodyFilter
-                    }
+                        CavaSettingsView {
+                            id: idCavaSection
 
-                    CalendarSettingsView {
-                        id: idCalendarSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "cava"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "calendar"
-                        filter: root.bodyFilter
-                    }
+                        CalendarSettingsView {
+                            id: idCalendarSection
 
-                    NotificationSettingsView {
-                        id: idNotificationSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "calendar"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "notifications"
-                        filter: root.bodyFilter
-                    }
+                        NotificationSettingsView {
+                            id: idNotificationSection
 
-                    MotionSettingsView {
-                        id: idMotionSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "notifications"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "motion"
-                        filter: root.bodyFilter
-                    }
+                        MotionSettingsView {
+                            id: idMotionSection
 
-                    LayoutSettingsView {
-                        id: idLayoutSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "motion"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "layout"
-                        filter: root.bodyFilter
-                    }
+                        LayoutSettingsView {
+                            id: idLayoutSection
 
-                    MediaSettingsView {
-                        id: idMediaSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "layout"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "media"
-                        filter: root.bodyFilter
-                    }
+                        MediaSettingsView {
+                            id: idMediaSection
 
-                    MonitorSettingsView {
-                        id: idMonitorSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "media"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "monitors"
-                        filter: root.bodyFilter
-                    }
+                        AppsSettingsView {
+                            id: idAppsSection
 
-                    WeatherSettingsView {
-                        id: idWeatherSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "apps"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "weather"
-                        filter: root.bodyFilter
-                    }
+                        MonitorSettingsView {
+                            id: idMonitorSection
 
-                    ThemeSettingsView {
-                        id: idThemeSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "monitors"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "theme"
-                        filter: root.bodyFilter
-                    }
+                        WeatherSettingsView {
+                            id: idWeatherSection
 
-                    DashboardSettingsView {
-                        id: idDashboardSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "weather"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "dashboard"
-                        filter: root.bodyFilter
-                    }
+                        ThemeSettingsView {
+                            id: idThemeSection
 
-                    AudioSettingsView {
-                        id: idAudioSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "theme"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "audio"
-                        filter: root.bodyFilter
-                    }
+                        DashboardSettingsView {
+                            id: idDashboardSection
 
-                    FontsSettingsView {
-                        id: idFontsSection
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "dashboard"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.key === "fonts"
-                        filter: root.bodyFilter
-                    }
+                        AudioSettingsView {
+                            id: idAudioSection
 
-                    Text {
-                        id: idComingSoonNote
+                            Layout.fillWidth: true
 
-                        Layout.fillWidth: true
+                            visible: root.hasSection && root.currentSection.key === "audio"
+                            filter: root.bodyFilter
+                        }
 
-                        visible: root.hasSection && root.currentSection.comingSoon
+                        FontsSettingsView {
+                            id: idFontsSection
 
-                        textFormat: Text.PlainText
-                        text: qsTr("Coming soon")
-                        color: Colors.textSubtle
+                            Layout.fillWidth: true
 
-                        font {
-                            family: Globals.uiFontFamily
-                            pixelSize: Globals.uiBodySize
+                            visible: root.hasSection && root.currentSection.key === "fonts"
+                            filter: root.bodyFilter
+                        }
+
+                        Text {
+                            id: idComingSoonNote
+
+                            Layout.fillWidth: true
+
+                            visible: root.hasSection && root.currentSection.comingSoon
+
+                            textFormat: Text.PlainText
+                            text: qsTr("Coming soon")
+                            color: Colors.textSubtle
+
+                            font {
+                                family: Globals.uiFontFamily
+                                pixelSize: Globals.uiBodySize
+                            }
+                        }
+
+                        Text {
+                            id: idNoMatchNote
+
+                            Layout.fillWidth: true
+
+                            visible: root.noMatch
+
+                            textFormat: Text.PlainText
+                            text: qsTr("No match")
+                            color: Colors.textSubtle
+
+                            font {
+                                family: Globals.uiFontFamily
+                                pixelSize: Globals.uiBodySize
+                            }
                         }
                     }
+                }
 
-                    Text {
-                        id: idNoMatchNote
+                SmoothWheel {
+                    id: idSettingsSmoothWheel
 
-                        Layout.fillWidth: true
-
-                        visible: root.noMatch
-
-                        textFormat: Text.PlainText
-                        text: qsTr("No match")
-                        color: Colors.textSubtle
-
-                        font {
-                            family: Globals.uiFontFamily
-                            pixelSize: Globals.uiBodySize
-                        }
-                    }
+                    flickable: idSettingsScroll
                 }
             }
         }

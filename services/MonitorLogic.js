@@ -49,7 +49,8 @@ function pickScreenName(focusedName, primaryName, names) {
 }
 
 function escapeLua(value) {
-    return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+    return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")
+        .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\0/g, "\\0");
 }
 
 function modeFor(monitor) {

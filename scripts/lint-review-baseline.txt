@@ -2,6 +2,10 @@
 # Per line: FILE RULE-ID MESSAGE (line numbers stripped).
 # Repeated lines record repeated findings; keep them.
 # Regenerate with: scripts/lint-review.sh --update-baseline
+components/ContextMenu.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+components/ContextMenu.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+components/ContextMenu.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+components/ContextMenu.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 components/Dropdown.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 components/FontPickerRow.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 components/FontPickerRow.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
@@ -11,6 +15,8 @@ components/NotificationGroup.qml PRF-3 clip: true disables scene graph batching 
 components/NotificationGroup.qml STY-3 4 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationGroup.qml STY-3 4 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationRow.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+components/SettingsTextRow.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+components/SmoothWheel.qml BND-2 Imperative '=' on 'root.target' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 dev/DevGeometry.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 modules/Cava.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 modules/Notifications.qml STY-3 3 font.* properties using dot notation -- use group notation: font { ... }
@@ -19,6 +25,8 @@ modules/Notifications.qml STY-3 3 font.* properties using dot notation -- use gr
 modules/Tray.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 modules/Tray.qml STY-3 3 anchor.* properties using dot notation -- use group notation: anchor { ... }
 modules/Workspaces.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
+services/AppService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/AppService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/AudioService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/AudioService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/BarVisibilityService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
@@ -47,6 +55,10 @@ services/SpotifyService.qml BND-2 Imperative '=' on 'idTransferProcess.running' 
 services/WeatherService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+windows/DashboardAppsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/DashboardAppsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+windows/DashboardAppsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+windows/DashboardAppsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationPopups.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)

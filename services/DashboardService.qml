@@ -11,7 +11,7 @@ Singleton {
 
     readonly property var tabs: [
         { key: "dashboard", title: qsTr("Dashboard") },
-        { key: "media", title: qsTr("Media") },
+        { key: "apps", title: qsTr("Apps") },
         { key: "performance", title: qsTr("Performance") },
         { key: "workspaces", title: qsTr("Workspaces") }
     ]
@@ -61,6 +61,14 @@ Singleton {
             return "ok";
         }
 
+        function apps(): string {
+            const screen = MonitorService.focusedScreen();
+            if (screen === null)
+                return "error: no screen";
+            root.toggleAppsAt(screen, screen.width / 2);
+            return "ok";
+        }
+
         function settings(section: string): string {
             const safe = /^[a-z0-9-]{1,32}$/.test(section) ? section : "?";
             const registry = SettingsService.sectionRegistry;
@@ -85,6 +93,24 @@ Singleton {
         if (!root.dashboardVisible)
             root.activeTab = "dashboard";
         idPanelState.toggleAt(screen, centerX)
+    }
+
+    function openAppsAt(screen, centerX: real): void {
+        root.activeTab = "apps";
+        idPanelState.openAt(screen, centerX);
+    }
+
+    function toggleAppsAt(screen, centerX: real): void {
+        if (!root.dashboardVisible) {
+            root.activeTab = "apps";
+            idPanelState.openAt(screen, centerX);
+            return;
+        }
+        if (root.activeTab === "apps") {
+            idPanelState.toggle();
+            return;
+        }
+        root.activeTab = "apps";
     }
 
     function openDashboardAt(screen, centerX: real): void {

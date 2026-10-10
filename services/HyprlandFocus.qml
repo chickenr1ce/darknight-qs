@@ -6,6 +6,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import qs.config
 import qs.services
+import "AppLogic.js" as AppLogic
 
 Singleton {
     id: root
@@ -38,6 +39,18 @@ Singleton {
         root.pendingTokens = root.pendingTokens.concat([rawTokens]);
         root.retryLeft = Globals.focusRetryTicks;
         idFocusRetryTimer.restart();
+        return true;
+    }
+
+    function focusAddress(rawAddress): bool {
+        const address = String(rawAddress ?? "");
+        if (address === "")
+            return false;
+        const selectorAddress = address.startsWith("0x") ? address : "0x" + address;
+        if (selectorAddress === "0x")
+            return false;
+        root.requestQueue = root.requestQueue.concat([selectorAddress]);
+        root.pumpQueue();
         return true;
     }
 
@@ -77,13 +90,7 @@ Singleton {
     }
 
     function classMatches(source, key) {
-        const sourceParts = source.split(/[^a-z0-9]+/).filter(part => part !== "");
-        const keyParts = key.split(/[^a-z0-9]+/).filter(part => part !== "");
-        if (sourceParts.length === 0 || keyParts.length === 0)
-            return false;
-        if (keyParts.length === 1)
-            return sourceParts.includes(keyParts[0]);
-        return sourceParts[sourceParts.length - 1] === keyParts[keyParts.length - 1];
+        return AppLogic.classMatches(source, key);
     }
 
     function addressFor(keys) {

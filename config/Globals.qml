@@ -44,7 +44,19 @@ QtObject {
     readonly property int centerCloseMs: 140
     readonly property int dashboardWidth: 720
     readonly property int dashboardMaxHeight: 600
+    readonly property real dashboardAppsMaxFraction: 0.8
     readonly property int dashboardUsageWidth: 320
+    readonly property int appIconSize: 28
+    readonly property int appsFooterGap: 8
+    readonly property int menuWidth: 236
+    readonly property int menuMaxWidth: 340
+    readonly property int menuItemHeight: 30
+    readonly property int menuHeaderHeight: 40
+    readonly property int menuGlyphWidth: 16
+    readonly property int menuMargin: 4
+    readonly property int menuSeparatorHeight: 5
+    readonly property int menuLabelHeight: 20
+    readonly property int menuSubmenuGap: 2
     readonly property int playerArtSize: 86
     readonly property int playerDeviceLabelWidth: 120
     readonly property int backgroundTileHeight: 48
@@ -61,6 +73,8 @@ QtObject {
     readonly property int hoverMs: 140
     readonly property int pressMs: 120
     readonly property int tooltipDelayMs: 1000
+    readonly property int wheelMs: 160
+    readonly property int wheelStep: 240
 
     readonly property int toastMs: 180
     readonly property int toastStickyClampMs: 30000
@@ -97,8 +111,11 @@ QtObject {
     readonly property int quietButtonHPadding: 2
     readonly property int quietButtonVPadding: 1
     readonly property int appDotSize: 9
+    readonly property int appInlineSeparatorHeight: 14
     readonly property int themeSwatchChipSize: 12
     readonly property int appRailWidth: 3
+    readonly property int scrollbarWidth: 6
+    readonly property int scrollbarRadius: 3
     readonly property int panelRadius: slabRadius
     readonly property int headerHeight: 34
     readonly property int dayCellGap: 4

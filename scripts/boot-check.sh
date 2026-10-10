@@ -43,8 +43,10 @@ if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
 fi
 command -v dbus-run-session >/dev/null 2>&1 || { echo "boot-check: dbus-run-session not found; skipping" >&2; exit 0; }
 
-# Same error signatures as scripts/check-live-log.sh.
-PATTERN='Failed to load configuration|Failed to open file|recursive rearrange|is not a type|ReferenceError|TypeError|Binding loop detected|Cannot read property'
+# Same error signatures as scripts/check-live-log.sh. The anchor and assignment
+# signatures fail the boot: an overlay anchored to a non-sibling is 0×0 and
+# silently dead, and an undefined string assignment is a binding bug.
+PATTERN='Failed to load configuration|Failed to open file|recursive rearrange|is not a type|ReferenceError|TypeError|Binding loop detected|Cannot read property|Cannot anchor to an item that isn.t a parent or sibling|Unable to assign \[undefined\] to QString'
 
 LOG="$(mktemp "${TMPDIR:-/tmp}/qs-boot-XXXXXX.log")"
 trap 'rm -f "$LOG"' EXIT

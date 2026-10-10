@@ -30,7 +30,10 @@ QtObject {
     readonly property color cardSecondary: backgroundSecondary
     readonly property color border: surface
     readonly property color accentDim: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+    readonly property color selection: root.contrastRatio(root.accent, root.background) < 3 ? root.mixInto(root.background, root.text, 0.11) : root.accentDim
     readonly property color onAccent: background
+    // Fixed dark ink for the always-pastel app letter tiles; theme-independent by design.
+    readonly property color tileInk: Qt.rgba(0, 0, 0, 0.6)
     readonly property color danger: red
     readonly property color warning: yellow
     readonly property color accentSecondary: purple

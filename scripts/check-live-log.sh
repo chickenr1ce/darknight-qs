@@ -39,7 +39,7 @@ if [[ -z "$LOG" ]]; then
     fi
 fi
 
-PATTERN='Failed to load configuration|Failed to open file|recursive rearrange|is not a type|ReferenceError|TypeError|Binding loop detected|Cannot read property'
+PATTERN='Failed to load configuration|Failed to open file|recursive rearrange|is not a type|ReferenceError|TypeError|Binding loop detected|Cannot read property|Cannot anchor to an item that isn.t a parent or sibling|Unable to assign \[undefined\] to QString'
 
 if grep -qE 'Launching config:|Reloading configuration' "$LOG"; then
     LAST="$(awk '/Launching config:|Reloading configuration/{last=NR} END{print last+0}' "$LOG")"

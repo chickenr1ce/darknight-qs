@@ -15,6 +15,7 @@ Item {
     property string accessibleName: qsTr("Close")
     property int glyphSize: Globals.uiBodySize
     property color restColor: Colors.textSecondary
+    property color hoverColor: Colors.text
 
     signal clicked()
 
@@ -35,7 +36,7 @@ Item {
         text: root.glyph
         size: root.glyphSize
         // Dim tone is fine: the glyph is decorative, never read.
-        color: root.disabled ? Colors.textFaint : (root.hovered ? Colors.text : root.restColor)
+        color: root.disabled ? Colors.textFaint : (root.hovered ? root.hoverColor : root.restColor)
     }
 
     MouseArea {

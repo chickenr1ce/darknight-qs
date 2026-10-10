@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import qs.components
 import qs.config
@@ -46,6 +47,7 @@ PanelShell {
             destination = bottom - viewHeight;
         if (delegate.y < destination)
             destination = delegate.y;
+        idGroupsSmoothWheel.stop();
         idScrollAnimator.to = Math.max(0, Math.min(destination, maxY));
         idScrollAnimator.restart();
     }
@@ -120,8 +122,8 @@ PanelShell {
         easing.type: Easing.OutCubic
     }
 
-    Flickable {
-        id: idGroupsFlickable
+    Item {
+        id: idGroupsSlot
 
         Layout.fillWidth: true
         Layout.fillHeight: true
@@ -129,33 +131,48 @@ PanelShell {
         Layout.maximumHeight: root.groupsScrollMax
 
         visible: NotificationServer.notifications.count > 0
-        contentWidth: width
-        contentHeight: idGroupsColumn.implicitHeight
-        clip: true
-        interactive: contentHeight > height
-        boundsBehavior: Flickable.StopAtBounds
 
-        Column {
-            id: idGroupsColumn
+        Flickable {
+            id: idGroupsFlickable
 
-            width: idGroupsFlickable.width
+            anchors.fill: parent
 
-            spacing: Globals.rowSpacing
+            contentWidth: width
+            contentHeight: idGroupsColumn.implicitHeight
+            clip: true
+            interactive: contentHeight > height
+            boundsBehavior: Flickable.StopAtBounds
+            Controls.ScrollBar.vertical: ScrollBar { id: idGroupsScrollBar }
 
-            Repeater {
-                id: idGroupsRepeater
+            Column {
+                id: idGroupsColumn
 
-                model: NotificationServer.groups
+                width: idGroupsFlickable.width - Globals.scrollbarWidth
 
-                delegate: NotificationGroup {
-                    required property var modelData
+                spacing: Globals.rowSpacing
 
-                    appName: modelData.appName
-                    notifications: modelData.notifications
-                    expanded: root.expandedGroups[modelData.appName] === true
-                    onToggleRequested: root.toggleGroup(modelData.appName)
+                Repeater {
+                    id: idGroupsRepeater
+
+                    model: NotificationServer.groups
+
+                    delegate: NotificationGroup {
+                        required property var modelData
+
+                        appName: modelData.appName
+                        notifications: modelData.notifications
+                        expanded: root.expandedGroups[modelData.appName] === true
+                        onToggleRequested: root.toggleGroup(modelData.appName)
+                    }
                 }
             }
+        }
+
+        SmoothWheel {
+            id: idGroupsSmoothWheel
+
+            flickable: idGroupsFlickable
+            onWheelStarted: idScrollAnimator.stop()
         }
     }
 }

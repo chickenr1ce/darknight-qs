@@ -37,6 +37,7 @@ run "review lint" ./scripts/lint-review.sh
 run "shell lint" ./scripts/lint-shell.sh
 run "lint imports" ./scripts/test-lint-imports.sh
 run "panel logic" ./scripts/test-panel-logic.sh
+run "app launcher" ./scripts/test-app-launcher.sh
 run "qs-theme" ./scripts/test-qs-theme.sh
 run "seed-themes" ./scripts/test-seed-themes.sh
 run "seed-btop-theme" ./scripts/test-seed-btop-theme.sh

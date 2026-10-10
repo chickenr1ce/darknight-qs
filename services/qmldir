@@ -7,6 +7,7 @@ singleton PanelGrab 1.0 PanelGrab.qml
 singleton HyprlandFocus 1.0 HyprlandFocus.qml
 singleton PowerService 1.0 PowerService.qml
 singleton DashboardService 1.0 DashboardService.qml
+singleton AppService 1.0 AppService.qml
 singleton SettingsService 1.0 SettingsService.qml
 singleton SettingsFilter 1.0 SettingsFilter.qml
 singleton MonitorService 1.0 MonitorService.qml

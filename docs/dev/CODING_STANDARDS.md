@@ -193,6 +193,18 @@ Timer { id: idMediaTimer }
 - **`HyprlandToplevel.address` omits the `0x` prefix**: the `address:` window
   selector needs it, so prepend `0x` when missing (verified live 2026-09-13).
   Selecting by `class:` needs no prefix.
+- **Wayland wheel events carry a `pixelDelta`, and Qt labels every pointer
+  `touchpad`**: Hyprland and Qt Wayland attach a small `pixelDelta` (15) to an
+  ordinary mouse wheel whose `angleDelta` is 120, and `event.device.type` is
+  `PointerDevice.TouchPad` for every pointer, because Qt Wayland registers only
+  its gesture device, so the device type cannot pick the scroll path. Key on
+  the scroll phase instead: a finger source (a touchpad) reports `ScrollBegin`
+  or `ScrollUpdate` (1:1 on `pixelDelta`), while a discrete wheel reports
+  `Qt.NoScrollPhase` (step on `angleDelta`) (verified live 2026-10-09;
+  `SmoothWheel` and `SmoothWheelLogic.isContinuousPhase`). A rare
+  `axis_source_continuous` device (a free-spin wheel) also reports
+  `NoScrollPhase`, so it takes the stepped path; QML exposes no axis source to
+  tell the two apart.
 - **Focusing a Hyprland window warps the cursor**: snapshot the position first
   (`hyprctl cursorpos`) and restore it after with
   `hl.dsp.cursor.move({ x, y })`; focus stays on the window

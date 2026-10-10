@@ -5,7 +5,7 @@ Planned work that is not done yet. Completed plan artifacts are frozen under
 work are in `docs/adr/`; domain terms in `CONTEXT.md`; coding rules in
 `docs/dev/CODING_STANDARDS.md`.
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-09.
 
 ## Open
 
@@ -67,6 +67,12 @@ Build only if it earns daily use.
 - Volume OSD: an event-driven level readout (`windows/VolumeOsd.qml`) raised by
   PipeWire volume or mute changes from any source, bottom-center on the focused
   monitor, click-through, and off-switchable in Settings → Audio. ADR 0017.
+- App launcher: the dashboard's Apps tab (`windows/DashboardAppsView.qml`,
+  `services/AppService.qml`, `services/AppLogic.js`) replaces the Media
+  placeholder: ranked search with Pinned/Recent/All sections, inline
+  Focus/Kill/Pin on a running app, a shared context menu, absolute-workspace
+  launch through the Hyprland Lua API, a hidden-apps Settings section, and the
+  `dashboard apps` IPC target. ADR 0018; user page `docs/user/app-launcher.md`.
 - Cava restart backoff: a repeatedly crashing cava process retries at 1.5 s,
   doubling to a 30 s ceiling, and a settings-driven restart does not count as a
   crash (`services/CavaLogic.js`).

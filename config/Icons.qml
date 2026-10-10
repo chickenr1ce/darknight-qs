@@ -26,6 +26,8 @@ QtObject {
     readonly property string repeatOnce: "󰑘"  // md-repeat_once U+F0458
     readonly property string shuffle: "󰒝"  // md-shuffle U+F049D
     readonly property string music: "󰝚"  // md-music U+F075A
+    readonly property string star: "󰓎"  // md-star U+F04CE
+    readonly property string terminal: "󰆍"  // md-console U+F018D
     readonly property string volumeHigh: "󰕾"  // md-volume_high U+F057E
     readonly property string volumeMute: "󰝟"  // md-volume_mute U+F075F
     readonly property string volumeOff: "󰖁"  // md-volume_off U+F0581
@@ -46,4 +48,14 @@ QtObject {
     readonly property string restart: "󰜉"  // md-restart U+F0709
     readonly property string windows: "󰍲"  // md-microsoft U+F0372
     readonly property string distro: ""  // linux-cachyos U+F385
+    readonly property string open: "󰏌"  // md-open_in_new U+F03CC
+    readonly property string openInApp: "󰏋"  // md-open_in_app U+F03CB
+    readonly property string copy: "󰆏"  // md-content_copy U+F018F
+    readonly property string eyeOff: "󰈉"  // md-eye_off U+F0209
+    readonly property string starOutline: "󰓒"  // md-star_outline U+F04D2
+    readonly property string focus: "󰗝"  // md-bullseye U+F05DD
+    readonly property string more: "󰇘"  // md-dots_horizontal U+F01D8
+    readonly property string workspace: "󰕮"  // md-view_dashboard U+F056E
+    readonly property string circle: "󰝥"  // md-circle U+F0765
+    readonly property string circleOutline: "󰝦"  // md-circle_outline U+F0766
 }

@@ -685,6 +685,44 @@ grep -qF 'qsTr("Coming soon")' "$DCENTER" \
 grep -q 'DashboardService.openSettings' "$DCENTER" \
     || fail "DashboardCenter gear does not open the settings tab"
 
+# Apps tab: the Media placeholder becomes the launcher. Super opens on Apps,
+# a plain A–Z AppService list launches, and the placeholder stays for the
+# remaining empty tabs. Ranking, icons, and persistence arrive later.
+grep -qF '{ key: "apps", title: qsTr("Apps") }' "$DSVC" \
+    || fail "DashboardService tabs carry no Apps entry"
+if grep -qF '{ key: "media"' "$DSVC"; then
+    fail "DashboardService tabs still carry the Media row tab; Apps replaces it"
+fi
+grep -q 'function toggleAppsAt' "$DSVC" \
+    || fail "DashboardService has no toggleAppsAt"
+grep -q 'function openAppsAt' "$DSVC" \
+    || fail "DashboardService has no openAppsAt"
+grep -qF 'function apps(): string' "$DSVC" \
+    || fail "DashboardService IPC has no apps()"
+test -f "$ROOT/services/AppService.qml" \
+    || fail "services/AppService.qml is missing"
+grep -q '^singleton AppService 1.0 AppService.qml' "$ROOT/services/qmldir" \
+    || fail "AppService is not registered in services/qmldir"
+grep -q 'DesktopEntries.applications' "$ROOT/services/AppService.qml" \
+    || fail "AppService does not read DesktopEntries.applications"
+grep -q 'function launch' "$ROOT/services/AppService.qml" \
+    || fail "AppService has no launch"
+grep -q 'entry.execute()' "$ROOT/services/AppService.qml" \
+    || fail "AppService launch does not execute the entry"
+grep -q 'DashboardService.close()' "$ROOT/services/AppService.qml" \
+    || fail "AppService launch does not close the dashboard"
+test -f "$ROOT/windows/DashboardAppsView.qml" \
+    || fail "windows/DashboardAppsView.qml is missing"
+grep -q 'DashboardAppsView' "$DCENTER" \
+    || fail "DashboardCenter does not host DashboardAppsView"
+grep -qF 'DashboardService.activeTab === "apps"' "$DCENTER" \
+    || fail "DashboardCenter does not gate the Apps view on activeTab"
+grep -q 'forceActiveFocus' "$ROOT/windows/DashboardAppsView.qml" \
+    || fail "DashboardAppsView search does not take keyboard focus"
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$ROOT/windows/DashboardAppsView.qml" "$ROOT/services/AppService.qml"; then
+    fail "apps view carries raw hex; palette tokens only"
+fi
+
 # Settings view: search plus rail plus the card-wrapped section body.
 test -f "$SCENTER" \
     || fail "windows/SettingsView.qml is missing"
@@ -1020,6 +1058,62 @@ grep -q 'const BROWSER_TOKENS' "$ROOT/services/MprisLogic.js" \
     || fail "MprisPlayers does not seed the browsers as hidden"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$MEDVIEW"; then
     fail "media settings surface carries raw hex; palette tokens only"
+fi
+
+# Apps section: every hidden id comes back from Settings. Each id resolves to
+# its installed entry (else shows the raw id) and unhides through
+# AppService.unhide, which rewrites the shared app-launcher state so the app
+# reappears in the Apps tab at once. The row composes the shared AppIcon.
+APPSVIEW="$ROOT/windows/AppsSettingsView.qml"
+APPSVC="$ROOT/services/AppService.qml"
+test -f "$APPSVIEW" \
+    || fail "windows/AppsSettingsView.qml is missing"
+grep -q 'property string filter' "$APPSVIEW" \
+    || fail "AppsSettingsView has no filter property"
+grep -q 'AppService.hidden' "$APPSVIEW" \
+    || fail "AppsSettingsView does not list the hidden apps"
+grep -q 'AppService.unhide' "$APPSVIEW" \
+    || fail "AppsSettingsView cannot unhide an app"
+grep -q 'DesktopEntries.byId' "$APPSVC" \
+    || fail "AppService does not resolve a hidden id to an entry"
+grep -q 'AppService.hiddenEntries' "$APPSVIEW" \
+    || fail "AppsSettingsView does not read the resolved hidden entries"
+grep -q 'AppIcon' "$APPSVIEW" \
+    || fail "AppsSettingsView does not compose the shared app icon"
+grep -q 'SettingsTextRow' "$APPSVIEW" \
+    || fail "AppsSettingsView does not compose the shared text row"
+grep -q 'AppService.terminalCommand' "$APPSVIEW" \
+    || fail "AppsSettingsView does not bind the terminal command"
+grep -q 'AppService.setTerminal' "$APPSVIEW" \
+    || fail "AppsSettingsView cannot set the terminal command"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Hidden"))' "$APPSVIEW" \
+    || fail "AppsSettingsView does not match its Hidden search label, so searching it shows an empty body"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Launcher"))' "$APPSVIEW" \
+    || fail "AppsSettingsView does not match its Launcher search label, so searching it shows an empty body"
+grep -q 'AppsSettingsView' "$SCENTER" \
+    || fail "SettingsView does not compose the Apps section"
+grep -qF 'root.currentSection.key === "apps"' "$SCENTER" \
+    || fail "SettingsView does not gate the Apps section"
+grep -qF 'key: "apps"' "$SSVC" \
+    || fail "SettingsService has no apps section"
+grep -qF 'qsTr("Hidden")' "$SSVC" \
+    || fail "SettingsService apps options do not list Hidden"
+grep -qF 'qsTr("Launcher")' "$SSVC" \
+    || fail "SettingsService apps options do not list Launcher"
+grep -qF 'qsTr("Terminal")' "$SSVC" \
+    || fail "SettingsService apps options do not list Terminal"
+grep -qF 'SettingsFilter.matches(root.filter, qsTr("Terminal"))' "$APPSVIEW" \
+    || fail "AppsSettingsView does not match its Terminal search label"
+grep -qF 'AppService.hiddenEntries.map' "$SSVC" \
+    || fail "SettingsService apps options do not derive from the hidden app names"
+grep -q 'function unhide' "$APPSVC" \
+    || fail "AppService has no unhide"
+grep -q 'AppLogic.unhide' "$APPSVC" \
+    || fail "AppService does not delegate unhide to AppLogic"
+grep -q 'name: "app-launcher"' "$APPSVC" \
+    || fail "AppService does not persist the hidden list behind the app-launcher StateFile"
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$APPSVIEW"; then
+    fail "apps settings surface carries raw hex; palette tokens only"
 fi
 
 # Dashboard junction radius: a slider writes the service across the whole
@@ -3057,5 +3151,73 @@ for token in osdHoldMs osdArmMs osdWidth osdHeight osdBottomMargin; do
 done
 test -f "$ROOT/docs/adr/0017-volume-osd.md" \
     || fail "docs/adr/0017-volume-osd.md is missing"
+
+# --- 25. every user-scrollable view composes the shared scroll chrome ---
+# Ticket 09: each Flickable/ListView/GridView/ScrollView under windows/ or
+# components/ that scrolls attaches components/ScrollBar.qml through
+# QtQuick Controls and mounts components/SmoothWheel.qml, so a new scrolling
+# surface without them fails the gate. A deliberately inert view
+# (interactive: false, the toast stack) is skipped.
+test -f "$ROOT/components/ScrollBar.qml" \
+    || fail "components/ScrollBar.qml is missing"
+test -f "$ROOT/components/SmoothWheel.qml" \
+    || fail "components/SmoothWheel.qml is missing"
+# The gate is per view, not per file: a file that holds one inert view must not
+# excuse its other scrollables, and one attached ScrollBar must not excuse a
+# second bare view. scripts/scroll-chrome-check.py parses each declaration's own
+# block, skips `interactive: false`, and requires an id, the shared ScrollBar,
+# and a SmoothWheel in the same file that targets it.
+python3 "$ROOT/scripts/scroll-chrome-check.py" "$ROOT" \
+    || fail "a scrollable view is missing the shared ScrollBar or SmoothWheel"
+
+# Self-test the checker: an adorned view passes, a bare second view fails.
+SCROLL_FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/qs-scroll-XXXXXX")"
+trap 'rm -rf "$SCROLL_FIXTURE"' EXIT
+mkdir -p "$SCROLL_FIXTURE/windows"
+cat >"$SCROLL_FIXTURE/windows/Good.qml" <<'QML'
+import QtQuick
+Item {
+    Flickable {
+        id: idAdorned
+        interactive: contentHeight > height
+        Controls.ScrollBar.vertical: ScrollBar {}
+    }
+    SmoothWheel {
+        flickable: idAdorned
+    }
+}
+QML
+python3 "$ROOT/scripts/scroll-chrome-check.py" "$SCROLL_FIXTURE" \
+    || fail "the scroll gate rejects an adorned view"
+cat >>"$SCROLL_FIXTURE/windows/Good.qml" <<'QML'
+Item {
+    Flickable {
+        id: idBare
+        interactive: true
+        Controls.ScrollBar.vertical: ScrollBar {}
+    }
+}
+QML
+if python3 "$ROOT/scripts/scroll-chrome-check.py" "$SCROLL_FIXTURE" >/dev/null 2>&1; then
+    fail "the scroll gate passed an unadorned second Flickable"
+fi
+rm -rf "$SCROLL_FIXTURE"
+
+
+for pair in \
+    "windows/SettingsView.qml:idSettingsScroll" \
+    "windows/CalendarCenter.qml:idBodyFlickable" \
+    "windows/NotificationCenter.qml:idGroupsFlickable"; do
+    file="${pair%%:*}"
+    flick="${pair##*:}"
+    grep -q "flickable: $flick" "$ROOT/$file" \
+        || fail "$file does not point its SmoothWheel at $flick"
+    grep -q 'Globals.scrollbarWidth' "$ROOT/$file" \
+        || fail "$file does not reserve the scrollbar width, so rows reflow under the bar"
+done
+grep -q 'idGroupsSmoothWheel.stop()' "$ROOT/windows/NotificationCenter.qml" \
+    || fail "the notification center glide does not stop the smooth wheel first"
+grep -q 'onWheelStarted: idScrollAnimator.stop()' "$ROOT/windows/NotificationCenter.qml" \
+    || fail "a wheel notch does not stop the notification center glide"
 
 echo "panel-logic: all ok"

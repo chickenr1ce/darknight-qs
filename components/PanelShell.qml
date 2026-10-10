@@ -20,6 +20,7 @@ PanelWindow {
     property real anchorCenterX: root.panel ? root.panel.anchorCenterX : 0
     property real panelWidth: Globals.centerWidth
     property real panelMaxHeight: Globals.centerMaxHeight
+    property real windowHeight: root.panelMaxHeight
     property bool attachedToBar: false
     property int junctionRadius: 0
 
@@ -80,7 +81,7 @@ PanelWindow {
     }
 
     implicitWidth: root.windowWidth
-    implicitHeight: root.panelMaxHeight
+    implicitHeight: root.windowHeight
     visible: root.panelVisible || idPanel.opacity > 0
 
     Component.onCompleted: PanelGrab.register(root)
