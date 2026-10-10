@@ -348,8 +348,8 @@ def render_btop(enabled):
 
 # Vencord lives under the app's own config root. When that root is absent the
 # user has no Discord to recolor, so the target skips as success instead of
-# creating a directory for an install that is not there. Enablement and theme
-# ordering stay manual: the renderer never touches Vencord's settings file,
+# creating a directory for an install that is not there. Enablement stays
+# manual: the renderer never touches Vencord's settings file,
 # which is not watched for reload and would clobber an edit.
 def render_vencord(enabled):
     vencord_root = os.path.join(config_home, "Vencord")

@@ -18,9 +18,9 @@ amendment). In short:
   `--shell-*` variables and the rules mapping them onto Firefox's chrome
   variables; the user imports it once from their own `userChrome.css`, and the
   legacy-sheets pref goes in a generated `user.js`.
-- Vencord is recolored by overriding system24's base namespace on `:root` and
-  leaving its derived variables alone. The user enables it once, orders it after
-  `system24.theme.css`, and restarts Discord once.
+- Vencord is recolored by overriding system24's base namespace with a
+  `:root:root` block that outranks its plain `:root`, so load order does not
+  matter; the user enables it once and restarts Discord once.
 - Spicetify follows the shell through a bundled copy of the community `text`
   theme. The renderer owns `~/.config/spicetify/Themes/quickshell/`, keeps the
   theme's default color options, and appends a `Quickshell` color option built

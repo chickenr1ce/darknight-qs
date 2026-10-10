@@ -1,11 +1,12 @@
 /* Rendered by scripts/render-theme.sh from the active theme palette.
  * Do not edit: the next palette load overwrites this file.
  *
- * Vencord recolors Discord by overriding system24's own namespace on :root;
- * system24 keeps its layout and derives the rest of its colors from these
- * base variables. Enable this file once in Vencord and list it last in
- * enabledThemes, after system24.theme.css. The shell never edits
- * settings.json. See docs/user/theme-desktop-setup.md.
+ * Vencord recolors Discord by overriding system24's own namespace; system24
+ * keeps its layout and derives the rest of its colors from these base
+ * variables. The block below uses :root:root, which outranks system24's plain
+ * :root, so the override wins whatever order Vencord loads the themes in and
+ * the enabledThemes order does not matter. Enable this file once in Vencord;
+ * the shell never edits settings.json. See docs/user/theme-desktop-setup.md.
  */
 
 /**
@@ -13,7 +14,7 @@
  * @description Shell palette
  */
 
-:root {
+:root:root {
     --colors: on;
 
     /* Background surfaces. The ladder mixes the palette background toward the

@@ -212,16 +212,17 @@ untouched.
 
 Discord is recolored through the installed `system24` theme. The renderer writes
 `~/.config/Vencord/themes/quickshell.theme.css`, which overrides `system24`'s
-own `:root` namespace variables and leaves its layout and its derived colors
+own namespace variables and leaves its layout and its derived colors
 alone. `--text-0` is the one deliberate override: it carries the on-accent ink,
 so icons and badges are not painted with the background. Enable the theme once
-in Vencord and put `quickshell.theme.css` **last** in the `enabledThemes` array.
+in Vencord.
 
-The live list already carries a dangling `system24-old.theme.css` ahead of
-`system24.theme.css`, so "after system24" is not enough; the entry has to come
-after every `system24*` theme. Vencord reads the order once at launch, so
-restart Discord once after enabling it. The shell never edits `settings.json`;
-enablement and ordering stay manual.
+The override block uses the `:root:root` selector, which outranks `system24`'s
+plain `:root` on specificity, so the shell palette wins whatever order Vencord
+loads the themes in. The `enabledThemes` order does not matter, which is what
+makes the theme work despite Vencord's UI not offering a way to reorder enabled
+themes. Vencord reads the list once at launch, so restart Discord once after
+enabling it. The shell never edits `settings.json`; enablement stays manual.
 
 The generated theme depends on a `system24`/midnight-style base theme by design:
 if the base theme changes or is removed, the variables the file sets are

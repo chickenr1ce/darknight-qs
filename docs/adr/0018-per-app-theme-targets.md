@@ -148,3 +148,13 @@ braces, so CSS braces in a template do not trip it.
   replaces a Marketplace-managed theme, and must be re-run after every Spotify
   update. Later retints stage through `refresh`, never `apply`, and appear on
   the next Spotify start, not live.
+- 2026-10-10 (Vencord cascade order): the Decision above has the user order the
+  generated theme after `system24.theme.css`, but Vencord's Themes UI cannot
+  reorder enabled themes, and the live `enabledThemes` array puts
+  `system24.theme.css` last, so its own `:root` base variables tied the
+  generated `:root` at specificity (0,1,0) and won on source order. The
+  generated block now selects `:root:root` (0,2,0), which outranks system24's
+  plain `:root` whatever order the two load in, so ordering no longer matters
+  and the UI needs no reorder. The user still enables the theme once and
+  restarts Discord once. `!important` remains rejected (see the alternatives
+  above); the fix raises specificity instead.

@@ -14,8 +14,9 @@ layout and its derived colors.
 
 1. New template `assets/templates/vencord-theme.css`. It carries the repo banner
    comment and a BetterDiscord-style metadata header
-   (`/** @name quickshell @description Shell palette */`), then one `:root` block
-   that sets only the base system24 variables from the palette.
+   (`/** @name quickshell @description Shell palette */`), then one `:root:root`
+   block (specificity 0,2,0) that sets only the base system24 variables from the
+   palette.
 
 2. The template sets `--colors: on`, `--bg-1` through `--bg-4`, `--text-1`
    through `--text-5`, `--text-0: {{on_accent}}`, and the five hue scales
@@ -63,8 +64,8 @@ layout and its derived colors.
    confirm they are the only unexpected colors, and note them for ticket 04.
 
 5. The template sets no `!important` and no Discord variable (`--background-*`,
-   `--text-normal`, `--brand-*`). It relies on cascade order against the base
-   theme's plain `:root` block.
+   `--text-normal`, `--brand-*`). It relies on specificity against the base
+   theme's plain `:root` block, independent of the order the two load in.
 
 6. The renderer writes it under the target key `vencord` to
    `${XDG_CONFIG_HOME:-$HOME/.config}/Vencord/themes/quickshell.theme.css`. The renderer never reads or
@@ -97,3 +98,11 @@ the base-theme coupling and the placeholder disclosure. Open question to confirm
 live: whether a `.theme.css` with no metadata header can be enabled, which is why
 the template carries one. Verify the derived-variable claims against the built
 `system24.css` (imported over the network), not only the local wrapper.
+
+**2026-10-10 amendment:** the "list it last" instruction above is obsolete. Live
+testing showed Vencord's Themes UI cannot reorder enabled themes, and its
+`enabledThemes` array puts `system24.theme.css` last, so relying on cascade
+order left system24's own `:root` base variables overriding ours. The template's
+block now selects `:root:root` (0,2,0), outranking system24's plain `:root`
+(0,1,0) whatever the load order, so ordering no longer matters. `!important`
+stays forbidden. See docs/adr/0018-per-app-theme-targets.md.

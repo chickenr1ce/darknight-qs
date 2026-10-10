@@ -2787,11 +2787,16 @@ grep -qF -- '-- probe 7aa2f7 e0af68 #e0af68 #f7768e #ffffff #ffffff #d5d6db #c0c
 
 # Vencord recolors Discord by overriding system24's own namespace on :root,
 # so the rendered file sets only the base variables and leaves system24's
-# derived ones alone. It writes under Vencord's own config root, skips as
-# success when that root is absent, and keeps its banner and metadata header
-# when disabled, so an enabledThemes entry never points at a missing file.
+# derived ones alone. The block selects :root:root, which outranks system24's
+# plain :root (0,2,0 against 0,1,0) so the override wins whatever order
+# Vencord loads the themes in; !important stays forbidden. It writes under
+# Vencord's own config root, skips as success when that root is absent, and
+# keeps its banner and metadata header when disabled, so an enabledThemes entry
+# never points at a missing file.
 test -f "$ROOT/assets/templates/vencord-theme.css" \
     || fail "assets/templates/vencord-theme.css is missing"
+grep -q ':root:root[[:space:]]*{' "$ROOT/assets/templates/vencord-theme.css" \
+    || fail "the Vencord template selector is not :root:root"
 grep -q '@name quickshell' "$ROOT/assets/templates/vencord-theme.css" \
     || fail "the Vencord template has no BetterDiscord metadata header"
 grep -q '@description Shell palette' "$ROOT/assets/templates/vencord-theme.css" \
@@ -2817,7 +2822,7 @@ if ! cmp -s "$RENDER_TMP/vencord-banner-on" "$RENDER_TMP/vencord-banner-off"; th
     fail "the Vencord templates' banner preambles differ"
 fi
 if grep -q 'settings.json' "$RENDER"; then
-    fail "the renderer names settings.json; Vencord enablement and ordering stay manual"
+    fail "the renderer names settings.json; Vencord enablement stays manual"
 fi
 
 # An installed Vencord: the enabled target writes the palette-derived theme
@@ -2836,8 +2841,13 @@ grep -q -- '--bg-4: #1a1b26' "$VENCORD_FILE" \
     || fail "the Vencord main background does not come from the palette"
 grep -q -- '--text-0: #000000' "$VENCORD_FILE" \
     || fail "the Vencord --text-0 is not the ink chosen against accent"
+grep -q ':root:root[[:space:]]*{' "$VENCORD_FILE" \
+    || fail "the Vencord theme does not outrank system24's :root with :root:root"
+if grep -qE '^[[:space:]]*:root[[:space:]]*\{' "$VENCORD_FILE"; then
+    fail "the Vencord theme still uses a bare :root selector"
+fi
 if grep -q '!important' "$VENCORD_FILE"; then
-    fail "the Vencord theme uses !important; it must rely on cascade order"
+    fail "the Vencord theme uses !important; it must outrank system24 by specificity"
 fi
 if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$VENCORD_FILE"; then
     fail "the Vencord theme holds an unresolved token"
@@ -2850,11 +2860,11 @@ mkdir -p "$RENDER_VENCORD_LIGHT/Vencord"
 HOME="$RENDER_VENCORD_LIGHT" XDG_CONFIG_HOME="$RENDER_VENCORD_LIGHT" sh "$RENDER" "$RENDER_PALETTE7"
 VENCORD_LIGHT="$RENDER_VENCORD_LIGHT/Vencord/themes/quickshell.theme.css"
 
-# Resolve the rendered CSS the way a browser would: the :root custom-property
-# set must be exactly the base variables of the ticket (no derived variable
-# survives), the four background surfaces must stay distinct, every hue ladder
-# must keep five distinct stops, and the text ramp must stay ordered and
-# contrast against the background.
+# Resolve the rendered CSS the way a browser would: the :root:root
+# custom-property set must be exactly the base variables of the ticket (no
+# derived variable survives), the four background surfaces must stay distinct,
+# every hue ladder must keep five distinct stops, and the text ramp must stay
+# ordered and contrast against the background.
 python3 - "$VENCORD_FILE" "$VENCORD_LIGHT" <<'PYEOF'
 import re
 import sys
@@ -2876,7 +2886,8 @@ for hue in ("red", "green", "blue", "yellow", "purple"):
 # them (an override would freeze a derived color instead of following the base).
 FORBIDDEN = re.compile(
     r"^--(mention|accent|border|hover|active|message-hover|online|"
-    r"accent-new|button-border|background-|text-normal|brand-)")
+    r"accent-new|button-border|background-|text-normal|brand-|"
+    r"reply|dnd|idle|streaming|offline)")
 
 def channels(value):
     text = value.strip().lstrip("#")
@@ -2913,9 +2924,9 @@ def contrast(a, b):
 for path, light in ((sys.argv[1], False), (sys.argv[2], True)):
     with open(path, encoding="utf-8") as handle:
         css = handle.read()
-    block = re.search(r":root\s*\{(.*?)\}", css, re.S)
+    block = re.search(r":root:root\s*\{(.*?)\}", css, re.S)
     if not block:
-        fail("%s has no :root block" % path)
+        fail("%s has no :root:root block" % path)
     body = re.sub(r"/\*.*?\*/", "", block.group(1), flags=re.S)
     props = {}
     for name, value in re.findall(r"(--[A-Za-z0-9-]+)\s*:\s*([^;]+);", body):

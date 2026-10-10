@@ -58,11 +58,10 @@ target tickets never collide on prose.
      `spicetify refresh` and never `spicetify apply`, and that a Spotify update
      needs a re-apply;
    - a Vencord subsection under One-time wiring: enable the generated theme once,
-     list it **last** in `enabledThemes` (a stale `system24-old.theme.css`
-     already sits ahead of `system24.theme.css`, so "after system24" is not
-     enough), restart Discord once, and note the base-theme coupling, the hot
-     reload, and the upstream `midnight.css` debug placeholders that survive any
-     namespace override;
+     restart Discord once, and note that the `:root:root` selector outranks
+     system24's plain `:root` so `enabledThemes` order does not matter, plus the
+     base-theme coupling, the hot reload, and the upstream `midnight.css` debug
+     placeholders that survive any namespace override;
    - a Firefox subsection: create the profile's `userChrome.css` with a single
      `@import url("shell-palette.css");` as its **first** line (an `@import`
      after other rules is ignored); the generated sheet carries the palette
