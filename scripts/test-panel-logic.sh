@@ -1336,6 +1336,36 @@ grep -qF 'ThemeService.catalog.map(theme => theme.displayName)' "$SSVC" \
 grep -qF 'options: [qsTr("Theme")]' "$SSVC" \
     || fail "SettingsService theme options do not list Theme"
 
+# Themed apps section: one toggle per renderer target, deriving its labels from
+# ThemeService.themeTargets so the registry and the view cannot drift, and
+# filtering each row through the shared SettingsFilter.
+TAV="$ROOT/windows/ThemedAppsSettingsView.qml"
+test -f "$TAV" \
+    || fail "windows/ThemedAppsSettingsView.qml is missing"
+grep -q 'property string filter' "$TAV" \
+    || fail "ThemedAppsSettingsView has no filter property"
+grep -q 'model: ThemeService.themeTargets' "$TAV" \
+    || fail "ThemedAppsSettingsView does not list the renderer targets"
+grep -q 'SettingsToggleRow' "$TAV" \
+    || fail "ThemedAppsSettingsView does not compose the shared toggle row"
+grep -q 'ThemeService.isThemeTargetEnabled' "$TAV" \
+    || fail "ThemedAppsSettingsView does not read the shared target state"
+grep -q 'ThemeService.setThemeTargetEnabled' "$TAV" \
+    || fail "ThemedAppsSettingsView does not write the shared target state"
+grep -qF 'SettingsFilter.matches(root.filter, modelData.title)' "$TAV" \
+    || fail "ThemedAppsSettingsView does not filter each row by its label"
+grep -q 'ThemedAppsSettingsView' "$SCENTER" \
+    || fail "SettingsView does not compose the Themed apps section"
+grep -qF 'root.currentSection.key === "themed-apps"' "$SCENTER" \
+    || fail "SettingsView does not gate the Themed apps section"
+grep -qF 'key: "themed-apps"' "$SSVC" \
+    || fail "SettingsService has no themed-apps section"
+grep -qF 'ThemeService.themeTargets.map' "$SSVC" \
+    || fail "SettingsService themed-apps options do not derive from ThemeService.themeTargets"
+if grep -qnE '#[0-9a-fA-F]{3,8}' "$TAV"; then
+    fail "themed apps settings surface carries raw hex; palette tokens only"
+fi
+
 # Settings filtering lives once: every view delegates to the shared
 # SettingsFilter rather than copying the predicate into its own matches().
 FILTER="$ROOT/services/SettingsFilter.qml"

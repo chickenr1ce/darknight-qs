@@ -137,3 +137,14 @@ braces, so CSS braces in a template do not trip it.
   the user must run a version-gated `spicetify restore backup apply` (repeated
   after every Spotify update), is settled live by the Spicetify ticket before
   the user docs describe the step.
+- 2026-10-10 (Spicetify selection resolved): the selection is path (b). The live
+  run used spicetify-cli 2.45.3 against Spotify 1.2.79.427.g80eb4a07, with
+  `[Backup] with = 2.42.8` before it. Plain `refresh` rewrote `xpui/colors.css`
+  but the client kept the old colors, because only `apply` rewrites
+  `xpui/index.html`; `apply` refused as outdated, and
+  `spicetify restore backup apply` succeeded, moving `with` to 2.45.3. The
+  one-time step is `spicetify config current_theme quickshell color_scheme
+  Quickshell` then `spicetify restore backup apply`. It restarts Spotify,
+  replaces a Marketplace-managed theme, and must be re-run after every Spotify
+  update. Later retints stage through `refresh`, never `apply`, and appear on
+  the next Spotify start, not live.
