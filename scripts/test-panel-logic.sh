@@ -2432,9 +2432,9 @@ NODEEOF
 
 # --- 17. desktop retint: the renderer writes repo-owned templates ---
 # scripts/render-theme.sh substitutes the resolved palette into the templates
-# under assets/templates/ and writes the six desktop files. It reads no theme
+# under assets/templates/ and writes the desktop files. It reads no theme
 # directory, so this gate runs the real script against a fixture palette with
-# XDG_CONFIG_HOME redirected (and HOME, because the future Firefox, Vencord, and
+# XDG_CONFIG_HOME redirected (and HOME, because the Firefox, Vencord, and
 # Spicetify destinations all resolve under a home), then checks the bytes, the
 # border fallback and override, the empty-palette default, idempotency, and the
 # per-target enable/disable and isolation contract.
@@ -2690,9 +2690,10 @@ grep -q '\$theme_accent = rgb(122, 162, 247)' "$RENDER_OFF1/hypr/hyprlock/colors
 test "$(cat "$RENDER_OFF1/btop/themes/theme.theme")" = "# quickshell theme target disabled" \
     || fail "a single-target-off render did not write the disabled layer for the omitted target"
 
-# Target keys with no render case yet (firefox, spicetify) are accepted and
-# have no effect, so a future key never fails a run. vencord is implemented but
-# skips itself here because this HOME has no Vencord install.
+# Target keys with no render case yet (spicetify) are accepted and have no
+# effect, so a future key never fails a run. vencord is implemented but skips
+# itself here because this HOME has no Vencord install, and firefox skips
+# itself because this HOME has no Firefox root.
 RENDER_FUTURE="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-XXXXXX")"
 HOME="$RENDER_FUTURE" XDG_CONFIG_HOME="$RENDER_FUTURE" sh "$RENDER" "$RENDER_PALETTE" \
     "firefox,vencord,spicetify" \
@@ -2947,7 +2948,255 @@ test ! -e "$RENDER_NOVENCORD/Vencord/themes/quickshell.theme.css" \
 grep -q 'vencord: not installed' "$RENDER_NOVENCORD/vencord.log" \
     || fail "an absent Vencord root was not logged"
 
-rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7" "$RENDER_OFF" "$RENDER_OFF1" "$RENDER_FUTURE" "$RENDER_BAD" "$RENDER_BRACE" "$RENDER_TMP" "$RENDER_STUB" "$RENDER_VENCORD" "$RENDER_VENCORD_LIGHT" "$RENDER_VOFF" "$RENDER_NOVENCORD"
+# Firefox is themed at the chrome: a generated sheet the user's own
+# userChrome.css imports once carries the palette as --shell-* variables and
+# the rules mapping them onto Firefox's own chrome variables, and a managed
+# block in user.js turns on legacy stylesheet support. The profile comes from
+# installs.ini, not profiles.ini's Default=1 stub, and the write goes through
+# the profile path (the psd symlink) without resolving it.
+FF_TPL="$ROOT/assets/templates/firefox-palette.css"
+FF_USER_TPL="$ROOT/assets/templates/firefox-user.js"
+test -f "$FF_TPL" \
+    || fail "assets/templates/firefox-palette.css is missing"
+test -f "$FF_USER_TPL" \
+    || fail "assets/templates/firefox-user.js is missing"
+grep -q -- '--shell-background: {{background}}' "$FF_TPL" \
+    || fail "the Firefox template does not expose the palette as --shell-* variables"
+grep -q '^// BEGIN quickshell$' "$FF_USER_TPL" \
+    || fail "the Firefox user.js template has no BEGIN marker"
+grep -q 'toolkit.legacyUserProfileCustomizations.stylesheets", true' "$FF_USER_TPL" \
+    || fail "the Firefox user.js template does not set the legacy-sheets pref"
+grep -q '^// END quickshell$' "$FF_USER_TPL" \
+    || fail "the Firefox user.js template has no END marker"
+# The chrome variable names are Firefox internals that have been renamed across
+# releases; this list is verified against Firefox 157.0.1 and may need upkeep.
+for var in toolbar-background-color toolbar-text-color tab-background-color-selected tab-text-color-selected urlbar-box-background-color urlbar-box-background-color-focus urlbar-box-text-color toolbar-field-background-color toolbar-field-background-color-focus toolbar-field-text-color toolbar-field-text-color-focus panel-background-color panel-border-color sidebar-background-color sidebar-text-color sidebar-border-color lwt-accent-color lwt-text-color; do
+    grep -q -- "--$var: var(--shell-" "$FF_TPL" \
+        || fail "the Firefox template does not map --$var onto a shell variable"
+done
+# The target never writes a backup tree or the user-owned userContent.css, and
+# never rewrites prefs.js (Firefox rewrites it on shutdown).
+if grep -q 'userContent' "$RENDER"; then
+    fail "the renderer names userContent.css; only the chrome sheet is generated"
+fi
+if grep -q -- '-backup' "$RENDER"; then
+    fail "the renderer names a -backup path; the profile path is the only write"
+fi
+if grep -q 'prefs.js' "$RENDER"; then
+    fail "the renderer names prefs.js; the pref is managed through user.js"
+fi
+
+# One fixture home builder, reused by every Firefox case below.
+make_firefox_fixture() {
+    local root="$1/mozilla/firefox"
+    mkdir -p "$root/b5dxo71e.default-release" \
+             "$root/b5dxo71e.default-release-backup" \
+             "$root/b5dxo71e.default-release-back-ovfs" \
+             "$root/b5dxo71e.default-release-backup-crashrecovery-20260319_072438" \
+             "$root/ikenjxfu.default"
+    cat > "$root/installs.ini" <<'FXINI'
+[4F96D1932A9F858E]
+Default=b5dxo71e.default-release
+Locked=1
+FXINI
+    cat > "$root/profiles.ini" <<'FXPROF'
+[Install4F96D1932A9F858E]
+Default=b5dxo71e.default-release
+Locked=1
+
+[Profile1]
+Name=default
+IsRelative=1
+Path=ikenjxfu.default
+Default=1
+
+[Profile0]
+Name=default-release
+IsRelative=1
+Path=b5dxo71e.default-release
+FXPROF
+}
+
+RENDER_FIREFOX="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-firefox-XXXXXX")"
+
+# The enabled target writes the palette-derived sheet and the managed block
+# into the install-default profile, and leaves the stub profile and every
+# psd sibling (-backup, -back-ovfs, -crashrecovery-*) untouched.
+FF_ON="$RENDER_FIREFOX/on"
+mkdir -p "$FF_ON"
+make_firefox_fixture "$FF_ON"
+HOME="$FF_ON" XDG_CONFIG_HOME="$FF_ON" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+FF_ROOT="$FF_ON/mozilla/firefox"
+FF_PROFILE="$FF_ROOT/b5dxo71e.default-release"
+FF_CSS="$FF_PROFILE/chrome/shell-palette.css"
+FF_USERJS="$FF_PROFILE/user.js"
+test -f "$FF_CSS" \
+    || fail "the Firefox target wrote no shell-palette.css"
+grep -q -- '--shell-background: #1a1b26' "$FF_CSS" \
+    || fail "the Firefox sheet does not carry the palette background"
+grep -q -- '--toolbar-background-color: var(--shell-background)' "$FF_CSS" \
+    || fail "the Firefox sheet does not map the palette onto the toolbar"
+if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$FF_CSS"; then
+    fail "the Firefox sheet left an unresolved placeholder"
+fi
+test -f "$FF_USERJS" \
+    || fail "the Firefox target wrote no user.js"
+grep -q '^// BEGIN quickshell$' "$FF_USERJS" \
+    || fail "the generated user.js has no BEGIN marker"
+grep -q 'toolkit.legacyUserProfileCustomizations.stylesheets", true' "$FF_USERJS" \
+    || fail "the generated user.js does not set the legacy-sheets pref"
+grep -q '^// END quickshell$' "$FF_USERJS" \
+    || fail "the generated user.js has no END marker"
+test ! -e "$FF_ROOT/ikenjxfu.default/chrome" \
+    || fail "the Firefox target wrote into the Default=1 stub profile"
+for sibling in "$FF_ROOT/b5dxo71e.default-release-backup" \
+                "$FF_ROOT/b5dxo71e.default-release-back-ovfs" \
+                "$FF_ROOT/b5dxo71e.default-release-backup-crashrecovery-20260319_072438"; do
+    test ! -e "$sibling/chrome" && test ! -e "$sibling/user.js" \
+        || fail "the Firefox target wrote into a psd sibling: $sibling"
+done
+
+# A pre-existing user.js keeps its own prefs, gains the block once, and an
+# appended edit survives the next render.
+FF_KEEP="$RENDER_FIREFOX/keep"
+mkdir -p "$FF_KEEP"
+make_firefox_fixture "$FF_KEEP"
+FF_KEEP_USERJS="$FF_KEEP/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref("browser.startup.homepage", "about:blank");\nuser_pref("browser.tabs.warnOnClose", false);\n' > "$FF_KEEP_USERJS"
+HOME="$FF_KEEP" XDG_CONFIG_HOME="$FF_KEEP" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+grep -q 'browser.startup.homepage' "$FF_KEEP_USERJS" \
+    || fail "the Firefox target dropped a hand-written pref"
+grep -q 'browser.tabs.warnOnClose' "$FF_KEEP_USERJS" \
+    || fail "the Firefox target dropped a hand-written pref"
+grep -q '^// BEGIN quickshell$' "$FF_KEEP_USERJS" \
+    || fail "the Firefox target did not add the managed block to an existing user.js"
+test "$(grep -c 'legacyUserProfileCustomizations.stylesheets' "$FF_KEEP_USERJS")" -eq 1 \
+    || fail "the Firefox target added the legacy-sheets pref twice"
+printf 'user_pref("app.update.auto", false);\n' >> "$FF_KEEP_USERJS"
+HOME="$FF_KEEP" XDG_CONFIG_HOME="$FF_KEEP" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+grep -q 'app.update.auto' "$FF_KEEP_USERJS" \
+    || fail "the Firefox target lost an appended edit on the next render"
+test "$(grep -c '^// BEGIN quickshell$' "$FF_KEEP_USERJS")" -eq 1 \
+    || fail "the Firefox managed block duplicated on a rerun"
+
+# A pref set outside the markers is adopted into the block, not duplicated.
+FF_ADOPT="$RENDER_FIREFOX/adopt"
+mkdir -p "$FF_ADOPT"
+make_firefox_fixture "$FF_ADOPT"
+FF_ADOPT_USERJS="$FF_ADOPT/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref("browser.startup.homepage", "about:blank");\nuser_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);\nuser_pref("browser.tabs.warnOnClose", false);\n' > "$FF_ADOPT_USERJS"
+HOME="$FF_ADOPT" XDG_CONFIG_HOME="$FF_ADOPT" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test "$(grep -c 'legacyUserProfileCustomizations.stylesheets' "$FF_ADOPT_USERJS")" -eq 1 \
+    || fail "a loose legacy-sheets pref was duplicated instead of adopted"
+grep -q 'browser.startup.homepage' "$FF_ADOPT_USERJS" \
+    || fail "adopting the loose pref dropped a neighbouring pref"
+grep -q 'browser.tabs.warnOnClose' "$FF_ADOPT_USERJS" \
+    || fail "adopting the loose pref dropped a neighbouring pref"
+# The single pref now sits inside the managed block.
+if ! awk '/^\/\/ BEGIN quickshell$/{on=1} on&&/legacyUserProfileCustomizations/{seen=1} /^\/\/ END quickshell$/{on=0; if(!seen) exit 1} END{exit seen?0:1}' "$FF_ADOPT_USERJS"; then
+    fail "the adopted legacy-sheets pref is not inside the managed block"
+fi
+
+# A loose pref written with unusual whitespace is still recognised and adopted,
+# not duplicated.
+FF_SPACED="$RENDER_FIREFOX/spaced"
+mkdir -p "$FF_SPACED"
+make_firefox_fixture "$FF_SPACED"
+FF_SPACED_USERJS="$FF_SPACED/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref( "toolkit.legacyUserProfileCustomizations.stylesheets" , true );\n' > "$FF_SPACED_USERJS"
+HOME="$FF_SPACED" XDG_CONFIG_HOME="$FF_SPACED" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test "$(grep -c 'legacyUserProfileCustomizations.stylesheets' "$FF_SPACED_USERJS")" -eq 1 \
+    || fail "a spaced loose legacy-sheets pref was duplicated instead of adopted"
+
+# A BEGIN marker whose END was lost (a hand-edit truncation) must not swallow
+# the lines that follow it: they survive as user prefs, and exactly one
+# well-formed block is written.
+FF_TRUNC="$RENDER_FIREFOX/trunc"
+mkdir -p "$FF_TRUNC"
+make_firefox_fixture "$FF_TRUNC"
+FF_TRUNC_USERJS="$FF_TRUNC/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref("browser.startup.homepage", "about:blank");\n// BEGIN quickshell\nuser_pref("browser.tabs.warnOnClose", false);\n' > "$FF_TRUNC_USERJS"
+HOME="$FF_TRUNC" XDG_CONFIG_HOME="$FF_TRUNC" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+grep -q 'browser.startup.homepage' "$FF_TRUNC_USERJS" \
+    || fail "an unterminated managed block dropped the pref before BEGIN"
+grep -q 'browser.tabs.warnOnClose' "$FF_TRUNC_USERJS" \
+    || fail "an unterminated managed block swallowed the user's following pref"
+test "$(grep -c '^// BEGIN quickshell$' "$FF_TRUNC_USERJS")" -eq 1 \
+    || fail "an unterminated managed block produced no single BEGIN marker"
+test "$(grep -c '^// END quickshell$' "$FF_TRUNC_USERJS")" -eq 1 \
+    || fail "an unterminated managed block produced no END marker"
+
+# An IsRelative=0 profile resolves to its absolute Path.
+FF_ABS="$RENDER_FIREFOX/abs"
+mkdir -p "$FF_ABS/mozilla/firefox" "$FF_ABS/abs-profile"
+printf '[4F96D1932A9F858E]\nDefault=abs-profile\n' > "$FF_ABS/mozilla/firefox/installs.ini"
+printf '[Profile0]\nName=abs\nIsRelative=0\nPath=%s\n' "$FF_ABS/abs-profile" > "$FF_ABS/mozilla/firefox/profiles.ini"
+HOME="$FF_ABS" XDG_CONFIG_HOME="$FF_ABS" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test -f "$FF_ABS/abs-profile/chrome/shell-palette.css" \
+    || fail "an IsRelative=0 absolute profile Path did not resolve"
+test -f "$FF_ABS/abs-profile/user.js" \
+    || fail "an IsRelative=0 absolute profile Path wrote no user.js"
+
+# The profile symlink is written through, not resolved.
+FF_SYM="$RENDER_FIREFOX/sym"
+mkdir -p "$FF_SYM/mozilla/firefox/real-target"
+ln -s real-target "$FF_SYM/mozilla/firefox/link.default"
+printf '[4F96D1932A9F858E]\nDefault=link.default\n' > "$FF_SYM/mozilla/firefox/installs.ini"
+HOME="$FF_SYM" XDG_CONFIG_HOME="$FF_SYM" sh "$RENDER" "$RENDER_PALETTE" "firefox"
+test -L "$FF_SYM/mozilla/firefox/link.default" \
+    || fail "the Firefox target resolved the profile symlink"
+test -f "$FF_SYM/mozilla/firefox/link.default/user.js" \
+    || fail "the Firefox target did not write through the profile symlink"
+
+# More than one install section: the first wins, and the choice is noted.
+FF_MULTI="$RENDER_FIREFOX/multi"
+mkdir -p "$FF_MULTI/mozilla/firefox/alpha.default" "$FF_MULTI/mozilla/firefox/beta.default"
+printf '[4F96D1932A9F858E]\nDefault=alpha.default\n\n[DEADBEEFDEADBEEF]\nDefault=beta.default\n' > "$FF_MULTI/mozilla/firefox/installs.ini"
+HOME="$FF_MULTI" XDG_CONFIG_HOME="$FF_MULTI" sh "$RENDER" "$RENDER_PALETTE" "firefox" 2>"$FF_MULTI/log"
+test -f "$FF_MULTI/mozilla/firefox/alpha.default/chrome/shell-palette.css" \
+    || fail "the first install section's default profile was not used"
+test ! -e "$FF_MULTI/mozilla/firefox/beta.default/chrome" \
+    || fail "a later install section's default profile was used"
+grep -q 'multiple install sections; using 4F96D1932A9F858E' "$FF_MULTI/log" \
+    || fail "a multi-section installs.ini was not noted with the winning section"
+
+# No installs.ini: skip as success, log the skip, and write nothing.
+FF_NONE="$RENDER_FIREFOX/none"
+mkdir -p "$FF_NONE/mozilla/firefox"
+if ! HOME="$FF_NONE" XDG_CONFIG_HOME="$FF_NONE" sh "$RENDER" "$RENDER_PALETTE" \
+    "firefox" 2>"$FF_NONE/log"; then
+    fail "a Firefox root with no installs.ini failed the render"
+fi
+grep -q 'firefox: no profile' "$FF_NONE/log" \
+    || fail "a missing Firefox profile was not logged"
+test -z "$(find "$FF_NONE/mozilla" -type f)" \
+    || fail "a missing Firefox profile still wrote a file"
+
+# Disabled: shell-palette.css is comment-only, and user.js is neither created
+# nor touched.
+FF_OFF="$RENDER_FIREFOX/off"
+mkdir -p "$FF_OFF"
+make_firefox_fixture "$FF_OFF"
+HOME="$FF_OFF" XDG_CONFIG_HOME="$FF_OFF" sh "$RENDER" "$RENDER_PALETTE" "kitty"
+FF_OFF_CSS="$FF_OFF/mozilla/firefox/b5dxo71e.default-release/chrome/shell-palette.css"
+test "$(cat "$FF_OFF_CSS")" = "/* quickshell theme target disabled */" \
+    || fail "a disabled Firefox target did not write a comment-only sheet"
+test ! -e "$FF_OFF/mozilla/firefox/b5dxo71e.default-release/user.js" \
+    || fail "a disabled Firefox target created a user.js"
+
+FF_OFF2="$RENDER_FIREFOX/off2"
+mkdir -p "$FF_OFF2"
+make_firefox_fixture "$FF_OFF2"
+FF_OFF2_USERJS="$FF_OFF2/mozilla/firefox/b5dxo71e.default-release/user.js"
+printf 'user_pref("browser.startup.homepage", "about:blank");\n' > "$FF_OFF2_USERJS"
+HOME="$FF_OFF2" XDG_CONFIG_HOME="$FF_OFF2" sh "$RENDER" "$RENDER_PALETTE" "kitty"
+grep -q 'browser.startup.homepage' "$FF_OFF2_USERJS" \
+    || fail "a disabled Firefox target clobbered an existing user.js"
+if grep -q 'legacyUserProfileCustomizations' "$FF_OFF2_USERJS"; then
+    fail "a disabled Firefox target edited an existing user.js"
+fi
+
+rm -rf "$RENDER_HOME" "$RENDER_HOME2" "$RENDER_HOME3" "$RENDER_HOME3B" "$RENDER_HOME4" "$RENDER_HOME5" "$RENDER_HOME6" "$RENDER_HOME7" "$RENDER_OFF" "$RENDER_OFF1" "$RENDER_FUTURE" "$RENDER_BAD" "$RENDER_BRACE" "$RENDER_TMP" "$RENDER_STUB" "$RENDER_VENCORD" "$RENDER_VENCORD_LIGHT" "$RENDER_VOFF" "$RENDER_NOVENCORD" "$RENDER_FIREFOX"
 
 # --- 18. dashboard Theme block: live palette, name, settings target ---
 # The block is the switcher's second home: a palette strip bound to the mapped

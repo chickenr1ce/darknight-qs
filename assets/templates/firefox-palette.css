@@ -1,0 +1,48 @@
+/* Rendered by scripts/render-theme.sh from the active theme palette.
+ * Do not edit: the next palette load overwrites this file.
+ *
+ * Import this once from the profile's userChrome.css as its FIRST line:
+ *     @import url("shell-palette.css");
+ * An @import after any other rule is ignored, so it must come before every
+ * other rule. This themes the browser chrome only; about: pages and web
+ * content are untouched. Firefox's chrome variables are internal and have
+ * been renamed across releases (verified against Firefox 157), so this sheet
+ * may need upkeep after an update. See docs/user/theme-desktop-setup.md.
+ */
+
+:root {
+    --shell-background: {{background}};
+    --shell-dark-background: {{dark_background}};
+    --shell-darker-background: {{darker_background}};
+    --shell-lighter-background: {{lighter_background}};
+    --shell-foreground: {{foreground}};
+    --shell-light-foreground: {{light_foreground}};
+    --shell-muted: {{muted}};
+    --shell-selection: {{selection}};
+    --shell-accent: {{accent}};
+    --shell-bright-foreground: {{bright_foreground}};
+}
+
+/* Map the palette onto Firefox's own chrome variables. These are set on
+ * :root so the chrome reads them everywhere; !important keeps a built-in
+ * theme rule of equal specificity from winning back over the palette. */
+:root {
+    --toolbar-background-color: var(--shell-background) !important;
+    --toolbar-text-color: var(--shell-foreground) !important;
+    --tab-background-color-selected: var(--shell-lighter-background) !important;
+    --tab-text-color-selected: var(--shell-bright-foreground) !important;
+    --urlbar-box-background-color: var(--shell-selection) !important;
+    --urlbar-box-background-color-focus: var(--shell-lighter-background) !important;
+    --urlbar-box-text-color: var(--shell-foreground) !important;
+    --toolbar-field-background-color: var(--shell-dark-background) !important;
+    --toolbar-field-background-color-focus: var(--shell-lighter-background) !important;
+    --toolbar-field-text-color: var(--shell-foreground) !important;
+    --toolbar-field-text-color-focus: var(--shell-foreground) !important;
+    --panel-background-color: var(--shell-dark-background) !important;
+    --panel-border-color: var(--shell-selection) !important;
+    --sidebar-background-color: var(--shell-background) !important;
+    --sidebar-text-color: var(--shell-foreground) !important;
+    --sidebar-border-color: var(--shell-selection) !important;
+    --lwt-accent-color: var(--shell-background) !important;
+    --lwt-text-color: var(--shell-foreground) !important;
+}

@@ -7,6 +7,8 @@
 #   ~/.config/yazi/theme.toml
 #   ~/.config/btop/themes/theme.theme
 #   ~/.config/Vencord/themes/quickshell.theme.css
+#   <firefox-profile>/chrome/shell-palette.css
+#   <firefox-profile>/user.js
 #
 # Usage: render-theme.sh '<palette-json>' [<enabled-target-keys>]
 #
@@ -21,12 +23,12 @@
 # spicetify). An absent argument enables every target; an empty string enables
 # none. Each target renders in isolation, so one failure never aborts the rest,
 # and a disabled target writes a valid unthemed layer instead of a missing file.
-# The firefox and spicetify keys are accepted but have no render case until
-# their tickets land.
+# The spicetify key is accepted but has no render case until its ticket lands.
 #
 # Output paths follow XDG_CONFIG_HOME, falling back to HOME/.config, so the
-# headless gate can redirect them. See docs/user/theme-desktop-setup.md for the
-# user-side include lines.
+# headless gate can redirect them. The Firefox root is the exception: it reads
+# XDG_CONFIG_HOME/HOME from the environment inside Python. See
+# docs/user/theme-desktop-setup.md for the user-side include lines.
 set -eu
 
 palette=${1:-}
@@ -140,6 +142,7 @@ PILL_TEXT_MIN = 3.0
 # hyprlock `$theme_*` variables undefined.
 DISABLED_LUA = "-- quickshell theme target disabled\n"
 DISABLED_HASH = "# quickshell theme target disabled\n"
+DISABLED_CSS = "/* quickshell theme target disabled */\n"
 
 
 class RenderError(Exception):
@@ -356,8 +359,156 @@ def render_vencord(enabled):
     return emit(dest, load("vencord-theme.css", tokens))
 
 
-# Render order. `firefox` and `spicetify` are valid keys with no render case
-# yet, so they are simply accepted and have no effect.
+# Firefox is themed by a generated sheet the user's own userChrome.css imports
+# once, plus a managed block in user.js that turns on legacy stylesheet support.
+# The profile is discovered from installs.ini because profiles.ini's Default=1
+# names an empty stub here. The root is read from os.environ, not the
+# config_home the wrapper passes; a Snap or Flatpak Firefox root is out of scope.
+INSTALL_SECTION = re.compile(r"^(?:Install)?[0-9A-Fa-f]+$")
+USERJS_BEGIN = "// BEGIN quickshell"
+USERJS_END = "// END quickshell"
+USERJS_PREF = re.compile(
+    r"""user_pref\s*\(\s*["']toolkit\.legacyUserProfileCustomizations\.stylesheets["']""")
+
+
+def parse_ini(path):
+    """Ordered (section, key/value dict) pairs; a missing file yields none."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return []
+    entries = []
+    section = None
+    values = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped[0] in "#;":
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if section is not None:
+                entries.append((section, values))
+            section = stripped[1:-1].strip()
+            values = {}
+            continue
+        if section is None or "=" not in stripped:
+            continue
+        key, _, value = stripped.partition("=")
+        values[key.strip()] = value.strip()
+    if section is not None:
+        entries.append((section, values))
+    return entries
+
+
+def firefox_root():
+    config_home = os.environ.get("XDG_CONFIG_HOME", "")
+    if not config_home:
+        config_home = os.path.join(os.environ.get("HOME", ""), ".config")
+    candidate = os.path.join(config_home, "mozilla", "firefox")
+    if os.path.isdir(candidate):
+        return candidate
+    return os.path.join(os.environ.get("HOME", ""), ".mozilla", "firefox")
+
+
+def firefox_profile():
+    """The default profile directory, or None. installs.ini names it; a
+    profiles.ini entry, matched by the exact Path name, supplies IsRelative or
+    an absolute Path. The symlinked profile path is never resolved, so a psd
+    target under /run stays writable."""
+    root = firefox_root()
+    default_name = None
+    install_sections = [
+        (section, values)
+        for section, values in parse_ini(os.path.join(root, "installs.ini"))
+        if INSTALL_SECTION.match(section)]
+    winner = None
+    for section, values in install_sections:
+        if values.get("Default"):
+            winner = (section, values)
+            break
+    if len(install_sections) > 1 and winner is not None:
+        sys.stderr.write(
+            "firefox: multiple install sections; using %s\n" % winner[0])
+    if winner is None:
+        return None
+    default_name = winner[1]["Default"]
+    profile = os.path.join(root, default_name)
+    for section, values in parse_ini(os.path.join(root, "profiles.ini")):
+        if not section.startswith("Profile"):
+            continue
+        path = values.get("Path", "")
+        if path != default_name and os.path.basename(path) != default_name:
+            continue
+        profile = path if values.get("IsRelative") == "0" else os.path.join(root, path)
+        break
+    if not os.path.isdir(profile):
+        return None
+    return profile
+
+
+def merge_userjs(existing, block):
+    """Return existing with the managed block replaced or inserted, keeping
+    every other line. A pref set outside the markers is adopted into the block
+    instead of being duplicated."""
+    if existing is None:
+        return block
+    kept = []
+    insertion = None
+    inside = False
+    buffered = []
+    for line in existing.splitlines(keepends=True):
+        text = line.strip()
+        if inside:
+            if text == USERJS_END:
+                inside = False
+                buffered = []
+                continue
+            buffered.append(line)
+            continue
+        if text == USERJS_BEGIN:
+            inside = True
+            buffered = []
+            if insertion is None:
+                insertion = len(kept)
+            continue
+        if text.startswith("user_pref") and USERJS_PREF.search(text):
+            if insertion is None:
+                insertion = len(kept)
+            continue
+        kept.append(line)
+    if inside:
+        # No END marker: the BEGIN line was a hand-edit truncation, so keep the
+        # lines that followed it as user content instead of discarding them.
+        kept.extend(buffered)
+    if insertion is None:
+        insertion = 0
+    return "".join(kept[:insertion] + block.splitlines(keepends=True) + kept[insertion:])
+
+
+def emit_userjs(path, block):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            existing = handle.read()
+    except OSError:
+        existing = None
+    return write_if_changed(path, merge_userjs(existing, block).encode("utf-8"))
+
+
+def render_firefox(enabled):
+    profile = firefox_profile()
+    if profile is None:
+        sys.stderr.write("firefox: no profile\n")
+        return False
+    if not enabled:
+        return emit(os.path.join(profile, "chrome", "shell-palette.css"), DISABLED_CSS)
+    palette_css = load("firefox-palette.css", tokens)
+    user_block = load("firefox-user.js", tokens)
+    wrote = emit(os.path.join(profile, "chrome", "shell-palette.css"), palette_css)
+    return emit_userjs(os.path.join(profile, "user.js"), user_block) or wrote
+
+
+# Render order. `spicetify` is a valid key with no render case yet, so it is
+# simply accepted and has no effect.
 TARGETS = ("hyprland", "kitty", "hyprlock", "starship", "yazi", "btop",
            "firefox", "vencord", "spicetify")
 RENDERERS = {
@@ -367,6 +518,7 @@ RENDERERS = {
     "starship": render_starship,
     "yazi": render_yazi,
     "btop": render_btop,
+    "firefox": render_firefox,
     "vencord": render_vencord,
 }
 
