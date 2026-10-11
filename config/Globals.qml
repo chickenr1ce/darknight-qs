@@ -59,6 +59,9 @@ QtObject {
     readonly property int menuSeparatorHeight: 5
     readonly property int menuLabelHeight: 20
     readonly property int menuSubmenuGap: 2
+    readonly property int trayIconWidth: 22
+    readonly property int trayMenuGap: 4
+    readonly property int trayMenuLoadTimeoutMs: 1500
     readonly property int playerArtSize: 86
     readonly property int playerDeviceLabelWidth: 120
     readonly property int backgroundTileHeight: 48

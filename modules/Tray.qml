@@ -15,6 +15,7 @@ ModuleBox {
     id: root
 
     property string monitorName: ""
+    property ShellScreen triggerScreen: null
     enableMouseArea: false
     visible: BarVisibilityService.isVisible("tray") && Globals.onPrimaryMonitor(root.monitorName) && idTrayRepeater.count > 0
 
@@ -45,7 +46,7 @@ ModuleBox {
             readonly property string themeIconName: idTrayItem.iconSource.startsWith("image://icon/") ? idTrayItem.iconSource.slice("image://icon/".length).split("?")[0] : ""
             readonly property bool isThemedIcon: idTrayItem.themeIconName !== "" && Quickshell.iconPath(idTrayItem.themeIconName, true) !== ""
 
-            implicitWidth: 22
+            implicitWidth: Globals.trayIconWidth
             implicitHeight: 20
             radius: Globals.radius
             color: idTrayItem.isPressed ? Colors.surface : idTrayItem.isHovered ? Colors.backgroundSecondary : "transparent"
@@ -62,15 +63,6 @@ ModuleBox {
 
                 pressed: idTrayItem.isPressed
                 pressedScale: Globals.pressScalePill
-            }
-
-            QsMenuAnchor {
-                id: idTrayMenuAnchor
-
-                anchor.item: idTrayItem
-                anchor.edges: Edges.Bottom
-                anchor.gravity: Edges.Bottom
-                menu: idTrayItem.modelData.menu
             }
 
             IconImage {
@@ -108,7 +100,7 @@ ModuleBox {
                     case Qt.LeftButton:
                         // onlyMenu items have no activation action.
                         if (idTrayItem.modelData.onlyMenu && idTrayItem.modelData.hasMenu) {
-                            idTrayMenuAnchor.open();
+                            idTrayItem.toggleMenu();
                         } else {
                             idTrayItem.modelData.activate();
                             root.focusAppWindow(idTrayItem.modelData);
@@ -119,7 +111,7 @@ ModuleBox {
                         break;
                     case Qt.RightButton:
                         if (idTrayItem.modelData.hasMenu)
-                            idTrayMenuAnchor.open();
+                            idTrayItem.toggleMenu();
                         else
                             idTrayItem.modelData.secondaryActivate();
                         break;
@@ -133,6 +125,10 @@ ModuleBox {
                         idTrayItem.modelData.scroll(wheel.angleDelta.x, true);
                     }
                 }
+            }
+
+            function toggleMenu(): void {
+                TrayMenuService.toggleFor(idTrayItem.modelData, root.triggerScreen, Globals.triggerCenterX(idTrayItem, root.triggerScreen));
             }
         }
     }

@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import qs.components
 import qs.config
+import "ContextMenuLogic.js" as ContextMenuLogic
 
 // Generic in-card context menu. The caller supplies a descriptor list and a
 // header and positions the menu with openAt(). The menu fits itself inside the
@@ -14,8 +15,10 @@ import qs.config
 // overflow the bottom, and caps its height with a scrollable item column when
 // the content is taller than the bounds. Descriptors:
 //   { kind: "item"|"separator"|"label", id, text, hint, danger, enabled,
-//     image, actionIndex, submenu: [ ...same shape... ] }
-// "image" is a resolved icon source; "glyph" is a font glyph. One submenu
+//     image, actionIndex, check, checked, submenu: [ ...same shape... ] }
+// "image" is a resolved icon source; "glyph" is a font glyph; "check" is
+// "check" or "radio" and "checked" its state, drawn in an indicator slot that
+// exists only while some item of the same list carries a "check". One submenu
 // level is rendered to the side, shifted up and flipped left to stay in bounds.
 Item {
     id: root
@@ -37,6 +40,9 @@ Item {
     readonly property real contentWidth: root.mainWidth
     // Bounding box of the open menu and submenu, empty when closed.
     readonly property Item inputBox: idMenuInputBox
+    readonly property bool shown: idMenu.visible
+    readonly property real mainIndicatorWidth: ContextMenuLogic.indicatorWidth(root.items, Globals.menuGlyphWidth, Globals.rowSpacing)
+    readonly property real submenuIndicatorWidth: ContextMenuLogic.indicatorWidth(root.submenuItems, Globals.menuGlyphWidth, Globals.rowSpacing)
     readonly property var submenuItems: {
         if (root.submenuFor < 0 || root.submenuFor >= root.items.length)
             return [];
@@ -639,6 +645,7 @@ Item {
             readonly property bool isEnabled: idEntryRow.descriptor.enabled !== false
             readonly property bool hasSubmenu: root.hasSubmenu(idEntryRow.descriptor)
             readonly property bool active: root.activeLevel === idEntryRow.level && root.activeIndex === idEntryRow.itemIndex
+            readonly property real indicatorWidth: idEntryRow.level === 1 ? root.submenuIndicatorWidth : root.mainIndicatorWidth
 
             width: idEntryRow.parent ? idEntryRow.parent.width : Globals.menuWidth
             height: idEntryRow.descriptor.kind === "separator" ? Globals.menuSeparatorHeight
@@ -664,12 +671,32 @@ Item {
             }
 
             Icon {
-                id: idEntryGlyph
+                id: idEntryIndicator
 
                 anchors {
                     left: parent.left
                     verticalCenter: parent.verticalCenter
                     leftMargin: Globals.pillHPadding
+                }
+
+                visible: idEntryRow.isItem && idEntryRow.indicatorWidth > 0
+                width: Globals.menuGlyphWidth
+                size: Globals.uiCaptionSize
+                color: idEntryRow.active ? Colors.accent : Colors.textSubtle
+                text: {
+                    if (!idEntryRow.descriptor.checked)
+                        return "";
+                    return idEntryRow.descriptor.check === "radio" ? Icons.circle : Icons.check;
+                }
+            }
+
+            Icon {
+                id: idEntryGlyph
+
+                anchors {
+                    left: parent.left
+                    verticalCenter: parent.verticalCenter
+                    leftMargin: Globals.pillHPadding + idEntryRow.indicatorWidth
                 }
 
                 visible: idEntryRow.isItem && idEntryRow.descriptor.image === "" && idEntryRow.descriptor.glyph !== ""
@@ -686,7 +713,7 @@ Item {
                 anchors {
                     left: parent.left
                     verticalCenter: parent.verticalCenter
-                    leftMargin: Globals.pillHPadding
+                    leftMargin: Globals.pillHPadding + idEntryRow.indicatorWidth
                 }
 
                 visible: idEntryRow.isItem && idEntryRow.descriptor.image !== ""
@@ -708,7 +735,7 @@ Item {
                     verticalCenter: parent.verticalCenter
                     leftMargin: idEntryRow.descriptor.kind === "label"
                         ? Globals.pillHPadding
-                        : Globals.pillHPadding + Globals.menuGlyphWidth + Globals.rowSpacing
+                        : Globals.pillHPadding + idEntryRow.indicatorWidth + Globals.menuGlyphWidth + Globals.rowSpacing
                     rightMargin: Globals.rowSpacing
                 }
 
@@ -814,7 +841,7 @@ Item {
         return idLabelMetrics.advanceWidth((text || "").toUpperCase());
     }
 
-    function itemWidth(item): real {
+    function itemWidth(item, indicator: real): real {
         if (!item || item.kind === "separator")
             return 0;
         const inset = 2 * Globals.menuMargin;
@@ -824,7 +851,7 @@ Item {
                 + Globals.rowSpacing + trailing;
         const hint = item.hint ? root.hintTextWidth(item.hint) : 0;
         const chevron = root.hasSubmenu(item) ? idChevronMetrics.advanceWidth(Icons.chevronRight) : 0;
-        return inset + Globals.pillHPadding + Globals.menuGlyphWidth + Globals.rowSpacing
+        return inset + Globals.pillHPadding + indicator + Globals.menuGlyphWidth + Globals.rowSpacing
             + root.bodyTextWidth(item.text) + Globals.rowSpacing
             + Math.max(hint, chevron) + trailing;
     }
@@ -832,8 +859,9 @@ Item {
     function fittedWidth(list): real {
         let widest = Globals.menuWidth;
         const items = list || [];
+        const indicator = ContextMenuLogic.indicatorWidth(items, Globals.menuGlyphWidth, Globals.rowSpacing);
         for (let i = 0; i < items.length; i++) {
-            const width = root.itemWidth(items[i]);
+            const width = root.itemWidth(items[i], indicator);
             if (width > widest)
                 widest = width;
         }

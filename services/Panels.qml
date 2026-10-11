@@ -7,7 +7,7 @@ import qs.services
 Singleton {
     id: root
 
-    readonly property var panels: [CalendarService.panelState, NotificationServer.panelState, CavaService.panelState, PowerService.panelState]
+    readonly property var panels: [CalendarService.panelState, NotificationServer.panelState, CavaService.panelState, PowerService.panelState, TrayMenuService.panelState]
 
     readonly property bool anyOpen: {
         for (let i = 0; i < root.panels.length; i++) {

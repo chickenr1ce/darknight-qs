@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.SystemTray
 import qs.config
 import qs.dev
 import qs.services
@@ -37,6 +38,7 @@ Item {
                 cava: CavaService.panelState.visible,
                 center: NotificationServer.panelState.visible,
                 power: PowerService.panelState.visible,
+                tray: TrayMenuService.panelState.visible,
                 dnd: NotificationServer.dndEnabled,
                 reducedMotion: Globals.reducedMotion,
                 zones: CalendarService.worldZones,
@@ -61,6 +63,8 @@ Item {
                 NotificationServer.panelState.visible ? NotificationServer.panelState.closeFromOutside() : Panels.openAt(NotificationServer.panelState, screen, centerX);
             else if (name === "power")
                 PowerService.panelState.visible ? PowerService.panelState.closeFromOutside() : Panels.openAt(PowerService.panelState, screen, centerX);
+            else if (name === "tray")
+                root.toggleTray(screen);
         }
 
         function closeAll(): void {
@@ -69,6 +73,7 @@ Item {
             CavaService.panelState.closeFromOutside();
             NotificationServer.panelState.closeFromOutside();
             PowerService.panelState.closeFromOutside();
+            TrayMenuService.panelState.closeFromOutside();
         }
 
         function toggleDnd(): void {
@@ -137,5 +142,17 @@ Item {
         function focusMatch(token: string): string {
             return HyprlandFocus.addressFor(HyprlandFocus.keysFor([token]));
         }
+    }
+
+    function toggleTray(screen): void {
+        const tray = SystemTray.items.values;
+        if (TrayMenuService.panelState.visible) {
+            TrayMenuService.panelState.closeFromOutside();
+            return;
+        }
+        if (tray.length === 0)
+            return;
+        TrayMenuService.item = tray[tray.length - 1];
+        Panels.openAt(TrayMenuService.panelState, screen, 200);
     }
 }

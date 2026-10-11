@@ -22,12 +22,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fail() { echo "panel-logic FAIL: $*" >&2; exit 1; }
 
 # --- 1. one-panel rule lives in services/Panels.qml only ---
-# The registry holds the four services' PanelState instances and iterates
+# The registry holds the five services' PanelState instances and iterates
 # that list: it closes every non-target entry and derives anyOpen from the
 # list. A return to pairwise visibility toggles, or any module or window
 # writing a panel's visibility, means the mesh is growing back.
 PANELS="$ROOT/services/Panels.qml"
-for entry in CalendarService NotificationServer CavaService PowerService; do
+for entry in CalendarService NotificationServer CavaService PowerService TrayMenuService; do
     grep -q "$entry.panelState" "$PANELS" \
         || fail "Panels does not hold $entry.panelState in its list"
 done

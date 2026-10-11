@@ -106,6 +106,7 @@ ShellRoot {
                 }
                 Tray {
                     monitorName: idPanelWindow.monitorName
+                    triggerScreen: idPanelWindow.modelData
                 }
 
                 Item {
@@ -145,6 +146,18 @@ ShellRoot {
                     verticalCenterOffset: Globals.barTopMargin / 2
                 }
             }
+
+            MouseArea {
+                id: idBarDismissArea
+
+                anchors.fill: parent
+                z: 100
+                acceptedButtons: Qt.AllButtons
+                onPressed: mouse => {
+                    TrayMenuService.dismiss();
+                    mouse.accepted = false;
+                }
+            }
         }
     }
 
@@ -162,7 +175,10 @@ ShellRoot {
 
     PowerCenter {}
 
+    TrayMenu {}
+
     PolkitDialog {}
 
     DevProbe {}
 }
+
