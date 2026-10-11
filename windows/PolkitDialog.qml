@@ -148,6 +148,17 @@ PanelWindow {
         }
     }
 
+    Connections {
+        id: idWindowActiveConnections
+
+        target: idPasswordInput.Window.window
+
+        function onActiveChanged(): void {
+            if (idPasswordInput.Window.active)
+                root.focusInput();
+        }
+    }
+
     Timer {
         id: idFocusRetryTimer
 
@@ -338,6 +349,10 @@ PanelWindow {
                             }
 
                             onAccepted: root.submit()
+                            onEnabledChanged: {
+                                if (idPasswordInput.enabled)
+                                    Qt.callLater(root.focusInput);
+                            }
 
                             Text {
                                 id: idInputPlaceholder
