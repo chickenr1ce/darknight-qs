@@ -12,7 +12,7 @@ Active work lives in [`docs/dev/roadmap.md`](../dev/roadmap.md). The domain glos
 | # | Document | Status | Description |
 |---|---|---|---|
 | **09** | [`09-app-launcher-designs.html`](09-app-launcher-designs.html) | 🟢 Implemented | App launcher as the dashboard Apps tab: five variants (`?variant=1..5`). Variant 3 "Inline actions" shipped, with Focus and Kill replacing the inline workspace buttons. ADR 0018. |
-| **10** | [`10-deepen-seams-plan.md`](10-deepen-seams-plan.md) | 🟡 In progress | Four seams from the 2026-10-11 architecture review: bar-trigger `PanelTrigger`, `SettingsLogic.js`, `CalendarLogic.js`, one volume glyph rule. |
+| **10** | [`10-deepen-seams-plan.md`](10-deepen-seams-plan.md) | 🟢 Implemented | Four seams from the 2026-10-11 architecture review: bar-trigger `PanelTrigger`, `SettingsLogic.js`, `CalendarLogic.js`, one volume glyph rule. |
 
 ---
 

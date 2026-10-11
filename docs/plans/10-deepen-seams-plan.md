@@ -200,4 +200,4 @@ rare pain, or cross-language changes against ADR 0018.
 | 3 SettingsLogic.js | done | see git log | impl r1 + review r1 (ship, no findings). check + boot ok |
 | 8 CalendarLogic.js | done | see git log | impl r1 + review r1 (ship; 3 deviations accepted; Low applied: stale boundary checks, mutation-verified). check + boot ok |
 | 4 audio glyph/percent | done | see git log | impl r1 + review r1 (ship; Low #1 applied: glyph rule pinned whole, mutation-verified; Low #2 rejected: AudioLogic.js is node-tested in test-dashboard-data.sh). check + boot ok |
-| final rebase check | pending | | |
+| final rebase check | done | | `main` (`aaaf471`) is an ancestor of the branch: rebase-merge is conflict-free. Full `scripts/check.sh` + `boot-check.sh` green on the tip. Live checks left to the user: `qs ipc call cava toggle`, settings search, calendar grid/month nav/world clock, bar + OSD volume glyph on mute |
