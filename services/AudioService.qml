@@ -170,6 +170,10 @@ Singleton {
         return AudioLogic.volumeFraction(volume);
     }
 
+    function volumeGlyph(audioNode): string {
+        return audioNode === null ? Icons.volumeOff : (audioNode.muted ? Icons.volumeMute : Icons.volumeHigh);
+    }
+
     function setVolume(node, percent): void {
         if (node && node.audio)
             node.audio.volume = root.volumeForPercent(percent);

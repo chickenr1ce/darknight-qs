@@ -22,7 +22,7 @@ PanelWindow {
 
     readonly property var audioNode: AudioService.defaultSink ? (AudioService.defaultSink.audio ?? null) : null
     readonly property bool audioMuted: root.audioNode !== null && root.audioNode.muted
-    readonly property string volumeGlyph: root.audioNode === null ? Icons.volumeOff : (root.audioNode.muted ? Icons.volumeMute : Icons.volumeHigh)
+    readonly property string volumeGlyph: AudioService.volumeGlyph(root.audioNode)
     readonly property string volumePercentText: AudioService.percentText(root.audioNode ? root.audioNode.volume : 0)
     readonly property real volumeFraction: AudioService.volumeFraction(root.audioNode ? root.audioNode.volume : 0)
 

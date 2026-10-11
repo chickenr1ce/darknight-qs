@@ -4473,12 +4473,27 @@ if grep -q 'onVolumeChanged' "$OSD"; then
 fi
 grep -q 'AudioService.defaultSink ? AudioService.defaultSink.audio : null' "$OSD" \
     || fail "VolumeOsd does not target the default sink's PwNodeAudio"
-grep -q 'Icons.volumeOff' "$OSD" \
-    || fail "VolumeOsd misses the no-sink glyph"
-grep -q 'Icons.volumeMute' "$OSD" \
-    || fail "VolumeOsd misses the muted glyph"
-grep -q 'Icons.volumeHigh' "$OSD" \
-    || fail "VolumeOsd misses the audible glyph"
+# The three-arm glyph rule lives once: AudioService.volumeGlyph holds it and
+# both the bar module and the OSD call it. The bar's percent text goes through
+# the node-tested AudioLogic rounding too, with no local NaN guard.
+AUDIOBAR="$ROOT/modules/Audio.qml"
+grep -q 'function volumeGlyph(audioNode): string' "$AUDIOSVC" \
+    || fail "AudioService has no volumeGlyph(audioNode) rule"
+# Pinned whole so swapped muted/audible arms fail, not just a missing icon.
+grep -qF 'audioNode === null ? Icons.volumeOff : (audioNode.muted ? Icons.volumeMute : Icons.volumeHigh)' "$AUDIOSVC" \
+    || fail "AudioService.volumeGlyph does not hold the three-arm glyph rule in order"
+for surface in "$AUDIOBAR" "$OSD"; do
+    grep -q 'AudioService.volumeGlyph(' "$surface" \
+        || fail "$(basename "$surface") does not call AudioService.volumeGlyph()"
+    if grep -q 'Icons.volumeOff\|Icons.volumeMute\|Icons.volumeHigh' "$surface"; then
+        fail "$(basename "$surface") re-inlines the volume glyph rule"
+    fi
+done
+grep -q 'AudioService.percentText(' "$AUDIOBAR" \
+    || fail "the bar Audio module does not use the shared percent rounding"
+if grep -q 'isNaN(' "$AUDIOBAR"; then
+    fail "the bar Audio module still hand-rolls its own NaN guard"
+fi
 grep -q 'AudioService.percentText' "$OSD" \
     || fail "VolumeOsd does not use the AudioLogic percent rounding"
 grep -q 'TextMetrics' "$OSD" \

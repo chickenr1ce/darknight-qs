@@ -20,8 +20,8 @@ ModuleBox {
     readonly property string currentOutputName: root.defaultSink ? AudioService.rawLabelFor(root.defaultSink) : qsTr("No output")
 
     readonly property var audioNode: root.defaultSink ? (root.defaultSink.audio ?? null) : null
-    readonly property string volumeGlyph: root.audioNode === null ? Icons.volumeOff : (root.audioNode.muted ? Icons.volumeMute : Icons.volumeHigh)
-    readonly property string volumeText: root.audioNode === null ? "" : `${isNaN(root.audioNode.volume) ? 0 : Math.round(root.audioNode.volume * 100)}%`
+    readonly property string volumeGlyph: AudioService.volumeGlyph(root.audioNode)
+    readonly property string volumeText: root.audioNode === null ? "" : AudioService.percentText(root.audioNode.volume) + "%"
 
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton)
