@@ -535,8 +535,9 @@ runs the gate; bypass a single commit with `--no-verify`.
 
 Pure logic (parsing, formatting, ordering, clamping) lives in a `.pragma library`
 JS file beside its service: `services/WeatherLogic.js`, `SpotifyLogic.js`,
-`MprisLogic.js`, `MonitorLogic.js`, `SystemLogic.js`, `AudioLogic.js`, plus the
-shared `services/StateParsers.js` and `services/ThemeParsers.js`. The QML service
+`MprisLogic.js`, `MonitorLogic.js`, `SystemLogic.js`, `AudioLogic.js`,
+`SettingsLogic.js`, plus the shared `services/StateParsers.js` and
+`services/ThemeParsers.js`. The QML service
 imports it and keeps its public functions as one-line delegates; a binding that
 reads service state passes that state in as an argument so it stays reactive,
 and the delegating call site stays, because the tests assert it.

@@ -1407,6 +1407,16 @@ grep -q 'function matches' "$FILTER" \
     || fail "SettingsFilter has no matches()"
 grep -q 'function filtering' "$FILTER" \
     || fail "SettingsFilter has no filtering()"
+grep -q 'function sectionMatches' "$FILTER" \
+    || fail "SettingsFilter has no sectionMatches()"
+grep -q 'SettingsLogic\.filtering(' "$FILTER" \
+    || fail "SettingsFilter.filtering does not call SettingsLogic.filtering"
+grep -q 'SettingsLogic\.matches(' "$FILTER" \
+    || fail "SettingsFilter.matches does not call SettingsLogic.matches"
+grep -q 'SettingsLogic\.sectionMatches(' "$FILTER" \
+    || fail "SettingsFilter.sectionMatches does not call SettingsLogic.sectionMatches"
+grep -q 'SettingsFilter\.sectionMatches(' "$SCENTER" \
+    || fail "SettingsView does not delegate its section predicate to SettingsFilter"
 for view in "$CSV" "$CAL" "$WV" "$ROOT/windows/LayoutSettingsView.qml" "$NOTIF" "$MOTION" "$THEMEVIEW" "$AUDIOVIEW"; do
     grep -q 'SettingsFilter' "$view" \
         || fail "$(basename "$view") does not filter through the shared SettingsFilter"
@@ -1414,6 +1424,24 @@ done
 if grep -rn --include='*.qml' 'includes(root.filter' "$ROOT/windows" "$ROOT/services" | grep -q .; then
     fail "a settings view copies the filter predicate instead of using SettingsFilter"
 fi
+
+# The filter predicate and the section predicate (title or any option) live in
+# SettingsLogic.js, which runs for real under node; both QML delegates call it.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/SettingsLogic.js" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const sl = qmljs.load(process.argv[3]);
+
+check('settings/filtering-empty', sl.filtering(''), false);
+check('settings/filtering-text', sl.filtering('audio'), true);
+check('settings/empty-filter-matches', sl.matches('', 'Anything'), true);
+check('settings/case-folding', sl.matches('AUDIO', 'audio outputs'), true);
+check('settings/non-match', sl.matches('zones', 'Audio outputs'), false);
+check('settings/section-title-hit', sl.sectionMatches('audio', 'Audio', ['Volume OSD']), true);
+check('settings/section-option-hit', sl.sectionMatches('osd', 'Audio', ['Volume OSD']), true);
+check('settings/section-no-option-miss', sl.sectionMatches('zones', 'Audio', []), false);
+check('settings/section-empty-query', sl.sectionMatches('', 'Audio', []), true);
+NODEEOF
 
 # Zones plus feeds persist through the CalendarService state files; the parse
 # validation is unchanged. WeatherService delegates its location parsers to

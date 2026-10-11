@@ -17,7 +17,7 @@ ColumnLayout {
     readonly property var currentSection: root.visibleSections.find(section => section.key === root.activeKey) ?? root.visibleSections[0] ?? null
     readonly property bool hasSection: !(root.currentSection === null)
     readonly property bool searching: !(root.query === "")
-    readonly property bool titleMatched: root.hasSection && root.searching && root.currentSection.title.toLowerCase().includes(root.query.toLowerCase())
+    readonly property bool titleMatched: root.hasSection && root.searching && SettingsFilter.matches(root.query, root.currentSection.title)
     readonly property string bodyFilter: root.titleMatched ? "" : root.query
     readonly property bool noMatch: root.searching && root.visibleSections.length === 0
 
@@ -36,12 +36,7 @@ ColumnLayout {
     }
 
     function sectionMatches(section): bool {
-        if (root.query === "")
-            return true;
-        const query = root.query.toLowerCase();
-        if (section.title.toLowerCase().includes(query))
-            return true;
-        return section.options.some(option => option.toLowerCase().includes(query));
+        return SettingsFilter.sectionMatches(root.query, section.title, section.options);
     }
 
     Rectangle {
