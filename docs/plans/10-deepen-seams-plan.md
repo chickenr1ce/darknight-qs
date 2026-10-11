@@ -196,7 +196,7 @@ rare pain, or cross-language changes against ADR 0018.
 | Card | Status | Commit | Notes |
 | --- | --- | --- | --- |
 | baseline | done | `aaaf471` | `scripts/check.sh` all gates ok before any change |
-| 1 bar-trigger seam | pending | | |
+| 1 bar-trigger seam | done | see git log | impl r1 + review r1 (ship; Low #1 rejected: QtObject has no default property, Low #2 applied). check + boot ok. Live `qs ipc call cava toggle` untested |
 | 3 SettingsLogic.js | pending | | |
 | 8 CalendarLogic.js | pending | | |
 | 4 audio glyph/percent | pending | | |

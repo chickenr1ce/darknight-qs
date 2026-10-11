@@ -60,9 +60,10 @@ Build only if it earns daily use.
   (`services/PolkitService.qml` + `windows/PolkitDialog.qml`, B2 "Context
   Runner"), replacing the external `polkit-kde-agent`. ADR 0015; the 2026-08-23
   incident is closed in `docs/incidents/polkit-agent-incident.md`.
-- IPC targets: `power`, `calendar`, `notifications`, `dashboard`, `dnd`, and
-  `volume` `IpcHandler`s, with the bar-anchor wiring extracted into
-  `services/BarAnchor.qml` so an IPC toggle reuses the click path. DND state
+- IPC targets: `power`, `calendar`, `notifications`, `cava`, `dashboard`, `dnd`,
+  and `volume` `IpcHandler`s, with the bar-anchor wiring extracted into
+  `services/BarAnchor.qml` and the per-module trigger adapter into
+  `services/PanelTrigger.qml` so a bar-panel IPC toggle reuses the click path. DND state
   persists in the `notifications` state file. User page `docs/user/ipc.md`.
 - Volume OSD: an event-driven level readout (`windows/VolumeOsd.qml`) raised by
   PipeWire volume or mute changes from any source, bottom-center on the focused

@@ -15,10 +15,7 @@ ModuleBox {
 
     visible: BarVisibilityService.isVisible("clock")
 
-    onClicked: root.toggleAtBar()
-    onAnchorActiveChanged: root.syncAnchor()
-    Component.onCompleted: root.syncAnchor()
-    Component.onDestruction: CalendarService.barAnchor.unregister(root)
+    onClicked: idClockTrigger.toggle()
 
     Text {
         id: idClockLabel
@@ -43,23 +40,13 @@ ModuleBox {
         onTriggered: idClockLabel.text = Qt.formatDateTime(new Date(), "dd.MM HH:mm")
     }
 
-    Connections {
-        target: CalendarService.barAnchor
+    PanelTrigger {
+        id: idClockTrigger
 
-        function onToggleRequested() {
-            if (root.anchorActive)
-                root.toggleAtBar();
-        }
-    }
-
-    function toggleAtBar() {
-        Panels.toggleAt(CalendarService.panelState, root.triggerScreen, Globals.triggerCenterX(root, root.triggerScreen));
-    }
-
-    function syncAnchor() {
-        if (root.anchorActive)
-            CalendarService.barAnchor.register(root);
-        else
-            CalendarService.barAnchor.unregister(root);
+        anchor: CalendarService.barAnchor
+        panelState: CalendarService.panelState
+        trigger: root
+        triggerScreen: root.triggerScreen
+        active: root.anchorActive
     }
 }

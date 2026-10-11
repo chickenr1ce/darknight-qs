@@ -77,13 +77,16 @@ done
 grep -q 'Panels.anyOpen' "$ROOT/windows/NotificationPopups.qml" \
     || fail "NotificationPopups does not gate on Panels.anyOpen"
 
-# Triggers call the registry instead of each other's services.
-for trigger in "Clock.qml:Panels.toggleAt(CalendarService.panelState" "Notifications.qml:Panels.toggleAt(NotificationServer.panelState" "Cava.qml:Panels.toggleAt(CavaService.panelState" "PowerMenu.qml:Panels.toggleAt(PowerService.panelState"; do
+# Triggers call the registry through their PanelTrigger instead of each other's
+# services; each module composes one bound to its own service's panel state.
+for trigger in "Clock.qml:CalendarService.panelState" "Notifications.qml:NotificationServer.panelState" "Cava.qml:CavaService.panelState" "PowerMenu.qml:PowerService.panelState"; do
     file="${trigger%%:*}"
     call="${trigger##*:}"
-    grep -q "$call" "$ROOT/modules/$file" \
-        || fail "$file does not call $call"
+    grep -q "panelState: $call" "$ROOT/modules/$file" \
+        || fail "$file does not bind its PanelTrigger to $call"
 done
+grep -q 'Panels.toggleAt(root.panelState' "$ROOT/services/PanelTrigger.qml" \
+    || fail "PanelTrigger does not call the registry with its panel state"
 
 # --- 2. monitor policy is data in Globals, composed in modules ---
 # The primary resolves at runtime from Quickshell.screens plus a persisted
@@ -4086,12 +4089,12 @@ check('cava/non-integer-floor', cl.restartDelayMs(3.9, BASE, MAX), 12000);
 check('cava/huge', cl.restartDelayMs(1000, BASE, MAX), 30000);
 NODEEOF
 
-# --- 22. bar anchor: one registered trigger per panel, IPC toggles it ---
-# PowerService's anchor plumbing (a property plus two functions plus a signal)
-# was private per panel; BarAnchor owns it once and each service composes one,
-# exposing it as barAnchor, so a keybind lands a panel exactly where its
-# trigger sits. The IPC toggle reports a miss when the trigger module is
-# hidden instead of silently doing nothing.
+# --- 22. bar anchor + the PanelTrigger seam ---
+# BarAnchor owns the registered trigger once per panel service; each bar module
+# composes one PanelTrigger, a non-visual QtObject that registers its trigger
+# while active, answers the anchor's toggleRequested only then, and dispatches
+# through Panels.toggleAt. The IPC toggles report a miss when the trigger module
+# is hidden.
 BARANCHOR="$ROOT/services/BarAnchor.qml"
 test -f "$BARANCHOR" \
     || fail "services/BarAnchor.qml is missing"
@@ -4121,16 +4124,111 @@ printf '%s\n' "$request_body" | grep -q 'return true' \
     || fail "BarAnchor.requestToggle does not return true on a live anchor"
 printf '%s\n' "$request_body" | grep -q 'return false' \
     || fail "BarAnchor.requestToggle does not return false without an anchor"
-# Each panel service composes one and exposes it under the same name.
-for svc in PowerService CalendarService NotificationServer; do
+
+# PanelTrigger is the single bar-trigger adapter. It must be a bare QtObject:
+# the bar modules are ModuleBox layouts, and an Item child would take layout
+# space in the row (a QtObject in `data` is inert).
+TRIGGER="$ROOT/services/PanelTrigger.qml"
+test -f "$TRIGGER" \
+    || fail "services/PanelTrigger.qml is missing"
+grep -q '^PanelTrigger 1.0 PanelTrigger.qml' "$ROOT/services/qmldir" \
+    || fail "PanelTrigger is not registered as a non-singleton in services/qmldir"
+grep -q '^QtObject {' "$TRIGGER" \
+    || fail "PanelTrigger is not a bare QtObject"
+grep -q 'id: root' "$TRIGGER" \
+    || fail "PanelTrigger's file root is not id: root"
+for prop in 'property BarAnchor anchor' 'property PanelState panelState' 'property Item trigger' 'property ShellScreen triggerScreen' 'property bool active'; do
+    grep -q "$prop" "$TRIGGER" \
+        || fail "PanelTrigger has no $prop"
+done
+trigger_toggle="$(awk '/^    function toggle\(\)/,/^    }$/' "$TRIGGER")"
+test -n "$trigger_toggle" || fail "could not extract PanelTrigger.toggle"
+printf '%s\n' "$trigger_toggle" | grep -q 'Panels.toggleAt(root.panelState' \
+    || fail "PanelTrigger.toggle does not dispatch through Panels.toggleAt"
+printf '%s\n' "$trigger_toggle" | grep -q 'Globals.triggerCenterX(root.trigger, root.triggerScreen)' \
+    || fail "PanelTrigger.toggle does not anchor on its trigger and screen"
+# Registration follows the active gate, and a destroy always unregisters.
+trigger_sync="$(awk '/^    function syncAnchor\(\)/,/^    }$/' "$TRIGGER")"
+test -n "$trigger_sync" || fail "could not extract PanelTrigger.syncAnchor"
+printf '%s\n' "$trigger_sync" | grep -q 'root.active' \
+    || fail "PanelTrigger.syncAnchor ignores the active gate"
+printf '%s\n' "$trigger_sync" | grep -q 'register(root.trigger)' \
+    || fail "PanelTrigger.syncAnchor does not register its trigger"
+printf '%s\n' "$trigger_sync" | grep -q 'unregister(root.trigger)' \
+    || fail "PanelTrigger.syncAnchor does not unregister its trigger"
+grep -q 'Component.onDestruction' "$TRIGGER" \
+    || fail "PanelTrigger does not clean up on destruction"
+for lifecycle in 'onActiveChanged' 'Component.onCompleted'; do
+    grep -q "$lifecycle" "$TRIGGER" \
+        || fail "PanelTrigger does not sync its anchor on $lifecycle"
+done
+# The toggle answer is gated on `active`: with a Clock on every bar, an
+# unguarded handler toggles the calendar once per monitor on one IPC request
+# (open then close).
+trigger_conn="$(awk '/function onToggleRequested\(\)/,/^        \}$/' "$TRIGGER")"
+test -n "$trigger_conn" || fail "could not extract PanelTrigger.onToggleRequested"
+printf '%s\n' "$trigger_conn" | grep -q 'root.active' \
+    || fail "PanelTrigger.onToggleRequested does not guard on the active gate"
+printf '%s\n' "$trigger_conn" | grep -q 'root.toggle()' \
+    || fail "PanelTrigger.onToggleRequested does not call toggle"
+
+# The dispatch now lives in PanelTrigger: no module re-implements it, keeps its
+# own barAnchor wiring, or handles the anchor signal itself.
+test -z "$(grep -rn 'Panels.toggleAt' "$ROOT/modules" || true)" \
+    || fail "a module still calls Panels.toggleAt directly"
+for mod in Clock Notifications PowerMenu Cava; do
+    grep -qE 'toggleAtBar|syncAnchor|onToggleRequested|target: .*barAnchor' "$ROOT/modules/$mod.qml" \
+        && fail "$mod still carries its own bar-anchor adapter"
+    grep -q 'PanelTrigger {' "$ROOT/modules/$mod.qml" \
+        || fail "$mod does not compose a PanelTrigger"
+done
+
+# Each module composes one PanelTrigger bound to its own service and screen,
+# and its left click calls the trigger instead of dispatching itself.
+for pair in "Clock:CalendarService:idClockTrigger" "Notifications:NotificationServer:idNotificationsTrigger" "PowerMenu:PowerService:idPowerMenuTrigger" "Cava:CavaService:idCavaTrigger"; do
+    mod="${pair%%:*}"
+    rest="${pair#*:}"
+    svc="${rest%%:*}"
+    trig="${rest##*:}"
+    grep -q "$trig" "$ROOT/modules/$mod.qml" \
+        || fail "$mod does not declare $trig"
+    grep -q "anchor: $svc.barAnchor" "$ROOT/modules/$mod.qml" \
+        || fail "$mod's PanelTrigger is not bound to $svc.barAnchor"
+    grep -q "panelState: $svc.panelState" "$ROOT/modules/$mod.qml" \
+        || fail "$mod's PanelTrigger is not bound to $svc.panelState"
+    grep -q 'trigger: root' "$ROOT/modules/$mod.qml" \
+        || fail "$mod's PanelTrigger does not use the module as its trigger"
+    grep -q 'triggerScreen: root.triggerScreen' "$ROOT/modules/$mod.qml" \
+        || fail "$mod's PanelTrigger does not carry the trigger screen"
+    grep -q "$trig.toggle()" "$ROOT/modules/$mod.qml" \
+        || fail "$mod's click does not call $trig"
+done
+# Clock lives on every bar; only the primary one activates its trigger, so one
+# IPC call does not toggle once per monitor.
+grep -q 'active: root.anchorActive' "$ROOT/modules/Clock.qml" \
+    || fail "Clock's PanelTrigger is not gated on the primary-only anchor"
+for mod in Notifications PowerMenu Cava; do
+    grep -q 'active: root.visible' "$ROOT/modules/$mod.qml" \
+        || fail "$mod's PanelTrigger is not gated on visibility"
+done
+clock_gate="$(grep 'property bool anchorActive' "$ROOT/modules/Clock.qml")"
+test -n "$clock_gate" || fail "Clock has no anchorActive gate"
+printf '%s\n' "$clock_gate" | grep -q 'root.visible' \
+    || fail "Clock's anchor gate ignores visibility"
+printf '%s\n' "$clock_gate" | grep -q 'Globals.onPrimaryMonitor(root.monitorName)' \
+    || fail "Clock's anchor gate ignores the primary monitor"
+
+# Every bar panel service composes an anchor and exposes it as barAnchor (cava
+# gains one so its IPC target can land the panel under the module); each target
+# routes toggle through the anchor, and the quick panel targets return a status
+# string in the theme target's style.
+for svc in PowerService CalendarService NotificationServer CavaService; do
     grep -q 'BarAnchor {' "$ROOT/services/$svc.qml" \
         || fail "$svc does not compose a BarAnchor"
     grep -q 'readonly property BarAnchor barAnchor: idBarAnchor' "$ROOT/services/$svc.qml" \
         || fail "$svc does not expose barAnchor"
 done
-# The three IPC targets each route toggle through the anchor; the quick panel
-# targets return a status string in the theme target's style.
-for target in power:PowerService calendar:CalendarService notifications:NotificationServer; do
+for target in power:PowerService calendar:CalendarService notifications:NotificationServer cava:CavaService; do
     name="${target%%:*}"
     svc="${target##*:}"
     grep -q "target: \"$name\"" "$ROOT/services/$svc.qml" \
@@ -4142,42 +4240,8 @@ grep -q '"error: clock module is hidden"' "$ROOT/services/CalendarService.qml" \
     || fail "Calendar's toggle does not report a hidden clock"
 grep -q '"error: notifications module is hidden"' "$ROOT/services/NotificationServer.qml" \
     || fail "Notifications' toggle does not report a hidden module"
-# Each trigger module registers while anchored and answers the toggle signal.
-for pair in PowerMenu:PowerService Clock:CalendarService Notifications:NotificationServer; do
-    mod="${pair%%:*}"
-    svc="${pair##*:}"
-    grep -q "$svc.barAnchor.register(" "$ROOT/modules/$mod.qml" \
-        || fail "$mod does not register with $svc.barAnchor"
-    grep -q 'onToggleRequested' "$ROOT/modules/$mod.qml" \
-        || fail "$mod does not handle the anchor's toggleRequested"
-done
-# The handler body must guard on the module's own state: with a Clock on every
-# bar, an unguarded handler toggles the calendar once per monitor on one IPC
-# request (open then close).
-clock_toggle="$(awk '/^        function onToggleRequested\(\)/,/^        \}$/' "$ROOT/modules/Clock.qml")"
-test -n "$clock_toggle" || fail "could not extract Clock.onToggleRequested"
-printf '%s\n' "$clock_toggle" | grep -q 'root.anchorActive' \
-    || fail "Clock.onToggleRequested does not guard on its primary-only anchor"
-for mod in Notifications PowerMenu; do
-    toggle_body="$(awk '/^        function onToggleRequested\(\)/,/^        \}$/' "$ROOT/modules/$mod.qml")"
-    test -n "$toggle_body" || fail "could not extract $mod.onToggleRequested"
-    printf '%s\n' "$toggle_body" | grep -q 'root.visible' \
-        || fail "$mod.onToggleRequested does not guard on visibility"
-done
-# Clock lives on every bar; only the primary one anchors, and its sync follows
-# both visibility and the resolved primary through one binding.
-clock_gate="$(grep 'property bool anchorActive' "$ROOT/modules/Clock.qml")"
-test -n "$clock_gate" || fail "Clock has no anchorActive gate"
-printf '%s\n' "$clock_gate" | grep -q 'root.visible' \
-    || fail "Clock's anchor gate ignores visibility"
-printf '%s\n' "$clock_gate" | grep -q 'Globals.onPrimaryMonitor(root.monitorName)' \
-    || fail "Clock's anchor gate ignores the primary monitor"
-clock_sync="$(awk '/^    function syncAnchor/,/^    }$/' "$ROOT/modules/Clock.qml")"
-test -n "$clock_sync" || fail "could not extract Clock.syncAnchor"
-printf '%s\n' "$clock_sync" | grep -q 'root.anchorActive' \
-    || fail "Clock.syncAnchor ignores its primary-only gate"
-printf '%s\n' "$clock_sync" | grep -q 'CalendarService.barAnchor.register(' \
-    || fail "Clock.syncAnchor does not register its trigger"
+grep -q '"error: cava module is hidden"' "$ROOT/services/CavaService.qml" \
+    || fail "Cava's toggle does not report a hidden module"
 
 # --- 23. IPC targets: dashboard, dnd, and volume ---
 # The dashboard opens on the focused screen at its center; dnd persists through

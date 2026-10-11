@@ -196,10 +196,8 @@ ModuleBox {
     }
 
     onClicked: mouse => {
-        if (mouse.button === Qt.LeftButton) {
-            const centerX = Globals.triggerCenterX(root, root.triggerScreen);
-            Panels.toggleAt(CavaService.panelState, root.triggerScreen, centerX);
-        }
+        if (mouse.button === Qt.LeftButton)
+            idCavaTrigger.toggle();
     }
 
     Loader {
@@ -211,6 +209,16 @@ ModuleBox {
 
         active: true
         sourceComponent: root.styleComponents[CavaService.styleMode]
+    }
+
+    PanelTrigger {
+        id: idCavaTrigger
+
+        anchor: CavaService.barAnchor
+        panelState: CavaService.panelState
+        trigger: root
+        triggerScreen: root.triggerScreen
+        active: root.visible
     }
 
     function barLevel(i: int): real {

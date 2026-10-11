@@ -74,6 +74,16 @@ panel on that point and clamps it inside the screen edges:
   `power` / `calendar` / `notifications` IPC toggles call `requestToggle()`, so
   an IPC toggle opens the panel under the same trigger the click uses and is a
   no-op or an error when the module is hidden. See `docs/user/ipc.md`.
+- 2026-10-12 (deepen seams #1): the per-module adapter — the `triggerScreen`
+  property, the `toggleAtBar` / `syncAnchor` pair, and each module's own
+  `Connections` on its service's `barAnchor` — moved into
+  `services/PanelTrigger.qml`, a non-visual `QtObject` each bar module composes
+  once with its service's `barAnchor` and `panelState`. It registers its trigger
+  while `active` (the same primary-monitor gate the modules used), answers
+  `toggleRequested` only while active, and dispatches through
+  `Panels.toggleAt`. `CavaService` now composes a `BarAnchor` too, so the `cava`
+  IPC target (`toggle` / `close`) exists like `calendar` and `notifications`;
+  `power` still returns `void`. See `docs/user/ipc.md`.
 
 ## Consequences and known limits
 

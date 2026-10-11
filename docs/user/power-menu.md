@@ -16,6 +16,6 @@ power close` closes it. The keybind does nothing while the power module is
 hidden in the bar, since there is no icon to anchor under.
 
 The power target is one of several; [IPC targets](ipc.md) covers the rest,
-including the calendar, notifications, dashboard, Do Not Disturb, and volume
-targets. The opt-in `devprobe` surface is documented separately in
+including the calendar, notifications, cava, dashboard, Do Not Disturb, and
+volume targets. The opt-in `devprobe` surface is documented separately in
 `docs/dev/debugging-quickshell.md`.

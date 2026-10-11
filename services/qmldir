@@ -23,4 +23,5 @@ singleton FontService 1.0 FontService.qml
 singleton PolkitService 1.0 PolkitService.qml
 PanelState 1.0 PanelState.qml
 BarAnchor 1.0 BarAnchor.qml
+PanelTrigger 1.0 PanelTrigger.qml
 StateFile 1.0 StateFile.qml

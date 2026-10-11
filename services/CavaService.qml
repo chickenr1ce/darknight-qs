@@ -36,6 +36,8 @@ Singleton {
 
     readonly property PanelState panelState: idPanelState
 
+    readonly property BarAnchor barAnchor: idBarAnchor
+
     onSensitivityChanged: {
         if (idSettingsState.loading || !idSettingsState.loaded)
             return;
@@ -196,6 +198,23 @@ Singleton {
 
     PanelState {
         id: idPanelState
+    }
+
+    BarAnchor {
+        id: idBarAnchor
+    }
+
+    IpcHandler {
+        target: "cava"
+
+        function toggle(): string {
+            return idBarAnchor.requestToggle() ? "ok" : "error: cava module is hidden";
+        }
+
+        function close(): string {
+            idPanelState.closeFromOutside();
+            return "ok";
+        }
     }
 
     function flatLevels(): var {

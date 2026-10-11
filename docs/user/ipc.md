@@ -16,9 +16,9 @@ When more than one instance is running, pass the pid before `call`
 (`quickshell ipc --pid <pid> call ...`) so the call reaches the intended one;
 `docs/dev/debugging-quickshell.md` covers finding the pid. Most functions return
 a short string that the call prints. The bar-anchored toggles (`calendar`,
-`notifications`) answer `ok` when the request reached the bar module and an
-`error: ...` message when it cannot; `power` is declared `void`, prints nothing,
-and is a no-op when its module is hidden.
+`notifications`, `cava`) answer `ok` when the request reached the bar module and
+an `error: ...` message when it cannot; `power` is declared `void`, prints
+nothing, and is a no-op when its module is hidden.
 
 ## Targets
 
@@ -42,6 +42,13 @@ and is a no-op when its module is hidden.
 | --- | --- | --- | --- |
 | `toggle` | — | `ok` / `error: notifications module is hidden` | Opens or closes the notification center under the bar's bell. |
 | `close` | — | `ok` | Closes the center. |
+
+### `cava`
+
+| Function | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `toggle` | — | `ok` / `error: cava module is hidden` | Opens or closes the Cava visualiser panel under the bar's cava module. |
+| `close` | — | `ok` | Closes the panel. |
 
 ### `dashboard`
 
@@ -98,11 +105,11 @@ output, 100.
 
 ## Placement
 
-- `power`, `calendar`, and `notifications` open under their bar trigger on the
-  primary monitor, the same anchor a click uses. The trigger module registers the
-  anchor while it is visible, so a hidden module has nothing to open under: the
-  toggle answers `error: ...` (`calendar`, `notifications`) or does nothing
-  (`power`).
+- `power`, `calendar`, `notifications`, and `cava` open under their bar trigger
+  on the primary monitor, the same anchor a click uses. The trigger module
+  registers the anchor while it is visible, so a hidden module has nothing to
+  open under: the toggle answers `error: ...` (`calendar`, `notifications`,
+  `cava`) or does nothing (`power`).
 - `dashboard` opens on the Hyprland-focused monitor, falling back to the primary
   monitor, then to the first screen. `dashboard settings <section>` opens on the
   same monitor, deep-linked. `dashboard apps` uses the same monitor and is the
@@ -121,6 +128,7 @@ closes the active window in the default `binds.lua`):
 hl.bind("SUPER + D", hl.dsp.exec_cmd("quickshell ipc call dashboard toggle"))
 hl.bind("SUPER + SHIFT + C", hl.dsp.exec_cmd("quickshell ipc call calendar toggle"))
 hl.bind("SUPER + N", hl.dsp.exec_cmd("quickshell ipc call notifications toggle"))
+hl.bind("SUPER + SHIFT + V", hl.dsp.exec_cmd("quickshell ipc call cava toggle"))
 hl.bind("SUPER + SHIFT + D", hl.dsp.exec_cmd("quickshell ipc call dnd toggle"))
 ```
 

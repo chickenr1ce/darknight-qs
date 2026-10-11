@@ -13,10 +13,7 @@ ModuleBox {
 
     visible: BarVisibilityService.isVisible("power") && Globals.onPrimaryMonitor(root.monitorName)
 
-    onClicked: root.toggleAtBar()
-    onVisibleChanged: root.syncAnchor()
-    Component.onCompleted: root.syncAnchor()
-    Component.onDestruction: PowerService.barAnchor.unregister(root)
+    onClicked: idPowerMenuTrigger.toggle()
 
     Text {
         id: idPowerMenuIcon
@@ -32,23 +29,13 @@ ModuleBox {
         text: Icons.distro
     }
 
-    Connections {
-        target: PowerService.barAnchor
+    PanelTrigger {
+        id: idPowerMenuTrigger
 
-        function onToggleRequested() {
-            if (root.visible)
-                root.toggleAtBar();
-        }
-    }
-
-    function toggleAtBar() {
-        Panels.toggleAt(PowerService.panelState, root.triggerScreen, Globals.triggerCenterX(root, root.triggerScreen));
-    }
-
-    function syncAnchor() {
-        if (root.visible)
-            PowerService.barAnchor.register(root);
-        else
-            PowerService.barAnchor.unregister(root);
+        anchor: PowerService.barAnchor
+        panelState: PowerService.panelState
+        trigger: root
+        triggerScreen: root.triggerScreen
+        active: root.visible
     }
 }
