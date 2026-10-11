@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.services
+import "CalendarLogic.js" as CalendarLogic
 import "StateParsers.js" as StateParsers
 
 Singleton {
@@ -51,51 +52,7 @@ Singleton {
     readonly property string zonesListPath: Quickshell.shellDir + "/assets/iana-zones.json"
     readonly property var ianaZones: StateParsers.parseZoneList(idZoneListState.text)
 
-    readonly property var monthCells: {
-        root.todayIso;
-        root.eventDays;
-        const year = root.viewYear;
-        const month = root.viewMonth;
-        const first = new Date(year, month, 1);
-        const lead = (first.getDay() + 6) % 7;
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const daysInPrev = new Date(year, month, 0).getDate();
-        const cells = [];
-        for (let i = 0; i < 42; i++) {
-            const dayIndex = i - lead + 1;
-            let cellYear = year;
-            let cellMonth = month;
-            let cellDay = dayIndex;
-            let inMonth = true;
-            if (dayIndex < 1) {
-                cellDay = daysInPrev + dayIndex;
-                cellMonth = month - 1;
-                inMonth = false;
-                if (cellMonth < 0) {
-                    cellMonth = 11;
-                    cellYear -= 1;
-                }
-            } else if (dayIndex > daysInMonth) {
-                cellDay = dayIndex - daysInMonth;
-                cellMonth = month + 1;
-                inMonth = false;
-                if (cellMonth > 11) {
-                    cellMonth = 0;
-                    cellYear += 1;
-                }
-            }
-            const iso = root.isoFor(cellYear, cellMonth, cellDay);
-            cells.push({
-                iso: iso,
-                day: cellDay,
-                inMonth: inMonth,
-                isToday: iso === root.todayIso,
-                isSelected: iso === root.selectedIso,
-                hasEvents: (root.eventDays[iso] || []).length > 0
-            });
-        }
-        return cells;
-    }
+    readonly property var monthCells: CalendarLogic.monthCells(root.viewYear, root.viewMonth, root.todayIso, root.selectedIso, root.eventDays)
 
     property var zoneTimes: ({})
 
@@ -244,11 +201,7 @@ Singleton {
     }
 
     function isStale(nowMs: double, fetchedAtMs: double, failed: bool): bool {
-        if (failed)
-            return true;
-        if (!(fetchedAtMs > 0))
-            return false;
-        return (nowMs - fetchedAtMs) > root.eventsStaleAfterMs;
+        return CalendarLogic.isStale(nowMs, fetchedAtMs, failed, root.eventsStaleAfterMs);
     }
 
     function staleLabel(): string {
@@ -275,29 +228,17 @@ Singleton {
     }
 
     function shiftMonth(delta: int) {
-        let month = root.viewMonth + delta;
-        let year = root.viewYear;
-        while (month < 0) {
-            month += 12;
-            year -= 1;
-        }
-        while (month > 11) {
-            month -= 12;
-            year += 1;
-        }
-        root.viewMonth = month;
-        root.viewYear = year;
+        const next = CalendarLogic.shiftMonth(root.viewYear, root.viewMonth, delta);
+        root.viewMonth = next.month;
+        root.viewYear = next.year;
     }
 
     function isoFor(year: int, month: int, day: int): string {
-        const m = String(month + 1).padStart(2, "0");
-        const d = String(day).padStart(2, "0");
-        return year + "-" + m + "-" + d;
+        return CalendarLogic.isoFor(year, month, day);
     }
 
     function zoneLabel(iana: string): string {
-        const parts = iana.split("/");
-        return parts[parts.length - 1].replace("_", " ");
+        return CalendarLogic.zoneLabel(iana);
     }
 
     function zoneTime(iana: string): string {
@@ -307,20 +248,11 @@ Singleton {
 
     function zoneDiff(iana: string): string {
         const e = root.zoneTimes[iana];
-        if (!e || e.d === undefined || e.d === null || e.d === "")
-            return "";
-        const m = Number(e.d);
-        const sign = m < 0 ? "-" : "+";
-        const abs = Math.abs(m);
-        const h = Math.floor(abs / 60);
-        const mm = abs % 60;
-        const body = mm === 0 ? h + "h" : h + ":" + String(mm).padStart(2, "0") + "h";
-        return "(" + sign + body + ")";
+        return CalendarLogic.zoneDiff(e ? e.d : null);
     }
 
     function zoneTitle(iana: string): string {
-        const diff = root.zoneDiff(iana);
-        return diff === "" ? root.zoneLabel(iana) : root.zoneLabel(iana) + " " + diff;
+        return CalendarLogic.zoneTitle(root.zoneLabel(iana), root.zoneDiff(iana));
     }
 
     function saveZones() {
@@ -362,18 +294,20 @@ Singleton {
 
     function addZone(iana: string) {
         const name = iana.trim();
-        if (name === "" || root.worldZones.includes(name) || root.worldZones.length >= root.maxZones)
-            return;
         if (!root.isValidZoneName(name))
             return;
-        root.worldZones = root.worldZones.concat([name]);
+        const next = CalendarLogic.withZone(root.worldZones, name, root.maxZones);
+        if (next.length === root.worldZones.length)
+            return;
+        root.worldZones = next;
         root.saveZones();
     }
 
     function removeZone(iana: string) {
-        if (!root.worldZones.includes(iana))
+        const next = CalendarLogic.withoutZone(root.worldZones, iana);
+        if (next.length === root.worldZones.length)
             return;
-        root.worldZones = root.worldZones.filter(z => z !== iana);
+        root.worldZones = next;
         root.saveZones();
     }
 

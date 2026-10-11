@@ -224,23 +224,6 @@ def check(name, got, want):
         print(f"panel-logic FAIL: {name}: got {got!r}, want {want!r}", file=sys.stderr)
         sys.exit(1)
 
-# Mirror of CalendarService.isStale (services/CalendarService.qml).
-# eventsStaleAfterMs is 30 * 60 * 1000 there.
-AFTER = 30 * 60 * 1000
-def is_stale(now_ms, fetched_ms, failed):
-    if failed:
-        return True
-    if not (fetched_ms > 0):
-        return False
-    return (now_ms - fetched_ms) > AFTER
-
-check("stale/failed", is_stale(1000, 500, True), True)
-check("stale/never", is_stale(1000, 0, False), False)
-check("stale/fresh", is_stale(1000, 900, False), False)
-check("stale/29m", is_stale(29 * 60 * 1000, 0, False), False)
-check("stale/exact", is_stale(30 * 60 * 1000, 0, False), False)
-check("stale/31m", is_stale(31 * 60 * 1000, 1000, False), True)
-
 # Mirror of PanelShell.anchorLeft (components/PanelShell.qml):
 # panelWidth = min(centerWidth=380, screenW - 2*edge), edge = panelEdgeMargin = 10.
 def anchor_left(screen_w, center_x):
@@ -1441,6 +1424,110 @@ check('settings/section-title-hit', sl.sectionMatches('audio', 'Audio', ['Volume
 check('settings/section-option-hit', sl.sectionMatches('osd', 'Audio', ['Volume OSD']), true);
 check('settings/section-no-option-miss', sl.sectionMatches('zones', 'Audio', []), false);
 check('settings/section-empty-query', sl.sectionMatches('', 'Audio', []), true);
+NODEEOF
+
+# The calendar date math lives in CalendarLogic.js and runs for real under node:
+# leap February, both lead-day boundaries, the year wraps, the stale window,
+# and the zone list transitions. CalendarService keeps its public surface as
+# one-line delegates and passes the reactive state in.
+CLOGIC="$ROOT/services/CalendarLogic.js"
+test -f "$CLOGIC" \
+    || fail "services/CalendarLogic.js is missing"
+grep -q 'import "CalendarLogic.js" as CalendarLogic' "$ROOT/services/CalendarService.qml" \
+    || fail "CalendarService does not import CalendarLogic.js"
+for call in 'CalendarLogic.monthCells(' 'CalendarLogic.shiftMonth(' 'CalendarLogic.isoFor(' 'CalendarLogic.isStale(' 'CalendarLogic.zoneLabel(' 'CalendarLogic.zoneDiff(' 'CalendarLogic.zoneTitle(' 'CalendarLogic.withZone(' 'CalendarLogic.withoutZone('; do
+    grep -q "$call" "$ROOT/services/CalendarService.qml" \
+        || fail "CalendarService does not delegate $call"
+done
+# The grid binding reads the day, the view month, the selection and the events
+# so it stays reactive; the stale window and the zone cap stay service state.
+grep -q 'CalendarLogic.monthCells(root.viewYear, root.viewMonth, root.todayIso, root.selectedIso, root.eventDays)' "$ROOT/services/CalendarService.qml" \
+    || fail "monthCells does not pass the reactive calendar state into CalendarLogic"
+grep -q 'CalendarLogic.isStale(nowMs, fetchedAtMs, failed, root.eventsStaleAfterMs)' "$ROOT/services/CalendarService.qml" \
+    || fail "isStale does not pass the stale window into CalendarLogic"
+grep -q 'CalendarLogic.withZone(root.worldZones, name, root.maxZones)' "$ROOT/services/CalendarService.qml" \
+    || fail "addZone does not pass the zone list and cap into CalendarLogic"
+grep -q 'if (!root.isValidZoneName(name))' "$ROOT/services/CalendarService.qml" \
+    || fail "addZone dropped the zone-name validation"
+node - "$ROOT/tests/qmljs.js" "$CLOGIC" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const cl = qmljs.load(process.argv[3]);
+
+const cells = (year, month, today, selected, days) => cl.monthCells(year, month, today, selected, days || {});
+
+// Leap February: 29 days in 2024, 28 in 2023, with the leading and trailing
+// out-of-month cells on each end.
+const leap = cells(2024, 1, '', '', {});
+check('cells/length', leap.length, 42);
+check('cells/leap-lead', leap[0].iso, '2024-01-29');
+check('cells/leap-first', leap[3].iso, '2024-02-01');
+check('cells/leap-last', leap[31].iso, '2024-02-29');
+check('cells/leap-march', leap[32].iso, '2024-03-01');
+const common = cells(2023, 1, '', '', {});
+check('cells/common-lead', common[0].iso, '2023-01-30');
+check('cells/common-last', common[29].iso, '2023-02-28');
+check('cells/common-march', common[30].iso, '2023-03-01');
+
+// A month whose 1st is a Monday has no lead; a Sunday start has six.
+const monday = cells(2024, 0, '', '', {});
+check('cells/monday-lead-zero', monday[0].iso, '2024-01-01');
+check('cells/monday-in-month', monday[0].inMonth, true);
+const sunday = cells(2023, 0, '', '', {});
+check('cells/sunday-lead-six', sunday[0].iso, '2022-12-26');
+check('cells/sunday-lead-out', sunday[0].inMonth, false);
+check('cells/sunday-first', sunday[6].iso, '2023-01-01');
+
+// December -> January and January -> December both wrap.
+const december = cells(2023, 11, '', '', {});
+check('cells/december-wrap', december[35].iso, '2024-01-01');
+check('cells/december-last', december[41].iso, '2024-01-07');
+check('cells/january-wrap', cells(2023, 0, '', '', {})[0].iso, '2022-12-26');
+
+// isToday, isSelected and hasEvents read the passed-in state.
+const marked = cells(2024, 1, '2024-02-14', '2024-02-10', { '2024-02-14': [{ t: 'x' }] });
+check('cells/today', marked[16].isToday, true);
+check('cells/selected', marked[12].isSelected, true);
+check('cells/events', marked[16].hasEvents, true);
+check('cells/no-events', marked[0].hasEvents, false);
+
+check('iso/pads', cl.isoFor(2024, 0, 5), '2024-01-05');
+check('iso/december', cl.isoFor(2023, 11, 31), '2023-12-31');
+
+check('shift/forward-wrap', cl.shiftMonth(2023, 11, 1), { year: 2024, month: 0 });
+check('shift/back-wrap', cl.shiftMonth(2024, 0, -1), { year: 2023, month: 11 });
+check('shift/multi-back', cl.shiftMonth(2024, 0, -13), { year: 2022, month: 11 });
+check('shift/multi-forward', cl.shiftMonth(2023, 11, 2), { year: 2024, month: 1 });
+check('shift/same', cl.shiftMonth(2024, 5, 0), { year: 2024, month: 5 });
+
+const AFTER = 30 * 60 * 1000;
+check('stale/failed', cl.isStale(1000, 500, true, AFTER), true);
+check('stale/never', cl.isStale(1000, 0, false, AFTER), false);
+check('stale/fresh', cl.isStale(1000, 900, false, AFTER), false);
+check('stale/29m', cl.isStale(29 * 60 * 1000, 0, false, AFTER), false);
+check('stale/exact', cl.isStale(30 * 60 * 1000, 0, false, AFTER), false);
+check('stale/31m', cl.isStale(31 * 60 * 1000, 1000, false, AFTER), true);
+check('stale/boundary', cl.isStale(AFTER + 1000, 1000, false, AFTER), false);
+check('stale/past-boundary', cl.isStale(AFTER + 1001, 1000, false, AFTER), true);
+
+check('zone/label', cl.zoneLabel('America/New_York'), 'New York');
+check('zone/label-utc', cl.zoneLabel('UTC'), 'UTC');
+check('zone/diff-plus-hour', cl.zoneDiff('60'), '(+1h)');
+check('zone/diff-minus-half', cl.zoneDiff('-330'), '(-5:30h)');
+check('zone/diff-plus-quarter', cl.zoneDiff('345'), '(+5:45h)');
+check('zone/diff-zero', cl.zoneDiff('0'), '(+0h)');
+check('zone/diff-empty', cl.zoneDiff(''), '');
+check('zone/diff-null', cl.zoneDiff(null), '');
+check('zone/title-no-diff', cl.zoneTitle('Tokyo', ''), 'Tokyo');
+check('zone/title-diff', cl.zoneTitle('Tokyo', '(+9h)'), 'Tokyo (+9h)');
+
+check('zones/add', cl.withZone(['UTC'], 'Europe/Berlin', 6), ['UTC', 'Europe/Berlin']);
+check('zones/add-trims', cl.withZone(['UTC'], ' Europe/Berlin ', 6), ['UTC', 'Europe/Berlin']);
+check('zones/add-dedupe', cl.withZone(['UTC'], 'UTC', 6), ['UTC']);
+check('zones/add-blank', cl.withZone(['UTC'], '   ', 6), ['UTC']);
+check('zones/add-cap', cl.withZone(['A', 'B', 'C', 'D', 'E', 'F'], 'G', 6), ['A', 'B', 'C', 'D', 'E', 'F']);
+check('zones/remove', cl.withoutZone(['UTC', 'Europe/Berlin'], 'UTC'), ['Europe/Berlin']);
+check('zones/remove-missing', cl.withoutZone(['UTC'], 'Asia/Tokyo'), ['UTC']);
 NODEEOF
 
 # Zones plus feeds persist through the CalendarService state files; the parse
