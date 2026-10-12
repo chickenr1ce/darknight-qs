@@ -2,6 +2,9 @@
 # Headless verification gate. Runs every static gate and reports all failures
 # before exiting nonzero. The toast smoke gate is deliberately separate: it
 # boots its own instance and claims the notification bus.
+# A failed check's full output is kept at ${TMPDIR:-/tmp}/qs-check-<label>.log
+# (override the directory with QS_CHECK_KEEP_DIR), because $TMP is deleted on
+# exit and a one-off failure otherwise leaves nothing to diagnose.
 set -uo pipefail
 
 # Git exports GIT_DIR, GIT_WORK_TREE, and GIT_INDEX_FILE into hooks. A gate
@@ -28,6 +31,13 @@ run() {
     else
         echo "FAIL $label"
         sed 's/^/     /' "$out"
+        local keep="${QS_CHECK_KEEP_DIR:-${TMPDIR:-/tmp}}"
+        keep="$keep/qs-check-$(echo "$label" | tr ' ' '-').log"
+        if mkdir -p "$(dirname "$keep")" 2>/dev/null && cp "$out" "$keep" 2>/dev/null; then
+            echo "     kept: $keep"
+        else
+            echo "     warning: could not keep the output at $keep" >&2
+        fi
         FAILED+=("$label")
     fi
 }

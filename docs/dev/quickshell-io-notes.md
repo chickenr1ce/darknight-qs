@@ -15,9 +15,22 @@ change, and file load).
   issued there uses the previous arguments — observed as a poll argv
   missing the just-added zone. Defer with `Qt.callLater`; see the
   bindings rule in `docs/dev/CODING_STANDARDS.md`.
-- Guard every start with `if (!proc.running)` plus a queued flag that
-  `onStreamFinished` re-checks. Never restart a run to pick up new
-  arguments; queue instead.
+- Latest-wins runs live in `services/CoalescedRun.qml` with
+  `services/CoalescedRunLogic.js`: the module owns request-or-remember-latest,
+  drain on exit, a bounded retry, and an injectable starter. A service declares
+  the run's `starter` and `process` instead of hand-rolling a queued flag. An
+  ordered FIFO is a different shape and stays hand-rolled
+  (`services/HyprlandFocus.qml`). Never restart a run to pick up new arguments;
+  queue instead.
+- Signal order, verified against v0.3.1 `src/io/process.cpp`: a normal exit
+  emits `exited` and then `runningChanged`, and stdout parsing
+  (`onStreamFinished`) runs before both, in the same call stack.
+- A failed start emits `runningChanged` only and never `exited`; an empty
+  `command` emits nothing at all. A run that closes only on `exited` stays busy
+  until the shell restarts, so `CoalescedRun` watches the bound `Process` and
+  closes the run itself.
+- Starter contract: a starter that declines to launch returns `false`, and an
+  exception from it is caught. Both close the run like an exit.
 
 ## StdioCollector
 

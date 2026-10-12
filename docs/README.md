@@ -28,7 +28,7 @@ Reference for contributors and agents.
 
 - [`dev/CODING_STANDARDS.md`](dev/CODING_STANDARDS.md) — QML + shell rules; read before writing or reviewing code.
 - [`dev/debugging-quickshell.md`](dev/debugging-quickshell.md) — live debugging: instance pid/log, geometry, IPC probing.
-- [`dev/quickshell-io-notes.md`](dev/quickshell-io-notes.md) — IO polling and file-cache behavior.
+- [`dev/quickshell-io-notes.md`](dev/quickshell-io-notes.md) — `Io` behavior: `Process` lifecycle, polling, file cache.
 - [`dev/settings-sections.md`](dev/settings-sections.md) — adding a settings section.
 - [`dev/theme-catalog.md`](dev/theme-catalog.md) — theme scan, parser, and preview invariant.
 - [`dev/roadmap.md`](dev/roadmap.md) — planned and candidate work.

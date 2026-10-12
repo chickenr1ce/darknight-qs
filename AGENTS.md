@@ -10,7 +10,11 @@ is `docs/README.md`.
 
 - Worktrees: feature work happens under `$HOME/worktrees/`
   (`git worktree add $HOME/worktrees/quickshell-<topic>`); remove it once merged,
-  deleting stray untracked files first.
+  deleting stray untracked files first. When the worktree is the session's own
+  working directory, don't remove it; report it for the user to remove.
+- Parallel slices: one worktree and branch per slice off `main`, integrated with
+  plain `git apply` of each slice's `git diff`; `git apply -3` needs an index
+  match and refuses when a sibling slice's edits are unstaged.
 - Verify with `scripts/check.sh` (the headless gate) and, for any change the
   shell loads (`.qml`, `qmldir`, settings), `scripts/boot-check.sh <worktree>`;
   the gate and review rules live in `docs/dev/CODING_STANDARDS.md`.
@@ -27,7 +31,7 @@ is `docs/README.md`.
 | --- | --- |
 | QML or `scripts/*.sh` change | `docs/dev/CODING_STANDARDS.md` (read first) |
 | Live behavior, IPC probing, geometry, screenshots | `docs/dev/debugging-quickshell.md` |
-| Quickshell Io polling / file cache | `docs/dev/quickshell-io-notes.md` |
+| Quickshell `Io` (`Process` lifecycle, polling, `FileView` cache) | `docs/dev/quickshell-io-notes.md` |
 | Adding a settings section | `docs/dev/settings-sections.md` |
 | Feature tickets and ticket conventions | `docs/agents/issue-tracker.md` |
 | Current context, roadmap, domain terms, why-decisions | `docs/dev/roadmap.md`, `docs/plans/README.md`, `CONTEXT.md`, `docs/adr/` (read the ADRs touching an area before changing it) |

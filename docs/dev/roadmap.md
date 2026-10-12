@@ -19,7 +19,7 @@ date is recorded.
 ### Architecture review follow-ups
 
 Cards 05 to 11 of `docs/plans/12-architecture-review.html` are pending; its
-status block tracks them. The done cards left four gaps:
+status block tracks them. The done cards left five gaps:
 
 - **MPRIS shuffle guard untested.** The card 03 review ruled the grep on the
   `shuffleSupported` guard in `MprisPlayers.toggleShuffle()` out, and no
@@ -38,6 +38,11 @@ status block tracks them. The done cards left four gaps:
   failed once during card 01 and passed on rerun; the cause was never found.
   Done when the flake is reproduced and fixed, or ruled out with a recorded
   reason.
+- **Card 01 failed-start check can close twice.** `CoalescedRun.checkLaunch`
+  runs twice for one `launchSeq` when a failed start and a queued request land
+  in the same tick, arming a spurious retry (reproduced with a synthetic tick
+  order under qmltestrunner). Done when one close is guaranteed in that tick
+  and a regression case covers it.
 
 ## Candidate
 
