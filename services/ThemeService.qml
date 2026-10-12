@@ -41,39 +41,15 @@ Singleton {
         return keys.join(",");
     }
     readonly property string activeDisplayName: root.catalogDisplayName(root.activeTheme)
-    property string backgroundsJson: "{}"
-    readonly property var backgrounds: ThemeParsers.parseBackgrounds(root.backgroundsJson)
-    readonly property string backgroundsDir: root.backgroundDirFor(root.activeTheme)
-    property string appliedBackgroundPath: ""
 
     readonly property string catalogScriptPath: Quickshell.shellDir + "/scripts/theme-catalog-scan.sh"
     readonly property string renderScriptPath: Quickshell.shellDir + "/scripts/render-theme.sh"
-    readonly property string backgroundsScriptPath: Quickshell.shellDir + "/scripts/theme-backgrounds-scan.sh"
     property string catalogText: ""
     property bool catalogReady: false
     property string renderPaletteJson: ""
-    property string backgroundsListText: ""
-    property string backgroundsListDir: ""
-    property string backgroundScanDir: ""
     readonly property var catalog: ThemeParsers.parseCatalog(root.catalogText, root.themeRoot)
-    readonly property var backgroundList: ThemeParsers.parseBackgroundList(root.backgroundsListText, root.backgroundsListDir)
-    readonly property string rememberedBackgroundName: {
-        const saved = root.backgrounds[root.activeTheme];
-        return typeof saved === "string" ? saved : "";
-    }
-    readonly property string currentBackgroundName: {
-        const entries = root.backgroundList;
-        const remembered = root.rememberedBackgroundName;
-        for (let i = 0; i < entries.length; i++) {
-            if (entries[i].name === remembered)
-                return remembered;
-        }
-        return entries.length > 0 ? entries[0].name : "";
-    }
-    readonly property string currentBackgroundPath: {
-        const entry = root.backgroundEntry(root.currentBackgroundName);
-        return entry !== null ? entry.path : "";
-    }
+    readonly property var backgroundList: idBackground.list
+    readonly property string currentBackgroundName: idBackground.currentName
 
     property bool colorsTrusted: false
     property string statPath: ""
@@ -110,11 +86,10 @@ Singleton {
     property color hyprland_inactive_border: root.fallbackColor
 
     onActiveThemeChanged: {
-        root.refreshBackgrounds();
+        idBackground.refresh(root.backgroundDirFor(root.activeTheme));
         root.reloadPalette();
         root.saveSelection();
     }
-    onBackgroundsJsonChanged: root.saveSelection()
     onThemeTargetEnabledChanged: {
         root.saveTargets();
         Qt.callLater(root.renderDesktop);
@@ -219,54 +194,16 @@ Singleton {
             if (!root.paletteResolved || !root.targetsLoaded)
                 return false;
             idRenderProcess.running = true;
-            root.applyCurrentBackground();
+            idBackground.applyCurrent();
         }
     }
 
-    Process {
-        id: idBackgroundScanProcess
+    ThemeBackground {
+        id: idBackground
 
-        stdout: StdioCollector {
-            id: idBackgroundScanCollector
-
-            onStreamFinished: root.applyBackgroundScan(idBackgroundScanCollector.text)
-        }
-        onExited: code => idBackgroundScanRun.finished(code === 0)
-    }
-
-    CoalescedRun {
-        id: idBackgroundScanRun
-
-        process: idBackgroundScanProcess
-
-        starter: dir => root.startBackgroundScan(dir)
-    }
-
-    Process {
-        id: idBackgroundApplyProcess
-
-        onExited: code => root.backgroundApplyExited(code === 0)
-    }
-
-    CoalescedRun {
-        id: idBackgroundApplyRun
-
-        process: idBackgroundApplyProcess
-
-        // HEAD held one 5-retry budget across picks until the next
-        // refreshBackgrounds reset it; each new pick here requests afresh,
-        // so it starts on a clean budget of 5.
-        maxRetries: 5
-        starter: root.startBackgroundApply
-        onRetry: idBackgroundRetryTimer.restart()
-    }
-
-    Timer {
-        id: idBackgroundRetryTimer
-
-        interval: 2000
-        repeat: false
-        onTriggered: idBackgroundApplyRun.release()
+        theme: root.activeTheme
+        dir: root.backgroundDirFor(root.activeTheme)
+        onMemoryJsonChanged: root.saveSelection()
     }
 
     StdioCollector {
@@ -327,7 +264,7 @@ Singleton {
         const selection = ThemeParsers.parseSelection(jsonText);
         root.selectionKnown = ThemeParsers.isSelectionObject(jsonText);
         const hadTheme = root.activeTheme !== "";
-        root.backgroundsJson = JSON.stringify(selection.backgrounds);
+        idBackground.memoryJson = JSON.stringify(selection.backgrounds);
         root.activeTheme = selection.theme;
         root.reconcileActiveTheme();
         if (root.activeTheme === "" && !hadTheme)
@@ -357,11 +294,11 @@ Singleton {
     }
 
     function saveSelection(): void {
-        idThemeState.save(ThemeParsers.serializeSelection(root.activeTheme, root.backgroundsJson));
+        idThemeState.save(ThemeParsers.serializeSelection(root.activeTheme, idBackground.memoryJson));
     }
 
     function refresh(): void {
-        root.refreshBackgrounds();
+        idBackground.refresh(root.backgroundDirFor(root.activeTheme));
         idCatalogRun.request();
     }
 
@@ -480,97 +417,14 @@ Singleton {
         idRenderRun.request();
     }
 
-    function backgroundEntry(name: string): var {
-        const entries = root.backgroundList;
-        for (let i = 0; i < entries.length; i++) {
-            if (entries[i].name === name)
-                return entries[i];
-        }
-        return null;
-    }
-
     function backgroundDirFor(theme: string): string {
         if (!root.themePathAllowed(theme))
             return "";
         return root.themeRoot + "/" + theme + "/backgrounds";
     }
 
-    function refreshBackgrounds(): void {
-        root.backgroundsListText = "";
-        root.backgroundsListDir = "";
-        idBackgroundApplyRun.resetAttempts();
-        const dir = root.backgroundDirFor(root.activeTheme);
-        if (dir === "")
-            return;
-        idBackgroundScanRun.request(dir);
-    }
-
-    function startBackgroundScan(dir: string): void {
-        root.backgroundsListText = "";
-        root.backgroundsListDir = "";
-        root.backgroundScanDir = dir;
-        idBackgroundScanProcess.exec(["sh", root.backgroundsScriptPath, dir, String(ThemeParsers.backgroundMaxBytes())]);
-    }
-
-    function applyBackgroundScan(output: string): void {
-        if (root.backgroundScanDir === root.backgroundsDir && root.backgroundsDir !== "") {
-            root.backgroundsListDir = root.backgroundScanDir;
-            root.backgroundsListText = output;
-            root.applyCurrentBackground();
-        }
-    }
-
-    function applyCurrentBackground(): void {
-        root.applyBackground(root.currentBackgroundPath);
-    }
-
-    function applyBackground(path: string): void {
-        if (path === "")
-            return;
-        idBackgroundApplyRun.request(path);
-    }
-
-    function startBackgroundApply(path: string): bool {
-        if (path === root.appliedBackgroundPath) {
-            // Same pick again (a retry replay, or a drain of a queued no-op):
-            // declaring no launch closes the run instead of leaving it
-            // phantom-running.
-            return false;
-        }
-        root.appliedBackgroundPath = path;
-        idBackgroundApplyProcess.exec(["awww", "img", path]);
-        return true;
-    }
-
-    function backgroundApplyExited(ok: bool): void {
-        if (ok) {
-            idBackgroundApplyRun.finished(true);
-            return;
-        }
-        // An empty background list has nothing to retry: close the run ok so
-        // it does not arm five futile retries.
-        if (root.currentBackgroundPath === "") {
-            idBackgroundApplyRun.finished(true);
-            return;
-        }
-        root.appliedBackgroundPath = "";
-        idBackgroundApplyRun.finished(false);
-    }
-
     function selectBackground(file: string): string {
-        if (root.activeTheme === "")
-            return "error: no active theme";
-        const name = ThemeParsers.backgroundName(file);
-        if (name === "")
-            return "error: not a background image: " + ThemeParsers.displaySafe(file);
-        const entry = root.backgroundEntry(name);
-        if (entry === null)
-            return "error: no background named " + ThemeParsers.displaySafe(name) + " in this theme";
-        const updated = ThemeParsers.parseBackgrounds(root.backgroundsJson);
-        updated[root.activeTheme] = name;
-        root.backgroundsJson = JSON.stringify(updated);
-        root.applyBackground(entry.path);
-        return "ok: " + name;
+        return idBackground.select(file);
     }
 
     function reloadPalette(): void {

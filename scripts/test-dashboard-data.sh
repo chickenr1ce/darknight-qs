@@ -42,11 +42,20 @@ fi
 SBLOCK="$ROOT/windows/DashboardSystemBlock.qml"
 
 # --- 2b. the theme block never applies the background itself ---
-# ThemeService owns the awww call, so the block must not reach for it.
+# ThemeBackground owns the awww call, so the block must not reach for it, and
+# no other service may either: one owner of the apply.
 TBLOCK="$ROOT/windows/DashboardThemeBlock.qml"
 if grep -q 'awww' "$TBLOCK"; then
-    fail "DashboardThemeBlock applies the background itself; ThemeService owns the awww call"
+    fail "DashboardThemeBlock applies the background itself; ThemeBackground owns the awww call"
 fi
+for svc in "$ROOT"/services/*.qml; do
+    if [ "$svc" = "$ROOT/services/ThemeBackground.qml" ]; then
+        continue
+    fi
+    if grep -q 'awww' "$svc"; then
+        fail "$(basename "$svc") calls awww; ThemeBackground.qml is its single owner"
+    fi
+done
 
 # --- 3. CPU plus RAM poll procfs, no subprocess ---
 SMON="$ROOT/services/SystemMonitor.qml"

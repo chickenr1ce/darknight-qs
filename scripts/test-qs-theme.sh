@@ -18,6 +18,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CLI="$ROOT/scripts/qs-theme.sh"
 SVC="$ROOT/services/ThemeService.qml"
+BG="$ROOT/services/ThemeBackground.qml"
 PARSE="$ROOT/services/ThemeParsers.js"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/qs-qs-theme-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
@@ -35,8 +36,8 @@ for verb in refresh list current set background; do
     grep -q "function $verb(" "$SVC" \
         || fail "ThemeService does not expose the $verb IPC function"
 done
-grep -q 'ThemeParsers.backgroundName' "$SVC" \
-    || fail "ThemeService does not resolve a background name through ThemeParsers"
+grep -q 'ThemeParsers.selectBackground' "$BG" \
+    || fail "ThemeBackground does not resolve a background selection through ThemeParsers"
 grep -q 'reconcileActiveTheme' "$SVC" \
     || fail "ThemeService does not reconcile an active theme that left the catalog"
 grep -q 'catalogReady' "$SVC" \
@@ -45,10 +46,8 @@ grep -q 'displaySafe' "$SVC" \
     || fail "ThemeService does not sanitize untrusted IPC strings before echoing them"
 grep -q 'hasControlChars' "$PARSE" \
     || fail "ThemeParsers does not reject control characters in names"
-grep -q 'function refreshBackgrounds' "$SVC" \
-    || fail "ThemeService does not expose refreshBackgrounds"
-grep -q 'refreshBackgrounds()' "$SVC" \
-    || fail "the refresh IPC does not rescan backgrounds"
+grep -q 'idBackground.refresh(' "$SVC" \
+    || fail "ThemeService's refresh path does not rescan backgrounds through ThemeBackground"
 grep -q 'defaultThemeName: "darknight"' "$SVC" \
     || fail "ThemeService does not name darknight as the bundled default theme"
 grep -q 'hasTheme(root.defaultThemeName)' "$SVC" \

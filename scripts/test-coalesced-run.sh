@@ -6,10 +6,11 @@
 # CoalescedRunLogic.js fails here, not in the shell. qmltestrunner then runs
 # the wrapper's event behaviour offscreen with a mock starter and a mock
 # Process-like object (a launch that never runs or never exits must finish,
-# not wedge), and structural greps pin ThemeService, WeatherService,
-# CalendarService, SpotifyService, and MonitorService to the module: no
-# hand-rolled queued flags, every decision routes through CoalescedRun, every
-# run watches its Process, and every Process finishes its run from onExited.
+# not wedge), and structural greps pin ThemeService, ThemeBackground,
+# WeatherService, CalendarService, SpotifyService, and MonitorService to the
+# module: no hand-rolled queued flags, every decision routes through
+# CoalescedRun, every run watches its Process, and every Process finishes its
+# run from onExited.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,6 +18,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fail() { echo "coalesced-run FAIL: $*" >&2; exit 1; }
 
 SVC="$ROOT/services/ThemeService.qml"
+BG="$ROOT/services/ThemeBackground.qml"
 LOGIC="$ROOT/services/CoalescedRunLogic.js"
 
 # --- 1. structure ---
@@ -24,35 +26,50 @@ test -f "$LOGIC" \
     || fail "services/CoalescedRunLogic.js is missing"
 test -f "$ROOT/services/CoalescedRun.qml" \
     || fail "services/CoalescedRun.qml is missing"
+test -f "$BG" \
+    || fail "services/ThemeBackground.qml is missing"
 grep -q '^\.pragma library' "$LOGIC" \
     || fail "CoalescedRunLogic.js is not a .pragma library"
 grep -q '^CoalescedRun 1.0 CoalescedRun.qml' "$ROOT/services/qmldir" \
     || fail "CoalescedRun is not registered in services/qmldir"
+grep -q '^ThemeBackground 1.0 ThemeBackground.qml' "$ROOT/services/qmldir" \
+    || fail "ThemeBackground is not registered in services/qmldir"
 grep -q '^import "CoalescedRunLogic.js" as CoalescedRunLogic' "$ROOT/services/CoalescedRun.qml" \
     || fail "CoalescedRun.qml does not import CoalescedRunLogic.js"
-grep -q 'import qs.services' "$SVC" \
-    || fail "ThemeService.qml is missing its qs.services self-import"
-for run in idCatalogRun idRenderRun idStatRun idBackgroundScanRun idBackgroundApplyRun; do
+for svc in "$SVC" "$BG"; do
+    grep -q 'import qs.services' "$svc" \
+        || fail "$(basename "$svc") is missing its qs.services self-import"
+done
+for run in idCatalogRun idRenderRun idStatRun; do
     grep -q "$run" "$SVC" \
         || fail "ThemeService does not coalesce its runs through $run"
+done
+for run in idBackgroundScanRun idBackgroundApplyRun; do
+    grep -q "$run" "$BG" \
+        || fail "ThemeBackground does not coalesce its runs through $run"
 done
 # Every run must watch its Process: a launch that never runs (a missing
 # binary, an exec with an empty command) has no exited to close it, so the
 # wrapper needs the process to notice.
 for pair in "idCatalogProcess idCatalogRun" "idStatProcess idStatRun" \
-            "idRenderProcess idRenderRun" "idBackgroundScanProcess idBackgroundScanRun" \
-            "idBackgroundApplyProcess idBackgroundApplyRun"; do
+            "idRenderProcess idRenderRun"; do
     set -- $pair
     grep -qF "process: $1" "$SVC" \
         || fail "$2 does not bind process: $1, so a failed launch would wedge it"
 done
-if grep -qE 'catalogQueued|renderQueued|backgroundsQueued|statQueued|backgroundQueuedPath|backgroundAttempts' "$SVC"; then
-    fail "ThemeService hand-rolls a queued flag; CoalescedRun owns the run lifecycle"
+for pair in "idBackgroundScanProcess idBackgroundScanRun" \
+            "idBackgroundApplyProcess idBackgroundApplyRun"; do
+    set -- $pair
+    grep -qF "process: $1" "$BG" \
+        || fail "$2 does not bind process: $1, so a failed launch would wedge it"
+done
+if grep -qE 'catalogQueued|renderQueued|backgroundsQueued|statQueued|backgroundQueuedPath|backgroundAttempts' "$SVC" "$BG"; then
+    fail "a theme service hand-rolls a queued flag; CoalescedRun owns the run lifecycle"
 fi
-grep -qF 'maxRetries: 5' "$SVC" \
-    || fail "ThemeService lost the background apply retry budget of 5"
-grep -q 'idBackgroundRetryTimer.restart()' "$SVC" \
-    || fail "ThemeService retry decision no longer arms the background retry timer"
+grep -qF 'maxRetries: 5' "$BG" \
+    || fail "ThemeBackground lost the background apply retry budget of 5"
+grep -q 'idBackgroundRetryTimer.restart()' "$BG" \
+    || fail "ThemeBackground's retry decision no longer arms the background retry timer"
 
 # --- 2. the lifecycle runs for real under node ---
 node - "$ROOT/tests/qmljs.js" "$LOGIC" <<'NODEEOF'
@@ -155,7 +172,7 @@ check('gate/released-state', r.state,
 check('release/nothing', cr.release(idle).start, false);
 check('release/while-busy', cr.release(busy).start, false);
 
-// resetAttempts is the refreshBackgrounds reset: budget only, pending survives
+// resetAttempts is the background refresh reset: budget only, pending survives
 r = cr.request(idle, 'z');
 st = cr.exited(r.state, false, { maxRetries: 5 }).state;
 check('reset-attempts/only-budget', cr.resetAttempts(st),
@@ -193,7 +210,7 @@ fi
 
 # --- 4. the wiring mesh: every run finishes exactly on the Process's exit ---
 for pair in "idCatalogProcess idCatalogRun" "idStatProcess idStatRun" \
-            "idRenderProcess idRenderRun" "idBackgroundScanProcess idBackgroundScanRun"; do
+            "idRenderProcess idRenderRun"; do
     set -- $pair
     BLOCK="$(awk -v name="$1" '
         !found && $0 == "        id: " name { found = 1; next }
@@ -203,14 +220,28 @@ for pair in "idCatalogProcess idCatalogRun" "idStatProcess idStatRun" \
     echo "$BLOCK" | grep -q "$2.finished(" \
         || fail "$1 does not finish its run on exit"
 done
-grep -qF 'onExited: code => root.backgroundApplyExited(code === 0)' "$SVC" \
-    || fail "the background apply Process does not route its exit through the run"
-APPLY_BLOCK="$(awk '/function backgroundApplyExited/{flag=1} flag{print} flag && /^    \}$/{exit}' "$SVC")"
+BLOCK="$(awk -v name="idBackgroundScanProcess" '
+    !found && $0 == "        id: " name { found = 1; next }
+    found { if ($0 == "    }") exit; print }
+' "$BG")"
+test -n "$BLOCK" || fail "could not extract the idBackgroundScanProcess block"
+echo "$BLOCK" | grep -q 'idBackgroundScanRun.finished(' \
+    || fail "idBackgroundScanProcess does not finish its run on exit"
+# The apply Process routes its exit through the module's exit function, which
+# finishes the run (after clearing the applied path on the retry branch).
+BLOCK="$(awk -v name="idBackgroundApplyProcess" '
+    !found && $0 == "        id: " name { found = 1; next }
+    found { if ($0 == "    }") exit; print }
+' "$BG")"
+test -n "$BLOCK" || fail "could not extract the idBackgroundApplyProcess block"
+echo "$BLOCK" | grep -q 'root.backgroundApplyExited(' \
+    || fail "the background apply Process does not route its exit through the exit function"
+grep -q 'function backgroundApplyExited' "$BG" \
+    || fail "ThemeBackground has no backgroundApplyExited to finish the apply run"
+APPLY_BLOCK="$(awk '/function backgroundApplyExited/{flag=1} flag{print} flag && /^    \}$/{exit}' "$BG")"
 test -n "$APPLY_BLOCK" || fail "could not extract backgroundApplyExited"
-test "$(echo "$APPLY_BLOCK" | grep -c 'idBackgroundApplyRun.finished(')" -ge 2 \
-    || fail "backgroundApplyExited does not finish the run on both the ok and failed branches"
-grep -qF 'starter: root.startBackgroundApply' "$SVC" \
-    || fail "the background apply run does not use startBackgroundApply as its starter"
+echo "$APPLY_BLOCK" | grep -q 'idBackgroundApplyRun.finished(' \
+    || fail "backgroundApplyExited does not finish the apply run"
 
 # --- 5. Weather and Calendar coalesce the same way ---
 WSVC="$ROOT/services/WeatherService.qml"

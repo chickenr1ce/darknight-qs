@@ -429,6 +429,74 @@ function parseBackgroundList(output, dir) {
     return entries;
 }
 
+// The background decisions ThemeService used to hold inline, kept pure: the
+// caller passes the parsed list and the memory JSON in, so every branch is a
+// value the tests can pin without a shell.
+
+function backgroundEntry(entries, name) {
+    if (!Array.isArray(entries))
+        return null;
+    for (let i = 0; i < entries.length; i++) {
+        if (entries[i].name === name)
+            return entries[i];
+    }
+    return null;
+}
+
+function currentBackgroundName(entries, remembered) {
+    if (!Array.isArray(entries))
+        return "";
+    for (let i = 0; i < entries.length; i++) {
+        if (entries[i].name === remembered)
+            return remembered;
+    }
+    return entries.length > 0 ? entries[0].name : "";
+}
+
+// A remembered name is trusted only when it is a string; the memory map has no
+// prototype, so a `__proto__` theme key cannot resolve through Object.prototype.
+function rememberedBackground(memoryJson, theme) {
+    const saved = parseBackgrounds(memoryJson)[theme];
+    return typeof saved === "string" ? saved : "";
+}
+
+// The returned message is the IPC reply `qs-theme background` prints, so the
+// wording is contract; a refusal returns the memory JSON unchanged so the
+// caller never rewrites a state file it did not change.
+function selectBackground(memoryJson, theme, file, entries) {
+    if (typeof theme !== "string" || theme === "")
+        return { "message": "error: no active theme", "memoryJson": memoryJson, "path": "" };
+    const name = backgroundName(file);
+    if (name === "")
+        return { "message": "error: not a background image: " + displaySafe(file), "memoryJson": memoryJson, "path": "" };
+    const entry = backgroundEntry(entries, name);
+    if (entry === null)
+        return { "message": "error: no background named " + displaySafe(name) + " in this theme", "memoryJson": memoryJson, "path": "" };
+    const updated = parseBackgrounds(memoryJson);
+    updated[theme] = name;
+    return { "message": "ok: " + name, "memoryJson": JSON.stringify(updated), "path": entry.path };
+}
+
+// false means "no launch": the pick is already applied, so the caller closes
+// the run instead of leaving it phantom-running.
+function backgroundApplyNeeded(path, appliedPath) {
+    return typeof path === "string" && path !== "" && path !== appliedPath;
+}
+
+// An empty background list has nothing to retry, so a failed apply finishes
+// the run ok instead of arming futile retries.
+function backgroundApplyRetries(ok, currentPath) {
+    if (ok)
+        return false;
+    return currentPath !== "";
+}
+
+// A scan result is applied only when it belongs to the directory the caller
+// still considers current.
+function backgroundScanCurrent(scanDir, dir) {
+    return dir !== "" && scanDir === dir;
+}
+
 function displayName(name) {
     if (typeof name !== "string")
         return "";
