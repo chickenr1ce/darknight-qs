@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Architecture review · quickshell · 2026-10-12</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ["Geist", "ui-sans-serif", "system-ui"], mono: ["Geist Mono", "ui-monospace", "monospace"] },
+        colors: {
+          g: { bg: "#000000", 100: "#0a0a0a", 200: "#111111", 300: "#1a1a1a", 400: "#1f1f1f", 500: "#2e2e2e", 600: "#454545", 700: "#8f8f8f", 800: "#a1a1a1", 900: "#ededed" },
+        },
+      },
+    },
+  };
+</script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
+    securityLevel: "loose",
+    flowchart: { curve: "basis", padding: 10, nodeSpacing: 26, rankSpacing: 34 },
+    themeVariables: {
+      darkMode: true,
+      background: "#0a0a0a",
+      fontFamily: "Geist Mono, ui-monospace, monospace",
+      fontSize: "11px",
+      primaryColor: "#111111",
+      primaryTextColor: "#ededed",
+      primaryBorderColor: "#2e2e2e",
+      secondaryColor: "#111111",
+      tertiaryColor: "#0a0a0a",
+      lineColor: "#454545",
+      textColor: "#a1a1a1",
+      edgeLabelBackground: "#0a0a0a",
+      clusterBkg: "#0a0a0a",
+      clusterBorder: "#2e2e2e",
+    },
+  });
+  await document.fonts.ready;
+  let i = 0;
+  for (const el of document.querySelectorAll("pre.mermaid")) {
+    const { svg } = await mermaid.render("mmd-" + i++, el.textContent);
+    el.innerHTML = svg;
+  }
+</script>
+<style>
+  :root {
+    --bg: #000; --c1: #0a0a0a; --c2: #111; --line: #1f1f1f; --line2: #2e2e2e;
+    --fg: #ededed; --fg2: #a1a1a1; --fg3: #8f8f8f; --fg4: #454545;
+    --blue: #52a8ff; --blue-bg: #0a1a2e; --green: #62c073; --green-bg: #0b2312;
+    --amber: #ffb224; --amber-bg: #2a1a03; --red: #ff6369; --red-bg: #2a0c0e;
+  }
+  html { background: var(--bg); color: var(--fg); -webkit-font-smoothing: antialiased; }
+  body { font-family: Geist, ui-sans-serif, system-ui; }
+  .grid-bg {
+    background-image: linear-gradient(to right, #ffffff08 1px, transparent 1px), linear-gradient(to bottom, #ffffff08 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .card { background: var(--c1); border: 1px solid var(--line); border-radius: 12px; }
+  .panel { background: #050505; border: 1px solid var(--line); border-radius: 8px; }
+  .label { font-family: "Geist Mono"; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg3); }
+  .badge { font-family: "Geist Mono"; font-size: 11px; padding: 2px 8px; border-radius: 9999px; border: 1px solid; white-space: nowrap; }
+  .b-strong { color: var(--green); background: var(--green-bg); border-color: #62c07333; }
+  .b-worth { color: var(--amber); background: var(--amber-bg); border-color: #ffb22433; }
+  .b-spec { color: var(--fg2); background: var(--c2); border-color: var(--line2); }
+  .b-tag { color: var(--blue); background: var(--blue-bg); border-color: #52a8ff33; }
+  .files code { font-family: "Geist Mono"; font-size: 12px; color: var(--fg2); }
+  .files li::before { content: "→ "; color: var(--fg4); font-family: "Geist Mono"; }
+  /* schematic vocabulary */
+  .mod { border: 1px solid var(--line2); border-radius: 6px; padding: 6px 8px; font-family: "Geist Mono"; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--fg); background: var(--c2); }
+  .mod.deep { border: 2px solid var(--fg); background: linear-gradient(180deg, #161616, #0a0a0a); box-shadow: 0 0 0 4px #ffffff08; }
+  .mod.leak { border-color: #ff636966; color: var(--red); background: var(--red-bg); }
+  .mod.ghost { opacity: .4; border-style: dashed; }
+  .chip { display: inline-block; font-family: "Geist Mono"; font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--fg2); background: #0d0d0d; margin: 2px 2px 0 0; text-transform: none; letter-spacing: 0; }
+  .chip.red { color: var(--red); border-color: #ff636944; background: var(--red-bg); }
+  .chip.blue { color: var(--blue); border-color: #52a8ff44; background: var(--blue-bg); }
+  .chip.green { color: var(--green); border-color: #62c07344; background: var(--green-bg); }
+  .seam { border-top: 1px dashed var(--blue); }
+  .seam-v { border-left: 1px dashed var(--blue); }
+  .faded { opacity: .45; }
+  .diag { min-height: 300px; }
+  .mermaid { display: flex; justify-content: center; align-items: center; min-height: 250px; margin: 0; }
+  .mermaid svg { max-width: 100%; height: auto; }
+  .prose-k { color: var(--fg3); font-family: "Geist Mono"; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  .wins li { position: relative; padding-left: 16px; }
+  .wins li::before { content: ""; position: absolute; left: 0; top: .6em; width: 6px; height: 6px; border-radius: 2px; background: var(--green); }
+  .adr { border: 1px solid #ffb22433; background: var(--amber-bg); color: #ffd58a; border-radius: 8px; }
+  .toc a:hover { color: var(--fg); }
+  .bar { height: 8px; border-radius: 2px; }
+  a { text-underline-offset: 3px; }
+</style>
+</head>
+<body class="grid-bg">
+<main class="max-w-6xl mx-auto px-6 py-14 space-y-12">
+
+  <!-- ===== Header ===== -->
+  <header class="space-y-6">
+    <div class="flex items-center gap-3">
+      <svg width="22" height="20" viewBox="0 0 76 65" fill="#ededed" aria-hidden="true"><path d="M37.5274 0L75.0548 65H0L37.5274 0Z"/></svg>
+      <span class="label">Architecture review</span>
+      <span class="label text-g-600">/</span>
+      <span class="font-mono text-xs text-g-800">~/.config/quickshell @ 42c4710</span>
+    </div>
+    <h1 class="text-4xl md:text-5xl font-semibold tracking-tight">Deepening opportunities</h1>
+    <p class="text-g-800 max-w-3xl">Hot spots since plan 10 closed (tray menu, distro logo, launcher, theme targets). Four Muse Spark 1.3 (xhigh) explorers walked menus &amp; launcher, the theme pipeline, dashboard data, and panels &amp; gates; every claim below was re-checked against source. Plan 10's done and deferred cards are not re-raised.</p>
+    <div class="flex flex-wrap gap-x-6 gap-y-3 items-center pt-2 text-xs text-g-800">
+      <span class="flex items-center gap-2"><span class="mod" style="padding:2px 8px">module</span> solid box</span>
+      <span class="flex items-center gap-2"><span class="mod deep" style="padding:2px 8px">deep</span> thick border</span>
+      <span class="flex items-center gap-2"><span class="inline-block w-10 seam"></span> seam</span>
+      <span class="flex items-center gap-2"><span class="mod leak" style="padding:2px 8px">leak</span> leakage / duplication</span>
+      <span class="flex items-center gap-2"><span class="mod ghost" style="padding:2px 8px">faded</span> now internal</span>
+    </div>
+    <nav class="toc card p-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5 text-sm text-g-800">
+      <a href="#c1"><span class="font-mono text-g-600">01</span> Coalesced-run module</a>
+      <a href="#c2"><span class="font-mono text-g-600">02</span> Launcher menu-item module</a>
+      <a href="#c3"><span class="font-mono text-g-600">03</span> Gates test the interface</a>
+      <a href="#c4"><span class="font-mono text-g-600">04</span> Background module out of ThemeService</a>
+      <a href="#c5"><span class="font-mono text-g-600">05</span> Playback interface for the player block</a>
+      <a href="#c6"><span class="font-mono text-g-600">06</span> Workspace submenu from a snapshot</a>
+      <a href="#c7"><span class="font-mono text-g-600">07</span> One Firefox profile discovery</a>
+      <a href="#c8"><span class="font-mono text-g-600">08</span> Context-menu item contract</a>
+      <a href="#c9"><span class="font-mono text-g-600">09</span> Power arm/confirm logic</a>
+      <a href="#c10"><span class="font-mono text-g-600">10</span> SystemMonitor readership gate</a>
+      <a href="#c11"><span class="font-mono text-g-600">11</span> Polkit derived state</a>
+      <a href="#top" class="text-g-900">→ Top recommendation</a>
+    </nav>
+    <div id="status" class="card p-4 space-y-2 text-sm text-g-800" role="region" aria-label="Implementation status">
+      <div class="label">Status · 2026-10-12 · verified against main</div>
+      <p><strong class="text-g-900">Done:</strong> 01 coalesced-run module (<code>d88afb8</code>, <code>services/CoalescedRun.qml</code>); 02 launcher menu-item set behind <code>AppService</code> (<code>8d1f558</code>); 03 gates test behaviour at the interface, greps for structure only (<code>b030b02</code>, <code>docs/dev/CODING_STANDARDS.md</code> §7); 04 Background lifecycle in <code>services/ThemeBackground.qml</code> (<code>4434344</code>).</p>
+      <p><strong class="text-g-900">Pending:</strong> 05 playback interface, 06 workspace submenu snapshot, 07 one Firefox profile discovery, 08 context-menu item contract, 09 power arm/confirm logic, 10 SystemMonitor readership gate, 11 polkit derived state.</p>
+      <p><strong class="text-g-900">Gaps left by done cards:</strong> recorded under "Architecture review follow-ups" in <code>docs/dev/roadmap.md</code>.</p>
+    </div>
+  </header>
+
+  <section id="candidates" class="space-y-10">
+
+  <!-- ===== 01 Coalesced run ===== -->
+  <article id="c1" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">01 · cross-cutting · theme + dashboard + calendar</div>
+        <h2 class="text-2xl font-semibold tracking-tight">One coalesced-run module for every Process lifecycle</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-strong">Strong</span><span class="badge b-tag">in-process</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>services/ThemeService.qml:48-85</code> catalog/render/backgrounds/stat queued + bg path</li>
+      <li><code>services/WeatherService.qml:23,33,44-52,270</code></li>
+      <li><code>services/CalendarService.qml:29,59</code></li>
+      <li><code>services/SpotifyService.qml:24,29-37</code></li>
+      <li><code>services/MonitorService.qml:20-24,165-180</code></li>
+      <li><code>services/HyprlandFocus.qml:136-158</code> injectable <code>dispatchImpl</code> (precedent)</li>
+    </ul>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-3">Before · 11 hand-rolled flags, 5 spellings</div>
+        <div class="space-y-2">
+          <div class="mod">ThemeService
+            <div><span class="chip red">catalogQueued</span><span class="chip red">renderQueued</span><span class="chip red">backgroundsQueued</span><span class="chip red">statQueued</span><span class="chip red">backgroundQueuedPath</span><span class="chip red">backgroundAttempts</span></div>
+          </div>
+          <div class="mod">WeatherService <div><span class="chip red">pollQueued</span><span class="chip red">geocodeQueued</span><span class="chip">triggeredOnStart → double fetch</span></div></div>
+          <div class="mod">CalendarService <div><span class="chip red">eventsPollQueued</span><span class="chip red">zonePollQueued</span></div></div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="mod">SpotifyService <div><span class="chip red">pollQueued</span><span class="chip">gated</span></div></div>
+            <div class="mod">MonitorService <div><span class="chip red">pendingRefresh</span><span class="chip">epochs</span></div></div>
+          </div>
+          <div class="text-[11px] font-mono text-g-700 pt-1">tests: <span class="text-[color:var(--red)]">grep for flag names</span> · no test drives "request while busy"</div>
+        </div>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-3">After · one deep module, five declarations</div>
+        <div class="grid grid-cols-5 gap-1.5">
+          <div class="mod text-center" style="padding:6px 2px">Theme</div>
+          <div class="mod text-center" style="padding:6px 2px">Weather</div>
+          <div class="mod text-center" style="padding:6px 2px">Calendar</div>
+          <div class="mod text-center" style="padding:6px 2px">Spotify</div>
+          <div class="mod text-center" style="padding:6px 2px">Monitor</div>
+        </div>
+        <svg viewBox="0 0 100 16" preserveAspectRatio="none" class="w-full h-6 block"><g stroke="#454545" stroke-width=".4" fill="none"><path d="M10 0 L50 16"/><path d="M30 0 L50 16"/><path d="M50 0 L50 16"/><path d="M70 0 L50 16"/><path d="M90 0 L50 16"/></g></svg>
+        <div class="seam pt-2 text-center"><span class="chip blue">request()</span><span class="chip blue">running</span></div>
+        <div class="mod deep mt-2 p-4">
+          <div class="text-center mb-2">Coalesced run</div>
+          <div class="grid grid-cols-2 gap-1.5 faded">
+            <div class="mod">run-or-remember-latest</div>
+            <div class="mod">drain on exit</div>
+            <div class="mod">bounded retry</div>
+            <div class="mod">readership gate</div>
+          </div>
+          <div class="mt-2 text-center"><span class="chip green">starter injectable → node / qmltestrunner drives it</span></div>
+        </div>
+        <div class="text-[11px] font-mono text-g-700 pt-3 text-center">Process · FileView · Timer stay behind the seam</div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">The same "if busy, queue one; on exit, drain" lifecycle is written 11 times across 5 services, each slightly differently, and none of it is tested. Weather already fetches twice on boot with a saved city.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Give that discipline one home, composed per lifecycle the way <code class="font-mono text-xs">StateFile</code> already owns load-guard + save. Services declare what to run; the module owns when.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Locality: races fixed once</li><li>Leverage: 11 flags → 1 interface</li><li>Lifecycle becomes a test surface</li><li>Grep-for-flag gates retire</li></ul></div>
+    </div>
+  </article>
+
+  <!-- ===== 02 Launcher menu ===== -->
+  <article id="c2" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">02 · app launcher · recently churned</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Own the launcher menu-item set in one module</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-strong">Strong</span><span class="badge b-tag">local-substitutable</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>services/AppLogic.js:409-464</code> mints ids</li>
+      <li><code>windows/DashboardAppsView.qml:63-83</code> enrichment loop</li>
+      <li><code>windows/DashboardAppsView.qml:865-901</code> menuGlyph, submenuGlyph</li>
+      <li><code>windows/DashboardAppsView.qml:994-1021</code> runMenuItem (12 branches)</li>
+      <li><code>scripts/test-app-launcher.sh:430-433</code> greps per id</li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-2">Before · one id vocabulary, four switches</div>
+<pre class="mermaid">
+flowchart TB
+  d1L["AppLogic.menuItems"] -- "ids" --> d1E["View enrichment"]
+  d1E --> d1G["menuGlyph"]
+  d1E --> d1S["submenuGlyph"]
+  d1E --> d1I["AppService.iconForName"]
+  d1E --> d1C["ContextMenu"]
+  d1C -- "triggered(id)" --> d1R["View.runMenuItem"]
+  d1R --> d1A["AppService ×9 calls"]
+  d1T["test greps"] -.-> d1R
+  classDef leak fill:#2a0c0e,stroke:#ff6369,color:#ff6369;
+  class d1G,d1S,d1R,d1T leak
+</pre>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-2">After · finished descriptors in, one action out</div>
+<pre class="mermaid">
+flowchart LR
+  d2V["DashboardAppsView"] -- "row" --> d2M["Launcher menu module · ids · glyphs · icons · dispatch"]
+  d2M -- "descriptors" --> d2C["ContextMenu"]
+  d2C -- "chosen item" --> d2M
+  d2M -- "one action" --> d2A["AppService"]
+  d2N["node tests"] --> d2M
+  classDef deep fill:#161616,stroke:#ededed,stroke-width:2px,color:#ededed;
+  classDef ok fill:#0b2312,stroke:#62c073,color:#62c073;
+  class d2M deep
+  class d2N ok
+</pre>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">Adding a menu item means editing the builder, two glyph switches, the dispatch and the test greps in lockstep; a missed glyph is a silent empty slot.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Item set, presentation and dispatch live behind one seam; the view hands over a row and forwards a single chosen action.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Locality: id vocabulary stops leaking</li><li>Missing glyph fails a node test</li><li>View sheds ~120 lines</li><li>Four open paths share one adapter</li></ul></div>
+    </div>
+    <div class="adr px-4 py-2.5 text-sm">Plan 10 deferred "launcher rows" and "dashboard page adapters". This is narrower (menu ids only), justified by the four-switch lockstep, which those cards did not cover.</div>
+  </article>
+
+  <!-- ===== 03 Gates ===== -->
+  <article id="c3" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">03 · verification · most-churned file</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Shape gates test past the interface</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-strong">Strong</span><span class="badge b-tag">in-process</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>scripts/test-panel-logic.sh</code> 4585 lines, 25 sections</li>
+      <li><code>scripts/test-panel-logic.sh:4207-4360</code> §22 awk-extracts bodies</li>
+      <li><code>docs/dev/CODING_STANDARDS.md:567</code> "…stays, because the tests assert it"</li>
+      <li><code>scripts/test-app-launcher.sh</code>, <code>test-dashboard-data.sh</code></li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-3">Before · gate reaches into implementation text</div>
+        <svg viewBox="0 0 320 230" class="w-full">
+          <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8z" fill="#ff6369"/></marker>
+          <marker id="ab" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8z" fill="#52a8ff"/></marker></defs>
+          <rect x="120" y="20" width="185" height="190" rx="6" fill="#111" stroke="#2e2e2e"/>
+          <rect x="120" y="20" width="185" height="34" rx="6" fill="#161616" stroke="#2e2e2e"/>
+          <text x="212" y="41" fill="#ededed" font-family="Geist Mono" font-size="10" text-anchor="middle">INTERFACE</text>
+          <line x1="120" y1="54" x2="305" y2="54" stroke="#52a8ff" stroke-dasharray="4 4"/>
+          <g font-family="Geist Mono" font-size="9" fill="#8f8f8f">
+            <text x="132" y="80">property Item anchor: null</text>
+            <text x="132" y="104">root.anchor === trigger</text>
+            <text x="132" y="128">Panels.toggleAt(root.panelState</text>
+            <text x="132" y="152">grep -c barDrawHeight == 4</text>
+            <text x="132" y="176">"error: … is hidden"</text>
+            <text x="132" y="198">one-line delegate kept for grep</text>
+          </g>
+          <rect x="8" y="90" width="80" height="60" rx="6" fill="#2a0c0e" stroke="#ff636966"/>
+          <text x="48" y="116" fill="#ff6369" font-family="Geist Mono" font-size="10" text-anchor="middle">GATE</text>
+          <text x="48" y="132" fill="#ff6369" font-family="Geist Mono" font-size="9" text-anchor="middle">923 greps</text>
+          <g stroke="#ff6369" stroke-width="1.2" fill="none" marker-end="url(#ar)">
+            <path d="M88 105 C105 90, 110 80, 128 77"/><path d="M88 112 C108 106, 112 102, 128 101"/>
+            <path d="M88 120 L128 125"/><path d="M88 128 C108 140, 112 148, 128 149"/>
+            <path d="M88 136 C104 160, 110 172, 128 173"/><path d="M88 142 C100 180, 108 192, 128 195"/>
+          </g>
+        </svg>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-3">After · gate stops at the seam</div>
+        <svg viewBox="0 0 320 230" class="w-full">
+          <rect x="120" y="20" width="185" height="190" rx="6" fill="#0a0a0a" stroke="#ededed" stroke-width="2"/>
+          <rect x="120" y="20" width="185" height="34" rx="6" fill="#161616" stroke="#ededed" stroke-width="2"/>
+          <text x="212" y="41" fill="#ededed" font-family="Geist Mono" font-size="10" text-anchor="middle">INTERFACE</text>
+          <line x1="120" y1="54" x2="305" y2="54" stroke="#52a8ff" stroke-dasharray="4 4"/>
+          <g font-family="Geist Mono" font-size="9" fill="#454545">
+            <text x="132" y="86">implementation free to change</text>
+            <text x="132" y="110">*Logic.js run under node</text>
+            <text x="132" y="134">qmltestrunner for live types</text>
+          </g>
+          <rect x="8" y="16" width="80" height="44" rx="6" fill="#0a1a2e" stroke="#52a8ff66"/>
+          <text x="48" y="36" fill="#52a8ff" font-family="Geist Mono" font-size="10" text-anchor="middle">CONTRACT</text>
+          <text x="48" y="50" fill="#52a8ff" font-family="Geist Mono" font-size="9" text-anchor="middle">behaviour</text>
+          <path d="M88 38 L116 38" stroke="#52a8ff" stroke-width="1.2" marker-end="url(#ab)"/>
+          <rect x="8" y="160" width="80" height="44" rx="6" fill="#111" stroke="#2e2e2e"/>
+          <text x="48" y="180" fill="#a1a1a1" font-family="Geist Mono" font-size="10" text-anchor="middle">MESH</text>
+          <text x="48" y="194" fill="#8f8f8f" font-family="Geist Mono" font-size="9" text-anchor="middle">exclusivity only</text>
+        </svg>
+        <div class="flex items-center gap-3 mt-1 text-[11px] font-mono text-g-700">
+          <span class="w-24">today</span><div class="flex-1 flex"><div class="bar" style="width:93.6%;background:#ff6369"></div><div class="bar" style="width:6.4%;background:#62c073"></div></div>
+        </div>
+        <div class="flex justify-between text-[10px] font-mono text-g-700 mt-1 pl-28"><span>923 grep lines</span><span>63 node/qmljs</span></div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">Gates quote property names, function bodies and call counts, so every seam change (e65b31d, c5a89d2, 074bfac, fb84989) pays a gate-rewrite tax and the standard keeps delegates alive for grep's sake.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Keep text gates for mesh invariants only (one-panel exclusivity, no Process in SystemMonitor); express everything else as behaviour at the interface.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Interface is the test surface</li><li>Refactors stop touching the gate</li><li>Delegate-for-grep rule retires</li><li>Pays down every other card</li></ul></div>
+    </div>
+    <div class="adr px-4 py-2.5 text-sm">Touches <span class="font-mono">CODING_STANDARDS.md §7</span>, not an ADR. Do it incrementally: rewrite each section only when a card touches it.</div>
+  </article>
+
+  <!-- ===== 04 Backgrounds ===== -->
+  <article id="c4" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">04 · theme pipeline</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Lift the Background lifecycle out of ThemeService</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-worth">Worth exploring</span><span class="badge b-tag">in-process</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>services/ThemeService.qml:44-81,197-219,441-531</code></li>
+      <li><code>services/ThemeParsers.js:358-430</code> background parse (already at the seam)</li>
+      <li><code>windows/DashboardThemeBlock.qml:13-17,228-242</code> only consumer</li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-3">Before · 611-line singleton, seven concerns</div>
+        <div class="mod p-0 overflow-hidden">
+          <div class="px-3 py-2 border-b border-g-500">ThemeService</div>
+          <div class="grid" style="grid-template-rows: 26px 46px 64px 30px 30px 26px 22px">
+            <div class="px-3 flex items-center border-b border-g-400 text-g-800">catalog scan</div>
+            <div class="px-3 flex items-center border-b border-g-400 text-g-800">palette trust + 27 roles</div>
+            <div class="px-3 flex items-center border-b border-g-400" style="background:var(--red-bg);color:var(--red)">backgrounds · scan · remember · queue · awww · retry</div>
+            <div class="px-3 flex items-center border-b border-g-400 text-g-800">retint scheduling</div>
+            <div class="px-3 flex items-center border-b border-g-400 text-g-800">target enable map</div>
+            <div class="px-3 flex items-center border-b border-g-400 text-g-800">IPC</div>
+            <div class="px-3 flex items-center text-g-800">2× StateFile</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-3">After · small interface, lifecycle inside</div>
+        <div class="grid grid-cols-2 gap-3 items-start">
+          <div class="mod p-0 overflow-hidden">
+            <div class="px-3 py-2 border-b border-g-500">ThemeService</div>
+            <div class="px-3 py-1.5 text-g-800 border-b border-g-400">catalog</div>
+            <div class="px-3 py-1.5 text-g-800 border-b border-g-400">palette</div>
+            <div class="px-3 py-1.5 text-g-800 border-b border-g-400">retint</div>
+            <div class="px-3 py-1.5 text-g-800 border-b border-g-400">targets</div>
+            <div class="px-3 py-1.5 text-g-800">IPC</div>
+          </div>
+          <div>
+            <div class="text-center mb-1"><span class="chip blue">list</span><span class="chip blue">current</span><span class="chip blue">select</span></div>
+            <div class="seam"></div>
+            <div class="mod deep mt-2 p-3" style="min-height:170px">
+              <div class="text-center mb-2">Background</div>
+              <div class="space-y-1.5 faded">
+                <div class="mod">per-theme memory</div><div class="mod">scan</div><div class="mod">queue behind awww</div><div class="mod">retry ×5</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="text-[11px] font-mono text-g-700 pt-3">ThemeService → "active theme changed" → Background</div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">"What happens when I pick a Background" threads eight functions and three queued flags interleaved with catalog, palette and retint code.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Move the stateful lifecycle beside the already-extracted parsers, behind the list/current/select surface the dashboard and IPC already use.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Locality: one lifecycle, one module</li><li>First adopter of card 01</li><li>ThemeService shrinks ~150 lines</li></ul></div>
+    </div>
+    <div class="adr px-4 py-2.5 text-sm">ADR 0010 / 0011 untouched: the shell still owns application, and the read and write paths still refuse untrusted names on their own.</div>
+  </article>
+
+  <!-- ===== 05 Player ===== -->
+  <article id="c5" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">05 · dashboard</div>
+        <h2 class="text-2xl font-semibold tracking-tight">A playback interface for the player block</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-worth">Worth exploring</span><span class="badge b-tag">local-substitutable</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>windows/DashboardPlayerBlock.qml:13-22</code> re-derives progress, unguarded</li>
+      <li><code>services/MprisPlayers.qml:67-71</code> <code>percentageProgress</code>, zero readers</li>
+      <li><code>windows/DashboardPlayerBlock.qml:40-42,107-135,188-201</code></li>
+      <li><code>services/SpotifyService.qml:26-28,63-68</code></li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-2">Before · view meets five collaborators</div>
+<pre class="mermaid">
+flowchart TB
+  d3P["PlayerBlock · progress · seek math · enablement"]
+  d3P --> d3M["MprisPlayers"]
+  d3P --> d3R["raw MprisPlayer"]
+  d3P --> d3S["SpotifyService"]
+  d3P --> d3D["DashboardService.close"]
+  d3P --> d3H["HyprlandFocus 'spotify'"]
+  d3X["percentageProgress (dead)"] -.-> d3M
+  classDef leak fill:#2a0c0e,stroke:#ff6369,color:#ff6369;
+  class d3P,d3X leak
+</pre>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-2">After · block binds display-ready values</div>
+<pre class="mermaid">
+flowchart LR
+  d4P["PlayerBlock"] --> d4I["Playback · progress · labels · transport · devices · open"]
+  d4I --> d4M["MprisPlayers"]
+  d4I --> d4S["SpotifyService"]
+  d4I --> d4H["HyprlandFocus"]
+  d4T["MprisLogic.js node tests"] --> d4I
+  classDef deep fill:#161616,stroke:#ededed,stroke-width:2px,color:#ededed;
+  classDef ok fill:#0b2312,stroke:#62c073,color:#62c073;
+  class d4I deep
+  class d4T ok
+</pre>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">Two progress derivations exist; the one in use lacks the <code class="font-mono text-xs">lengthSupported</code> guard, the guarded one is dead. Seek math and enablement live only in bindings.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Derived playback state and intents move behind one interface next to MprisPlayers; the block renders and forwards.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>One progress rule, guarded</li><li>Bar Media can reuse it</li><li>Seek math node-tested</li></ul></div>
+    </div>
+    <div class="adr px-4 py-2.5 text-sm">Close to plan 10's deferred "dashboard page adapters". Re-raised only for the concrete divergence (guarded vs unguarded progress). A two-line fix to that alone is the cheap alternative.</div>
+  </article>
+
+  <!-- ===== 06 Workspace submenu ===== -->
+  <article id="c6" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">06 · app launcher</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Build the workspace submenu from a plain snapshot</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-worth">Worth exploring</span><span class="badge b-tag">in-process → local-substitutable</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>services/AppService.qml:156-219</code> workspaceMenuItems assembly</li>
+      <li><code>services/AppLogic.js:466-572</code> workspaceMenu (node-tested)</li>
+      <li><code>scripts/test-app-launcher.sh:459-501</code> grep-only on the assembly</li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-3">Before · decisions split across the seam</div>
+        <div class="space-y-2">
+          <div class="grid grid-cols-4 gap-1.5"><div class="mod text-center" style="padding:5px 2px">Monitor</div><div class="mod text-center" style="padding:5px 2px">Hyprland</div><div class="mod text-center" style="padding:5px 2px">Dashboard</div><div class="mod text-center" style="padding:5px 2px">toplevels</div></div>
+          <div class="mod leak" style="padding:12px">AppService.workspaceMenuItems
+            <div class="mt-1"><span class="chip red">disabled tagging</span><span class="chip red">fallback monitor</span><span class="chip red">occupied set</span><span class="chip red">active −1</span></div>
+            <div class="mt-1 text-[10px] normal-case tracking-normal">grep-tested only</div></div>
+          <div class="seam"></div>
+          <div class="mod" style="padding:10px">AppLogic.workspaceMenu <span class="chip green">node</span><div class="mt-1"><span class="chip">anchor-first</span><span class="chip">hints</span></div></div>
+        </div>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-3">After · thin read, deep builder</div>
+        <div class="space-y-2">
+          <div class="grid grid-cols-4 gap-1.5"><div class="mod text-center" style="padding:5px 2px">Monitor</div><div class="mod text-center" style="padding:5px 2px">Hyprland</div><div class="mod text-center" style="padding:5px 2px">Dashboard</div><div class="mod text-center" style="padding:5px 2px">toplevels</div></div>
+          <div class="mod" style="padding:6px 10px">AppService · snapshot read (plain data)</div>
+          <div class="seam"></div>
+          <div class="mod deep" style="padding:14px">AppLogic.workspaceMenu <span class="chip green">node fixtures</span>
+            <div class="mt-2 faded"><span class="chip">anchor-first</span><span class="chip">disabled</span><span class="chip">fallback</span><span class="chip">occupied</span><span class="chip">current</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">The node-tested builder is fed by a QML assembly that makes its own decisions (disabled, fallback, occupied), where multi-monitor bugs would hide.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">QML hands over raw monitor and toplevel data; every decision moves into the pure builder.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Multi-monitor cases as fixtures</li><li>One snapshot feeds Ctrl+N too</li></ul></div>
+    </div>
+  </article>
+
+  <!-- ===== 07 Firefox ===== -->
+  <article id="c7" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">07 · desktop retint</div>
+        <h2 class="text-2xl font-semibold tracking-tight">One Firefox profile discovery, not two mirrors</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-worth">Worth exploring</span><span class="badge b-tag">local-substitutable</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>scripts/render-theme.sh:378-462</code> Python resolver</li>
+      <li><code>scripts/wire-themed-apps.sh:29-31</code> "keep the two in step by hand"</li>
+      <li><code>scripts/wire-themed-apps.sh:399-503</code> bash/awk resolver</li>
+      <li><code>scripts/test-wire-themed-apps.sh</code> tests the bash copy only</li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag flex flex-col">
+        <div class="label mb-3">Before · two implementations of one interface</div>
+        <div class="grid grid-cols-2 gap-4 flex-1 items-center">
+          <div class="mod leak" style="padding:14px">render-theme.sh<div class="mt-1 text-[10px] normal-case tracking-normal">python · INSTALL_SECTION regex</div></div>
+          <div class="mod leak" style="padding:14px">wire-themed-apps.sh<div class="mt-1 text-[10px] normal-case tracking-normal">awk · tab flatten</div></div>
+        </div>
+        <div class="text-center font-mono text-[11px] my-3" style="color:var(--red)">⇠ kept in step by hand ⇢</div>
+        <div class="grid grid-cols-2 gap-4"><div class="mod text-center">installs.ini</div><div class="mod text-center">profiles.ini</div></div>
+      </div>
+      <div class="panel p-4 diag flex flex-col">
+        <div class="label mb-3">After · one query, two callers</div>
+        <div class="grid grid-cols-2 gap-4"><div class="mod text-center">render-theme.sh</div><div class="mod text-center">wire-themed-apps.sh</div></div>
+        <div class="seam my-3"></div>
+        <div class="mod deep text-center" style="padding:16px">Firefox profile query<div class="mt-2 faded"><span class="chip">installs Default</span><span class="chip">IsRelative</span><span class="chip">psd never resolved</span></div></div>
+        <div class="mt-3 text-center"><span class="chip green">one fixture tree drives both callers</span></div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">The code itself admits the mirror. A Flatpak root or CRLF fix needs two edits in two languages, and only one copy is tested.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">One owned discovery step both scripts call; renderer and wire keep their separate write paths.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Locality: ini rules live once</li><li>Renderer inherits wire's tests</li></ul></div>
+    </div>
+    <div class="adr px-4 py-2.5 text-sm">Refines ADR 0018's Firefox discovery; the renderer still never writes user sheets. The constraint: <span class="font-mono">render-theme.sh</span> is <span class="font-mono">#!/bin/sh</span> + Python, so the shared step must add no runtime dependency.</div>
+  </article>
+
+  <!-- ===== 08 ContextMenu ===== -->
+  <article id="c8" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">08 · menus · tray + launcher</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Own the context-menu item contract and its width math</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-spec">Speculative</span><span class="badge b-tag">local-substitutable</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>components/ContextMenu.qml:17-22</code> contract as a comment</li>
+      <li><code>components/ContextMenu.qml:64-81,844-883</code> geometry + width</li>
+      <li><code>components/ContextMenuLogic.js</code> only indicatorWidth</li>
+      <li><code>services/TrayMenuLogic.js:15-38</code> tray dialect (id = text)</li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-2">Before · two dialects cross one seam</div>
+<pre class="mermaid">
+flowchart LR
+  d5T["TrayMenuLogic · id = label · live entry"] -- "dialect A" --> d5C["ContextMenu · inline width math"]
+  d5A["AppLogic + view"] -- "dialect B, half-built" --> d5C
+  d5G["~15 greps"] -.-> d5C
+  classDef leak fill:#2a0c0e,stroke:#ff6369,color:#ff6369;
+  class d5G leak
+</pre>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-2">After · normalized at the seam</div>
+<pre class="mermaid">
+flowchart LR
+  d6T["TrayMenuLogic"] --> d6N["item normalize + width math"]
+  d6A["Launcher menu (card 02)"] --> d6N
+  d6N --> d6C["ContextMenu (render)"]
+  d6X["node tests"] --> d6N
+  classDef deep fill:#161616,stroke:#ededed,stroke-width:2px,color:#ededed;
+  classDef ok fill:#0b2312,stroke:#62c073,color:#62c073;
+  class d6N deep
+  class d6X ok
+</pre>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">ContextMenu is deep and earns its keep, but its input contract lives in a comment, and ~40 lines of width arithmetic can only regress silently.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Normalize items at entry and move width/flip math beside <code class="font-mono text-xs">indicatorWidth</code>.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Malformed item fails at the seam</li><li>Falls out of card 02</li></ul></div>
+    </div>
+  </article>
+
+  <!-- ===== 09 Power ===== -->
+  <article id="c9" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">09 · power menu</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Give the power arm/confirm rules a testable home</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-spec">Speculative</span><span class="badge b-tag">in-process</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>services/PowerService.qml:16-49,103-119</code></li>
+      <li><code>windows/PowerCenter.qml:28-90,150</code> 8 shortcuts, per-row isArmed</li>
+      <li><code>scripts/test-panel-logic.sh:414-470</code> §7, shape only</li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-3">Before · state machine tested by grep</div>
+        <svg viewBox="0 0 320 200" class="w-full">
+          <g font-family="Geist Mono" font-size="10" text-anchor="middle">
+            <rect x="20" y="80" width="80" height="34" rx="6" fill="#111" stroke="#2e2e2e"/><text x="60" y="101" fill="#ededed">IDLE</text>
+            <rect x="220" y="80" width="80" height="34" rx="6" fill="#111" stroke="#2e2e2e"/><text x="280" y="101" fill="#ededed">ARMED</text>
+            <rect x="120" y="150" width="80" height="34" rx="6" fill="#111" stroke="#2e2e2e"/><text x="160" y="171" fill="#ededed">RUN</text>
+            <path d="M100 90 L218 90" stroke="#454545" fill="none"/><text x="160" y="84" fill="#8f8f8f" font-size="9">arm(x≠lock)</text>
+            <path d="M218 106 L102 106" stroke="#454545" fill="none"/><text x="160" y="120" fill="#8f8f8f" font-size="9">cancel · hide</text>
+            <path d="M260 114 L190 150" stroke="#454545" fill="none"/><text x="250" y="140" fill="#8f8f8f" font-size="9">confirm</text>
+            <path d="M60 114 L130 150" stroke="#454545" fill="none"/><text x="70" y="140" fill="#8f8f8f" font-size="9">lock</text>
+          </g>
+          <rect x="70" y="16" width="180" height="40" rx="6" fill="#2a0c0e" stroke="#ff636966"/>
+          <text x="160" y="40" fill="#ff6369" font-family="Geist Mono" font-size="10" text-anchor="middle">tested: command strings by grep</text>
+        </svg>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-3">After · same machine, behind PowerLogic.js</div>
+        <div class="mod" style="padding:8px">PowerService · one-line delegates</div>
+        <div class="seam my-3"></div>
+        <div class="mod deep" style="padding:16px">PowerLogic.js
+          <div class="mt-2 faded"><span class="chip">lock fires now</span><span class="chip">others arm</span><span class="chip">confirm inert when idle</span><span class="chip">label/dangerous lookup</span></div></div>
+        <div class="mt-3"><span class="chip green">node: arm → confirm → argv, never executed</span></div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">The most destructive user path is the only stateful area without a <code class="font-mono text-xs">*Logic.js</code>.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Standard §7 extraction; shrink gate §7 to shortcut presence.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Behaviour-tested destructive path</li><li>Small; low leverage</li></ul></div>
+    </div>
+  </article>
+
+  <!-- ===== 10 SystemMonitor ===== -->
+  <article id="c10" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">10 · dashboard data</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Gate SystemMonitor on readership; rows as data</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-spec">Speculative</span><span class="badge b-tag">in-process</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>services/SystemMonitor.qml:82-97</code> 6 reloads / 2 s, always</li>
+      <li><code>windows/DashboardCpuBlock.qml:32-34,92</code> index ternaries, inline 85/75</li>
+      <li><code>services/SpotifyService.qml:29-37</code> gated precedent</li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-4">Before · polls for the whole session</div>
+        <div class="space-y-4 font-mono text-[11px] text-g-700">
+          <div><div class="mb-1">dashboard</div><div class="flex h-3"><div style="width:20%"></div><div class="bar" style="width:15%;background:#52a8ff"></div><div style="width:40%"></div><div class="bar" style="width:10%;background:#52a8ff"></div></div></div>
+          <div><div class="mb-1">procfs reads ×6</div><div class="flex gap-[3px]">
+            <script>document.write(Array.from({length:40},()=>'<div style="width:4px;height:14px;background:#ff6369;border-radius:1px"></div>').join(''))</script></div></div>
+          <div class="pt-2">model: <span class="chip red">index 0 ? cpu : index 1 ? gpu : ram</span></div>
+        </div>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-4">After · polls while read</div>
+        <div class="space-y-4 font-mono text-[11px] text-g-700">
+          <div><div class="mb-1">dashboard</div><div class="flex h-3"><div style="width:20%"></div><div class="bar" style="width:15%;background:#52a8ff"></div><div style="width:40%"></div><div class="bar" style="width:10%;background:#52a8ff"></div></div></div>
+          <div><div class="mb-1">procfs reads ×6</div><div class="flex gap-[3px]">
+            <script>document.write(Array.from({length:40},(_, i)=>{const on=(i>=8&&i<14)||(i>=30&&i<34);return `<div style="width:4px;height:14px;background:${on?'#62c073':'#1f1f1f'};border-radius:1px"></div>`}).join(''))</script></div></div>
+          <div class="pt-2">model: <span class="chip green">meterRows[{label, percent, detail, alert}]</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">Its only reader is visible a fraction of the time; the row's meaning lives in its index.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Readership gate (free with card 01) plus rows exposed as data from SystemLogic.js.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Performance tab reuses rows</li><li>Thresholds node-tested</li></ul></div>
+    </div>
+  </article>
+
+  <!-- ===== 11 Polkit ===== -->
+  <article id="c11" class="card p-6 md:p-8 space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div class="label mb-1">11 · polkit agent</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Move polkit message rules behind PolkitService</h2>
+      </div>
+      <div class="flex gap-2 flex-wrap"><span class="badge b-spec">Speculative</span><span class="badge b-tag">ports &amp; adapters</span></div>
+    </div>
+    <ul class="files grid md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-g-700">
+      <li><code>services/PolkitService.qml</code> 38 lines, re-exports AuthFlow</li>
+      <li><code>windows/PolkitDialog.qml:15-27,61-86</code> derived state + focus retry</li>
+    </ul>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="panel p-4 diag">
+        <div class="label mb-4">Before · mass: interface ≈ implementation</div>
+        <div class="flex items-end gap-10 justify-center h-52">
+          <div class="text-center"><div class="flex items-end gap-1.5"><div style="width:28px;height:44px;background:#52a8ff55;border:1px solid #52a8ff"></div><div style="width:28px;height:50px;background:#2e2e2e;border:1px solid #454545"></div></div><div class="font-mono text-[10px] text-g-700 mt-2">PolkitService</div></div>
+          <div class="text-center"><div class="flex items-end gap-1.5"><div style="width:28px;height:30px;background:#52a8ff55;border:1px solid #52a8ff"></div><div style="width:28px;height:180px;background:#2a0c0e;border:1px solid #ff636966"></div></div><div class="font-mono text-[10px] text-g-700 mt-2">PolkitDialog</div></div>
+        </div>
+      </div>
+      <div class="panel p-4 diag">
+        <div class="label mb-4">After · service gains depth</div>
+        <div class="flex items-end gap-10 justify-center h-52">
+          <div class="text-center"><div class="flex items-end gap-1.5"><div style="width:28px;height:44px;background:#52a8ff55;border:1px solid #52a8ff"></div><div style="width:28px;height:100px;background:#161616;border:2px solid #ededed"></div></div><div class="font-mono text-[10px] text-g-700 mt-2">PolkitService + Logic</div></div>
+          <div class="text-center"><div class="flex items-end gap-1.5"><div style="width:28px;height:30px;background:#52a8ff55;border:1px solid #52a8ff"></div><div style="width:28px;height:130px;background:#111;border:1px solid #454545"></div></div><div class="font-mono text-[10px] text-g-700 mt-2">PolkitDialog (focus stays)</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6 text-sm">
+      <div><div class="prose-k mb-1">Problem</div><p class="text-g-800">The service is a pass-through; message and submit rules sit in dialog bindings.</p></div>
+      <div><div class="prose-k mb-1">Solution</div><p class="text-g-800">Pull the five derived properties behind the service; focus timing stays in the window.</p></div>
+      <div><div class="prose-k mb-1">Wins</div><ul class="wins text-g-800 space-y-1"><li>Rules node-testable</li><li>Doesn't touch the real bugs</li></ul></div>
+    </div>
+    <div class="adr px-4 py-2.5 text-sm">Both recent polkit fixes (aaaf471, eeb0525) were focus timing, which this would not move. Low payoff. Consistent with ADR 0015.</div>
+  </article>
+
+  </section>
+
+  <!-- ===== Considered and set aside ===== -->
+  <section class="card p-6 space-y-3">
+    <div class="label">Considered and set aside</div>
+    <ul class="grid md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-g-800">
+      <li><span class="font-mono text-xs text-g-900">Globals.qml split</span> · wide interface, but churn is purely additive; no friction event yet.</li>
+      <li><span class="font-mono text-xs text-g-900">Panels / PanelState / BarAnchor / PanelTrigger</span> · each already deep for its size; deletion re-scatters wiring.</li>
+      <li><span class="font-mono text-xs text-g-900">Launcher selection/keys controller</span> · view-bound, already covered by the qmltestrunner trio.</li>
+      <li><span class="font-mono text-xs text-g-900">Bar sink cycling into AudioService</span> · ADR 0014 puts interaction at the edge; pass-through.</li>
+      <li><span class="font-mono text-xs text-g-900">VolumeOsd vs Audio derivations</span> · both bind through AudioService; correct shape.</li>
+      <li><span class="font-mono text-xs text-g-900">Theme catalog / palette JSON / render seam</span> · plan 10 deferrals; catalog parity gate holds.</li>
+    </ul>
+  </section>
+
+  <!-- ===== Top recommendation ===== -->
+  <section id="top" class="rounded-xl p-[1px]" style="background:linear-gradient(135deg,#ededed55,#1f1f1f 40%,#1f1f1f 60%,#52a8ff55)">
+    <div class="rounded-xl p-8 md:p-10 space-y-5" style="background:#0a0a0a">
+      <div class="label">Top recommendation</div>
+      <h2 class="text-3xl md:text-4xl font-semibold tracking-tight"><a href="#c1" class="hover:underline">01 · One coalesced-run module</a></h2>
+      <p class="text-g-800 max-w-3xl text-lg">Two explorers found it independently. It is the only candidate with a live bug as evidence (Weather's boot double fetch), it has the most leverage (11 flags across 5 services), and it gives card 04 and card 10 a module to adopt. Prototype it on ThemeService's render + catalog pair first, with the starter injectable the way <code class="font-mono text-base">HyprlandFocus.dispatchImpl</code> already is.</p>
+      <div class="flex flex-wrap gap-2 pt-1">
+        <span class="badge b-tag">then 02: cheapest Strong, contained to the launcher</span>
+        <span class="badge b-spec">03 rides along: rewrite each gate section as its card lands</span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="text-xs font-mono text-g-600 flex justify-between pt-2">
+    <span>quickshell · 42c4710 · 2026-10-12</span>
+    <span>explorers: muse-spark-1.3-contributor · xhigh × 4</span>
+  </footer>
+</main>
+</body>
+</html>

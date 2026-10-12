@@ -14,6 +14,7 @@ Active work lives in [`docs/dev/roadmap.md`](../dev/roadmap.md). The domain glos
 | **09** | [`09-app-launcher-designs.html`](09-app-launcher-designs.html) | 🟢 Implemented | App launcher as the dashboard Apps tab: five variants (`?variant=1..5`). Variant 3 "Inline actions" shipped, with Focus and Kill replacing the inline workspace buttons. ADR 0018. |
 | **10** | [`10-deepen-seams-plan.md`](10-deepen-seams-plan.md) | 🟢 Implemented | Four seams from the 2026-10-11 architecture review: bar-trigger `PanelTrigger`, `SettingsLogic.js`, `CalendarLogic.js`, one volume glyph rule. |
 | **11** | [`11-dynamic-distro-logo.md`](11-dynamic-distro-logo.md) | 🟢 Implemented | Distro logo from `/etc/os-release` (ID, ID_LIKE) for the power-menu icon and dashboard system block, covering Arch, Debian, Red Hat, SUSE and independent families. |
+| **12** | [`12-architecture-review.html`](12-architecture-review.html) | 🟡 In progress (4 of 11 done) | 2026-10-12 architecture review at `42c4710`: eleven deepening cards (coalesced runs, launcher menu, interface gates, Background module, and seven pending). The status block records the per-card state; gaps the done cards left are in `docs/dev/roadmap.md`. |
 
 ---
 

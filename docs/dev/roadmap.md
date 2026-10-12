@@ -5,7 +5,7 @@ Planned work that is not done yet. Completed plan artifacts are frozen under
 work are in `docs/adr/`; domain terms in `CONTEXT.md`; coding rules in
 `docs/dev/CODING_STANDARDS.md`.
 
-Last updated: 2026-10-09.
+Last updated: 2026-10-12.
 
 ## Open
 
@@ -16,6 +16,29 @@ run never happened. Source: the `Variants` block in `shell.qml`. Done when each
 output is unplugged and replugged, the bar recreates with no errors, and the
 date is recorded.
 
+### Architecture review follow-ups
+
+Cards 05 to 11 of `docs/plans/12-architecture-review.html` are pending; its
+status block tracks them. The done cards left four gaps:
+
+- **MPRIS shuffle guard untested.** The card 03 review ruled the grep on the
+  `shuffleSupported` guard in `MprisPlayers.toggleShuffle()` out, and no
+  behaviour test replaced it. Done when a test drives `toggleShuffle()` on a
+  player without shuffle support and sees `shuffle` unchanged.
+- **Calendar zone times requested twice on boot.** In
+  `services/CalendarService.qml`, `idZoneTimer` (`triggeredOnStart`) requests a
+  zone run, and the `calendar-zones` state load then changes `worldZones`, whose
+  handler requests another. Done when boot issues one `calendar-clock.py` run
+  for the loaded zones.
+- **Card 01 drain race has no regression test.** The race fixed in the third
+  review round of the coalesced-run pass (a request landing around the deferred
+  drain in `services/CoalescedRun.qml`) is fixed in code only. Done when
+  `tests/coalesced-run.qml` fails on the pre-fix ordering.
+- **`app launcher` gate flake unexplained.** `scripts/test-app-launcher.sh`
+  failed once during card 01 and passed on rerun; the cause was never found.
+  Done when the flake is reproduced and fixed, or ruled out with a recorded
+  reason.
+
 ## Candidate
 
 Build only if it earns daily use.
@@ -25,6 +48,11 @@ Build only if it earns daily use.
 
 ## Done
 
+- Architecture review 12, cards 01 to 04: one `CoalescedRun` module for
+  every Process lifecycle, the launcher menu-item set behind `AppService`, gates
+  that test behaviour at the interface (`CODING_STANDARDS.md` §7), and the
+  Background lifecycle in `services/ThemeBackground.qml`
+  (`docs/plans/12-architecture-review.html`).
 - Persisted-settings schema: decided against a schema. `StateFile` owns the
   load guard and a `saveJson(payload)` helper, so every JSON writer goes through
   it; parsing stays per service.
