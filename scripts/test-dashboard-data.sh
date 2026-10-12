@@ -51,6 +51,24 @@ grep -q 'function formatUptime' "$SINFO" \
     || fail "SystemInfo has no formatUptime"
 grep -q 'function refresh' "$SINFO" \
     || fail "SystemInfo has no refresh"
+grep -q 'import "DistroLogic.js" as DistroLogic' "$SINFO" \
+    || fail "SystemInfo does not import DistroLogic.js"
+grep -q 'DistroLogic.distroGlyph' "$SINFO" \
+    || fail "SystemInfo.distroGlyph does not delegate to DistroLogic"
+grep -q '/etc/os-release' "$SINFO" \
+    || fail "SystemInfo does not read /etc/os-release"
+grep -q '/usr/lib/os-release' "$SINFO" \
+    || fail "SystemInfo has no /usr/lib/os-release fallback"
+grep -q 'onLoadFailed: root.useVendorOsRelease()' "$SINFO" \
+    || fail "SystemInfo's FileView does not route onLoadFailed to useVendorOsRelease"
+VENDOR_BODY="$(awk '/function useVendorOsRelease/,/^    }/' "$SINFO")"
+[[ "$VENDOR_BODY" == *'"/usr/lib/os-release"'* ]] \
+    || fail "useVendorOsRelease does not set the path to /usr/lib/os-release"
+
+ICONS="$ROOT/config/Icons.qml"
+if grep -q 'readonly property string distro:' "$ICONS"; then
+    fail "Icons.qml still defines distro; the distro glyph comes from SystemInfo.distroGlyph"
+fi
 
 DCENTER="$ROOT/windows/DashboardCenter.qml"
 grep -q 'SystemInfo.refresh()' "$DCENTER" \
@@ -71,6 +89,14 @@ grep -q 'SystemInfo.packagesText' "$SBLOCK" \
     || fail "DashboardSystemBlock does not read the live package count"
 grep -q 'SystemInfo.uptimeText' "$SBLOCK" \
     || fail "DashboardSystemBlock does not read the live uptime"
+grep -q 'icon: SystemInfo.distroGlyph' "$SBLOCK" \
+    || fail "DashboardSystemBlock does not read SystemInfo.distroGlyph for its icon"
+grep -q 'SystemInfo.osPrettyName' "$SBLOCK" \
+    || fail "DashboardSystemBlock does not fall back to SystemInfo.osPrettyName"
+
+PMENU="$ROOT/modules/PowerMenu.qml"
+grep -q 'text: SystemInfo.distroGlyph' "$PMENU" \
+    || fail "PowerMenu does not read SystemInfo.distroGlyph"
 
 # --- 2b. dashboard theme block: live palette, no stub wallpaper grid ---
 # The block is the switcher's second home: its swatches bind the shared mapped
@@ -734,6 +760,73 @@ check('format/gib-small', sl.formatGib(6 * 1024 ** 3), '6.0');
 check('format/rate-mb', sl.formatRate(1572864), '1.5 MB/s');
 check('format/rate-kb', sl.formatRate(2048), '2 KB/s');
 check('format/rate-b', sl.formatRate(700), '700 B/s');
+NODEEOF
+
+# services/DistroLogic.js: os-release parsing and the ID -> glyph table. The
+# table rows are read from the source so each glyph is checked against the
+# U+ codepoint in its comment; the expected mapping is typed out here.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/DistroLogic.js" "$ROOT/tests/fixtures/os-release-cachyos" "$ROOT/tests/fixtures/os-release-ubuntu" "$ROOT/tests/fixtures/os-release-bazzite" <<'NODEEOF'
+const fs = require('fs');
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('dashboard-data');
+const dl = qmljs.load(process.argv[3]);
+const glyph = (hex) => String.fromCodePoint(parseInt(hex, 16));
+const TUX = 'F31A';
+
+const EXPECTED = 'arch:F303 cachyos:F385 endeavouros:F322 manjaro:F312 garuda:F337 artix:F31F arcolinux:F346 archcraft:F345 archlabs:F31E parabola:F340 hyperbola:F33A biglinux:F347 debian:F306 ubuntu:F31B pop:F32A linuxmint:F30E elementary:F309 zorin:F32F kali:F327 parrot:F329 raspbian:F315 deepin:F321 mx:F33F devuan:F307 tails:F343 trisquel:F344 postmarketos:F374 fedora:F30A nobara:F380 rhel:F316 centos:F304 rocky:F32B almalinux:F31D opensuse-tumbleweed:F37D opensuse-leap:F37E opensuse:F314 suse:F314 nixos:F313 gentoo:F30D void:F32E alpine:F300 slackware:F318 solus:F32D guix:F325 qubes:F342 mageia:F310 openwrt:F382 freebsd:F30C openbsd:F328';
+
+const source = fs.readFileSync(process.argv[3], 'utf8');
+const rows = [...source.matchAll(/^\s+"([a-z0-9-]+)": "(.)",?\s+\/\/ nf-linux-\S+ U\+([0-9A-F]{4})$/gm)].map((m) => ({
+    id: m[1],
+    hex: m[2].codePointAt(0).toString(16).toUpperCase(),
+    comment: m[3],
+}));
+const fallback = source.match(/^const DISTRO_FALLBACK_GLYPH = "(.)";\s+\/\/ nf-linux-tux U\+([0-9A-F]{4})$/m);
+
+check('table/rows', rows.map((r) => `${r.id}:${r.hex}`).join(' '), EXPECTED);
+check('table/comment-matches-glyph', rows.filter((r) => r.hex !== r.comment).map((r) => r.id), []);
+check('table/pua-range', rows.filter((r) => { const c = parseInt(r.hex, 16); return c < 0xF300 || c > 0xF385; }).map((r) => r.id), []);
+const tableBody = source.slice(source.indexOf('const DISTRO_GLYPHS'), source.indexOf('\n};'));
+check('table/every-line-parsed', rows.length, tableBody.split('\n').filter((l) => /^\s+"/.test(l)).length);
+check('table/fallback-codepoint', fallback ? fallback[2] : null, TUX);
+check('table/fallback-glyph', fallback ? fallback[1].codePointAt(0).toString(16).toUpperCase() : null, TUX);
+for (const pair of EXPECTED.split(' ')) {
+    const [id, hex] = pair.split(':');
+    check(`map/${id}`, dl.distroGlyph(id, []), glyph(hex));
+}
+
+check('parse/empty', dl.parseOsRelease(''), { id: '', idLike: [], prettyName: '' });
+check('parse/garbage', dl.parseOsRelease('this is not os-release\n\n====\n=x\n'), { id: '', idLike: [], prettyName: '' });
+check('parse/unquoted', dl.parseOsRelease('ID=arch\nID_LIKE=\nPRETTY_NAME=Arch'), { id: 'arch', idLike: [], prettyName: 'Arch' });
+check('parse/double-quoted', dl.parseOsRelease('ID="fedora"\nID_LIKE="rhel centos"\nPRETTY_NAME="Fedora Linux 41"'), { id: 'fedora', idLike: ['rhel', 'centos'], prettyName: 'Fedora Linux 41' });
+check('parse/single-quoted', dl.parseOsRelease("PRETTY_NAME='Pop!_OS 22.04'\nID='pop'"), { id: 'pop', idLike: [], prettyName: 'Pop!_OS 22.04' });
+check('parse/single-quote-literal', dl.parseOsRelease(String.raw`PRETTY_NAME='a\"b\\c'`).prettyName, String.raw`a\"b\\c`);
+check('parse/double-escapes', dl.parseOsRelease('PRETTY_NAME="a \\"b\\" \\\\ \\$c \\`d\\`"').prettyName, 'a "b" \\ $c `d`');
+check('parse/id-lowercased', dl.parseOsRelease('ID=CachyOS\nID_LIKE="Ubuntu DEBIAN"'), { id: 'cachyos', idLike: ['ubuntu', 'debian'], prettyName: '' });
+check('parse/crlf', dl.parseOsRelease('ID=cachyos\r\nID_LIKE=arch\r\nPRETTY_NAME="CachyOS Linux"\r\n'), { id: 'cachyos', idLike: ['arch'], prettyName: 'CachyOS Linux' });
+check('parse/comments-blank', dl.parseOsRelease('# generated\n\n   \nID=arch\n# ID=ignored\nPRETTY_NAME="Arch Linux"\n'), { id: 'arch', idLike: [], prettyName: 'Arch Linux' });
+check('parse/equals-in-value', dl.parseOsRelease('PRETTY_NAME=a=b').prettyName, 'a=b');
+check('fixture/cachyos', dl.parseOsRelease(fs.readFileSync(process.argv[4], 'utf8')), { id: 'cachyos', idLike: ['arch'], prettyName: 'CachyOS Linux' });
+check('fixture/ubuntu', dl.parseOsRelease(fs.readFileSync(process.argv[5], 'utf8')), { id: 'ubuntu', idLike: ['debian'], prettyName: 'Ubuntu 24.04.1 LTS' });
+const bazzite = dl.parseOsRelease(fs.readFileSync(process.argv[6], 'utf8'));
+check('fixture/bazzite', bazzite, { id: 'bazzite', idLike: ['fedora'], prettyName: 'Bazzite (Kinoite)' });
+check('fixture/bazzite-glyph', dl.distroGlyph(bazzite.id, bazzite.idLike), glyph('F30A'));
+
+check('glyph/bazzite-idlike', dl.distroGlyph('bazzite', ['fedora']), glyph('F30A'));
+check('glyph/steamos-arch', dl.distroGlyph('steamos', ['arch']), glyph('F303'));
+check('glyph/sles-idlike-suse', dl.distroGlyph('sles', ['suse']), glyph('F314'));
+check('glyph/linuxmint-before-ubuntu', dl.distroGlyph('linuxmint', ['ubuntu', 'debian']), glyph('F30E'));
+check('glyph/exact-beats-idlike', dl.distroGlyph('ubuntu', ['debian']), glyph('F31B'));
+check('glyph/idlike-left-to-right', dl.distroGlyph('nonesuch', ['unknown', 'debian', 'arch']), glyph('F306'));
+check('glyph/idlike-string', dl.distroGlyph('bazzite', 'fedora'), glyph('F30A'));
+check('glyph/case-insensitive', dl.distroGlyph('CachyOS', ['Arch']), glyph('F385'));
+check('glyph/unknown-tux', dl.distroGlyph('templeos', []), glyph(TUX));
+check('glyph/empty-tux', dl.distroGlyph('', []), glyph(TUX));
+check('glyph/undefined-tux', dl.distroGlyph(undefined, undefined), glyph(TUX));
+check('glyph/unknown-idlike-tux', dl.distroGlyph('templeos', ['also-unknown']), glyph(TUX));
+check('glyph/prototype-constructor', dl.distroGlyph('constructor', []), glyph(TUX));
+check('glyph/prototype-idlike', dl.distroGlyph('toString', ['__proto__', 'hasOwnProperty']), glyph(TUX));
+check('glyph/prototype-id-falls-to-idlike', dl.distroGlyph('constructor', ['arch']), glyph('F303'));
 NODEEOF
 
 echo "dashboard-data: all ok"

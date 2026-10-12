@@ -1,0 +1,9 @@
+NAME="Bazzite"
+VERSION="41.20250101.0 (Kinoite)"
+ID=bazzite
+ID_LIKE="fedora"
+VERSION_ID=41
+PRETTY_NAME="Bazzite (Kinoite)"
+VARIANT="Kinoite"
+VARIANT_ID=kinoite
+HOME_URL="https://bazzite.gg/"

@@ -26,7 +26,7 @@ ModuleBox {
             pixelSize: Globals.fontPixelSize
             weight: Font.DemiBold
         }
-        text: Icons.distro
+        text: SystemInfo.distroGlyph
     }
 
     PanelTrigger {

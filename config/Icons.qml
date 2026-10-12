@@ -47,7 +47,6 @@ QtObject {
     readonly property string logout: "󰍃"  // md-logout U+F0343
     readonly property string restart: "󰜉"  // md-restart U+F0709
     readonly property string windows: "󰍲"  // md-microsoft U+F0372
-    readonly property string distro: ""  // linux-cachyos U+F385
     readonly property string open: "󰏌"  // md-open_in_new U+F03CC
     readonly property string openInApp: "󰏋"  // md-open_in_app U+F03CB
     readonly property string copy: "󰆏"  // md-content_copy U+F018F

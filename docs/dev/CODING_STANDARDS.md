@@ -441,6 +441,30 @@ All panels and plugins share tokens and primitives; never invent a parallel visu
   (`Globals.ui*Size`). Text sizes on reading surfaces never hardcode pixels.
 - Glyphs come from `config/Icons.qml` through `components/Icon.qml`; never write a nerd-font glyph literal in a module. The registry is the single source of truth for icon codepoints, so no glyph depends on fontconfig fallback picking a foreign family.
 
+### Distro logo
+
+The bar power icon and the dashboard system block show the host's logo from
+`/etc/os-release`, read once by `services/SystemInfo.qml` (`distroGlyph`), not
+from fastfetch, so the icon is right at login. The ID-to-glyph table is the one
+exception to the `Icons.qml` rule above: it lives in `services/DistroLogic.js`
+beside the parser, and `Icons.qml` keeps no logo constants. An unknown or
+unreadable host shows the Tux glyph.
+
+To add a distro:
+
+1. Add one row to `DISTRO_GLYPHS` in `services/DistroLogic.js`, keyed by the
+   exact os-release `ID`, with a `// nf-linux-<name> U+Fxxx` comment that
+   matches the glyph.
+2. Add the same `id:codepoint` pair to the `EXPECTED` list in the DistroLogic
+   block of `scripts/test-dashboard-data.sh`.
+
+Derivatives with no row of their own resolve through `ID_LIKE`, so add a row
+only for a distinct logo.
+
+The glyphs are `nf-linux-*` (U+F300-U+F385). The icon font must include them,
+or fontconfig falls back to another family. Symbols Nerd Font 3.4 or newer is
+needed for `nobara` (U+F380) and `cachyos` (U+F385); older installs show a box.
+
 ### No layout reflow on state change
 
 - Reserve width with `TextMetrics` plus `minWidth` for state-swapped glyphs; keep disabled controls laid out (dim plus inert) instead of hiding them.

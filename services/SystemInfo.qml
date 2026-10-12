@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "SystemLogic.js" as SystemLogic
+import "DistroLogic.js" as DistroLogic
 
 Singleton {
     id: root
@@ -14,10 +15,25 @@ Singleton {
     property int packages: 0
     property real uptimeMs: 0
 
+    property string osId: ""
+    property string osIdLike: ""
+    property string osPrettyName: ""
+    property string osReleasePath: "/etc/os-release"
+
     readonly property string kernelText: root.formatKernel(root.kernel)
     readonly property string shellText: root.formatShell(Quickshell.env("SHELL"))
     readonly property string packagesText: root.formatPackages(root.packages)
     readonly property string uptimeText: root.formatUptime(root.uptimeMs)
+    readonly property string distroGlyph: DistroLogic.distroGlyph(root.osId, root.osIdLike)
+
+    FileView {
+        id: idOsReleaseFile
+
+        path: root.osReleasePath
+        printErrors: false
+        onLoaded: root.applyOsRelease(idOsReleaseFile.text())
+        onLoadFailed: root.useVendorOsRelease()
+    }
 
     Process {
         id: idSystemInfoProcess
@@ -36,6 +52,17 @@ Singleton {
         if (idSystemInfoProcess.running)
             return;
         idSystemInfoProcess.running = true;
+    }
+
+    function applyOsRelease(text: string): void {
+        const parsed = DistroLogic.parseOsRelease(text);
+        root.osId = parsed.id;
+        root.osIdLike = parsed.idLike.join(" ");
+        root.osPrettyName = parsed.prettyName;
+    }
+
+    function useVendorOsRelease(): void {
+        root.osReleasePath = "/usr/lib/os-release";
     }
 
     function applyFastfetch(text: string): void {

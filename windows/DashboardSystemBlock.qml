@@ -94,8 +94,8 @@ Card {
 
                 Layout.fillWidth: true
 
-                icon: Icons.distro
-                value: !(SystemInfo.distro === "") ? SystemInfo.distro : qsTr("Unknown")
+                icon: SystemInfo.distroGlyph
+                value: !(SystemInfo.distro === "") ? SystemInfo.distro : !(SystemInfo.osPrettyName === "") ? SystemInfo.osPrettyName : qsTr("Unknown")
             }
 
             SystemSpec {
