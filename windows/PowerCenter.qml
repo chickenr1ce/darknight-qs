@@ -147,7 +147,7 @@ PanelShell {
                 required property var modelData
                 required property int index
 
-                readonly property bool isArmed: PowerService.armedAction === (modelData ? modelData.actionId : "")
+                readonly property bool isArmed: PowerService.isArmed(modelData ? modelData.actionId : "")
                 readonly property bool isHovered: idPowerRowMouseArea.containsMouse
                 readonly property bool isPressed: idPowerRowMouseArea.containsPress
                 readonly property string rowLabel: modelData ? modelData.label : ""

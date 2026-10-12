@@ -48,9 +48,11 @@ scripts/test-dashboard-data.sh
 scripts/test-panel-logic.sh
 ```
 
-Section 6 of `test-dashboard-data.sh` checks the Open-Meteo URL, the 30 and
-60 minute intervals, the parser and formatter functions, and the
-`weather.json` cache. `test-panel-logic.sh` checks the settings view binds
-`WeatherService.locationName`, `searchLocations`, `selectLocation`, and
-`locationResults`, and that the city persists to `weather-location`.
+Section 6 of `test-dashboard-data.sh` checks the `weather.json` cache and
+`weather-location` state names, the `WeatherLogic.js` import plus the service's
+`qs.services` self-import, and that the weather block spawns no `Process`; its
+node run drives the real `WeatherLogic.parseWeather` and the WMO glyph map.
+`test-panel-logic.sh` runs the `WeatherLogic` location oracles
+(`parseLocations`, `isValidLocation`) and the boot-poll decision
+(`shouldBootPoll`), so exactly one fetch fires whether or not a city is saved.
 `tests/fixtures/open-meteo-forecast.json` is the sample payload.

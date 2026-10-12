@@ -560,17 +560,27 @@ runs the gate; bypass a single commit with `--no-verify`.
 Pure logic (parsing, formatting, ordering, clamping) lives in a `.pragma library`
 JS file beside its service: `services/WeatherLogic.js`, `SpotifyLogic.js`,
 `MprisLogic.js`, `MonitorLogic.js`, `SystemLogic.js`, `AudioLogic.js`,
-`SettingsLogic.js`, `CalendarLogic.js`, plus the shared `services/StateParsers.js`
-and `services/ThemeParsers.js`. The QML service
+`SettingsLogic.js`, `CalendarLogic.js`, `PowerLogic.js`, `CoalescedRunLogic.js`,
+`AppLogic.js`, plus the shared `services/StateParsers.js` and
+`services/ThemeParsers.js`. The QML service
 imports it and keeps its public functions as one-line delegates; a binding that
-reads service state passes that state in as an argument so it stays reactive,
-and the delegating call site stays, because the tests assert it.
+reads service state passes that state in as an argument so it stays reactive.
+The delegates stay because they are the service's interface, not to satisfy a
+grep.
 
 Its tests run the real file under node through `tests/qmljs.js`, not a Python
 copy of the logic, so a broken shipped file fails the gate. Keep a Python oracle
 only for logic still bound to a QML timer, process, or type that node cannot
 load. `tests/mutation-probe.sh` plants one bug at a time and reports which checks
 catch it; run it by hand, it is not a gate.
+
+Behaviour is tested at the interface: a `*Logic.js` file under node through
+`tests/qmljs.js`, a live type through `qmltestrunner`, a `scripts/*.sh` change
+through a fixture run. Text greps stay only for structure rules — a single owner
+of a concern, a forbidden dependency, a registry or self-import, a trust
+boundary. Do not grep for a property name, binding text, a function body, or a
+call count: `qmllint` and `boot-check.sh` already catch a rename or a load
+failure, and anything visual needs a live test.
 
 Review fanout: default to one spec pass plus one QML pass over the final diff,
 each starting from `git diff` and the ticket rather than re-reading the codebase,

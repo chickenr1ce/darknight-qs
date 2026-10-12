@@ -3,11 +3,13 @@
 #
 # A full QML boot needs a compositor, so this gate checks two things that run
 # anywhere:
-#   1. structural assertions over the QML: the bar no longer opens the native
-#      Qt popup (QsMenuAnchor), the tray menu is a registered panel hosting the
-#      shared ContextMenu, and the descriptor mapping lives in
-#      TrayMenuLogic.js;
-#   2. node runs of the shipped pure mapping through tests/qmljs.js.
+#   1. structure rules over the QML: the bar must not fall back to the native Qt
+#      popup (QsMenuAnchor), the tray menu has one owner (the bar hands the click
+#      to TrayMenuService, which moves the PanelState through the Panels
+#      registry), TrayMenu hosts the shared ContextMenu, and PanelGrab keeps the
+#      bar in the grab while the menu is open;
+#   2. node runs of the shipped pure mapping (TrayMenuLogic.js, consumed through
+#      the shared ContextMenu) through tests/qmljs.js.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,42 +22,29 @@ LOGIC="$ROOT/services/TrayMenuLogic.js"
 WINDOW="$ROOT/windows/TrayMenu.qml"
 
 # --- 1. structure ---
+# No return to the platform popup: the menu is drawn in-shell.
 if grep -rn --include='*.qml' 'QsMenuAnchor' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" "$ROOT/components" | grep -q .; then
     fail "the native QsMenuAnchor popup is back"
 fi
+# One owner of the tray menu: the bar hands the click to TrayMenuService, and the
+# service moves the PanelState through the registry instead of writing it itself.
 grep -q 'TrayMenuService.toggleFor(' "$TRAY" \
     || fail "Tray does not toggle through TrayMenuService"
 grep -q 'Panels.toggleAt(idPanelState' "$SERVICE" \
     || fail "TrayMenuService does not toggle through the panel registry"
 grep -q 'Panels.openAt(idPanelState' "$SERVICE" \
     || fail "TrayMenuService does not switch items through the panel registry"
-grep -q '^\.pragma library' "$LOGIC" \
-    || fail "TrayMenuLogic.js is not a .pragma library"
-grep -q '^import "TrayMenuLogic.js" as TrayMenuLogic' "$SERVICE" \
-    || fail "TrayMenuService does not import TrayMenuLogic.js"
-grep -q 'QsMenuOpener' "$SERVICE" \
-    || fail "TrayMenuService does not read the menu through QsMenuOpener"
+# The seam with the shared menu component.
 grep -q 'ContextMenu {' "$WINDOW" \
     || fail "TrayMenu does not host the shared ContextMenu"
-grep -q 'PanelGrab.register(root)' "$WINDOW" \
-    || fail "TrayMenu does not register with PanelGrab"
-grep -q 'item.entry.triggered()' "$WINDOW" \
-    || fail "TrayMenu does not trigger the chosen entry"
-grep -q 'TrayMenuService.dismiss()' "$ROOT/shell.qml" \
-    || fail "shell.qml does not dismiss the tray menu on a bar press"
+# Regression guard: the bar stays in the grab, so a bar press does not clear the
+# grab at once while the pointer is still on the bar.
 if grep -q 'dismissedByBar' "$ROOT/services/PanelGrab.qml"; then
     fail "PanelGrab drops the bar from the grab again; the grab clears at once while the pointer is on the bar"
 fi
-grep -q 'menuShown' "$SERVICE" \
-    || fail "TrayMenuService does not keep the menu open through the fade-out"
-grep -q 'trayMenuLoadTimeoutMs' "$WINDOW" \
-    || fail "TrayMenu has no load timeout for menus that never fill"
-grep -q '^import "ContextMenuLogic.js" as ContextMenuLogic' "$ROOT/components/ContextMenu.qml" \
-    || fail "ContextMenu does not import ContextMenuLogic.js"
-grep -q 'TrayMenu {}' "$ROOT/shell.qml" \
-    || fail "shell.qml does not load TrayMenu"
-grep -q 'triggerScreen: idPanelWindow.modelData' <(grep -A3 'Tray {' "$ROOT/shell.qml") \
-    || fail "shell.qml does not pass Tray its triggerScreen"
+# Pure mapping module, loadable outside QML.
+grep -q '^\.pragma library' "$LOGIC" \
+    || fail "TrayMenuLogic.js is not a .pragma library"
 
 # --- 2. descriptor mapping runs under node ---
 node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/components/ContextMenuLogic.js" <<'NODEEOF'

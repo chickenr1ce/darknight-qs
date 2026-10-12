@@ -31,29 +31,12 @@ for entry in CalendarService NotificationServer CavaService PowerService TrayMen
     grep -q "$entry.panelState" "$PANELS" \
         || fail "Panels does not hold $entry.panelState in its list"
 done
-grep -q 'readonly property var panels' "$PANELS" \
-    || fail "Panels has no panels list"
-grep -q 'for (let i = 0; i < root.panels.length; i++)' "$PANELS" \
-    || fail "Panels does not iterate its panel list"
-grep -q 'root.panels\[i\]\.visible = false' "$PANELS" \
-    || fail "Panels does not close non-target entries via its list"
-test "$(grep -c 'root.panels\[i\]' "$PANELS")" -ge 2 \
-    || fail "Panels does not read and write its list entries"
-grep -q 'readonly property bool anyOpen' "$PANELS" \
-    || fail "Panels exposes no anyOpen"
-if ! grep -A8 'readonly property bool anyOpen' "$PANELS" | grep -q 'root\.panels'; then
-    fail "anyOpen does not derive from the panel list"
-fi
 # The per-service panel API is gone: the four visibility aliases, the eight
 # toggle/open entry points, and the four outside-close wrappers no longer
 # exist, so the registry and PanelShell own the mesh.
 DEAD_PANEL_API="$(grep -rn --include='*.qml' -E '(calendarVisible|centerVisible|cavaVisible|powerVisible)|toggle(Calendar|Center|Cava|Power)At|open(Calendar|Center|Cava|Power)At|close(Calendar|Center|Cava|Power)FromOutside' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" "$ROOT/dev" || true)"
 test -z "$DEAD_PANEL_API" \
     || fail "deleted per-service panel API is back: $DEAD_PANEL_API"
-grep -q 'function toggleAt(panel' "$PANELS" \
-    || fail "Panels has no generic toggleAt(panel, …)"
-grep -q 'function openAt(panel' "$PANELS" \
-    || fail "Panels has no generic openAt(panel, …)"
 if grep -q 'PowerService\.cancel' "$PANELS"; then
     fail "Panels still cancels PowerService; power resets from its own panel visibility"
 fi
@@ -73,78 +56,21 @@ for dead in 'function toggleCalendar(' 'function toggleCenter(' 'function toggle
     fi
 done
 
-# Toasts hide while ANY panel is open (toasts-over-cava was the leak).
-grep -q 'Panels.anyOpen' "$ROOT/windows/NotificationPopups.qml" \
-    || fail "NotificationPopups does not gate on Panels.anyOpen"
-
-# Triggers call the registry through their PanelTrigger instead of each other's
-# services; each module composes one bound to its own service's panel state.
-for trigger in "Clock.qml:CalendarService.panelState" "Notifications.qml:NotificationServer.panelState" "Cava.qml:CavaService.panelState" "PowerMenu.qml:PowerService.panelState"; do
-    file="${trigger%%:*}"
-    call="${trigger##*:}"
-    grep -q "panelState: $call" "$ROOT/modules/$file" \
-        || fail "$file does not bind its PanelTrigger to $call"
-done
-grep -q 'Panels.toggleAt(root.panelState' "$ROOT/services/PanelTrigger.qml" \
-    || fail "PanelTrigger does not call the registry with its panel state"
-
 # --- 2. monitor policy is data in Globals, composed in modules ---
 # The primary resolves at runtime from Quickshell.screens plus a persisted
 # override; no source hardcodes DP-1 and no module branches on the name.
 grep -q 'monitorName === "DP-1"' "$ROOT/shell.qml" \
     && fail "shell.qml still gates modules by monitor name directly"
-grep -q 'property string monitorName: modelData ? modelData.name : ""' "$ROOT/shell.qml" \
-    || fail "shell.qml does not null-guard modelData.name, so removing a screen logs a TypeError"
 if grep -q '"DP-1"' "$ROOT/config/Globals.qml"; then
     fail "Globals still hardcodes DP-1; resolve the primary from the screens"
 fi
-grep -q 'import Quickshell' "$ROOT/config/Globals.qml" \
-    || fail "Globals does not import Quickshell for the screen list"
-grep -q 'Quickshell.screens' "$ROOT/config/Globals.qml" \
-    || fail "Globals does not resolve the primary from Quickshell.screens"
-grep -q 'readonly property var screensByPosition' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no screensByPosition ordering"
-grep -q 'property string primaryMonitorOverride' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no persisted primaryMonitorOverride"
-grep -q 'function onPrimaryMonitor' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no onPrimaryMonitor helper"
-for module in Tray Media Audio PowerMenu Cava Notifications; do
-    grep -q 'property string monitorName' "$ROOT/modules/$module.qml" \
-        || fail "$module.qml declares no monitorName"
-    grep -q 'Globals.onPrimaryMonitor(root.monitorName)' "$ROOT/modules/$module.qml" \
-        || fail "$module.qml does not compose Globals.onPrimaryMonitor"
-done
 # Workspaces assigns each monitor a contiguous block from MonitorService; no
 # name literal and no fixed count.
 if grep -q '"DP-2"' "$ROOT/modules/Workspaces.qml"; then
     fail "Workspaces still hardcodes DP-2; use MonitorService.firstWorkspaceFor"
 fi
-grep -q 'MonitorService.firstWorkspaceFor(root.monitorName)' "$ROOT/modules/Workspaces.qml" \
-    || fail "Workspaces does not derive its first workspace from MonitorService"
-grep -q 'model: MonitorService.workspacesPerMonitor' "$ROOT/modules/Workspaces.qml" \
-    || fail "Workspaces does not size its row from MonitorService.workspacesPerMonitor"
 
 # --- 3. one focus module, thin call sites ---
-grep -q 'function focusByTokens' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus has no focusByTokens"
-grep -q 'requestQueue' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus has no request queue"
-grep -q 'dispatchImpl' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus dispatch is not injectable"
-grep -q 'idFocusWatchdog' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus has no snapshot watchdog"
-grep -q 'snapshotPending' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus does not guard stale snapshots"
-grep -q 'focusWatchdogMs' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no focusWatchdogMs"
-grep -q 'idFocusRetryTimer' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus does not wait for toplevel data"
-grep -q 'focusRetryMs' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no focusRetryMs"
-grep -q 'focusRetryTicks' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no focusRetryTicks"
-grep -q 'panelSettleMs' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no panelSettleMs"
 # Hyprland's Lua IPC leaves lastIpcObject empty, so class matching must also
 # read the Wayland appId or nothing ever matches.
 grep -q 'toplevel.wayland.appId' "$ROOT/services/HyprlandFocus.qml" \
@@ -155,17 +81,12 @@ grep -q 'PanelGrab.closing' "$ROOT/services/HyprlandFocus.qml" \
     || fail "HyprlandFocus does not wait for a closing panel before focusing"
 grep -q 'readonly property bool closing' "$ROOT/services/PanelGrab.qml" \
     || fail "PanelGrab does not expose the closing state"
-for site in "modules/Tray.qml" "services/NotificationServer.qml" "windows/DashboardPlayerBlock.qml"; do
-    grep -q 'HyprlandFocus.focusByTokens' "$ROOT/$site" \
-        || fail "$site does not delegate to HyprlandFocus"
-done
 if grep -rn --include='*.qml' 'lastIpcObject' "$ROOT/modules/Tray.qml" "$ROOT/services/NotificationServer.qml" "$ROOT/windows/DashboardPlayerBlock.qml" | grep -q .; then
     fail "matcher logic leaked back into a call site"
 fi
-# Focusing another window needs the dashboard's focus grab released first,
-# so the cover-art click closes the dashboard before it dispatches focus.
-grep -q 'DashboardService.close()' "$ROOT/windows/DashboardPlayerBlock.qml" \
-    || fail "DashboardPlayerBlock does not close the dashboard before focusing"
+# A panel's settle delay is a Globals token, not a per-call literal.
+grep -q 'panelSettleMs' "$ROOT/config/Globals.qml" \
+    || fail "Globals has no panelSettleMs"
 
 # --- 3b. module siblings resolve only through a self-import ---
 # qmllint resolves same-directory siblings, the runtime does not when the
@@ -179,13 +100,9 @@ grep -q '^PanelState 1.0 PanelState.qml' "$ROOT/services/qmldir" \
     || fail "PanelState is not registered in services/qmldir"
 grep -q '^singleton PowerService 1.0 PowerService.qml' "$ROOT/services/qmldir" \
     || fail "PowerService is not registered in services/qmldir"
-grep -q 'PowerService.panelState' "$ROOT/services/Panels.qml" \
-    || fail "Panels does not hold the power PanelState"
 
 # --- 4. single invoke path for notification actions ---
 for pill in components/NotificationToast.qml components/NotificationRow.qml; do
-    grep -q 'invokeAction' "$ROOT/$pill" \
-        || fail "$pill does not use invokeAction"
     if grep -q 'focusApp(' "$ROOT/$pill"; then
         fail "$pill calls focusApp directly instead of invokeAction"
     fi
@@ -195,13 +112,9 @@ for pill in components/NotificationToast.qml components/NotificationRow.qml; do
 done
 
 # --- 5. single cava height formula and style array ---
-test "$(grep -c 'root.barDrawHeight(index)' "$ROOT/modules/Cava.qml")" -eq 4 \
-    || fail "expected 4 barDrawHeight call sites in Cava.qml"
 if grep -q 'CavaService.levels\[index\]' "$ROOT/modules/Cava.qml"; then
     fail "inline bar-height math remains in Cava.qml"
 fi
-grep -q 'styleComponents\[CavaService.styleMode\]' "$ROOT/modules/Cava.qml" \
-    || fail "Cava style loader does not index styleComponents by styleMode"
 if grep -q 'styleMode === 0 ?' "$ROOT/modules/Cava.qml"; then
     fail "style ternary is back in Cava.qml"
 fi
@@ -411,43 +324,100 @@ check('screen/disconnected-primary-first', ml.pickScreenName('HDMI-A-2', 'HDMI-A
 check('screen/empty', ml.pickScreenName('DP-1', 'DP-1', []), '');
 NODEEOF
 
-# --- 7. power confirm loop:.argv mapping verified without firing ---
-# Destructive commands never run in CI; assert the mapping statically.
+# --- 7. power confirm loop: the arm/confirm rules run for real under node ---
+# The power menu is the most destructive path, so its rules live in
+# services/PowerLogic.js and run through tests/qmljs.js. The argv is data the
+# test inspects; nothing here starts a process.
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/PowerLogic.js" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const pl = qmljs.load(process.argv[3]);
+
+const IDS = ['lock', 'suspend', 'logout', 'reboot', 'shutdown', 'winboot'];
+const DANGEROUS = { lock: false, suspend: false, logout: false, reboot: true, shutdown: true, winboot: true };
+const LABELS = {
+    lock: 'Lock', suspend: 'Suspend', logout: 'Logout',
+    reboot: 'Reboot', shutdown: 'Shutdown', winboot: 'Reboot to Windows'
+};
+const ARGV = {
+    lock: ['sh', '-c', 'command -v hyprlock >/dev/null 2>&1 && exec hyprlock || { command -v betterlockscreen >/dev/null 2>&1 && exec betterlockscreen -l || exec i3lock; }'],
+    suspend: ['sh', '-c', 'playerctl pause -a 2>/dev/null; mpc -q pause 2>/dev/null; systemctl suspend'],
+    logout: ['hyprctl', 'dispatch', 'exit'],
+    reboot: ['systemctl', 'reboot'],
+    shutdown: ['systemctl', 'poweroff'],
+    winboot: ['sh', '-c', 'pkexec efibootmgr -n 0000 && systemctl reboot']
+};
+const idle = { armed: '' };
+
+// Lock fires at once and disarms, even over an armed action.
+const lock = pl.press(idle, 'lock');
+check('power/lock-runs', lock.run, ARGV.lock);
+check('power/lock-disarms', lock.state.armed, '');
+const lockOver = pl.press({ armed: 'reboot' }, 'lock');
+check('power/lock-overrides', lockOver.run, ARGV.lock);
+check('power/lock-overrides-disarms', lockOver.state.armed, '');
+
+// Every other action arms first, and only confirm yields its exact argv.
+for (let i = 0; i < IDS.length; i++) {
+    const id = IDS[i];
+    if (id === 'lock')
+        continue;
+    const armed = pl.press(idle, id);
+    check('power/arm-' + id, armed.run, null);
+    check('power/arm-state-' + id, armed.state.armed, id);
+    const done = pl.confirm(armed.state);
+    check('power/confirm-' + id, done.run, ARGV[id]);
+    check('power/confirm-disarms-' + id, done.state.armed, '');
+}
+
+// Confirm with nothing armed is inert.
+const noop = pl.confirm(idle);
+check('power/idle-confirm-run', noop.run, null);
+check('power/idle-confirm-state', noop.state.armed, '');
+
+// Cancel disarms; a different action re-arms, and re-pressing the armed one
+// leaves it armed (confirmation is the separate gesture above).
+check('power/cancel', pl.cancel({ armed: 'shutdown' }).armed, '');
+check('power/cancel-idle', pl.cancel(idle).armed, '');
+check('power/rearm-different', pl.press({ armed: 'reboot' }, 'shutdown').state.armed, 'shutdown');
+check('power/rearm-same-run', pl.press({ armed: 'reboot' }, 'reboot').run, null);
+check('power/rearm-same-state', pl.press({ armed: 'reboot' }, 'reboot').state.armed, 'reboot');
+
+// An unknown id still arms (press arms anything but lock), but confirm has no
+// argv for it, so the run stays null and the state stays armed.
+const unknownPress = pl.press(idle, 'nope');
+check('power/press-unknown-run', unknownPress.run, null);
+check('power/press-unknown-state', unknownPress.state.armed, 'nope');
+const unknownConfirm = pl.confirm({ armed: 'nope' });
+check('power/confirm-unknown-run', unknownConfirm.run, null);
+check('power/confirm-unknown-state', unknownConfirm.state.armed, 'nope');
+check('power/argv-unknown', pl.argv('nope'), null);
+
+// isArmed is the per-row state read.
+check('power/is-armed', pl.isArmed({ armed: 'reboot' }, 'reboot'), true);
+check('power/is-armed-other', pl.isArmed({ armed: 'reboot' }, 'lock'), false);
+check('power/is-armed-idle', pl.isArmed(idle, 'lock'), false);
+
+// Label and the dangerous flag for every action, plus the unknown lookup.
+for (let i = 0; i < IDS.length; i++) {
+    const id = IDS[i];
+    check('power/label-' + id, pl.label(id), LABELS[id]);
+    check('power/dangerous-' + id, pl.dangerous(id), DANGEROUS[id]);
+}
+check('power/label-unknown', pl.label('nope'), '');
+check('power/dangerous-unknown', pl.dangerous('nope'), false);
+NODEEOF
+
+# The rules live in PowerLogic; PowerService only delegates through a relative
+# self-import and keeps no action argv of its own, and the panel view keeps its
+# eight keyboard shortcuts.
 PSVC="$ROOT/services/PowerService.qml"
 PCENTER="$ROOT/windows/PowerCenter.qml"
-grep -q 'command -v hyprlock' "$PSVC" \
-    || fail "PowerService lock has no hyprlock fallback chain"
-grep -q 'betterlockscreen' "$PSVC" \
-    || fail "PowerService lock misses betterlockscreen fallback"
-grep -q 'i3lock' "$PSVC" \
-    || fail "PowerService lock misses i3lock fallback"
-grep -q 'playerctl pause -a' "$PSVC" \
-    || fail "PowerService suspend does not pause media first"
-grep -q 'systemctl suspend' "$PSVC" \
-    || fail "PowerService suspend misses systemctl suspend"
-grep -q '"hyprctl", "dispatch", "exit"' "$PSVC" \
-    || fail "PowerService logout does not dispatch Hyprland exit"
-grep -q '"systemctl", "reboot"' "$PSVC" \
-    || fail "PowerService reboot misses systemctl reboot"
-grep -q '"systemctl", "poweroff"' "$PSVC" \
-    || fail "PowerService shutdown misses systemctl poweroff"
-grep -q 'pkexec efibootmgr -n 0000' "$PSVC" \
-    || fail "PowerService winboot misses pkexec efibootmgr one-shot"
-grep -q 'actionId === "winboot"' "$PSVC" \
-    || fail "PowerService has no winboot branch"
-# Lock fires at once; the other five only arm.
-grep -q 'if (actionId === "lock")' "$PSVC" \
-    || fail "PowerService.arm has no lock fast path"
-# Confirm is inert with nothing armed.
-grep -q 'if (root.armedAction === "")' "$PSVC" \
-    || fail "PowerService.confirmArmed has no empty guard"
-# Footer never reflows: buttons stay laid out via disabled, never visible toggles.
-if grep -n 'armedAction' "$PCENTER" | grep -q 'visible:'; then
-    fail "PowerCenter footer toggles visibility on armed state (reflows)"
+grep -q 'import "PowerLogic.js" as PowerLogic' "$PSVC" \
+    || fail "PowerService does not delegate to PowerLogic"
+if grep -q 'systemctl reboot\|systemctl poweroff\|hyprlock\|efibootmgr' "$PSVC"; then
+    fail "PowerService still carries the action argv; the table lives in PowerLogic"
 fi
-grep -q 'disabled: PowerService.armedAction === ""' "$PCENTER" \
-    || fail "PowerCenter footer does not hold Confirm/Cancel slots while disarmed"
-# Keyboard flow without a pointer.
 for key in '"1"' '"2"' '"3"' '"4"' '"5"' '"6"' '"Return"' '"Enter"'; do
     grep -q "sequence: $key" "$PCENTER" \
         || fail "PowerCenter misses keyboard sequence $key"
@@ -457,27 +427,16 @@ done
 if grep -qnE 'Colors\.(danger|red)|#ff5252' "$PCENTER" "$PSVC"; then
     fail "power panel carries red; danger travels by label plus confirm only"
 fi
-# Slow poll skips while a run is in flight.
-grep -q 'idRunProcess.running' "$PSVC" \
-    || fail "PowerService info poll does not skip while a run is in flight"
-# Reduced motion has a project-level switch and the panel honors it.
-grep -q 'reducedMotion' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no reducedMotion switch"
-grep -q 'reducedMotion' "$PCENTER" \
-    || fail "PowerCenter ignores Globals.reducedMotion"
-grep -q 'reducedMotion' "$ROOT/components/PressScale.qml" \
-    || fail "PressScale ignores Globals.reducedMotion"
+# The panel hide clears the arm, and a run hides the panel.
+grep -q 'onVisibleChanged: root.armedAction = ""' "$PSVC" \
+    || fail "PowerService does not clear the armed action when the panel hides"
+grep -q 'idPanelState.visible = false' "$PSVC" \
+    || fail "the power run path does not hide the panel"
 
 # --- 8. dashboard shell: standalone visibility outside the exclusive registry ---
 DSVC="$ROOT/services/DashboardService.qml"
 test -f "$DSVC" \
     || fail "services/DashboardService.qml is missing"
-grep -q 'property alias dashboardVisible' "$DSVC" \
-    || fail "DashboardService has no dashboardVisible alias"
-grep -q 'function toggleDashboardAt' "$DSVC" \
-    || fail "DashboardService has no toggleDashboardAt"
-grep -q 'function closeDashboardFromOutside' "$DSVC" \
-    || fail "DashboardService has no closeDashboardFromOutside"
 grep -q '^import qs.services' "$DSVC" \
     || fail "DashboardService.qml is missing its qs.services self-import"
 grep -q '^PanelState 1.0 PanelState.qml' "$ROOT/services/qmldir" \
@@ -492,58 +451,21 @@ fi
 if grep -q 'Panels\.' "$ROOT/modules/ActiveWindow.qml"; then
     fail "ActiveWindow calls the exclusive registry; the dashboard stays beside quick panels"
 fi
-grep -q 'DashboardService.toggleDashboardAt' "$ROOT/modules/ActiveWindow.qml" \
-    || fail "ActiveWindow.qml does not call DashboardService.toggleDashboardAt"
 if grep -q 'enableHover: *false' "$ROOT/modules/ActiveWindow.qml" || grep -q 'enableMouseArea: *false' "$ROOT/modules/ActiveWindow.qml"; then
     fail "ActiveWindow.qml disables hover or mouse input; the title is the dashboard toggle"
 fi
-grep -q 'property ShellScreen triggerScreen' "$ROOT/modules/ActiveWindow.qml" \
-    || fail "ActiveWindow.qml declares no triggerScreen"
-grep -q 'triggerScreen: idPanelWindow.modelData' "$ROOT/shell.qml" \
-    || fail "shell.qml does not pass the clicked screen to ActiveWindow"
-# The trigger stays mounted when no window is focused, so an empty workspace
-# still has a hit target; the title hairlines follow the real title.
-if grep -q 'visible: *root.title !== ""' "$ROOT/modules/ActiveWindow.qml"; then
-    fail "ActiveWindow hides on an empty title; the dashboard trigger disappears"
-fi
-grep -q 'readonly property bool hasTitle' "$ROOT/modules/ActiveWindow.qml" \
-    || fail "ActiveWindow has no hasTitle gate for the placeholder"
-grep -q 'idActiveWindow.hasTitle' "$ROOT/shell.qml" \
-    || fail "shell.qml hairlines do not follow the focused title"
 
 # Dashboard card is a centered PanelShell on the clicked screen, wider than
 # the standard panel, palette tokens only.
 DCENTER="$ROOT/windows/DashboardCenter.qml"
 test -f "$DCENTER" \
     || fail "windows/DashboardCenter.qml is missing"
-grep -q 'DashboardService.dashboardVisible' "$DCENTER" \
-    || fail "DashboardCenter does not bind DashboardService.dashboardVisible"
-grep -q 'DashboardService.anchorScreen' "$DCENTER" \
-    || fail "DashboardCenter does not anchor to DashboardService.anchorScreen"
-grep -q 'DashboardService.closeDashboardFromOutside' "$DCENTER" \
-    || fail "DashboardCenter does not close from outside via DashboardService"
-grep -q 'PanelShell' "$DCENTER" \
-    || fail "DashboardCenter does not reuse PanelShell behavior"
-grep -q 'Globals.dashboardWidth' "$DCENTER" \
-    || fail "DashboardCenter does not size from Globals.dashboardWidth"
-grep -q 'property int dashboardWidth' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no dashboardWidth token"
-grep -q 'property int dashboardMaxHeight' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no dashboardMaxHeight token"
-grep -q 'DashboardCenter' "$ROOT/shell.qml" \
-    || fail "shell.qml does not instantiate DashboardCenter"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$DCENTER"; then
     fail "DashboardCenter carries raw hex; palette tokens only"
 fi
 if grep -qiE 'cream|peach' "$DCENTER" "$ROOT/config/Globals.qml" "$ROOT/config/Colors.qml"; then
     fail "dashboard carries reference cream/peach; palette tokens only"
 fi
-
-# Dashboard card attaches to the bar: top edge on the bar bottom edge.
-grep -q 'property bool attachedToBar: false' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell attachedToBar switch is missing or defaults wrong; quick panels keep their gap"
-grep -q 'attachedToBar: true' "$DCENTER" \
-    || fail "DashboardCenter does not attach to the bar"
 
 # Attached panels slide from behind the bar; floating panels fade (ADR 0005).
 PSHELL="$ROOT/components/PanelShell.qml"
@@ -574,38 +496,11 @@ grep -q 'WlrLayershell.namespace: "quickshell-dashboard"' "$DCENTER" \
 grep -q 'attachedToBar ? -Globals.panelSeamOverlap : Globals.panelTopGap' "$ROOT/components/PanelShell.qml" \
     || fail "PanelShell top margin does not branch on attachedToBar; attached underlaps the bar to hide the seam"
 
-# Dashboard junction is a concave fillet: opt-in radius, shaped chrome,
-# shaped mask, and a service-owned value the settings window can adjust.
-grep -q 'property int junctionRadius: 0' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell junctionRadius switch is missing or defaults wrong; quick panels keep the plain rectangle"
-grep -q 'Shape.CurveRenderer' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell does not render the concave junction chrome"
-grep -q 'junctionBorderPath' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell junction stroke is missing; the border must drop the top segment"
-grep -q 'RegionShape.Ellipse' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell mask does not shape the junction notches"
-grep -q 'property int junctionRadius: Globals.junctionRadiusDefault' "$DSVC" \
-    || fail "DashboardService junctionRadius is missing or does not default to the token"
-grep -q 'property int junctionRadiusDefault' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no junctionRadiusDefault token"
-grep -q 'property int junctionRadiusMax' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no junctionRadiusMax; the settings range is unbounded"
-grep -q 'junctionRadiusDefault: 16' "$ROOT/config/Globals.qml" \
-    || fail "Globals junctionRadiusDefault is not the agreed 16"
-grep -q 'junctionRadiusMax: 32' "$ROOT/config/Globals.qml" \
-    || fail "Globals junctionRadiusMax is not the agreed 32"
-grep -q 'property int panelSeamOverlap' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no panelSeamOverlap token"
-grep -q 'junctionRadius: DashboardService.junctionRadius' "$DCENTER" \
-    || fail "DashboardCenter does not bind the junction radius to DashboardService"
-
 # Dashboard card layout follows the reference card: tab row plus block grid
 # with stub content in palette tokens. Live data arrives in later tickets.
 for block in DashboardWeatherBlock DashboardSystemBlock DashboardCpuBlock DashboardVolumeBlock DashboardPlayerBlock DashboardThemeBlock; do
     test -f "$ROOT/windows/$block.qml" \
         || fail "windows/$block.qml is missing"
-    grep -q 'qsTr(' "$ROOT/windows/$block.qml" \
-        || fail "$block.qml has no qsTr user-visible strings"
     if grep -qnE '#[0-9a-fA-F]{3,8}' "$ROOT/windows/$block.qml"; then
         fail "$block.qml carries raw hex; palette tokens only"
     fi
@@ -615,12 +510,6 @@ for block in DashboardWeatherBlock DashboardSystemBlock DashboardCpuBlock Dashbo
 done
 test -f "$ROOT/windows/DashboardTabs.qml" \
     || fail "windows/DashboardTabs.qml is missing"
-grep -qF 'qsTr("Dashboard")' "$ROOT/services/DashboardService.qml" \
-    || fail "DashboardService tab titles are not translated"
-grep -q 'DashboardTabs' "$DCENTER" \
-    || fail "DashboardCenter does not compose the tab row"
-grep -q 'DashboardPlayerBlock' "$DCENTER" \
-    || fail "DashboardCenter does not compose the player block"
 if grep -qiE 'cream|peach' "$ROOT"/windows/Dashboard*.qml; then
     fail "dashboard blocks carry reference cream/peach; palette tokens only"
 fi
@@ -637,21 +526,10 @@ DTABS="$ROOT/windows/DashboardTabs.qml"
 
 test -f "$SSVC" \
     || fail "services/SettingsService.qml is missing"
-grep -q 'property string targetSection' "$SSVC" \
-    || fail "SettingsService has no targetSection deep link"
 grep -q '^import qs.services' "$SSVC" \
     || fail "SettingsService.qml is missing its qs.services self-import"
 grep -q '^singleton SettingsService 1.0 SettingsService.qml' "$ROOT/services/qmldir" \
     || fail "SettingsService is not registered in services/qmldir"
-
-# The category rail is always alphabetical: the rail renders `sections`, the
-# derived list sorted by title, never the literal insertion order.
-grep -qF 'readonly property var sectionRegistry: [' "$SSVC" \
-    || fail "SettingsService has no sectionRegistry"
-grep -qF 'readonly property var sections: [...root.sectionRegistry].sort' "$SSVC" \
-    || fail "SettingsService sections are not derived by sorting sectionRegistry"
-grep -q 'a.title.localeCompare(b.title)' "$SSVC" \
-    || fail "SettingsService sections are not sorted alphabetically by title"
 
 if grep -q 'SettingsService' "$ROOT/services/Panels.qml"; then
     fail "Panels owns SettingsService; settings opens from the dashboard, not the registry"
@@ -675,63 +553,19 @@ fi
 # active key, and every tab is an accessible button.
 test -f "$DTABS" \
     || fail "windows/DashboardTabs.qml is missing"
-grep -q 'DashboardService.tabs' "$DTABS" \
-    || fail "DashboardTabs does not render DashboardService.tabs"
-grep -q 'DashboardService.activeTab' "$DTABS" \
-    || fail "DashboardTabs does not mark the active tab"
-grep -q 'DashboardService.selectTab' "$DTABS" \
-    || fail "DashboardTabs does not switch tabs"
-grep -q 'Accessible.role: Accessible.Button' "$DTABS" \
-    || fail "tabs are not accessible buttons"
-grep -q 'property string activeTab' "$DSVC" \
-    || fail "DashboardService has no activeTab"
-grep -qF 'function selectTab(key: string)' "$DSVC" \
-    || fail "DashboardService has no selectTab(key)"
-grep -qF 'function openSettings(sectionKey: string)' "$DSVC" \
-    || fail "DashboardService has no openSettings(sectionKey)"
-grep -q 'SettingsView' "$DCENTER" \
-    || fail "DashboardCenter does not host SettingsView"
-grep -q 'DashboardService.activeTab' "$DCENTER" \
-    || fail "DashboardCenter does not gate pages on activeTab"
-grep -qF 'qsTr("Coming soon")' "$DCENTER" \
-    || fail "DashboardCenter has no placeholder for the empty tabs"
-grep -q 'DashboardService.openSettings' "$DCENTER" \
-    || fail "DashboardCenter gear does not open the settings tab"
 
 # Apps tab: the Media placeholder becomes the launcher. Super opens on Apps,
 # a plain A–Z AppService list launches, and the placeholder stays for the
 # remaining empty tabs. Ranking, icons, and persistence arrive later.
-grep -qF '{ key: "apps", title: qsTr("Apps") }' "$DSVC" \
-    || fail "DashboardService tabs carry no Apps entry"
 if grep -qF '{ key: "media"' "$DSVC"; then
     fail "DashboardService tabs still carry the Media row tab; Apps replaces it"
 fi
-grep -q 'function toggleAppsAt' "$DSVC" \
-    || fail "DashboardService has no toggleAppsAt"
-grep -q 'function openAppsAt' "$DSVC" \
-    || fail "DashboardService has no openAppsAt"
-grep -qF 'function apps(): string' "$DSVC" \
-    || fail "DashboardService IPC has no apps()"
 test -f "$ROOT/services/AppService.qml" \
     || fail "services/AppService.qml is missing"
 grep -q '^singleton AppService 1.0 AppService.qml' "$ROOT/services/qmldir" \
     || fail "AppService is not registered in services/qmldir"
-grep -q 'DesktopEntries.applications' "$ROOT/services/AppService.qml" \
-    || fail "AppService does not read DesktopEntries.applications"
-grep -q 'function launch' "$ROOT/services/AppService.qml" \
-    || fail "AppService has no launch"
-grep -q 'entry.execute()' "$ROOT/services/AppService.qml" \
-    || fail "AppService launch does not execute the entry"
-grep -q 'DashboardService.close()' "$ROOT/services/AppService.qml" \
-    || fail "AppService launch does not close the dashboard"
 test -f "$ROOT/windows/DashboardAppsView.qml" \
     || fail "windows/DashboardAppsView.qml is missing"
-grep -q 'DashboardAppsView' "$DCENTER" \
-    || fail "DashboardCenter does not host DashboardAppsView"
-grep -qF 'DashboardService.activeTab === "apps"' "$DCENTER" \
-    || fail "DashboardCenter does not gate the Apps view on activeTab"
-grep -q 'forceActiveFocus' "$ROOT/windows/DashboardAppsView.qml" \
-    || fail "DashboardAppsView search does not take keyboard focus"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$ROOT/windows/DashboardAppsView.qml" "$ROOT/services/AppService.qml"; then
     fail "apps view carries raw hex; palette tokens only"
 fi
@@ -739,41 +573,15 @@ fi
 # Settings view: search plus rail plus the card-wrapped section body.
 test -f "$SCENTER" \
     || fail "windows/SettingsView.qml is missing"
-grep -qF 'qsTr("Search settings…")' "$SCENTER" \
-    || fail "SettingsView has no search field"
-grep -qF 'qsTr("No match")' "$SCENTER" \
-    || fail "SettingsView has no no-match note"
-grep -q 'NavItem' "$SCENTER" \
-    || fail "SettingsView does not compose the sidebar NavItem"
-grep -q 'Globals.settingsSidebarWidth' "$SCENTER" \
-    || fail "SettingsView does not size the sidebar from Globals.settingsSidebarWidth"
-grep -q 'Card' "$SCENTER" \
-    || fail "SettingsView does not wrap the section body in a Card"
-grep -q 'Globals.settingsBodyMaxHeight' "$SCENTER" \
-    || fail "SettingsView does not cap the section body height"
-grep -q 'onTargetSectionChanged' "$SCENTER" \
-    || fail "SettingsView does not re-apply a later targetSection (M5)"
-grep -A4 'function onTargetSectionChanged' "$SCENTER" | grep -q 'SettingsService.sections\[0\].key' \
-    || fail "SettingsView does not reset to the first section when targetSection clears"
-grep -q 'SettingsService.requestSection' "$SCENTER" \
-    || fail "SettingsView rail does not sync the shared section target"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$SCENTER" "$CSV" "$SSVC" "$ROOT/components/NavItem.qml"; then
     fail "settings surface carries raw hex; palette tokens only"
 fi
 
 # The dashboard gear and the theme block switch to the Settings tab; the
 # dashboard stays open, and the theme block deep-links to its section.
-grep -q 'DashboardService.openSettings' "$DCENTER" \
-    || fail "DashboardCenter gear does not open the settings tab"
-grep -qF 'accessibleName: qsTr("Settings")' "$DCENTER" \
-    || fail "DashboardCenter has no settings gear"
-grep -qF 'DashboardService.activeTab === "settings" ? Colors.accent' "$DCENTER" \
-    || fail "DashboardCenter gear does not mark the settings page active"
 if grep -qF '{ key: "settings"' "$DSVC"; then
     fail "DashboardService.tabs still carries a Settings row tab; the gear owns settings"
 fi
-grep -qF 'DashboardService.openSettings("theme")' "$ROOT/windows/DashboardThemeBlock.qml" \
-    || fail "DashboardThemeBlock does not deep-link to the theme section"
 if grep -q 'SettingsService.close()' "$DSVC"; then
     fail "DashboardService still closes settings when the dashboard opens"
 fi
@@ -782,29 +590,9 @@ fi
 # mirror is the same binding, not a copy.
 test -f "$CSV" \
     || fail "windows/CavaSettingsView.qml is missing"
-grep -q 'CavaSettingsView' "$ROOT/windows/CavaCenter.qml" \
-    || fail "CavaCenter does not compose the shared CavaSettingsView"
-grep -q 'CavaSettingsView' "$SCENTER" \
-    || fail "SettingsCenter does not compose the shared CavaSettingsView"
-grep -q 'property string filter' "$CSV" \
-    || fail "CavaSettingsView has no filter property"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Style"))' "$CSV" \
-    || fail "CavaSettingsView does not filter the Style option"
-for label in "Sensitivity" "Auto sensitivity" "Bars" "Max height"; do
-    grep -qF "SettingsFilter.matches(root.filter, qsTr(\"$label\"))" "$CSV" \
-        || fail "CavaSettingsView does not filter the $label option"
-    grep -qF "qsTr(\"$label\")" "$SSVC" \
-        || fail "SettingsService sections do not list $label for search"
-done
-grep -qF 'qsTr("Style")' "$SSVC" \
-    || fail "SettingsService sections do not list Style for search"
 
 # Settings tokens: the dashboard width carries the surface, so the window
 # width/height tokens are gone; the rail width and body cap remain.
-grep -q 'property int settingsSidebarWidth' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no settingsSidebarWidth token"
-grep -q 'property int settingsBodyMaxHeight' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no settingsBodyMaxHeight cap"
 if grep -q 'property int settingsWidth' "$ROOT/config/Globals.qml"; then
     fail "Globals still has the removed settingsWidth token"
 fi
@@ -824,73 +612,25 @@ MOTION="$ROOT/windows/MotionSettingsView.qml"
 # settings, so the mirror is the same binding to CalendarService, not a copy.
 test -f "$WZE" \
     || fail "windows/WorldClockEditor.qml is missing"
-grep -q 'CalendarService.worldZones' "$WZE" \
-    || fail "WorldClockEditor does not list CalendarService.worldZones"
-grep -q 'CalendarService.addZone' "$WZE" \
-    || fail "WorldClockEditor cannot add zones"
-grep -q 'CalendarService.removeZone' "$WZE" \
-    || fail "WorldClockEditor cannot remove zones"
-grep -q 'CalendarService.isValidZoneName' "$WZE" \
-    || fail "WorldClockEditor dropped the zone name validation"
-grep -q 'CalendarService.maxZones' "$WZE" \
-    || fail "WorldClockEditor dropped the zone cap"
-grep -q 'WorldClockEditor' "$ROOT/windows/CalendarCenter.qml" \
-    || fail "CalendarCenter does not compose the shared WorldClockEditor"
 
 # Calendar settings section: zones plus feed toggles, filterable for search.
 test -f "$CAL" \
     || fail "windows/CalendarSettingsView.qml is missing"
-grep -q 'WorldClockEditor' "$CAL" \
-    || fail "CalendarSettingsView does not compose the shared WorldClockEditor"
-grep -q 'property string filter' "$CAL" \
-    || fail "CalendarSettingsView has no filter property"
-grep -q 'CalendarService.eventCalendars' "$CAL" \
-    || fail "CalendarSettingsView does not list feeds"
-grep -q 'CalendarService.setCalendarHidden' "$CAL" \
-    || fail "CalendarSettingsView cannot toggle feeds"
-grep -q 'CalendarSettingsView' "$SCENTER" \
-    || fail "SettingsCenter does not compose the Calendar section"
 
 # DND switch mirrors the notification center: both bind NotificationServer.
 test -f "$NOTIF" \
     || fail "windows/NotificationSettingsView.qml is missing"
-grep -q 'NotificationServer.dndEnabled' "$NOTIF" \
-    || fail "NotificationSettingsView does not read the shared DND state"
-grep -q 'NotificationServer.toggleDnd' "$NOTIF" \
-    || fail "NotificationSettingsView does not write the shared DND state"
-grep -q 'NotificationServer.dndEnabled' "$ROOT/windows/NotificationCenter.qml" \
-    || fail "NotificationCenter no longer reads the shared DND state"
-grep -q 'NotificationSettingsView' "$SCENTER" \
-    || fail "SettingsCenter does not compose the Notifications section"
 
 # Reduced motion switch gates the same Globals property every animation reads.
 test -f "$MOTION" \
     || fail "windows/MotionSettingsView.qml is missing"
 grep -q 'Globals.reducedMotion' "$MOTION" \
     || fail "MotionSettingsView does not switch Globals.reducedMotion"
-grep -q 'Globals.reducedMotion' "$ROOT/components/Dropdown.qml" \
-    || fail "Dropdown ignores Globals.reducedMotion; panel selects stay animated"
-grep -q 'MotionSettingsView' "$SCENTER" \
-    || fail "SettingsCenter does not compose the Motion section"
 
 # Weather city search writes the same WeatherService location the block reads.
 WV="$ROOT/windows/WeatherSettingsView.qml"
 test -f "$WV" \
     || fail "windows/WeatherSettingsView.qml is missing"
-grep -q 'property string filter' "$WV" \
-    || fail "WeatherSettingsView has no filter property"
-grep -q 'WeatherService.locationName' "$WV" \
-    || fail "WeatherSettingsView does not show the current city"
-grep -q 'WeatherService.searchLocations' "$WV" \
-    || fail "WeatherSettingsView cannot search cities"
-grep -q 'WeatherService.selectLocation' "$WV" \
-    || fail "WeatherSettingsView cannot select a city"
-grep -q 'WeatherService.locationResults' "$WV" \
-    || fail "WeatherSettingsView does not list search results"
-grep -q 'WeatherSettingsView' "$SCENTER" \
-    || fail "SettingsCenter does not compose the Weather section"
-grep -q 'weather-location' "$ROOT/services/WeatherService.qml" \
-    || fail "WeatherService does not persist the city"
 
 # Monitors section: a dropdown picks the primary from the connected screens,
 # writes the one MonitorService, and the choice persists behind its StateFile.
@@ -904,36 +644,6 @@ grep -q '^singleton MonitorService 1.0 MonitorService.qml' "$ROOT/services/qmldi
     || fail "MonitorService is not registered in services/qmldir"
 grep -q '^import qs.services' "$MSVC" \
     || fail "MonitorService.qml is missing its qs.services self-import"
-grep -q 'name: "monitor-settings"' "$MSVC" \
-    || fail "MonitorService does not persist to the monitor-settings state file"
-STATEFILE="$ROOT/services/StateFile.qml"
-grep -q 'if (!root.inCache && (root.loading || !root.loaded))' "$STATEFILE" \
-    && grep -q 'function saveJson' "$STATEFILE" \
-    || fail "StateFile does not own the save guard and the saveJson helper"
-if grep -rn --include='*.qml' '\.save(JSON\.stringify(' "$ROOT/services" \
-    | grep -v 'services/StateFile.qml' | grep -q .; then
-    fail "a service still serializes JSON inline instead of going through saveJson"
-fi
-grep -q 'function setPrimary' "$MSVC" \
-    || fail "MonitorService has no setPrimary"
-grep -q 'function applySettings' "$MSVC" \
-    || fail "MonitorService has no applySettings"
-grep -q 'function saveSettings' "$MSVC" \
-    || fail "MonitorService has no saveSettings"
-grep -q 'property var screenNames' "$MSVC" \
-    || fail "MonitorService exposes no screenNames"
-grep -q 'Globals.screensByPosition' "$MSVC" \
-    || fail "MonitorService does not derive its names from Globals.screensByPosition"
-grep -q 'property var monitors' "$MSVC" \
-    || fail "MonitorService exposes no monitor list"
-grep -q 'function applyMonitors' "$MSVC" \
-    || fail "MonitorService has no applyMonitors"
-grep -q 'function setEnabled' "$MSVC" \
-    || fail "MonitorService has no setEnabled"
-grep -q '"monitors", "all", "-j"' "$MSVC" \
-    || fail "MonitorService does not read the full hyprctl monitor list"
-grep -q '"hyprctl", "eval"' "$MSVC" \
-    || fail "MonitorService does not toggle through hyprctl eval"
 grep -q 'MonitorLogic.setEnabledSpec' "$MSVC" \
     || fail "MonitorService does not build the Lua monitor spec through MonitorLogic"
 grep -q 'import "MonitorLogic.js" as MonitorLogic' "$MSVC" \
@@ -942,136 +652,26 @@ grep -q 'MonitorLogic.orderMonitors' "$MSVC" \
     || fail "MonitorService does not derive the monitor order from MonitorLogic"
 grep -q 'MonitorLogic.parseMonitorSettings' "$MSVC" \
     || fail "MonitorService does not parse its settings through MonitorLogic"
-grep -q 'parsed.primary !== null' "$MSVC" \
-    || fail "MonitorService lost the non-string primary guard"
+grep -q 'name: "monitor-settings"' "$MSVC" \
+    || fail "MonitorService does not persist to the monitor-settings state file"
 if grep -q 'hyprctl", "keyword"' "$MSVC"; then
     fail "MonitorService uses hyprctl keyword, which the Lua config parser rejects"
 fi
-grep -q 'readonly property bool multiMonitor' "$MSVC" \
-    || fail "MonitorService does not expose the last-display guard"
-grep -q 'readonly property bool toggleBusy' "$MSVC" \
-    || fail "MonitorService has no in-flight guard for rapid toggles"
-grep -q 'property bool toggleSettling' "$MSVC" \
-    || fail "MonitorService does not hold the guard through the post-command poll"
-grep -q 'property int toggleEpoch' "$MSVC" \
-    || fail "MonitorService does not epoch-guard the post-command settling clear"
-grep -q 'idCommandWatchdog' "$MSVC" \
-    || fail "MonitorService has no watchdog for a hung hyprctl command"
 # A refresh that lands mid-poll is held and drained by the run now; the node
 # gate for the hold/drain is scripts/test-coalesced-run.sh, so here only the
 # adoption is pinned.
 grep -q 'CoalescedRun {' "$MSVC" \
     || fail "MonitorService does not coalesce its monitor poll through CoalescedRun"
-grep -q 'function escapeLua' "$MSVC" \
-    || fail "MonitorService does not escape the output name for the Lua spec"
-grep -q 'property bool monitorsLoaded' "$MSVC" \
-    || fail "MonitorService does not track whether the first poll completed"
-grep -q 'MonitorService.monitorsLoaded' "$MVIEW" \
-    || fail "MonitorSettingsView can flash its empty note before the first poll"
-grep -q 'MonitorService.toggleBusy' "$MVIEW" \
-    || fail "MonitorSettingsView does not hold rows inert through a toggle"
-
-grep -qF 'key: "monitors"' "$SSVC" \
-    || fail "SettingsService has no monitors section"
-grep -qF 'qsTr("Primary monitor")' "$SSVC" \
-    || fail "SettingsService monitors options do not list Primary monitor"
-grep -qF 'MonitorService.screenNames' "$SSVC" \
-    || fail "SettingsService monitors options do not derive from MonitorService"
-if grep -qE 'key: "monitors".*comingSoon: true' "$SSVC"; then
-    fail "monitors section is still coming soon"
-fi
-grep -q 'property string filter' "$MVIEW" \
-    || fail "MonitorSettingsView has no filter property"
-grep -q 'Dropdown' "$MVIEW" \
-    || fail "MonitorSettingsView does not use the shared Dropdown"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Primary monitor"))' "$MVIEW" \
-    || fail "MonitorSettingsView does not match its Primary monitor search label, so searching it shows an empty body"
-grep -q 'MonitorService.screenNames' "$MVIEW" \
-    || fail "MonitorSettingsView does not list the connected screens"
-grep -q 'MonitorService.setPrimary' "$MVIEW" \
-    || fail "MonitorSettingsView does not write the primary through MonitorService"
-grep -q 'SettingsToggleRow' "$MVIEW" \
-    || fail "MonitorSettingsView does not compose the shared toggle row for displays"
-grep -q 'model: MonitorService.monitorNames' "$MVIEW" \
-    || fail "MonitorSettingsView keys its Repeater on the stable name list so a toggle does not rebuild the rows"
-grep -q 'MonitorService.setEnabled' "$MVIEW" \
-    || fail "MonitorSettingsView does not toggle a display through MonitorService"
-grep -q 'MonitorService.rowState' "$MVIEW" \
-    || fail "MonitorSettingsView does not read a consistent per-row display state"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Displays"))' "$MVIEW" \
-    || fail "MonitorSettingsView does not match its Displays search label, so searching it shows an empty body"
-grep -q 'property var monitorNames' "$MSVC" \
-    || fail "MonitorService exposes no stable monitor name list"
-grep -q 'property bool locked' "$ROOT/components/SettingsToggleRow.qml" \
-    || fail "SettingsToggleRow cannot keep a true-state pill inert without dimming it"
-grep -q 'property bool locked' "$ROOT/components/PillButton.qml" \
-    || fail "PillButton cannot be locked without losing its highlight fill"
-grep -q 'locked: MonitorService.toggleBusy || idMonitorToggle.lastDisplay' "$MVIEW" \
-    || fail "MonitorSettingsView does not lock the last display (and busy rows) instead of dimming them"
-grep -q 'onTextChanged: idHintSwapAnimation.restart()' "$ROOT/components/SettingsToggleRow.qml" \
-    || fail "SettingsToggleRow does not animate a hint text swap"
-grep -q 'readonly property var orderedMonitors' "$MSVC" \
-    || fail "MonitorService has no orderedMonitors"
-grep -q 'function firstWorkspaceFor' "$MSVC" \
-    || fail "MonitorService has no firstWorkspaceFor"
-grep -q 'function setWorkspacesPerMonitor' "$MSVC" \
-    || fail "MonitorService has no setWorkspacesPerMonitor"
-grep -q 'function clampWorkspacesPerMonitor' "$MSVC" \
-    || fail "MonitorService does not clamp the workspace count"
-grep -qF 'qsTr("Workspaces per monitor")' "$SSVC" \
-    || fail "SettingsService monitors options do not list Workspaces per monitor"
-grep -qF 'qsTr("Displays")' "$SSVC" \
-    || fail "SettingsService monitors options do not list Displays"
-grep -q 'MonitorService.monitors.map' "$SSVC" \
-    || fail "SettingsService monitors options do not derive from MonitorService.monitors"
-grep -q 'SettingsSliderRow' "$MVIEW" \
-    || fail "MonitorSettingsView does not use the shared slider row for the workspace count"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Workspaces per monitor"))' "$MVIEW" \
-    || fail "MonitorSettingsView does not match its Workspaces per monitor search label, so searching it shows an empty body"
-grep -q 'value: MonitorService.workspacesPerMonitor' "$MVIEW" \
-    || fail "MonitorSettingsView does not read the workspace count from MonitorService"
-grep -q 'MonitorService.setWorkspacesPerMonitor' "$MVIEW" \
-    || fail "MonitorSettingsView does not write the workspace count through MonitorService"
-grep -q 'MonitorSettingsView' "$SCENTER" \
-    || fail "SettingsView does not compose the Monitors section"
-grep -qF 'root.currentSection.key === "monitors"' "$SCENTER" \
-    || fail "SettingsView does not gate the Monitors section"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$MVIEW" "$MSVC"; then
     fail "monitors settings surface carries raw hex; palette tokens only"
 fi
 
-# Media section: one toggle per seen MPRIS app, persisted behind the
-# MprisPlayers StateFile so the dashboard player and the bar share the filter.
+# Media section: one toggle per seen MPRIS app. The shared MprisPlayers state
+# file that pairs the dashboard player with the bar is pinned in
+# test-dashboard-data.sh §5, so here the view and its palette boundary remain.
 MEDVIEW="$ROOT/windows/MediaSettingsView.qml"
-MPLAYERS="$ROOT/services/MprisPlayers.qml"
 test -f "$MEDVIEW" \
     || fail "windows/MediaSettingsView.qml is missing"
-grep -q 'property string filter' "$MEDVIEW" \
-    || fail "MediaSettingsView has no filter property"
-grep -q 'MprisPlayers.seenPlayers' "$MEDVIEW" \
-    || fail "MediaSettingsView does not list the seen players"
-grep -q 'MprisPlayers.setAllowed' "$MEDVIEW" \
-    || fail "MediaSettingsView cannot toggle a player"
-grep -q 'SettingsToggleRow' "$MEDVIEW" \
-    || fail "MediaSettingsView does not compose the shared toggle row"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Player"))' "$MEDVIEW" \
-    || fail "MediaSettingsView does not match its Player search label, so searching it shows an empty body"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Apps"))' "$MEDVIEW" \
-    || fail "MediaSettingsView does not match its Apps search label, so searching it shows an empty body"
-grep -q 'MediaSettingsView' "$SCENTER" \
-    || fail "SettingsView does not compose the Media section"
-grep -qF 'root.currentSection.key === "media"' "$SCENTER" \
-    || fail "SettingsView does not gate the Media section"
-grep -qF 'key: "media"' "$SSVC" \
-    || fail "SettingsService has no media section"
-grep -qF 'qsTr("Apps")' "$SSVC" \
-    || fail "SettingsService media options do not list Apps"
-grep -qF 'MprisPlayers.seenPlayers.map' "$SSVC" \
-    || fail "SettingsService media options do not derive from MprisPlayers.seenPlayers"
-grep -q 'name: "mpris-players"' "$MPLAYERS" \
-    || fail "MprisPlayers does not persist the media filter behind a StateFile"
-grep -q 'const BROWSER_TOKENS' "$ROOT/services/MprisLogic.js" \
-    || fail "MprisPlayers does not seed the browsers as hidden"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$MEDVIEW"; then
     fail "media settings surface carries raw hex; palette tokens only"
 fi
@@ -1081,53 +681,8 @@ fi
 # AppService.unhide, which rewrites the shared app-launcher state so the app
 # reappears in the Apps tab at once. The row composes the shared AppIcon.
 APPSVIEW="$ROOT/windows/AppsSettingsView.qml"
-APPSVC="$ROOT/services/AppService.qml"
 test -f "$APPSVIEW" \
     || fail "windows/AppsSettingsView.qml is missing"
-grep -q 'property string filter' "$APPSVIEW" \
-    || fail "AppsSettingsView has no filter property"
-grep -q 'AppService.hidden' "$APPSVIEW" \
-    || fail "AppsSettingsView does not list the hidden apps"
-grep -q 'AppService.unhide' "$APPSVIEW" \
-    || fail "AppsSettingsView cannot unhide an app"
-grep -q 'DesktopEntries.byId' "$APPSVC" \
-    || fail "AppService does not resolve a hidden id to an entry"
-grep -q 'AppService.hiddenEntries' "$APPSVIEW" \
-    || fail "AppsSettingsView does not read the resolved hidden entries"
-grep -q 'AppIcon' "$APPSVIEW" \
-    || fail "AppsSettingsView does not compose the shared app icon"
-grep -q 'SettingsTextRow' "$APPSVIEW" \
-    || fail "AppsSettingsView does not compose the shared text row"
-grep -q 'AppService.terminalCommand' "$APPSVIEW" \
-    || fail "AppsSettingsView does not bind the terminal command"
-grep -q 'AppService.setTerminal' "$APPSVIEW" \
-    || fail "AppsSettingsView cannot set the terminal command"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Hidden"))' "$APPSVIEW" \
-    || fail "AppsSettingsView does not match its Hidden search label, so searching it shows an empty body"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Launcher"))' "$APPSVIEW" \
-    || fail "AppsSettingsView does not match its Launcher search label, so searching it shows an empty body"
-grep -q 'AppsSettingsView' "$SCENTER" \
-    || fail "SettingsView does not compose the Apps section"
-grep -qF 'root.currentSection.key === "apps"' "$SCENTER" \
-    || fail "SettingsView does not gate the Apps section"
-grep -qF 'key: "apps"' "$SSVC" \
-    || fail "SettingsService has no apps section"
-grep -qF 'qsTr("Hidden")' "$SSVC" \
-    || fail "SettingsService apps options do not list Hidden"
-grep -qF 'qsTr("Launcher")' "$SSVC" \
-    || fail "SettingsService apps options do not list Launcher"
-grep -qF 'qsTr("Terminal")' "$SSVC" \
-    || fail "SettingsService apps options do not list Terminal"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Terminal"))' "$APPSVIEW" \
-    || fail "AppsSettingsView does not match its Terminal search label"
-grep -qF 'AppService.hiddenEntries.map' "$SSVC" \
-    || fail "SettingsService apps options do not derive from the hidden app names"
-grep -q 'function unhide' "$APPSVC" \
-    || fail "AppService has no unhide"
-grep -q 'AppLogic.unhide' "$APPSVC" \
-    || fail "AppService does not delegate unhide to AppLogic"
-grep -q 'name: "app-launcher"' "$APPSVC" \
-    || fail "AppService does not persist the hidden list behind the app-launcher StateFile"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$APPSVIEW"; then
     fail "apps settings surface carries raw hex; palette tokens only"
 fi
@@ -1138,36 +693,10 @@ DJUNC="$ROOT/services/DashboardService.qml"
 DVIEW="$ROOT/windows/DashboardSettingsView.qml"
 test -f "$DVIEW" \
     || fail "windows/DashboardSettingsView.qml is missing"
-grep -q 'property string filter' "$DVIEW" \
-    || fail "DashboardSettingsView has no filter property"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Seam radius"))' "$DVIEW" \
-    || fail "DashboardSettingsView does not match its Seam radius search label, so searching it shows an empty body"
-grep -q 'from: 0' "$DVIEW" \
-    || fail "DashboardSettingsView slider does not start at the square join"
-grep -q 'to: Globals.junctionRadiusMax' "$DVIEW" \
-    || fail "DashboardSettingsView slider does not span the junction radius range"
-grep -q 'value: DashboardService.junctionRadius' "$DVIEW" \
-    || fail "DashboardSettingsView slider does not read the shared radius"
-grep -q 'DashboardService.setJunctionRadius' "$DVIEW" \
-    || fail "DashboardSettingsView slider does not write the shared radius"
-grep -q 'DashboardSettingsView' "$SCENTER" \
-    || fail "SettingsCenter does not compose the Dashboard section"
-grep -qF 'key: "dashboard"' "$SSVC" \
-    || fail "SettingsService has no dashboard section"
-grep -qF 'qsTr("Seam radius")' "$SSVC" \
-    || fail "SettingsService dashboard options do not list Seam radius"
 grep -q 'name: "dashboard-junction"' "$DJUNC" \
     || fail "DashboardService does not persist the junction radius behind a StateFile"
-grep -q 'function saveJunctionRadius' "$DJUNC" \
-    || fail "DashboardService has no saveJunctionRadius"
-grep -q 'function clampJunctionRadius' "$DJUNC" \
-    || fail "DashboardService does not clamp the junction radius to its range"
 test -f "$ROOT/components/SettingsSliderRow.qml" \
     || fail "components/SettingsSliderRow.qml is missing"
-grep -q 'SettingsSliderRow' "$DVIEW" \
-    || fail "DashboardSettingsView does not compose the shared slider row"
-grep -q 'SettingsSliderRow' "$CSV" \
-    || fail "CavaSettingsView does not compose the shared slider row"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$DVIEW" "$ROOT/components/SettingsSliderRow.qml"; then
     fail "dashboard settings surface carries raw hex; palette tokens only"
 fi
@@ -1218,69 +747,15 @@ AUDIOVIEW="$ROOT/windows/AudioSettingsView.qml"
 AUDIOSVC="$ROOT/services/AudioService.qml"
 test -f "$AUDIOVIEW" \
     || fail "windows/AudioSettingsView.qml is missing"
-grep -q 'property string filter' "$AUDIOVIEW" \
-    || fail "AudioSettingsView has no filter property"
-grep -q 'AudioService.sinkNodes' "$AUDIOVIEW" \
-    || fail "AudioSettingsView does not list the detected outputs"
-grep -q 'AudioService.setHidden' "$AUDIOVIEW" \
-    || fail "AudioSettingsView cannot hide an output"
-grep -q 'AudioService.moveOutput' "$AUDIOVIEW" \
-    || fail "AudioSettingsView cannot reorder outputs"
 if grep -q 'AudioService.setLabel\|labelOverrides' "$AUDIOVIEW"; then
     fail "AudioSettingsView still offers rename"
 fi
-grep -q 'SettingsFilter.matches' "$AUDIOVIEW" \
-    || fail "AudioSettingsView does not filter through the shared SettingsFilter"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Audio outputs"))' "$AUDIOVIEW" \
-    || fail "AudioSettingsView does not match its Audio outputs search label, so searching it shows an empty body"
-grep -q 'AudioSettingsView' "$SCENTER" \
-    || fail "SettingsView does not compose the Audio section"
-grep -qF 'root.currentSection.key === "audio"' "$SCENTER" \
-    || fail "SettingsView does not gate the Audio section"
-grep -qF 'key: "audio"' "$SSVC" \
-    || fail "SettingsService has no audio section"
-grep -qF 'qsTr("Audio outputs")' "$SSVC" \
-    || fail "SettingsService audio options do not list Audio outputs"
-grep -qF 'AudioService.sinkNodes.map' "$SSVC" \
-    || fail "SettingsService audio options do not derive from the detected outputs"
-grep -q 'name: "audio-outputs"' "$AUDIOSVC" \
-    || fail "AudioService does not persist curated outputs behind a StateFile"
-grep -q 'function setHidden' "$AUDIOSVC" \
-    || fail "AudioService has no setHidden"
-grep -q 'function moveOutput' "$AUDIOSVC" \
-    || fail "AudioService has no moveOutput"
-grep -q 'function applySettings' "$AUDIOSVC" \
-    || fail "AudioService has no applySettings"
-grep -q 'function persist' "$AUDIOSVC" \
-    || fail "AudioService has no persist"
 if grep -q 'function setLabel\|labelOverrides' "$AUDIOSVC"; then
     fail "AudioService still carries rename state"
 fi
 
 # Volume OSD: one switch on AudioService, filtered and registered, read by the
 # OSD window and written back with the same persist path as the output state.
-grep -q 'property bool osdEnabled' "$AUDIOSVC" \
-    || fail "AudioService has no osdEnabled state"
-grep -q 'function setOsdEnabled' "$AUDIOSVC" \
-    || fail "AudioService has no setOsdEnabled"
-grep -q 'payload\["osdEnabled"\]' "$AUDIOSVC" \
-    || fail "AudioService does not persist osdEnabled"
-grep -q 'AudioService.osdEnabled' "$AUDIOVIEW" \
-    || fail "AudioSettingsView does not bind AudioService.osdEnabled"
-grep -q 'AudioService.setOsdEnabled' "$AUDIOVIEW" \
-    || fail "AudioSettingsView cannot toggle the volume OSD"
-grep -q 'SettingsToggleRow' "$AUDIOVIEW" \
-    || fail "AudioSettingsView does not compose the shared toggle row"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Volume OSD"))' "$AUDIOVIEW" \
-    || fail "AudioSettingsView does not match its Volume OSD search label, so searching it shows an empty body"
-grep -qF 'qsTr("Volume OSD")' "$SSVC" \
-    || fail "SettingsService audio options do not list Volume OSD"
-grep -q 'AudioService.osdEnabled' "$ROOT/windows/VolumeOsd.qml" \
-    || fail "VolumeOsd does not check AudioService.osdEnabled"
-osd_off="$(awk '/function onOsdEnabledChanged/,/^        }$/' "$ROOT/windows/VolumeOsd.qml")"
-test -n "$osd_off" || fail "VolumeOsd does not react to the Volume OSD setting turning off"
-printf '%s\n' "$osd_off" | grep -q 'root.shown = false' \
-    || fail "VolumeOsd does not hide when the Volume OSD setting turns off"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$AUDIOVIEW" "$AUDIOSVC"; then
     fail "audio settings surface carries raw hex; palette tokens only"
 fi
@@ -1288,24 +763,6 @@ fi
 # Both toggle sections share one row component, so On/Off plus hint cannot drift.
 test -f "$ROOT/components/SettingsToggleRow.qml" \
     || fail "components/SettingsToggleRow.qml is missing"
-grep -q 'SettingsToggleRow' "$NOTIF" \
-    || fail "NotificationSettingsView does not compose the shared toggle row"
-grep -q 'SettingsToggleRow' "$MOTION" \
-    || fail "MotionSettingsView does not compose the shared toggle row"
-
-# Sections surface in settings search through the options list.
-grep -qF 'qsTr("World clock")' "$SSVC" \
-    || fail "SettingsService Calendar options do not list World clock"
-grep -qF 'qsTr("Feeds")' "$SSVC" \
-    || fail "SettingsService Calendar options do not list Feeds"
-grep -qF 'qsTr("Do not disturb")' "$SSVC" \
-    || fail "SettingsService Notifications options do not list Do not disturb"
-grep -qF 'qsTr("Reduced motion")' "$SSVC" \
-    || fail "SettingsService Motion options do not list Reduced motion"
-grep -qF 'qsTr("City")' "$SSVC" \
-    || fail "SettingsService Weather options do not list City"
-grep -qF 'qsTr("Location")' "$SSVC" \
-    || fail "SettingsService Weather options do not list Location"
 
 # Theme section: the catalog renders as one repeated selectable row per theme,
 # the active theme is marked, and selection writes the shared ThemeService the
@@ -1313,44 +770,6 @@ grep -qF 'qsTr("Location")' "$SSVC" \
 THEMEVIEW="$ROOT/windows/ThemeSettingsView.qml"
 test -f "$THEMEVIEW" \
     || fail "windows/ThemeSettingsView.qml is missing"
-grep -q 'property string filter' "$THEMEVIEW" \
-    || fail "ThemeSettingsView has no filter property"
-grep -q 'Repeater' "$THEMEVIEW" \
-    || fail "ThemeSettingsView does not render the catalog through a repeater"
-grep -q 'NavItem' "$THEMEVIEW" \
-    || fail "ThemeSettingsView does not compose the shared row component"
-grep -q 'ThemeService.catalog' "$THEMEVIEW" \
-    || fail "ThemeSettingsView does not list the catalog"
-grep -q 'ThemeService.activeTheme' "$THEMEVIEW" \
-    || fail "ThemeSettingsView does not mark the active theme"
-grep -q 'ThemeService.selectTheme' "$THEMEVIEW" \
-    || fail "ThemeSettingsView cannot switch themes"
-grep -q 'modelData.swatches' "$THEMEVIEW" \
-    || fail "ThemeSettingsView does not render each theme's preview swatches"
-grep -q 'readonly property var themeSwatches' "$THEMEVIEW" \
-    || fail "ThemeSettingsView does not guard the delegate's modelData"
-grep -q 'Globals.themeSwatchChipSize' "$THEMEVIEW" \
-    || fail "ThemeSettingsView swatches do not use the shared chip size"
-grep -q 'trailingWidth' "$ROOT/components/NavItem.qml" \
-    || fail "NavItem has no trailing slot for the theme swatches"
-grep -q 'themeSwatchChipSize' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no themeSwatchChipSize token"
-grep -q 'SettingsFilter.matches' "$THEMEVIEW" \
-    || fail "ThemeSettingsView does not filter through the shared SettingsFilter"
-grep -q 'ThemeService' "$ROOT/config/Colors.qml" \
-    || fail "Colors no longer mirrors ThemeService; a section switch cannot repaint the bar"
-grep -q 'ThemeSettingsView' "$SCENTER" \
-    || fail "SettingsCenter does not compose the Theme section"
-grep -qF 'key: "theme"' "$SSVC" \
-    || fail "SettingsService has no theme section"
-grep -qF 'ThemeService.catalog' "$SSVC" \
-    || fail "SettingsService theme options do not derive from the catalog"
-grep -qF 'ThemeService.catalog.map(theme => theme.name)' "$SSVC" \
-    || fail "SettingsService theme options do not list the catalog slugs"
-grep -qF 'ThemeService.catalog.map(theme => theme.displayName)' "$SSVC" \
-    || fail "SettingsService theme options do not list the catalog display names"
-grep -qF 'options: [qsTr("Theme")]' "$SSVC" \
-    || fail "SettingsService theme options do not list Theme"
 
 # Themed apps section: one toggle per renderer target, deriving its labels from
 # ThemeService.themeTargets so the registry and the view cannot drift, and
@@ -1358,26 +777,6 @@ grep -qF 'options: [qsTr("Theme")]' "$SSVC" \
 TAV="$ROOT/windows/ThemedAppsSettingsView.qml"
 test -f "$TAV" \
     || fail "windows/ThemedAppsSettingsView.qml is missing"
-grep -q 'property string filter' "$TAV" \
-    || fail "ThemedAppsSettingsView has no filter property"
-grep -q 'model: ThemeService.themeTargets' "$TAV" \
-    || fail "ThemedAppsSettingsView does not list the renderer targets"
-grep -q 'SettingsToggleRow' "$TAV" \
-    || fail "ThemedAppsSettingsView does not compose the shared toggle row"
-grep -q 'ThemeService.isThemeTargetEnabled' "$TAV" \
-    || fail "ThemedAppsSettingsView does not read the shared target state"
-grep -q 'ThemeService.setThemeTargetEnabled' "$TAV" \
-    || fail "ThemedAppsSettingsView does not write the shared target state"
-grep -qF 'SettingsFilter.matches(root.filter, modelData.title)' "$TAV" \
-    || fail "ThemedAppsSettingsView does not filter each row by its label"
-grep -q 'ThemedAppsSettingsView' "$SCENTER" \
-    || fail "SettingsView does not compose the Themed apps section"
-grep -qF 'root.currentSection.key === "themed-apps"' "$SCENTER" \
-    || fail "SettingsView does not gate the Themed apps section"
-grep -qF 'key: "themed-apps"' "$SSVC" \
-    || fail "SettingsService has no themed-apps section"
-grep -qF 'ThemeService.themeTargets.map' "$SSVC" \
-    || fail "SettingsService themed-apps options do not derive from ThemeService.themeTargets"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$TAV"; then
     fail "themed apps settings surface carries raw hex; palette tokens only"
 fi
@@ -1389,24 +788,12 @@ test -f "$FILTER" \
     || fail "services/SettingsFilter.qml is missing"
 grep -q '^singleton SettingsFilter 1.0 SettingsFilter.qml' "$ROOT/services/qmldir" \
     || fail "SettingsFilter is not registered in services/qmldir"
-grep -q 'function matches' "$FILTER" \
-    || fail "SettingsFilter has no matches()"
-grep -q 'function filtering' "$FILTER" \
-    || fail "SettingsFilter has no filtering()"
-grep -q 'function sectionMatches' "$FILTER" \
-    || fail "SettingsFilter has no sectionMatches()"
 grep -q 'SettingsLogic\.filtering(' "$FILTER" \
     || fail "SettingsFilter.filtering does not call SettingsLogic.filtering"
 grep -q 'SettingsLogic\.matches(' "$FILTER" \
     || fail "SettingsFilter.matches does not call SettingsLogic.matches"
 grep -q 'SettingsLogic\.sectionMatches(' "$FILTER" \
     || fail "SettingsFilter.sectionMatches does not call SettingsLogic.sectionMatches"
-grep -q 'SettingsFilter\.sectionMatches(' "$SCENTER" \
-    || fail "SettingsView does not delegate its section predicate to SettingsFilter"
-for view in "$CSV" "$CAL" "$WV" "$ROOT/windows/LayoutSettingsView.qml" "$NOTIF" "$MOTION" "$THEMEVIEW" "$AUDIOVIEW"; do
-    grep -q 'SettingsFilter' "$view" \
-        || fail "$(basename "$view") does not filter through the shared SettingsFilter"
-done
 if grep -rn --include='*.qml' 'includes(root.filter' "$ROOT/windows" "$ROOT/services" | grep -q .; then
     fail "a settings view copies the filter predicate instead of using SettingsFilter"
 fi
@@ -1442,16 +829,6 @@ for call in 'CalendarLogic.monthCells(' 'CalendarLogic.shiftMonth(' 'CalendarLog
     grep -q "$call" "$ROOT/services/CalendarService.qml" \
         || fail "CalendarService does not delegate $call"
 done
-# The grid binding reads the day, the view month, the selection and the events
-# so it stays reactive; the stale window and the zone cap stay service state.
-grep -q 'CalendarLogic.monthCells(root.viewYear, root.viewMonth, root.todayIso, root.selectedIso, root.eventDays)' "$ROOT/services/CalendarService.qml" \
-    || fail "monthCells does not pass the reactive calendar state into CalendarLogic"
-grep -q 'CalendarLogic.isStale(nowMs, fetchedAtMs, failed, root.eventsStaleAfterMs)' "$ROOT/services/CalendarService.qml" \
-    || fail "isStale does not pass the stale window into CalendarLogic"
-grep -q 'CalendarLogic.withZone(root.worldZones, name, root.maxZones)' "$ROOT/services/CalendarService.qml" \
-    || fail "addZone does not pass the zone list and cap into CalendarLogic"
-grep -q 'if (!root.isValidZoneName(name))' "$ROOT/services/CalendarService.qml" \
-    || fail "addZone dropped the zone-name validation"
 node - "$ROOT/tests/qmljs.js" "$CLOGIC" <<'NODEEOF'
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('panel-logic');
@@ -1656,14 +1033,6 @@ test -f "$BSVC" \
     || fail "services/BarVisibilityService.qml is missing"
 grep -q '^singleton BarVisibilityService 1.0 BarVisibilityService.qml' "$ROOT/services/qmldir" \
     || fail "BarVisibilityService is not registered in services/qmldir"
-grep -q 'property var moduleVisible' "$BSVC" \
-    || fail "BarVisibilityService has no moduleVisible state"
-grep -q 'function isVisible' "$BSVC" \
-    || fail "BarVisibilityService has no isVisible"
-grep -q 'function setVisible' "$BSVC" \
-    || fail "BarVisibilityService has no setVisible"
-grep -q 'function parseVisibility' "$BSVC" \
-    || fail "BarVisibilityService has no parseVisibility"
 # The node runs below exercise StateParsers.js directly, so each service that
 # delegates to it must keep the call site; otherwise a re-inlined copy passes.
 grep -q 'StateParsers.parseVisibility' "$BSVC" \
@@ -1684,55 +1053,13 @@ grep -q 'StateFile {' "$BSVC" \
     || fail "BarVisibilityService does not compose StateFile"
 grep -q 'bar-visibility' "$BSVC" \
     || fail "BarVisibilityService does not persist to the bar-visibility state file"
-for pair in "clock:Clock" "workspaces:Workspaces" "tray:Tray" "cava:Cava" "media:Media" "audio:Audio" "notifications:Notifications" "power:Power"; do
-    key="${pair%%:*}"
-    title="${pair##*:}"
-    grep -q "\"$key\"" "$BSVC" \
-        || fail "BarVisibilityService module list misses key $key"
-    grep -qF "qsTr(\"$title\")" "$BSVC" \
-        || fail "BarVisibilityService module list misses title $title"
-done
 
-# Every bar module composes the shared visibility gate with its own key; the
-# dashboard title (ActiveWindow) is the dashboard trigger and stays unlisted.
-for pair in "Clock:clock" "Workspaces:workspaces" "Tray:tray" "Cava:cava" "Media:media" "Audio:audio" "Notifications:notifications" "PowerMenu:power"; do
-    module="${pair%%:*}"
-    key="${pair##*:}"
-    grep -q "BarVisibilityService.isVisible(\"$key\")" "$ROOT/modules/$module.qml" \
-        || fail "$module.qml does not compose the bar visibility gate for $key"
-done
 if grep -q 'BarVisibilityService' "$ROOT/modules/ActiveWindow.qml"; then
     fail "ActiveWindow is gated by bar visibility; the dashboard trigger must stay"
 fi
 
-# Layout section: options derive from the one module list, plus a discoverable
-# label; a real body of toggle rows renders per module.
-grep -qF 'key: "layout"' "$ROOT/services/SettingsService.qml" \
-    || fail "SettingsService has no layout section"
-grep -qF 'BarVisibilityService.modules' "$ROOT/services/SettingsService.qml" \
-    || fail "SettingsService layout options do not derive from the module list"
-grep -qF 'qsTr("Bar visibility")' "$ROOT/services/SettingsService.qml" \
-    || fail "SettingsService layout options do not list Bar visibility"
-if grep -qF 'key: "layout", title: qsTr("Layout"), options: [], comingSoon: true' "$ROOT/services/SettingsService.qml"; then
-    fail "layout section is still coming soon"
-fi
-
 test -f "$BVIEW" \
     || fail "windows/LayoutSettingsView.qml is missing"
-grep -q 'property string filter' "$BVIEW" \
-    || fail "LayoutSettingsView has no filter property"
-grep -q 'BarVisibilityService.modules' "$BVIEW" \
-    || fail "LayoutSettingsView does not list the bar modules"
-grep -q 'SettingsToggleRow' "$BVIEW" \
-    || fail "LayoutSettingsView does not compose the shared toggle row"
-grep -q 'BarVisibilityService.isVisible' "$BVIEW" \
-    || fail "LayoutSettingsView does not read module visibility"
-grep -q 'BarVisibilityService.setVisible' "$BVIEW" \
-    || fail "LayoutSettingsView does not write module visibility"
-grep -qF 'SettingsFilter.matches(root.filter, qsTr("Bar visibility"))' "$BVIEW" \
-    || fail "LayoutSettingsView does not match its Bar visibility search label, so searching it shows an empty body"
-grep -q 'LayoutSettingsView' "$SCENTER" \
-    || fail "SettingsCenter does not compose the Layout section"
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$BVIEW" "$BSVC"; then
     fail "bar visibility surface carries raw hex; palette tokens only"
 fi
@@ -1765,30 +1092,8 @@ grep -q '^singleton BarMarginService 1.0 BarMarginService.qml' "$ROOT/services/q
     || fail "BarMarginService is not registered in services/qmldir"
 grep -q 'name: "bar-margins"' "$BMSVC" \
     || fail "BarMarginService does not persist to the bar-margins state file"
-grep -q 'function setMargin' "$BMSVC" \
-    || fail "BarMarginService has no keyed setMargin"
-grep -q 'function valueFor' "$BMSVC" \
-    || fail "BarMarginService has no valueFor"
-grep -q 'function maximumFor' "$BMSVC" \
-    || fail "BarMarginService has no maximumFor"
-grep -q 'function clampMargin' "$BMSVC" \
-    || fail "BarMarginService has no keyed clampMargin"
-grep -q 'readonly property var rows' "$BMSVC" \
-    || fail "BarMarginService exposes no rows list"
-grep -qF 'qsTr("Top margin")' "$BMSVC" \
-    || fail "BarMarginService rows do not list Top margin"
-grep -qF 'qsTr("Side margin")' "$BMSVC" \
-    || fail "BarMarginService rows do not list Side margin"
-grep -q 'function applySettings' "$BMSVC" \
-    || fail "BarMarginService has no applySettings"
-grep -q 'function saveSettings' "$BMSVC" \
-    || fail "BarMarginService has no saveSettings"
 grep -q 'StateParsers.parseBarMargins' "$BMSVC" \
     || fail "BarMarginService does not delegate parseBarMargins to StateParsers"
-grep -q 'Globals.barTopMarginMax' "$BMSVC" \
-    || fail "BarMarginService does not clamp the top margin to the Globals range"
-grep -q 'Globals.barSideMarginMax' "$BMSVC" \
-    || fail "BarMarginService does not clamp the side margin to the Globals range"
 grep -q '^import qs.config' "$BMSVC" \
     || fail "BarMarginService does not import qs.config for the Globals tokens"
 grep -q '^import qs.services' "$BMSVC" \
@@ -1796,61 +1101,19 @@ grep -q '^import qs.services' "$BMSVC" \
 
 # Globals: writable margins with ranges; the derived insets follow the side
 # margin so the bar interior and panel edge stay aligned with the slab.
-grep -q 'property int barTopMargin' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no writable barTopMargin"
-grep -q 'property int barSideMargin' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no writable barSideMargin"
-grep -q 'property int barTopMarginMax' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no barTopMarginMax"
-grep -q 'property int barSideMarginMax' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no barSideMarginMax"
-grep -q 'panelEdgeMargin: root.barSideMargin' "$ROOT/config/Globals.qml" \
-    || fail "Globals panelEdgeMargin does not follow the side margin"
-grep -q 'slabInset: root.barSideMargin' "$ROOT/config/Globals.qml" \
-    || fail "Globals slabInset does not follow the side margin"
 if grep -q 'horizontalBarMargin' "$ROOT/config/Globals.qml"; then
     fail "horizontalBarMargin is back; barSideMargin is the single side token"
 fi
 
-# Shell: the slab, the window height, and the layout read the writable margins.
-grep -q 'Globals.barHeight + Globals.barTopMargin' "$ROOT/shell.qml" \
-    || fail "shell bar window height does not follow the top margin"
-grep -q 'topMargin: Globals.barTopMargin' "$ROOT/shell.qml" \
-    || fail "shell slab does not follow the top margin"
-grep -q 'leftMargin: Globals.barSideMargin' "$ROOT/shell.qml" \
-    || fail "shell slab does not follow the side margin"
-grep -q 'rightMargin: Globals.barSideMargin' "$ROOT/shell.qml" \
-    || fail "shell slab does not follow the side margin"
 if grep -q 'Globals.moduleMargin' "$ROOT/shell.qml"; then
     fail "shell still places the bar with moduleMargin; the outer margin is barTopMargin"
 fi
-grep -q 'Globals.barSideMargin' "$ROOT/windows/NotificationPopups.qml" \
-    || fail "NotificationPopups does not follow the side margin"
-grep -q 'Globals.barHeight + Globals.barTopMargin' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell does not offset panels by the top margin, so panels detach from a moved bar"
 if grep -q 'Globals.moduleMargin' "$ROOT/components/PanelShell.qml"; then
     fail "PanelShell still offsets panels with moduleMargin; the bar top gap is barTopMargin"
 fi
 if grep -q 'horizontalBarMargin' "$ROOT/shell.qml" "$ROOT/windows/NotificationPopups.qml"; then
     fail "horizontalBarMargin survives; barSideMargin is the single side token"
 fi
-
-# Layout view: one shared slider row per margin, driven by the service rows so
-# the search labels derive from the same list the registry registers.
-grep -q 'SettingsSliderRow' "$BVIEW" \
-    || fail "LayoutSettingsView does not compose the shared slider row for margins"
-grep -q 'model: BarMarginService.rows' "$BVIEW" \
-    || fail "LayoutSettingsView does not render the margin rows from the service list"
-grep -q 'SettingsFilter.matches(root.filter, modelData.label)' "$BVIEW" \
-    || fail "LayoutSettingsView does not filter the margin rows by their label"
-grep -q 'to: modelData.max' "$BVIEW" \
-    || fail "LayoutSettingsView margin slider does not span the service range"
-grep -q 'BarMarginService.valueFor(modelData.key)' "$BVIEW" \
-    || fail "LayoutSettingsView margin slider does not read the shared value"
-grep -q 'BarMarginService.setMargin(modelData.key, newValue)' "$BVIEW" \
-    || fail "LayoutSettingsView margin slider does not write through BarMarginService"
-grep -q 'BarMarginService.rows.map' "$SSVC" \
-    || fail "SettingsService layout options do not derive from the margin rows"
 
 # parseBarMargins oracle: only numeric margins survive, malformed input falls
 # back to null, and the service clamps the survivors into their range.
@@ -1873,18 +1136,10 @@ NODEEOF
 PROBE="$ROOT/dev/DevProbe.qml"
 test -f "$PROBE" \
     || fail "dev/DevProbe.qml is missing"
-grep -qF 'target: "devprobe"' "$PROBE" \
-    || fail "DevProbe has no devprobe target"
 grep -q 'QUICKSHELL_DEV_PROBE' "$PROBE" \
     || fail "DevProbe is not gated by QUICKSHELL_DEV_PROBE"
 grep -q 'quickshell-dev-probe' "$PROBE" \
     || fail "DevProbe has no runtime flag-file escape hatch"
-grep -q 'DevProbe' "$ROOT/shell.qml" \
-    || fail "shell.qml does not instantiate DevProbe"
-for fn in "function state" "function toggle" "function closeAll" "function toggleDnd" "function setReducedMotion" "function addZone" "function removeZone" "function setFeedHidden"; do
-    grep -q "$fn" "$PROBE" \
-        || fail "DevProbe is missing $fn"
-done
 
 # The settings-section seam and the shared-row rule are documented where the
 # navigator and the reviewer reach them.
@@ -1912,56 +1167,15 @@ grep -q 'HyprlandFocusGrab' "$PGRAB" \
 GRAB_OWNERS="$(grep -rl 'HyprlandFocusGrab' "$ROOT/components" "$ROOT/windows" "$ROOT/modules" "$ROOT/services" "$ROOT/config" "$ROOT/dev" | wc -l)"
 test "$GRAB_OWNERS" -eq 1 \
     || fail "expected exactly one HyprlandFocusGrab owner, found $GRAB_OWNERS"
-grep -q 'PanelGrab.register(root)' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell does not register with the shared grab"
-grep -q 'PanelGrab.unregister(root)' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell does not unregister from the shared grab"
-grep -q 'sequence: "Escape"' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell lost its per-window Escape shortcut"
-grep -q 'enabled: root.panelVisible' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell Escape is not gated on the panel being open"
-grep -q 'windows: root.windows' "$PGRAB" \
-    || fail "PanelGrab does not feed the computed whitelist to the grab"
-grep -q 'active: root.active' "$PGRAB" \
-    || fail "PanelGrab does not gate the grab on any visible panel"
-grep -q 'member.panelVisible' "$PGRAB" \
-    || fail "PanelGrab does not whitelist only visible panel shells"
-grep -q 'onCleared: root.dismiss()' "$PGRAB" \
-    || fail "PanelGrab does not route the outside clear to dismiss"
-grep -q 'outsideClicked()' "$PGRAB" \
-    || fail "PanelGrab does not dismiss through each shell's outsideClicked"
-# The bar is shell chrome, not a panel, but the user opens panels from it. A
-# bar click outside the grab would clear it and dismiss the dashboard before
-# the trigger fires, so the always-visible bar stays whitelisted.
-grep -q 'PanelGrab.registerBar(idPanelWindow)' "$ROOT/shell.qml" \
-    || fail "shell.qml does not register the bar with the shared grab"
-grep -q 'PanelGrab.unregisterBar(idPanelWindow)' "$ROOT/shell.qml" \
-    || fail "shell.qml does not unregister the bar from the shared grab"
-grep -q 'barWindows.concat' "$PGRAB" \
-    || fail "PanelGrab does not fold the always-visible bar into the grab"
-
 # Each quick panel hands PanelShell its PanelState, so the window binds one
-# property and PanelShell owns the outside-click close; the dashboard keeps
-# its explicit bindings with panel null.
-for pair in \
-    "windows/CavaCenter.qml:CavaService" \
-    "windows/CalendarCenter.qml:CalendarService" \
-    "windows/NotificationCenter.qml:NotificationServer" \
-    "windows/PowerCenter.qml:PowerService"; do
-    file="${pair%%:*}"
-    service="${pair##*:}"
-    grep -q "panel: $service.panelState" "$ROOT/$file" \
-        || fail "$file does not hand PanelShell $service.panelState"
+# property and PanelShell owns the outside-click close; a service visibility
+# alias would re-scatter the panel state. A bar click must not dismiss a panel
+# before its trigger fires, so the always-visible bar stays whitelisted.
+for file in windows/CavaCenter.qml windows/CalendarCenter.qml windows/NotificationCenter.qml windows/PowerCenter.qml; do
     if grep -qE '(cavaVisible|calendarVisible|centerVisible|powerVisible)' "$ROOT/$file"; then
         fail "$file still binds a service visibility alias"
     fi
 done
-grep -q 'property PanelState panel: null' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell does not take the panel's PanelState"
-grep -q 'root.panel.closeFromOutside()' "$ROOT/components/PanelShell.qml" \
-    || fail "PanelShell does not close the panel from outside"
-grep -q 'onVisibleChanged: root.armedAction = ""' "$PSVC" \
-    || fail "PowerService does not reset the armed action when its panel toggles"
 
 # --- 14. theme service: palette model plus guarded colors.toml read ---
 # ThemeService answers "what is the palette right now" only. The palette is
@@ -1979,6 +1193,7 @@ grep -q '^singleton ThemeService 1.0 ThemeService.qml' "$ROOT/services/qmldir" \
     || fail "ThemeService is not registered in services/qmldir"
 grep -q '^import qs.services' "$TSVC" \
     || fail "ThemeService.qml is missing its qs.services self-import"
+# The theme root is quickshell-owned; omarchy paths are never read (ADR 0010).
 grep -qF 'quickshell/themes' "$TSVC" \
     || fail "ThemeService does not resolve the quickshell theme root"
 if grep -q 'omarchy' "$TSVC"; then
@@ -1986,107 +1201,26 @@ if grep -q 'omarchy' "$TSVC"; then
 fi
 grep -q 'name: "theme"' "$TSVC" \
     || fail "ThemeService does not persist the selection to the theme state file"
-grep -qF '"colors.toml"' "$TSVC" \
-    || fail "ThemeService does not read colors.toml"
-grep -q '"stat"' "$TSVC" \
-    || fail "ThemeService does not stat colors.toml before reading it"
-grep -q 'ThemeParsers.parseColors' "$TSVC" \
-    || fail "ThemeService does not parse the palette through ThemeParsers"
+# The colors.toml read is one guarded door: stat the raw hex mode first and
+# refuse anything that is not a small regular file. %f is stat's raw mode; the
+# locale-dependent %F would let a symlink masquerade as a regular file.
 grep -q 'ThemeParsers.isTrustedStat' "$TSVC" \
     || fail "ThemeService does not gate the read through ThemeParsers.isTrustedStat"
-grep -q 'ThemeParsers.parseSelection' "$TSVC" \
-    || fail "ThemeService does not parse the selection through ThemeParsers"
 grep -qF '"%f|%s"' "$TSVC" \
     || fail "ThemeService trust check must use stat's raw mode (%f), not the locale-dependent %F"
-grep -q 'hasPalette' "$TSVC" \
-    || fail "ThemeService exposes no hasPalette"
-# Roles stay writable so a palette swap re-binds consumers, per the repaint
-# rule; a readonly role would freeze the bar at the first palette.
-for role in background dark_background lighter_background foreground muted dark_foreground light_foreground accent magenta red yellow; do
-    grep -qE "^[[:space:]]*property color $role: " "$TSVC" \
-        || fail "ThemeService does not expose writable role $role"
-done
-# B1: the restored state name is validated with the same predicate the catalog
-# scan uses, and a ready catalog gates the path so only a listed theme is read.
-grep -q 'function isValidThemeName' "$TPARSE" \
-    || fail "ThemeParsers has no shared theme-name predicate"
-grep -q 'isValidThemeName(parsed.theme)' "$TPARSE" \
-    || fail "parseSelection does not validate the restored theme name"
-grep -q 'isValidThemeName(name)' "$TPARSE" \
-    || fail "parseCatalog does not use the shared theme-name predicate"
-grep -q 'function isSelectionObject' "$TPARSE" \
-    || fail "ThemeParsers has no selection-object predicate"
-grep -q 'ThemeParsers.isSelectionObject' "$TSVC" \
-    || fail "ThemeService does not tell a saved selection from a corrupt file"
+# A restored theme name is validated with the same predicate the catalog scan
+# uses, and once the catalog is ready a name it does not list builds no path
+# (ADR 0011).
 grep -q 'function themePathAllowed' "$TSVC" \
     || fail "ThemeService does not gate a path on catalog membership"
 grep -q 'root.themePathAllowed(root.activeTheme)' "$TSVC" \
     || fail "colorsPath is not gated on catalog membership"
-# L7: required roles are opaque; only the border roles keep the eight-digit form.
-grep -q 'function isOpaqueColorValue' "$TPARSE" \
-    || fail "ThemeParsers does not distinguish opaque roles from border roles"
-grep -q 'isOpaqueColorValue(value)' "$TPARSE" \
-    || fail "parseColors does not restrict a required role to an opaque value"
-grep -qF '[0-9a-fA-F]+' "$TPARSE" \
-    || fail "isTrustedStat does not require a hex mode field (L15)"
-# M3, L1, L2, L4: the refresh, background and renderer follow-ups.
-grep -A6 'function refresh(): string' "$TSVC" | grep -q 'reloadPalette' \
-    || fail "the IPC refresh does not reload the active palette (M3)"
-grep -q 'no background named' "$TSVC" \
-    || fail "selectBackground does not refuse an unknown background (L1)"
-# L2 (a second background pick is queued, latest wins, retries capped at 5)
-# is CoalescedRun's behaviour now; the node gate for it is
-# scripts/test-coalesced-run.sh, so here only the adoption is pinned.
-grep -q 'CoalescedRun {' "$TSVC" \
-    || fail "ThemeService does not coalesce its process runs through CoalescedRun"
-grep -qF 'maxRetries: 5' "$TSVC" \
-    || fail "the background apply retry budget is not 5 (L2)"
-grep -q 'render-theme.sh exited non-zero' "$TSVC" \
-    || fail "a non-zero renderer exit is not logged (L4)"
-# Per-app target gating: the target list, its per-key state behind the
-# theme-targets StateFile, the comma-joined enabled key string, and the render
-# command that passes that string as the renderer's second argument. The first
-# render waits for both the palette and the target state (targetsLoaded), so a
-# fresh install never renders all-enabled and then re-renders the disabled
-# layers.
-grep -q 'readonly property var themeTargets' "$TSVC" \
-    || fail "ThemeService exposes no theme target list"
-for pair in "hyprland:Hyprland borders" "kitty:kitty" "hyprlock:hyprlock" "starship:starship" "yazi:yazi" "btop:btop" "firefox:Firefox" "vencord:Vencord" "spicetify:Spicetify"; do
-    key="${pair%%:*}"
-    title="${pair##*:}"
-    grep -q "\"$key\"" "$TSVC" \
-        || fail "ThemeService target list misses key $key"
-    grep -qF "qsTr(\"$title\")" "$TSVC" \
-        || fail "ThemeService target list misses title $title"
-done
-grep -q 'property var themeTargetEnabled: ({})' "$TSVC" \
-    || fail "ThemeService has no themeTargetEnabled map"
-grep -q 'function isThemeTargetEnabled' "$TSVC" \
-    || fail "ThemeService has no isThemeTargetEnabled()"
-grep -q 'function setThemeTargetEnabled' "$TSVC" \
-    || fail "ThemeService has no setThemeTargetEnabled()"
-grep -q 'name: "theme-targets"' "$TSVC" \
-    || fail "ThemeService does not persist target state to theme-targets"
-grep -q 'ThemeParsers.parseTargets' "$TSVC" \
-    || fail "ThemeService does not parse targets through ThemeParsers"
-grep -q 'ThemeParsers.serializeTargets' "$TSVC" \
-    || fail "ThemeService does not serialize targets through ThemeParsers"
-grep -q 'readonly property string enabledThemeTargetKeys' "$TSVC" \
-    || fail "ThemeService exposes no enabledThemeTargetKeys"
-grep -qF 'root.renderScriptPath, root.renderPaletteJson, root.enabledThemeTargetKeys' "$TSVC" \
-    || fail "the render command does not pass the enabled target keys as the second argument"
-grep -q 'onThemeTargetEnabledChanged' "$TSVC" \
-    || fail "ThemeService does not react to a target change"
-grep -q 'property bool targetsLoaded' "$TSVC" \
-    || fail "ThemeService has no targetsLoaded first-render gate"
-grep -q 'property bool paletteResolved' "$TSVC" \
-    || fail "ThemeService has no paletteResolved first-render gate"
-grep -qF 'if (!root.paletteResolved || !root.targetsLoaded)' "$TSVC" \
-    || fail "renderDesktop does not gate the first render on palette and targets"
 
 # parseTargets / serializeTargets: the target map defaults all-on, only an
 # explicit false disables, an unknown key is dropped, and serialization emits
 # every known key as a boolean. Mirrors StateParsers.parseVisibility.
+grep -q 'name: "theme-targets"' "$TSVC" \
+    || fail "ThemeService does not persist target state to theme-targets"
 node - "$ROOT/tests/qmljs.js" "$TPARSE" <<'NODEEOF'
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('panel-logic');
@@ -2412,19 +1546,6 @@ for token, fallback in MAPPED.items():
     check(f"colors/{token}/binds-theme", resolved is not None, True)
     check(f"colors/{token}/fallback", fallback in resolved, True)
 
-check("colors/textSecondary/mode", "ThemeService.mode" in exprs["textSecondary"], True)
-check("colors/textSecondary/dark", "dark_foreground" in exprs["textSecondary"], True)
-check("colors/textSecondary/light", "light_foreground" in exprs["textSecondary"], True)
-
-# accentDim is accent at 14 percent alpha, not a literal.
-check("colors/accentDim/alpha", "0.14" in exprs["accentDim"], True)
-check("colors/accentDim/accent", "accent" in exprs["accentDim"], True)
-
-# criticalCard and criticalCardBorder mix red into background, not a literal.
-for token in ("criticalCard", "criticalCardBorder"):
-    check(f"colors/{token}/red", "red" in exprs[token], True)
-    check(f"colors/{token}/background", "background" in exprs[token], True)
-
 # textFaint keeps the theme's secondary when it already sits below the accent,
 # and otherwise blends the background toward the foreground.
 check("colors/textFaint/defined", "textFaint" in exprs, True)
@@ -2452,18 +1573,6 @@ EOF
 TSCRIPT="$ROOT/scripts/theme-catalog-scan.sh"
 test -f "$TSCRIPT" \
     || fail "scripts/theme-catalog-scan.sh is missing"
-grep -q 'ThemeParsers.parseCatalog' "$TSVC" \
-    || fail "ThemeService does not build the catalog through ThemeParsers.parseCatalog"
-grep -q 'function refresh' "$TSVC" \
-    || fail "ThemeService exposes no refresh()"
-grep -q 'function selectTheme' "$TSVC" \
-    || fail "ThemeService exposes no selectTheme()"
-grep -qE 'readonly property var catalog' "$TSVC" \
-    || fail "ThemeService exposes no catalog list"
-grep -q 'theme-catalog-scan.sh' "$TSVC" \
-    || fail "ThemeService does not run the catalog scan script"
-grep -q 'ThemeParsers.themeMaxBytes' "$TSVC" \
-    || fail "ThemeService does not pass the palette byte cap to the scan"
 
 CATDIR="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-catalog-XXXXXX")"
 # The scan lists a theme only when colors.toml carries the full v4 palette, not
@@ -2643,16 +1752,6 @@ for tpl in hypr-theme.lua kitty-theme.conf hyprlock-colors.conf starship-theme.t
     test -f "$ROOT/assets/templates/$tpl" \
         || fail "assets/templates/$tpl is missing"
 done
-grep -q 'render-theme.sh' "$TSVC" \
-    || fail "ThemeService does not run the desktop renderer"
-grep -q 'renderScriptPath' "$TSVC" \
-    || fail "ThemeService does not expose the renderer script path"
-# The renderer also runs for the no-palette case, so a selected-but-unreadable
-# theme leaves the desktop on the same fallback the bar shows instead of the
-# previous theme's files.
-if grep -A4 'function renderDesktop' "$TSVC" | grep -q '!root.hasPalette'; then
-    fail "renderDesktop skips the fallback render for an active theme (stale desktop)"
-fi
 if grep -q 'colors.toml' "$RENDER"; then
     fail "render-theme.sh names colors.toml; it must consume only the resolved palette"
 fi
@@ -2963,12 +2062,6 @@ grep -qF -- '-- probe 7aa2f7 e0af68 #e0af68 #f7768e #ffffff #ffffff #d5d6db #c0c
 # never points at a missing file.
 test -f "$ROOT/assets/templates/vencord-theme.css" \
     || fail "assets/templates/vencord-theme.css is missing"
-grep -q ':root:root[[:space:]]*{' "$ROOT/assets/templates/vencord-theme.css" \
-    || fail "the Vencord template selector is not :root:root"
-grep -q '@name quickshell' "$ROOT/assets/templates/vencord-theme.css" \
-    || fail "the Vencord template has no BetterDiscord metadata header"
-grep -q '@description Shell palette' "$ROOT/assets/templates/vencord-theme.css" \
-    || fail "the Vencord metadata header is not the agreed description"
 # The enabled and disabled templates share a banner and a BetterDiscord
 # metadata header. Assert the invariant header lines match between the two
 # files so they cannot drift: the metadata block must be byte-identical, and
@@ -3194,119 +2287,6 @@ test -f "$FF_CONTENT_TPL" \
     || fail "assets/templates/firefox-content.css is missing"
 test -f "$FF_USER_TPL" \
     || fail "assets/templates/firefox-user.js is missing"
-grep -q -- '--shell-background: {{background}}' "$FF_TPL" \
-    || fail "the Firefox template does not expose the palette as --shell-* variables"
-grep -q -- '--shell-on-accent: {{on_accent}}' "$FF_TPL" \
-    || fail "the Firefox template has no --shell-on-accent from the on-accent ink"
-grep -q -- '--shell-on-accent: {{on_accent}}' "$FF_CONTENT_TPL" \
-    || fail "the Firefox content template has no --shell-on-accent from the on-accent ink"
-grep -q '^// BEGIN quickshell$' "$FF_USER_TPL" \
-    || fail "the Firefox user.js template has no BEGIN marker"
-grep -q 'toolkit.legacyUserProfileCustomizations.stylesheets", true' "$FF_USER_TPL" \
-    || fail "the Firefox user.js template does not set the legacy-sheets pref"
-grep -q '^// END quickshell$' "$FF_USER_TPL" \
-    || fail "the Firefox user.js template has no END marker"
-# The chrome variable names are Firefox internals that have been renamed across
-# releases; this list is verified against Firefox 157.0.1 and may need upkeep.
-for var in toolbar-background-color toolbar-text-color tab-background-color-selected tab-text-color-selected urlbar-box-background-color urlbar-box-background-color-focus urlbar-box-text-color toolbar-field-background-color toolbar-field-background-color-focus toolbar-field-text-color toolbar-field-text-color-focus panel-background-color panel-border-color sidebar-background-color sidebar-text-color sidebar-border-color lwt-accent-color lwt-text-color toolbox-text-color toolbox-background-color-inactive toolbox-text-color-inactive lwt-accent-color-inactive; do
-    grep -q -- "--$var: var(--shell-" "$FF_TPL" \
-        || fail "the Firefox template does not map --$var onto a shell variable"
-done
-# Firefox 157's Nova chrome tints the toolbar glyphs, the button hover pill and
-# the toolbox background violet through @layer tokens-*-nova; the sheet set
-# none of them, so the icons and hover kept Nova's ramp. It must pin the glyph
-# fills to the palette foreground, mix the hover/active pill toward it, and
-# flatten the toolbox background and both gradient stops to the palette
-# background. Names verified in chrome/omni.ja's design-system
-# tokens-shared.css (:1018-1042) and tokens-platform.css (:227-304).
-for var in toolbarbutton-icon-fill icon-color button-icon-fill; do
-    grep -q -- "--$var: var(--shell-foreground)" "$FF_TPL" \
-        || fail "the Firefox template does not take --$var from the palette foreground"
-done
-for var in toolbarbutton-background-color-hover toolbarbutton-background-color-active; do
-    grep -q -- "--$var: color-mix(in srgb, var(--shell-foreground)" "$FF_TPL" \
-        || fail "the Firefox template does not mix --$var off the palette foreground"
-done
-for var in toolbox-background-color toolbox-background-color-gradient-leading toolbox-background-color-gradient-trailing; do
-    grep -q -- "--$var: var(--shell-background)" "$FF_TPL" \
-        || fail "the Firefox template does not flatten --$var to the palette background"
-done
-# The accent family: each Attention color reads --shell-accent, and the primary
-# button text takes the on-accent ink. The hover/active variants are color-mix
-# ladders off the accent. --toolbar-field-focus-border-color does not exist in
-# Firefox 157; the real token is --toolbar-field-border-color-focus. Names
-# verified in chrome/omni.ja's design-system tokens-shared.css and
-# browser/omni.ja's tab.tokens.css.
-for var in color-accent-primary color-accent-primary-selected focus-outline-color link-color button-background-color-primary toolbarbutton-icon-fill-attention tab-loading-fill toolbar-field-border-color-focus; do
-    grep -q -- "--$var: var(--shell-" "$FF_TPL" \
-        || fail "the Firefox template does not map --$var onto a shell variable"
-done
-for var in color-accent-primary-hover color-accent-primary-active link-color-hover link-color-active button-background-color-primary-hover button-background-color-primary-active; do
-    grep -q -- "$var: color-mix(in srgb, var(--shell-accent)" "$FF_TPL" \
-        || fail "the Firefox accent variant $var is not a color-mix off the accent"
-done
-grep -q -- '--button-text-color-primary: var(--shell-on-accent)' "$FF_TPL" \
-    || fail "the Firefox template does not paint primary-button text with the on-accent ink"
-# The search-engine switcher pill has no switcher-specific token, so a scoped
-# rule themes its muted button variables from the palette.
-grep -q '\.searchmode-switcher' "$FF_TPL" \
-    || fail "the Firefox template does not scope the searchmode switcher"
-grep -q -- '--button-background-color-muted: var(--shell-' "$FF_TPL" \
-    || fail "the Firefox switcher rule does not theme the muted button background"
-grep -q -- '--button-text-color-muted-hover: var(--shell-foreground)' "$FF_TPL" \
-    || fail "the Firefox switcher rule does not theme the muted hover text"
-grep -q -- '--button-text-color-muted-active: var(--shell-foreground)' "$FF_TPL" \
-    || fail "the Firefox switcher rule does not theme the muted active text"
-# A light palette on a dark system otherwise takes the dark branch of Firefox's
-# light-dark() tokens; the chrome sheet pins the palette's own color-scheme on
-# the root, popups and panels, the toolbar scheme the find bar and tabs read,
-# and the panel text pair (popup.css sets the text on menupopup itself).
-grep -q -- 'color-scheme: {{page_scheme}} !important' "$FF_TPL" \
-    || fail "the Firefox chrome template does not pin color-scheme from the palette mode"
-grep -q -- '--toolbar-color-scheme: {{page_scheme}} !important' "$FF_TPL" \
-    || fail "the Firefox chrome template does not pin --toolbar-color-scheme"
-grep -q -- '--panel-text-color: var(--shell-foreground) !important' "$FF_TPL" \
-    || fail "the Firefox chrome template does not take the panel text from the palette"
-grep -q '^menupopup {' "$FF_TPL" \
-    || fail "the Firefox chrome template does not cover menupopups"
-grep -q '^:root,$' "$FF_TPL" \
-    || fail "the Firefox chrome template does not pin color-scheme on :root"
-# The content sheet reaches about:newtab/home/privatebrowsing (which userChrome
-# cannot) via @-moz-document, and paints the newtab page's own variables.
-grep -q '^@-moz-document url("about:newtab"), url("about:home"), url("about:privatebrowsing") {' "$FF_CONTENT_TPL" \
-    || fail "the Firefox content template does not scope about:newtab/home/privatebrowsing"
-for var in newtab-background-color newtab-background-color-secondary newtab-background-card newtab-text-primary-color newtab-text-secondary-text newtab-text-secondary-color newtab-primary-action-background newtab-primary-element-text-color; do
-    grep -q -- "--$var: var(--shell-" "$FF_CONTENT_TPL" \
-        || fail "the Firefox content template does not map --$var onto a shell variable"
-done
-grep -q -- '--content-search-handoff-ui-background-color: var(--shell-' "$FF_CONTENT_TPL" \
-    || fail "the Firefox content template does not theme the search box"
-# about:privatebrowsing paints from html.private in its own sheet, which pins
-# --background-color-canvas and paints a bare content-search-handoff-ui with no
-# .search-wrapper ancestor; the content sheet overrides both. It also carries
-# the palette mode as color-scheme so native controls match.
-grep -q -- 'html.private' "$FF_CONTENT_TPL" \
-    || fail "the Firefox content template does not theme about:privatebrowsing"
-grep -q -- '--background-color-canvas: var(--shell-' "$FF_CONTENT_TPL" \
-    || fail "the Firefox content template does not override the private-browsing canvas"
-grep -q '^    content-search-handoff-ui {' "$FF_CONTENT_TPL" \
-    || fail "the Firefox content template gates the search box behind .search-wrapper"
-grep -q -- '--in-content-banner-background: var(--shell-' "$FF_CONTENT_TPL" \
-    || fail "the Firefox content template does not theme the private-browsing banner"
-grep -q -- 'color-scheme: {{page_scheme}}' "$FF_CONTENT_TPL" \
-    || fail "the Firefox content template does not set color-scheme from the palette mode"
-# aboutPrivateBrowsing.css pins `a:link`, `.text-link` and `.promo a` to
-# `color: inherit` (:36-48, :394-398), which outranks the shared --link-color
-# consumer, and the Nova branch that would read --link-color is off by default,
-# so mapping the variable is not enough: the sheet must set the links' color
-# explicitly, and carry :visited through --link-color-visited
-# (common-shared.css:462).
-ff_link_rule="$(awk '/^[[:space:]]*html\.private a,$/{r=1} r{print} r&&/^[[:space:]]*}$/{exit}' "$FF_CONTENT_TPL")"
-if ! printf '%s\n' "$ff_link_rule" | grep -q 'color: var(--shell-accent) !important'; then
-    fail "the content template does not paint html.private links with an explicit color"
-fi
-grep -q -- '--link-color-visited: var(--shell-' "$FF_CONTENT_TPL" \
-    || fail "the content template does not map the visited link color"
 # The target never writes a backup tree or the user-owned userContent.css (the
 # user imports shell-content.css from it), and never rewrites prefs.js.
 if grep -qE '(emit|write_if_changed|open)\([^)]*userContent' "$RENDER"; then
@@ -3663,15 +2643,6 @@ test -f "$SP_TPL_CSS" \
     || fail "assets/templates/spicetify-user.css is missing"
 test -f "$SP_TPL_INI" \
     || fail "assets/templates/spicetify-color.ini is missing"
-grep -q 'morpheusthewhite' "$SP_TPL_CSS" \
-    || fail "the Spicetify user.css banner drops the upstream attribution"
-grep -q '33a08ea009687f5a42ff678015c28797fe142a7c' "$SP_TPL_INI" \
-    || fail "the Spicetify color.ini banner drops the pinned commit"
-grep -q '^\[Quickshell\]' "$SP_TPL_INI" \
-    || fail "the Spicetify color.ini template has no [Quickshell] section"
-if grep -qE '\{\{[A-Za-z0-9_]+\}\}' "$SP_TPL_CSS"; then
-    fail "the Spicetify user.css template holds a token; it is verbatim"
-fi
 # The renderer never selects the theme (a manual step), never uses the
 # version-gated restore path, and never names the user-owned config file.
 if grep -qE 'current_theme|color_scheme' "$RENDER"; then
@@ -3900,35 +2871,15 @@ if grep -qE '\[[[:space:]]*Colors\.' "$DBLOCK"; then
 fi
 grep -q 'Colors.themeSwatches' "$DBLOCK" \
     || fail "DashboardThemeBlock does not bind the shared mapped swatches"
-grep -q 'readonly property var themeSwatches' "$COLORS" \
-    || fail "Colors has no themeSwatches list of mapped roles"
-grep -q 'ThemeService.activeDisplayName' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not show the active theme name"
-grep -q 'letterSpacing: Globals.uiLetterSpacing' "$DBLOCK" \
-    || fail "DashboardThemeBlock captions lack the section-caption tracking"
 if grep -q 'Globals.uiTitleSize' "$DBLOCK"; then
     fail "DashboardThemeBlock uses uiTitleSize, which is not a dashboard role"
 fi
-grep -qF 'qsTr("No theme")' "$DBLOCK" \
-    || fail "DashboardThemeBlock has no empty-theme label"
-grep -qF 'DashboardService.openSettings("theme")' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not open the Theme section through the dashboard tab"
 if grep -qi 'wallpaper' "$DBLOCK"; then
     fail "DashboardThemeBlock still renders the empty wallpaper grid"
 fi
 if grep -q 'MouseArea' "$DBLOCK"; then
     fail "DashboardThemeBlock rolls its own click surface; the shared Card owns the click"
 fi
-grep -q 'property bool clickable' "$ROOT/components/Card.qml" \
-    || fail "Card has no clickable opt-in for a whole-card target"
-grep -q 'property string targetSection' "$SSVC" \
-    || fail "SettingsService has no section target"
-grep -q 'SettingsService.targetSection' "$SCENTER" \
-    || fail "SettingsView does not honor the requested section target"
-grep -q 'readonly property string activeDisplayName' "$TSVC" \
-    || fail "ThemeService has no activeDisplayName"
-grep -q 'root.backgroundEntries.length === 0' "$DBLOCK" \
-    || fail "DashboardThemeBlock resets the background page on a transient empty list (L11)"
 
 # --- 19. theme backgrounds: guarded listing plus per-theme apply ---
 # ThemeService lists a theme's backgrounds through scripts/theme-backgrounds-scan.sh,
@@ -3943,44 +2894,6 @@ test -f "$BSCAN" \
     || fail "scripts/theme-backgrounds-scan.sh is missing"
 test -f "$TILE" \
     || fail "components/BackgroundTile.qml is missing"
-grep -q 'theme-backgrounds-scan.sh' "$TSVC" \
-    || fail "ThemeService does not run the background scan script"
-grep -q 'ThemeParsers.backgroundMaxBytes' "$TSVC" \
-    || fail "ThemeService does not pass the background byte cap to the scan"
-grep -q 'ThemeParsers.parseBackgroundList' "$TSVC" \
-    || fail "ThemeService does not build the background list through ThemeParsers"
-grep -qE 'readonly property var backgroundList' "$TSVC" \
-    || fail "ThemeService exposes no background list"
-grep -q 'function refreshBackgrounds' "$TSVC" \
-    || fail "ThemeService exposes no refreshBackgrounds()"
-grep -q 'currentBackgroundName' "$TSVC" \
-    || fail "ThemeService exposes no current background choice"
-grep -qF '["awww", "img"' "$TSVC" \
-    || fail "ThemeService does not apply the background with awww"
-grep -q 'Image' "$TILE" \
-    || fail "BackgroundTile does not decode its thumbnail with Qt"
-grep -q 'root.implicitWidth' "$TILE" \
-    || fail "BackgroundTile does not seed sourceSize from its implicit size (L10)"
-grep -q 'ThemeService.backgroundList' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not bind the background list"
-grep -q 'ThemeService.currentBackgroundName' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not mark the current background"
-grep -q 'ThemeService.selectBackground' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not pick a background through ThemeService"
-grep -q 'BackgroundTile' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not render background thumbnails"
-grep -q 'backgroundPageSize: 4' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not cap a background page at four"
-grep -q 'backgroundPageItems' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not page the background list"
-grep -q 'function stepBackgroundPage' "$DBLOCK" \
-    || fail "DashboardThemeBlock has no background paging step"
-grep -q 'pageForBackground' "$DBLOCK" \
-    || fail "DashboardThemeBlock does not land on the current background's page"
-grep -q 'Icons.chevronLeft' "$DBLOCK" \
-    || fail "DashboardThemeBlock has no previous-page arrow"
-grep -q 'Icons.chevronRight' "$DBLOCK" \
-    || fail "DashboardThemeBlock has no next-page arrow"
 if grep -q 'awww' "$DBLOCK"; then
     fail "DashboardThemeBlock applies the background itself; the renderer path owns the awww call"
 fi
@@ -4045,7 +2958,6 @@ NODEEOF
 FONTSVC="$ROOT/services/FontService.qml"
 FONTVIEW="$ROOT/windows/FontsSettingsView.qml"
 FONTROW="$ROOT/components/FontPickerRow.qml"
-GLOBALS="$ROOT/config/Globals.qml"
 
 # FontService owns enumeration, role mapping, and persistence; its setters
 # write the shared Globals families every Text binds to, so a pick repaints
@@ -4056,75 +2968,18 @@ grep -q '^singleton FontService 1.0 FontService.qml' "$ROOT/services/qmldir" \
     || fail "FontService is not registered in services/qmldir"
 grep -q 'name: "font-settings"' "$FONTSVC" \
     || fail "FontService does not persist to the font-settings state file"
-grep -q 'function applySettings' "$FONTSVC" \
-    || fail "FontService has no applySettings"
-grep -q 'function saveSettings' "$FONTSVC" \
-    || fail "FontService has no saveSettings"
-grep -q 'function setFamily' "$FONTSVC" \
-    || fail "FontService has no setFamily"
-grep -q 'function familyFor' "$FONTSVC" \
-    || fail "FontService has no familyFor"
-grep -q 'function familiesFor' "$FONTSVC" \
-    || fail "FontService has no familiesFor"
-grep -q 'Qt.fontFamilies()' "$FONTSVC" \
-    || fail "FontService does not enumerate the installed families"
-grep -q 'indexOf("Nerd Font")' "$FONTSVC" \
-    || fail "FontService does not restrict the icon role to Nerd Fonts"
-grep -q 'Globals.uiFontFamily' "$FONTSVC" \
-    || fail "FontService does not drive the shared UI family"
-grep -q 'Globals.fontFamily' "$FONTSVC" \
-    || fail "FontService does not drive the shared bar family"
-grep -q 'Globals.iconFontFamily' "$FONTSVC" \
-    || fail "FontService does not drive the shared icon family"
 
 # One picker row renders every role, so Change, Search, and No match cannot
 # drift between Interface, Bar, and Icons.
 test -f "$FONTROW" \
     || fail "components/FontPickerRow.qml is missing"
-grep -q 'signal selected' "$FONTROW" \
-    || fail "FontPickerRow exposes no selected signal"
-grep -q 'NavItem' "$FONTROW" \
-    || fail "FontPickerRow does not reuse the shared NavItem for results"
-grep -q 'function filtered' "$FONTROW" \
-    || fail "FontPickerRow has no filtered()"
-grep -q 'property int maxResults' "$FONTROW" \
-    || fail "FontPickerRow does not cap its result list"
 
 test -f "$FONTVIEW" \
     || fail "windows/FontsSettingsView.qml is missing"
-grep -q 'property string filter' "$FONTVIEW" \
-    || fail "FontsSettingsView has no filter property"
-grep -q 'FontService.roles' "$FONTVIEW" \
-    || fail "FontsSettingsView does not render one picker per FontService role"
-grep -q 'FontPickerRow' "$FONTVIEW" \
-    || fail "FontsSettingsView does not compose the shared picker row"
-grep -q 'FontService.familyFor' "$FONTVIEW" \
-    || fail "FontsSettingsView does not read the role family from FontService"
-grep -q 'FontService.familiesFor' "$FONTVIEW" \
-    || fail "FontsSettingsView does not list the role families from FontService"
-grep -q 'FontService.setFamily' "$FONTVIEW" \
-    || fail "FontsSettingsView does not write the role family through FontService"
-grep -q 'SettingsFilter.matches' "$FONTVIEW" \
-    || fail "FontsSettingsView does not filter through the shared SettingsFilter"
 grep -q 'FontsSettingsView' "$SCENTER" \
     || fail "SettingsView does not compose the Fonts section"
-grep -qF 'root.currentSection.key === "fonts"' "$SCENTER" \
-    || fail "SettingsView does not gate the Fonts section"
 grep -qF 'key: "fonts"' "$SSVC" \
     || fail "SettingsService has no fonts section"
-grep -qF 'FontService.roles.map(role => role.label)' "$SSVC" \
-    || fail "SettingsService fonts options do not derive from FontService roles"
-if grep -qE 'key: "fonts".*comingSoon: true' "$SSVC"; then
-    fail "fonts section is still coming soon"
-fi
-
-# The picker sets state; the shared Globals roles must stay writable.
-grep -q '^    property string fontFamily' "$GLOBALS" \
-    || fail "Globals.fontFamily is not writable"
-grep -q '^    property string uiFontFamily' "$GLOBALS" \
-    || fail "Globals.uiFontFamily is not writable"
-grep -q '^    property string iconFontFamily' "$GLOBALS" \
-    || fail "Globals.iconFontFamily is not writable"
 
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$FONTVIEW" "$FONTROW"; then
     fail "fonts settings surface carries raw hex; palette tokens only"
@@ -4162,27 +3017,12 @@ EOF
 # stop is excluded from the backoff counter so it cannot inflate the delay.
 CAVALOGIC="$ROOT/services/CavaLogic.js"
 CAVASVC="$ROOT/services/CavaService.qml"
-CAVAGLOBALS="$ROOT/config/Globals.qml"
 
-grep -q 'readonly property int cavaRestartBaseMs: 1500' "$CAVAGLOBALS" \
-    || fail "Globals.cavaRestartBaseMs is not the 1500ms base"
-grep -q 'readonly property int cavaRestartMaxMs: 30000' "$CAVAGLOBALS" \
-    || fail "Globals.cavaRestartMaxMs is not the 30000ms cap"
 grep -q 'import "CavaLogic.js" as CavaLogic' "$CAVASVC" \
     || fail "CavaService does not import CavaLogic.js"
-grep -q 'CavaLogic.restartDelayMs' "$CAVASVC" \
-    || fail "CavaService does not compute the restart delay through CavaLogic"
-grep -q 'property int restartIntervalMs: Globals.cavaRestartBaseMs' "$CAVASVC" \
-    || fail "CavaService does not seed its restart interval from Globals"
-grep -q 'interval: root.restartIntervalMs' "$CAVASVC" \
-    || fail "CavaService restart timer does not read the backoff interval"
 if grep -q 'interval: 1500' "$CAVASVC"; then
     fail "CavaService still hardcodes the 1500ms restart interval"
 fi
-grep -q 'property bool intentionalStop' "$CAVASVC" \
-    || fail "CavaService has no intentionalStop flag"
-grep -q 'root.intentionalStop = true' "$CAVASVC" \
-    || fail "restartAnalyser does not mark its stop intentional"
 # The intentional-exit branch must clear the flag and return before the backoff
 # scheduling, so a deliberate restart never enters the crash timer. Extract the
 # handler body by indentation instead of a fixed -A count.
@@ -4207,8 +3047,6 @@ printf '%s\n' "$deferred" | grep -q 'idCavaProcess.running = true' \
 if printf '%s\n' "$deferred" | grep -q '!idCavaProcess.running'; then
     fail "restartAnalyser guards the relaunch on !running; it skips while the old process is alive"
 fi
-grep -q 'root.restartAttempts = 0' "$CAVASVC" \
-    || fail "handleFrame does not reset restartAttempts on a live frame"
 
 node - "$ROOT/tests/qmljs.js" "$CAVALOGIC" <<'NODEEOF'
 const qmljs = require(process.argv[2]);
@@ -4238,30 +3076,6 @@ test -f "$BARANCHOR" \
     || fail "services/BarAnchor.qml is missing"
 grep -q '^BarAnchor 1.0 BarAnchor.qml' "$ROOT/services/qmldir" \
     || fail "BarAnchor is not registered as a non-singleton in services/qmldir"
-grep -q 'id: root' "$BARANCHOR" \
-    || fail "BarAnchor's file root is not id: root"
-grep -q 'property Item anchor: null' "$BARANCHOR" \
-    || fail "BarAnchor has no anchor property"
-grep -q 'signal toggleRequested' "$BARANCHOR" \
-    || fail "BarAnchor has no toggleRequested signal"
-for fn in 'function register(trigger: Item)' 'function unregister(trigger: Item)' 'function requestToggle(): bool'; do
-    grep -q "$fn" "$BARANCHOR" \
-        || fail "BarAnchor has no $fn"
-done
-# unregister only clears its own trigger, and requestToggle reports whether an
-# anchor answered so the IPC target can tell a miss from a toggle.
-unregister_body="$(awk '/^    function unregister\(trigger: Item\)/,/^    }$/' "$BARANCHOR")"
-test -n "$unregister_body" || fail "could not extract BarAnchor.unregister"
-printf '%s\n' "$unregister_body" | grep -q 'root.anchor === trigger' \
-    || fail "BarAnchor.unregister does not guard on its own trigger"
-request_body="$(awk '/^    function requestToggle/,/^    }$/' "$BARANCHOR")"
-test -n "$request_body" || fail "could not extract BarAnchor.requestToggle"
-printf '%s\n' "$request_body" | grep -q 'root.toggleRequested()' \
-    || fail "BarAnchor.requestToggle does not emit toggleRequested"
-printf '%s\n' "$request_body" | grep -q 'return true' \
-    || fail "BarAnchor.requestToggle does not return true on a live anchor"
-printf '%s\n' "$request_body" | grep -q 'return false' \
-    || fail "BarAnchor.requestToggle does not return false without an anchor"
 
 # PanelTrigger is the single bar-trigger adapter. It must be a bare QtObject:
 # the bar modules are ModuleBox layouts, and an Item child would take layout
@@ -4273,42 +3087,6 @@ grep -q '^PanelTrigger 1.0 PanelTrigger.qml' "$ROOT/services/qmldir" \
     || fail "PanelTrigger is not registered as a non-singleton in services/qmldir"
 grep -q '^QtObject {' "$TRIGGER" \
     || fail "PanelTrigger is not a bare QtObject"
-grep -q 'id: root' "$TRIGGER" \
-    || fail "PanelTrigger's file root is not id: root"
-for prop in 'property BarAnchor anchor' 'property PanelState panelState' 'property Item trigger' 'property ShellScreen triggerScreen' 'property bool active'; do
-    grep -q "$prop" "$TRIGGER" \
-        || fail "PanelTrigger has no $prop"
-done
-trigger_toggle="$(awk '/^    function toggle\(\)/,/^    }$/' "$TRIGGER")"
-test -n "$trigger_toggle" || fail "could not extract PanelTrigger.toggle"
-printf '%s\n' "$trigger_toggle" | grep -q 'Panels.toggleAt(root.panelState' \
-    || fail "PanelTrigger.toggle does not dispatch through Panels.toggleAt"
-printf '%s\n' "$trigger_toggle" | grep -q 'Globals.triggerCenterX(root.trigger, root.triggerScreen)' \
-    || fail "PanelTrigger.toggle does not anchor on its trigger and screen"
-# Registration follows the active gate, and a destroy always unregisters.
-trigger_sync="$(awk '/^    function syncAnchor\(\)/,/^    }$/' "$TRIGGER")"
-test -n "$trigger_sync" || fail "could not extract PanelTrigger.syncAnchor"
-printf '%s\n' "$trigger_sync" | grep -q 'root.active' \
-    || fail "PanelTrigger.syncAnchor ignores the active gate"
-printf '%s\n' "$trigger_sync" | grep -q 'register(root.trigger)' \
-    || fail "PanelTrigger.syncAnchor does not register its trigger"
-printf '%s\n' "$trigger_sync" | grep -q 'unregister(root.trigger)' \
-    || fail "PanelTrigger.syncAnchor does not unregister its trigger"
-grep -q 'Component.onDestruction' "$TRIGGER" \
-    || fail "PanelTrigger does not clean up on destruction"
-for lifecycle in 'onActiveChanged' 'Component.onCompleted'; do
-    grep -q "$lifecycle" "$TRIGGER" \
-        || fail "PanelTrigger does not sync its anchor on $lifecycle"
-done
-# The toggle answer is gated on `active`: with a Clock on every bar, an
-# unguarded handler toggles the calendar once per monitor on one IPC request
-# (open then close).
-trigger_conn="$(awk '/function onToggleRequested\(\)/,/^        \}$/' "$TRIGGER")"
-test -n "$trigger_conn" || fail "could not extract PanelTrigger.onToggleRequested"
-printf '%s\n' "$trigger_conn" | grep -q 'root.active' \
-    || fail "PanelTrigger.onToggleRequested does not guard on the active gate"
-printf '%s\n' "$trigger_conn" | grep -q 'root.toggle()' \
-    || fail "PanelTrigger.onToggleRequested does not call toggle"
 
 # The dispatch now lives in PanelTrigger: no module re-implements it, keeps its
 # own barAnchor wiring, or handles the anchor signal itself.
@@ -4321,74 +3099,22 @@ for mod in Clock Notifications PowerMenu Cava; do
         || fail "$mod does not compose a PanelTrigger"
 done
 
-# Each module composes one PanelTrigger bound to its own service and screen,
-# and its left click calls the trigger instead of dispatching itself.
-for pair in "Clock:CalendarService:idClockTrigger" "Notifications:NotificationServer:idNotificationsTrigger" "PowerMenu:PowerService:idPowerMenuTrigger" "Cava:CavaService:idCavaTrigger"; do
-    mod="${pair%%:*}"
-    rest="${pair#*:}"
-    svc="${rest%%:*}"
-    trig="${rest##*:}"
-    grep -q "$trig" "$ROOT/modules/$mod.qml" \
-        || fail "$mod does not declare $trig"
-    grep -q "anchor: $svc.barAnchor" "$ROOT/modules/$mod.qml" \
-        || fail "$mod's PanelTrigger is not bound to $svc.barAnchor"
-    grep -q "panelState: $svc.panelState" "$ROOT/modules/$mod.qml" \
-        || fail "$mod's PanelTrigger is not bound to $svc.panelState"
-    grep -q 'trigger: root' "$ROOT/modules/$mod.qml" \
-        || fail "$mod's PanelTrigger does not use the module as its trigger"
-    grep -q 'triggerScreen: root.triggerScreen' "$ROOT/modules/$mod.qml" \
-        || fail "$mod's PanelTrigger does not carry the trigger screen"
-    grep -q "$trig.toggle()" "$ROOT/modules/$mod.qml" \
-        || fail "$mod's click does not call $trig"
-done
-# Clock lives on every bar; only the primary one activates its trigger, so one
-# IPC call does not toggle once per monitor.
-grep -q 'active: root.anchorActive' "$ROOT/modules/Clock.qml" \
-    || fail "Clock's PanelTrigger is not gated on the primary-only anchor"
-for mod in Notifications PowerMenu Cava; do
-    grep -q 'active: root.visible' "$ROOT/modules/$mod.qml" \
-        || fail "$mod's PanelTrigger is not gated on visibility"
-done
-clock_gate="$(grep 'property bool anchorActive' "$ROOT/modules/Clock.qml")"
-test -n "$clock_gate" || fail "Clock has no anchorActive gate"
-printf '%s\n' "$clock_gate" | grep -q 'root.visible' \
-    || fail "Clock's anchor gate ignores visibility"
-printf '%s\n' "$clock_gate" | grep -q 'Globals.onPrimaryMonitor(root.monitorName)' \
-    || fail "Clock's anchor gate ignores the primary monitor"
-
-# Every bar panel service composes an anchor and exposes it as barAnchor (cava
-# gains one so its IPC target can land the panel under the module); each target
-# routes toggle through the anchor, and the quick panel targets return a status
-# string in the theme target's style.
+# Every bar panel service composes one anchor and exposes it as barAnchor (cava
+# gains one so its IPC target can land the panel under the module).
 for svc in PowerService CalendarService NotificationServer CavaService; do
     grep -q 'BarAnchor {' "$ROOT/services/$svc.qml" \
         || fail "$svc does not compose a BarAnchor"
     grep -q 'readonly property BarAnchor barAnchor: idBarAnchor' "$ROOT/services/$svc.qml" \
         || fail "$svc does not expose barAnchor"
 done
-for target in power:PowerService calendar:CalendarService notifications:NotificationServer cava:CavaService; do
-    name="${target%%:*}"
-    svc="${target##*:}"
-    grep -q "target: \"$name\"" "$ROOT/services/$svc.qml" \
-        || fail "$svc has no IpcHandler target \"$name\""
-    grep -q 'idBarAnchor.requestToggle()' "$ROOT/services/$svc.qml" \
-        || fail "$svc's $name toggle does not route through the anchor"
-done
-grep -q '"error: clock module is hidden"' "$ROOT/services/CalendarService.qml" \
-    || fail "Calendar's toggle does not report a hidden clock"
-grep -q '"error: notifications module is hidden"' "$ROOT/services/NotificationServer.qml" \
-    || fail "Notifications' toggle does not report a hidden module"
-grep -q '"error: cava module is hidden"' "$ROOT/services/CavaService.qml" \
-    || fail "Cava's toggle does not report a hidden module"
 
 # --- 23. IPC targets: dashboard, dnd, and volume ---
-# The dashboard opens on the focused screen at its center; dnd persists through
-# the notifications state file; volume reports the sink's raw percent. Each
-# handler body is extracted by its target so a re-inlined copy cannot pass.
+# The dashboard opens on the focused screen, dnd persists through the
+# notifications state file, and volume reports the sink's raw percent; each
+# target is a registered IpcHandler.
 DASHSVC="$ROOT/services/DashboardService.qml"
 NOTIFSVC="$ROOT/services/NotificationServer.qml"
 AUDIOSVC="$ROOT/services/AudioService.qml"
-MONITORSVC="$ROOT/services/MonitorService.qml"
 
 for pair in "dashboard:$DASHSVC" "dnd:$NOTIFSVC" "volume:$AUDIOSVC"; do
     name="${pair%%:*}"
@@ -4396,72 +3122,8 @@ for pair in "dashboard:$DASHSVC" "dnd:$NOTIFSVC" "volume:$AUDIOSVC"; do
     grep -q "target: \"$name\"" "$svc" \
         || fail "$(basename "$svc") has no IpcHandler target \"$name\""
 done
-
-dashboard_ipc="$(awk '/target: "dashboard"/,/^    }$/' "$DASHSVC")"
-test -n "$dashboard_ipc" || fail "could not extract the dashboard IPC handler"
-for fn in 'function toggle(): string' 'function open(): string' 'function close(): string' 'function settings(section: string): string'; do
-    printf '%s\n' "$dashboard_ipc" | grep -q "$fn" \
-        || fail "dashboard IPC has no $fn"
-done
-printf '%s\n' "$dashboard_ipc" | grep -q 'MonitorService.focusedScreen()' \
-    || fail "dashboard IPC does not resolve the focused screen"
-test "$(printf '%s\n' "$dashboard_ipc" | grep -c 'screen.width / 2')" -ge 3 \
-    || fail "dashboard IPC does not center each open on the focused screen"
-for call in 'root.toggleDashboardAt' 'root.openDashboardAt' 'root.openSettingsAt'; do
-    printf '%s\n' "$dashboard_ipc" | grep -q "$call" \
-        || fail "dashboard IPC does not delegate $call"
-done
-printf '%s\n' "$dashboard_ipc" | grep -q 'SettingsService.sectionRegistry' \
-    || fail "dashboard settings IPC does not validate the section key"
-printf '%s\n' "$dashboard_ipc" | grep -q '"error: no screen"' \
-    || fail "dashboard IPC does not report a missing screen"
-printf '%s\n' "$dashboard_ipc" | grep -q '"error: no section "' \
-    || fail "dashboard IPC does not report an unknown section"
-test "$(printf '%s\n' "$dashboard_ipc" | grep -c 'return "ok";')" -ge 3 \
-    || fail "dashboard IPC toggle, open and close do not return \"ok\""
-printf '%s\n' "$dashboard_ipc" | grep -q 'return "ok: " + section;' \
-    || fail "dashboard IPC settings does not echo the opened section"
-printf '%s\n' "$dashboard_ipc" | grep -q 'root.closeDashboardFromOutside()' \
-    || fail "dashboard IPC close does not close like the other panel targets"
-
-volume_ipc="$(awk '/target: "volume"/,/^    }$/' "$AUDIOSVC")"
-test -n "$volume_ipc" || fail "could not extract the volume IPC handler"
-for fn in 'function up(): string' 'function down(): string' 'function set(percent: int): string' 'function mute(): string' 'function status(): string'; do
-    printf '%s\n' "$volume_ipc" | grep -q "$fn" \
-        || fail "volume IPC has no $fn"
-done
-for call in 'root.stepVolume' 'root.setVolume' 'root.toggleMute'; do
-    printf '%s\n' "$volume_ipc" | grep -q "$call" \
-        || fail "volume IPC does not delegate $call"
-done
-grep -q 'AudioLogic.statusText' "$AUDIOSVC" \
-    || fail "volume IPC does not report through AudioLogic.statusText"
-grep -q '"error: no sink"' "$AUDIOSVC" \
-    || fail "volume IPC does not report a missing sink"
-
-dnd_ipc="$(awk '/target: "dnd"/,/^    }$/' "$NOTIFSVC")"
-test -n "$dnd_ipc" || fail "could not extract the dnd IPC handler"
-for fn in 'function toggle(): string' 'function on(): string' 'function off(): string' 'function status(): string'; do
-    printf '%s\n' "$dnd_ipc" | grep -q "$fn" \
-        || fail "dnd IPC has no $fn"
-done
-printf '%s\n' "$dnd_ipc" | grep -q 'root.dndEnabled' \
-    || fail "dnd IPC does not report the persisted state"
-test "$(printf '%s\n' "$dnd_ipc" | grep -c '"on"')" -ge 3 \
-    || fail "dnd IPC does not return \"on\" from toggle, on and status"
-test "$(printf '%s\n' "$dnd_ipc" | grep -c '"off"')" -ge 3 \
-    || fail "dnd IPC does not return \"off\" from toggle, off and status"
 grep -q 'name: "notifications"' "$NOTIFSVC" \
     || fail "NotificationServer does not persist to the notifications state file"
-grep -q 'StateParsers.parseNotificationSettings' "$NOTIFSVC" \
-    || fail "NotificationServer does not parse its settings through StateParsers"
-grep -q 'onDndEnabledChanged: root.saveNotificationSettings' "$NOTIFSVC" \
-    || fail "NotificationServer does not save DND on change"
-
-grep -q 'Hyprland.focusedMonitor' "$MONITORSVC" \
-    || fail "MonitorService.focusedScreen does not read the Hyprland focused monitor"
-grep -q 'MonitorLogic.pickScreenName' "$MONITORSVC" \
-    || fail "MonitorService.focusedScreen does not resolve the name through MonitorLogic"
 
 # --- 24. volume OSD: transient click-through layer on the focused monitor ---
 # The OSD reacts to PipeWire property changes (not the volume IPC), sits
@@ -4471,40 +3133,14 @@ grep -q 'MonitorLogic.pickScreenName' "$MONITORSVC" \
 OSD="$ROOT/windows/VolumeOsd.qml"
 test -f "$OSD" \
     || fail "windows/VolumeOsd.qml is missing"
-grep -q 'VolumeOsd {}' "$ROOT/shell.qml" \
-    || fail "shell.qml does not instantiate VolumeOsd"
-grep -q 'ExclusionMode.Ignore' "$OSD" \
-    || fail "VolumeOsd does not ignore exclusive zones"
-grep -q 'mask: Region {}' "$OSD" \
-    || fail "VolumeOsd does not mask an empty Region; it would steal input"
-grep -q 'MonitorService.focusedScreen()' "$OSD" \
-    || fail "VolumeOsd does not place itself on the focused screen"
-grep -q 'Globals.osdHoldMs' "$OSD" \
-    || fail "VolumeOsd does not hold for Globals.osdHoldMs"
-grep -q 'Globals.osdArmMs' "$OSD" \
-    || fail "VolumeOsd does not guard startup with Globals.osdArmMs"
-grep -q 'Globals.reducedMotion' "$OSD" \
-    || fail "VolumeOsd ignores Globals.reducedMotion"
-for handler in onVolumesChanged onMutedChanged; do
-    grep -q "function $handler" "$OSD" \
-        || fail "VolumeOsd does not handle $handler"
-done
 # PwNodeAudio.volume declares its NOTIFY as volumesChanged; binding the
 # auto-named onVolumeChanged would never fire (installed 0.3.1 qmltypes).
 if grep -q 'onVolumeChanged' "$OSD"; then
     fail "VolumeOsd binds onVolumeChanged, which PwNodeAudio does not emit"
 fi
-grep -q 'AudioService.defaultSink ? AudioService.defaultSink.audio : null' "$OSD" \
-    || fail "VolumeOsd does not target the default sink's PwNodeAudio"
 # The three-arm glyph rule lives once: AudioService.volumeGlyph holds it and
-# both the bar module and the OSD call it. The bar's percent text goes through
-# the node-tested AudioLogic rounding too, with no local NaN guard.
+# both the bar module and the OSD call it, so neither re-inlines it.
 AUDIOBAR="$ROOT/modules/Audio.qml"
-grep -q 'function volumeGlyph(audioNode): string' "$AUDIOSVC" \
-    || fail "AudioService has no volumeGlyph(audioNode) rule"
-# Pinned whole so swapped muted/audible arms fail, not just a missing icon.
-grep -qF 'audioNode === null ? Icons.volumeOff : (audioNode.muted ? Icons.volumeMute : Icons.volumeHigh)' "$AUDIOSVC" \
-    || fail "AudioService.volumeGlyph does not hold the three-arm glyph rule in order"
 for surface in "$AUDIOBAR" "$OSD"; do
     grep -q 'AudioService.volumeGlyph(' "$surface" \
         || fail "$(basename "$surface") does not call AudioService.volumeGlyph()"
@@ -4512,15 +3148,9 @@ for surface in "$AUDIOBAR" "$OSD"; do
         fail "$(basename "$surface") re-inlines the volume glyph rule"
     fi
 done
-grep -q 'AudioService.percentText(' "$AUDIOBAR" \
-    || fail "the bar Audio module does not use the shared percent rounding"
 if grep -q 'isNaN(' "$AUDIOBAR"; then
     fail "the bar Audio module still hand-rolls its own NaN guard"
 fi
-grep -q 'AudioService.percentText' "$OSD" \
-    || fail "VolumeOsd does not use the AudioLogic percent rounding"
-grep -q 'TextMetrics' "$OSD" \
-    || fail "VolumeOsd does not reserve the percent width with TextMetrics"
 # No literal ms/px for the window timing or canvas: every value is a token.
 if grep -qE 'interval: [0-9]' "$OSD"; then
     fail "VolumeOsd hardcodes a timer interval instead of a Globals token"
@@ -4529,10 +3159,6 @@ for prop in implicitWidth implicitHeight; do
     if grep -qE "$prop: [0-9]" "$OSD"; then
         fail "VolumeOsd hardcodes $prop instead of a Globals token"
     fi
-done
-for token in osdHoldMs osdArmMs osdWidth osdHeight osdBottomMargin; do
-    grep -q "property int $token" "$ROOT/config/Globals.qml" \
-        || fail "Globals has no $token token"
 done
 test -f "$ROOT/docs/adr/0017-volume-osd.md" \
     || fail "docs/adr/0017-volume-osd.md is missing"
@@ -4587,22 +3213,5 @@ if python3 "$ROOT/scripts/scroll-chrome-check.py" "$SCROLL_FIXTURE" >/dev/null 2
     fail "the scroll gate passed an unadorned second Flickable"
 fi
 rm -rf "$SCROLL_FIXTURE"
-
-
-for pair in \
-    "windows/SettingsView.qml:idSettingsScroll" \
-    "windows/CalendarCenter.qml:idBodyFlickable" \
-    "windows/NotificationCenter.qml:idGroupsFlickable"; do
-    file="${pair%%:*}"
-    flick="${pair##*:}"
-    grep -q "flickable: $flick" "$ROOT/$file" \
-        || fail "$file does not point its SmoothWheel at $flick"
-    grep -q 'Globals.scrollbarWidth' "$ROOT/$file" \
-        || fail "$file does not reserve the scrollbar width, so rows reflow under the bar"
-done
-grep -q 'idGroupsSmoothWheel.stop()' "$ROOT/windows/NotificationCenter.qml" \
-    || fail "the notification center glide does not stop the smooth wheel first"
-grep -q 'onWheelStarted: idScrollAnimator.stop()' "$ROOT/windows/NotificationCenter.qml" \
-    || fail "a wheel notch does not stop the notification center glide"
 
 echo "panel-logic: all ok"

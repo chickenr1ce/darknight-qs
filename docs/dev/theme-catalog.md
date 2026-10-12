@@ -50,6 +50,6 @@ resolvers cannot drift.
 
 ## Changing the format
 
-The scan output is positional. A new field means updating `parseCatalog` and the
-Python mirror in `scripts/test-panel-logic.sh` in the same change, or the parser
+The scan output is positional. A new field means updating `parseCatalog` and its
+node tests in `scripts/test-panel-logic.sh` in the same change, or the parser
 silently drops it.

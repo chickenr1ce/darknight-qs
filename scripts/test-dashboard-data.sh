@@ -2,11 +2,12 @@
 # Headless gate for the dashboard live-data blocks (ticket 06).
 #
 # A full QML boot needs a compositor, so this gate does not boot one. It
-# checks two things that run anywhere:
-#   1. structural assertions over the QML: the fastfetch summary, the CPU
-#      plus RAM poll, the per-sink volume list, the player transport, and
-#      the Open-Meteo weather fetch each live in one service the dashboard
-#      composes;
+# keeps the checks that lint and boot-check cannot make, and drops the ones
+# that only restated implementation text (property names, function bodies,
+# call counts, literal values). What remains:
+#   1. structural boundaries: the service registry, the pure-logic imports,
+#      the forbidden subprocess and token reads, the persisted file names, and
+#      the palette boundary;
 #   2. node runs of the shipped pure parsing plus mapping helpers
 #      (fastfetch JSON, uptime format, /proc samples, MPRIS repeat cycle,
 #      sink volume percent, Open-Meteo JSON, temperature plus rain format,
@@ -27,251 +28,57 @@ for singleton in SystemInfo SystemMonitor AudioService SpotifyService WeatherSer
         || fail "$singleton is not registered in services/qmldir"
 done
 
-# --- 2. fastfetch summary runs one shot on open ---
+# --- 2. the summary delegates parsing to its pure logic modules ---
 SINFO="$ROOT/services/SystemInfo.qml"
-grep -q '"fastfetch"' "$SINFO" \
-    || fail "SystemInfo does not run fastfetch"
-grep -q '"OS:WM:Kernel:Packages:Uptime"' "$SINFO" \
-    || fail "SystemInfo does not ask fastfetch for OS, WM, Kernel, Packages and Uptime"
-grep -q '"--format", "json"' "$SINFO" \
-    || fail "SystemInfo does not read fastfetch JSON"
 grep -q 'import "SystemLogic.js" as SystemLogic' "$SINFO" \
     || fail "SystemInfo does not import SystemLogic.js"
-grep -q 'SystemLogic.parseFastfetch' "$SINFO" \
-    || fail "SystemInfo.parseFastfetch does not delegate to SystemLogic"
-grep -q 'function parseFastfetch' "$SINFO" \
-    || fail "SystemInfo has no parseFastfetch"
-grep -q 'function formatKernel' "$SINFO" \
-    || fail "SystemInfo has no formatKernel"
-grep -q 'function formatShell' "$SINFO" \
-    || fail "SystemInfo has no formatShell"
-grep -q 'function formatPackages' "$SINFO" \
-    || fail "SystemInfo has no formatPackages"
-grep -q 'function formatUptime' "$SINFO" \
-    || fail "SystemInfo has no formatUptime"
-grep -q 'function refresh' "$SINFO" \
-    || fail "SystemInfo has no refresh"
 grep -q 'import "DistroLogic.js" as DistroLogic' "$SINFO" \
     || fail "SystemInfo does not import DistroLogic.js"
-grep -q 'DistroLogic.distroGlyph' "$SINFO" \
-    || fail "SystemInfo.distroGlyph does not delegate to DistroLogic"
-grep -q '/etc/os-release' "$SINFO" \
-    || fail "SystemInfo does not read /etc/os-release"
-grep -q '/usr/lib/os-release' "$SINFO" \
-    || fail "SystemInfo has no /usr/lib/os-release fallback"
-grep -q 'onLoadFailed: root.useVendorOsRelease()' "$SINFO" \
-    || fail "SystemInfo's FileView does not route onLoadFailed to useVendorOsRelease"
-VENDOR_BODY="$(awk '/function useVendorOsRelease/,/^    }/' "$SINFO")"
-[[ "$VENDOR_BODY" == *'"/usr/lib/os-release"'* ]] \
-    || fail "useVendorOsRelease does not set the path to /usr/lib/os-release"
-
 ICONS="$ROOT/config/Icons.qml"
 if grep -q 'readonly property string distro:' "$ICONS"; then
     fail "Icons.qml still defines distro; the distro glyph comes from SystemInfo.distroGlyph"
 fi
 
-DCENTER="$ROOT/windows/DashboardCenter.qml"
-grep -q 'SystemInfo.refresh()' "$DCENTER" \
-    || fail "DashboardCenter does not refresh the fastfetch summary on open"
-grep -q 'onPanelVisibleChanged' "$DCENTER" \
-    || fail "DashboardCenter has no open hook for the fastfetch refresh"
-
 SBLOCK="$ROOT/windows/DashboardSystemBlock.qml"
-grep -q 'SystemInfo.distro' "$SBLOCK" \
-    || fail "DashboardSystemBlock does not read the live distro"
-grep -q 'SystemInfo.compositor' "$SBLOCK" \
-    || fail "DashboardSystemBlock does not read the live compositor"
-grep -q 'SystemInfo.kernelText' "$SBLOCK" \
-    || fail "DashboardSystemBlock does not read the live kernel"
-grep -q 'SystemInfo.shellText' "$SBLOCK" \
-    || fail "DashboardSystemBlock does not read the live shell"
-grep -q 'SystemInfo.packagesText' "$SBLOCK" \
-    || fail "DashboardSystemBlock does not read the live package count"
-grep -q 'SystemInfo.uptimeText' "$SBLOCK" \
-    || fail "DashboardSystemBlock does not read the live uptime"
-grep -q 'icon: SystemInfo.distroGlyph' "$SBLOCK" \
-    || fail "DashboardSystemBlock does not read SystemInfo.distroGlyph for its icon"
-grep -q 'SystemInfo.osPrettyName' "$SBLOCK" \
-    || fail "DashboardSystemBlock does not fall back to SystemInfo.osPrettyName"
 
-PMENU="$ROOT/modules/PowerMenu.qml"
-grep -q 'text: SystemInfo.distroGlyph' "$PMENU" \
-    || fail "PowerMenu does not read SystemInfo.distroGlyph"
-
-# --- 2b. dashboard theme block: live palette, no stub wallpaper grid ---
-# The block is the switcher's second home: its swatches bind the shared mapped
-# list, the name comes from the active theme, and the empty wallpaper grid is
-# gone (ticket 08 owns the background picker).
+# --- 2b. the theme block never applies the background itself ---
+# ThemeService owns the awww call, so the block must not reach for it.
 TBLOCK="$ROOT/windows/DashboardThemeBlock.qml"
-if grep -qE '\[[[:space:]]*Colors\.' "$TBLOCK"; then
-    fail "DashboardThemeBlock still binds a literal swatch list"
-fi
-grep -q 'Colors.themeSwatches' "$TBLOCK" \
-    || fail "DashboardThemeBlock does not bind the shared mapped swatches"
-grep -q 'ThemeService.activeDisplayName' "$TBLOCK" \
-    || fail "DashboardThemeBlock does not show the live theme name"
-grep -q 'ThemeService.backgroundList' "$TBLOCK" \
-    || fail "DashboardThemeBlock does not bind the background list"
-grep -q 'ThemeService.currentBackgroundName' "$TBLOCK" \
-    || fail "DashboardThemeBlock does not mark the current background"
-grep -q 'ThemeService.selectBackground' "$TBLOCK" \
-    || fail "DashboardThemeBlock does not pick a background through ThemeService"
-grep -q 'BackgroundTile' "$TBLOCK" \
-    || fail "DashboardThemeBlock does not render background thumbnails"
 if grep -q 'awww' "$TBLOCK"; then
     fail "DashboardThemeBlock applies the background itself; ThemeService owns the awww call"
-fi
-if grep -qi 'wallpaper' "$TBLOCK"; then
-    fail "DashboardThemeBlock still renders the empty wallpaper grid"
 fi
 
 # --- 3. CPU plus RAM poll procfs, no subprocess ---
 SMON="$ROOT/services/SystemMonitor.qml"
-grep -q '"/proc/stat"' "$SMON" \
-    || fail "SystemMonitor does not read /proc/stat"
-grep -q '"/proc/meminfo"' "$SMON" \
-    || fail "SystemMonitor does not read /proc/meminfo"
 grep -q 'import "SystemLogic.js" as SystemLogic' "$SMON" \
     || fail "SystemMonitor does not import SystemLogic.js"
-grep -q 'SystemLogic.parseCpuSample' "$SMON" \
-    || fail "SystemMonitor.parseCpuSample does not delegate to SystemLogic"
-grep -q 'function parseCpuSample' "$SMON" \
-    || fail "SystemMonitor has no parseCpuSample"
-grep -q 'function parseRamPercent' "$SMON" \
-    || fail "SystemMonitor has no parseRamPercent"
-grep -q 'property real cpuUsagePercent' "$SMON" \
-    || fail "SystemMonitor has no cpuUsagePercent"
-grep -q 'property real ramUsagePercent' "$SMON" \
-    || fail "SystemMonitor has no ramUsagePercent"
 if grep -q 'Process' "$SMON"; then
     fail "SystemMonitor spawns a process; procfs reads stay in-process"
 fi
 
-grep -q '"/proc/net/dev"' "$SMON" \
-    || fail "SystemMonitor does not read /proc/net/dev"
-grep -q 'gpu_busy_percent' "$SMON" \
-    || fail "SystemMonitor does not read the GPU busy percent"
-grep -q 'function parseNetSample' "$SMON" \
-    || fail "SystemMonitor has no parseNetSample"
-grep -q 'function parseRamSample' "$SMON" \
-    || fail "SystemMonitor has no parseRamSample"
-grep -q 'property real gpuUsagePercent' "$SMON" \
-    || fail "SystemMonitor has no gpuUsagePercent"
-grep -q 'property real netRxBytesPerSec' "$SMON" \
-    || fail "SystemMonitor has no netRxBytesPerSec"
-grep -q 'property real ramUsedBytes' "$SMON" \
-    || fail "SystemMonitor has no ramUsedBytes"
-grep -q 'function parseTemp' "$SMON" \
-    || fail "SystemMonitor has no parseTemp"
-grep -q 'property real cpuTempC' "$SMON" \
-    || fail "SystemMonitor has no cpuTempC"
-grep -q 'property real gpuTempC' "$SMON" \
-    || fail "SystemMonitor has no gpuTempC"
-
 CBLOCK="$ROOT/windows/DashboardCpuBlock.qml"
-grep -q 'SystemMonitor.cpuUsagePercent' "$CBLOCK" \
-    || fail "DashboardCpuBlock does not read the live CPU use"
-grep -q 'SystemMonitor.ramUsagePercent' "$CBLOCK" \
-    || fail "DashboardCpuBlock does not read the live RAM use"
-grep -q 'SystemMonitor.gpuUsagePercent' "$CBLOCK" \
-    || fail "DashboardCpuBlock does not read the live GPU use"
-grep -q 'SystemMonitor.ramUsedText' "$CBLOCK" \
-    || fail "DashboardCpuBlock does not show the RAM amount"
-grep -q 'SystemMonitor.netRxText' "$CBLOCK" \
-    || fail "DashboardCpuBlock does not show the network rate"
-grep -q 'SystemMonitor.cpuTempC' "$CBLOCK" \
-    || fail "DashboardCpuBlock does not show the CPU temperature"
 
 # --- 4. per-sink volume list extends the audio seam ---
 # Outputs are discovered from pipewire at runtime, then curated through a
 # persisted order and hidden set. No hardware allowlist.
 ASVC="$ROOT/services/AudioService.qml"
-grep -q 'Pipewire.nodes.values' "$ASVC" \
-    || fail "AudioService does not enumerate pipewire nodes"
-grep -q 'function isSinkNode' "$ASVC" \
-    || fail "AudioService has no isSinkNode filter"
-grep -q 'AudioLogic.isSinkNode' "$ASVC" \
-    || fail "AudioService does not delegate the sink filter to AudioLogic"
 grep -q 'import "AudioLogic.js" as AudioLogic' "$ASVC" \
     || fail "AudioService does not import AudioLogic.js"
-grep -q 'AudioLogic.percentForVolume' "$ASVC" \
-    || fail "AudioService does not convert volume through AudioLogic"
-grep -q 'function keyFor' "$ASVC" \
-    || fail "AudioService has no stable output key"
-grep -q 'function rawLabelFor' "$ASVC" \
-    || fail "AudioService has no rawLabelFor display label"
-grep -q 'function orderedNodes' "$ASVC" \
-    || fail "AudioService has no orderedNodes curation order"
-grep -q 'function setHidden' "$ASVC" \
-    || fail "AudioService has no setHidden curation"
-grep -q 'function moveOutput' "$ASVC" \
-    || fail "AudioService has no moveOutput curation"
-grep -q 'function percentForVolume' "$ASVC" \
-    || fail "AudioService has no percentForVolume"
-grep -q 'function volumeForPercent' "$ASVC" \
-    || fail "AudioService has no volumeForPercent"
-grep -q 'function setVolume' "$ASVC" \
-    || fail "AudioService has no setVolume"
-grep -q 'function stepVolume' "$ASVC" \
-    || fail "AudioService has no stepVolume"
-grep -q 'function toggleMute' "$ASVC" \
-    || fail "AudioService has no toggleMute"
-grep -q 'AudioLogic.stepPercent' "$ASVC" \
-    || fail "AudioService does not step volume through AudioLogic"
-grep -q 'Globals.volumeStep' "$ASVC" \
-    || fail "AudioService does not use the shared volume step token"
 grep -q 'name: "audio-outputs"' "$ASVC" \
     || fail "AudioService does not persist curated outputs behind a StateFile"
-if grep -q 'function setLabel\|labelOverrides' "$ASVC"; then
-    fail "AudioService still carries the removed rename state"
-fi
 if grep -q 'match: "JadeAudio"\|match: "AB13X"\|match: "Pebble"' "$ASVC" "$ROOT/modules/Audio.qml"; then
     fail "AudioService or the bar Audio module still hardcodes a sink catalog"
 fi
-grep -q 'AudioService.sinks' "$ROOT/modules/Audio.qml" \
-    || fail "the bar Audio module does not read the live sink list"
-grep -q 'AudioService.rawLabelFor' "$ROOT/modules/Audio.qml" \
-    || fail "the bar Audio module does not use the output label"
-grep -q 'AudioService.stepVolume' "$ROOT/modules/Audio.qml" \
-    || fail "the bar Audio module does not step volume through AudioService"
 if grep -qE 'audio\.volume *=' "$ROOT/modules/Audio.qml"; then
     fail "the bar Audio module still carries the inline wheel math"
 fi
 
-VBLOCK="$ROOT/windows/DashboardVolumeBlock.qml"
-grep -q 'AudioService.sinks' "$VBLOCK" \
-    || fail "DashboardVolumeBlock does not list the audio outputs"
-grep -q 'AudioService.setVolume' "$VBLOCK" \
-    || fail "DashboardVolumeBlock cannot set a sink volume"
-grep -q 'Slider' "$VBLOCK" \
-    || fail "DashboardVolumeBlock has no slider per output"
-
-# --- 5. player transport plus repeat plus shuffle ride the MPRIS seam ---
+# --- 5. the player app filter persists and its mapping lives in MprisLogic.js ---
 MPLAYERS="$ROOT/services/MprisPlayers.qml"
-grep -q 'function nextLoopState' "$MPLAYERS" \
-    || fail "MprisPlayers has no nextLoopState mapping"
-grep -q 'function cycleRepeat' "$MPLAYERS" \
-    || fail "MprisPlayers has no cycleRepeat"
-grep -q 'function toggleShuffle' "$MPLAYERS" \
-    || fail "MprisPlayers has no toggleShuffle"
-grep -q 'function formatTime' "$MPLAYERS" \
-    || fail "MprisPlayers has no formatTime"
-grep -q 'function setAllowed' "$MPLAYERS" \
-    || fail "MprisPlayers has no setAllowed"
 grep -q 'name: "mpris-players"' "$MPLAYERS" \
     || fail "MprisPlayers does not persist the app filter"
 grep -q 'import "MprisLogic.js" as MprisLogic' "$MPLAYERS" \
     || fail "MprisPlayers does not import MprisLogic.js"
-grep -q 'MprisLogic.playerKey' "$MPLAYERS" \
-    || fail "MprisPlayers.playerKey does not delegate to MprisLogic"
-grep -q 'MprisLogic.nextLoopState' "$MPLAYERS" \
-    || fail "MprisPlayers.nextLoopState does not delegate to MprisLogic"
-grep -q 'if (!player || !player.shuffleSupported)' "$MPLAYERS" \
-    || fail "MprisPlayers shuffles an unsupported player"
-grep -q 'const BROWSER_TOKENS' "$ROOT/services/MprisLogic.js" \
-    || fail "MprisLogic does not seed the browsers as hidden"
-grep -q 'Mpris.players.values.filter' "$MPLAYERS" \
-    || fail "MprisPlayers playerList does not filter by the app filter"
 
 node - "$ROOT/tests/qmljs.js" "$ROOT/services/MprisLogic.js" <<'NODEEOF'
 // MprisLogic.playerKey lowercases and drops a .instance suffix;
@@ -331,195 +138,31 @@ check('time/negative', mpris.formatTime(-5), '0:00');
 check('time/long', mpris.formatTime(3725), '62:05');
 NODEEOF
 
-PBLOCK="$ROOT/windows/DashboardPlayerBlock.qml"
-grep -q 'MprisPlayers.activePlayer' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not read the active player"
-grep -q 'trackTitle' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not show the live track"
-grep -q 'trackArtist' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not show the live artist"
-grep -q 'player.togglePlaying()' "$PBLOCK" \
-    || fail "DashboardPlayerBlock play pause is not wired"
-grep -q 'player.next()' "$PBLOCK" \
-    || fail "DashboardPlayerBlock next is not wired"
-grep -q 'player.previous()' "$PBLOCK" \
-    || fail "DashboardPlayerBlock previous is not wired"
-grep -q 'MprisPlayers.cycleRepeat()' "$PBLOCK" \
-    || fail "DashboardPlayerBlock repeat is not wired"
-grep -q 'MprisPlayers.toggleShuffle()' "$PBLOCK" \
-    || fail "DashboardPlayerBlock shuffle is not wired"
-grep -q 'trackArtUrl' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not bind the track art"
-grep -q 'CoverArtButton' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not compose the shared CoverArtButton"
-test -f "$ROOT/components/CoverArtButton.qml" \
-    || fail "components/CoverArtButton.qml is missing"
-grep -q 'ClippingRectangle' "$ROOT/components/CoverArtButton.qml" \
-    || fail "CoverArtButton does not clip the art to the card radius"
-grep -q 'SpotifyService.devices' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not list the Connect devices"
-grep -q 'SpotifyService.transferTo' "$PBLOCK" \
-    || fail "DashboardPlayerBlock cannot transfer Spotify playback"
-grep -q 'modelData.isActive' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not mark the active device"
-grep -q 'modelData.isRestricted' "$PBLOCK" \
-    || fail "DashboardPlayerBlock does not gate restricted devices"
-
 SSVC="$ROOT/services/SpotifyService.qml"
-grep -q 'spotify-connect.py' "$SSVC" \
-    || fail "SpotifyService does not call the Connect backend"
-grep -q 'function refreshDevices' "$SSVC" \
-    || fail "SpotifyService has no refreshDevices"
-grep -q 'function transferTo' "$SSVC" \
-    || fail "SpotifyService has no transferTo"
-grep -q 'function parseResponse' "$SSVC" \
-    || fail "SpotifyService has no parseResponse"
 grep -q 'import "SpotifyLogic.js" as SpotifyLogic' "$SSVC" \
     || fail "SpotifyService does not import SpotifyLogic.js"
-grep -q 'SpotifyLogic.parseResponse(text)' "$SSVC" \
-    || fail "SpotifyService.parseResponse does not delegate to SpotifyLogic"
-grep -q '"--play"' "$SSVC" \
-    || fail "SpotifyService transfer must ask for playback so the switch takes effect"
-grep -q 'DashboardService.dashboardVisible' "$SSVC" \
-    || fail "SpotifyService does not gate its poll on the dashboard"
 if grep -q 'access_token' "$SSVC"; then
     fail "SpotifyService must not read the token; the backend owns it"
 fi
 
-# The transport glyphs exist in the one icon registry.
-for glyph in skipNext skipPrevious repeat repeatOnce shuffle; do
-    grep -q "property string $glyph" "$ROOT/config/Icons.qml" \
-        || fail "Icons.qml misses the $glyph glyph"
-done
-
 # --- 6. weather fetch rides Open-Meteo with a last-good cache plus stale ---
 WSVC="$ROOT/services/WeatherService.qml"
-WLOGIC="$ROOT/services/WeatherLogic.js"
-grep -q 'api.open-meteo.com' "$WSVC" \
-    || fail "WeatherService does not fetch Open-Meteo"
-grep -q '"curl"' "$WSVC" \
-    || fail "WeatherService does not poll through curl"
-grep -q 'property real latitude' "$WSVC" \
-    || fail "WeatherService has no latitude"
-grep -q 'property real longitude' "$WSVC" \
-    || fail "WeatherService has no longitude"
-grep -q '52.52' "$WSVC" \
-    || fail "WeatherService is not pinned to the Berlin latitude"
-grep -q '13.41' "$WSVC" \
-    || fail "WeatherService is not pinned to the Berlin longitude"
-grep -q 'pollMs: 30 \* 60 \* 1000' "$WSVC" \
-    || fail "WeatherService does not poll every 30 minutes"
-grep -q 'staleAfterMs: 60 \* 60 \* 1000' "$WSVC" \
-    || fail "WeatherService does not mark stale after 60 minutes"
-grep -q 'property real temperatureC' "$WSVC" \
-    || fail "WeatherService has no temperatureC"
-grep -q 'property int weatherCode' "$WSVC" \
-    || fail "WeatherService has no weatherCode"
-grep -q 'property real precipProb' "$WSVC" \
-    || fail "WeatherService has no precipProb"
-grep -q 'property double fetchedAtMs' "$WSVC" \
-    || fail "WeatherService has no fetchedAtMs"
-grep -q 'property bool lastPollFailed' "$WSVC" \
-    || fail "WeatherService has no lastPollFailed"
-grep -q 'function parseWeather' "$WSVC" \
-    || fail "WeatherService has no parseWeather"
-grep -q 'function formatTemp' "$WSVC" \
-    || fail "WeatherService has no formatTemp"
-grep -q 'function formatPrecip' "$WSVC" \
-    || fail "WeatherService has no formatPrecip"
-grep -q 'function glyphFor' "$WSVC" \
-    || fail "WeatherService has no glyphFor"
-grep -q 'function isStale' "$WSVC" \
-    || fail "WeatherService has no isStale"
-grep -q 'function refresh' "$WSVC" \
-    || fail "WeatherService has no refresh"
-grep -q 'function repoll' "$WSVC" \
-    || fail "WeatherService has no repoll"
-grep -q 'function requestUrl' "$WSVC" \
-    || fail "WeatherService has no requestUrl"
-grep -q 'function applyPayload' "$WSVC" \
-    || fail "WeatherService has no applyPayload"
-grep -q 'function applyCache' "$WSVC" \
-    || fail "WeatherService has no applyCache"
-grep -q 'function saveCache' "$WSVC" \
-    || fail "WeatherService has no saveCache"
 grep -q 'name: "weather.json"' "$WSVC" \
     || fail "WeatherService does not persist a weather.json cache"
-grep -q 'current.temperature_2m' "$WLOGIC" \
-    || fail "WeatherLogic does not map the current temperature"
-grep -q 'current.weather_code' "$WLOGIC" \
-    || fail "WeatherLogic does not map the weather code"
-grep -q 'precipitation_probability_max' "$WLOGIC" \
-    || fail "WeatherLogic does not map the rain probability"
-grep -q 'temperature_2m_max' "$WLOGIC" \
-    || fail "WeatherLogic does not map the daily high"
-grep -q 'temperature_2m_min' "$WLOGIC" \
-    || fail "WeatherLogic does not map the daily low"
 grep -q 'import "WeatherLogic.js" as WeatherLogic' "$WSVC" \
     || fail "WeatherService does not import WeatherLogic.js"
-grep -q 'Icons\[WeatherLogic.glyphKeyFor' "$WSVC" \
-    || fail "WeatherService.glyphFor does not map through WeatherLogic.glyphKeyFor"
-grep -q 'WeatherLogic.isStale(nowMs, fetchedAtMs, failed, root.staleAfterMs)' "$WSVC" \
-    || fail "WeatherService.isStale does not pass the service stale threshold"
 grep -q '^import qs.services' "$WSVC" \
     || fail "WeatherService.qml is missing its qs.services self-import"
-grep -q 'geocoding-api.open-meteo.com' "$WSVC" \
-    || fail "WeatherService does not search the Open-Meteo geocoding API"
-grep -q 'count=5' "$WSVC" \
-    || fail "WeatherService does not cap geocoding results"
-grep -q 'property string locationName' "$WSVC" \
-    || fail "WeatherService has no locationName"
-grep -q 'property var locationResults' "$WSVC" \
-    || fail "WeatherService has no locationResults"
-grep -q 'function geocodeUrl' "$WSVC" \
-    || fail "WeatherService has no geocodeUrl"
-grep -q 'function searchLocations' "$WSVC" \
-    || fail "WeatherService has no searchLocations"
-grep -q 'function repollGeocode' "$WSVC" \
-    || fail "WeatherService has no repollGeocode"
-grep -q 'function parseLocations' "$WSVC" \
-    || fail "WeatherService has no parseLocations"
-grep -q 'function selectLocation' "$WSVC" \
-    || fail "WeatherService has no selectLocation"
-grep -q 'function applyLocation' "$WSVC" \
-    || fail "WeatherService has no applyLocation"
-grep -q 'function saveLocation' "$WSVC" \
-    || fail "WeatherService has no saveLocation"
 grep -q 'name: "weather-location"' "$WSVC" \
     || fail "WeatherService does not persist the city"
-grep -q 'payload\["latitude"\]' "$WSVC" \
-    || fail "WeatherService cache does not record the city coordinates"
-grep -q 'parsed.latitude' "$WSVC" \
-    || fail "WeatherService does not reject a cache from another city"
 if grep -q 'Process' "$ROOT/windows/DashboardWeatherBlock.qml"; then
     fail "DashboardWeatherBlock spawns a process; the service owns the fetch"
 fi
 
-WBLOCK="$ROOT/windows/DashboardWeatherBlock.qml"
-grep -q 'WeatherService.tempText' "$WBLOCK" \
-    || fail "DashboardWeatherBlock does not read the live temperature"
-grep -q 'WeatherService.precipText' "$WBLOCK" \
-    || fail "DashboardWeatherBlock does not read the live rain probability"
-grep -q 'WeatherService.highText' "$WBLOCK" \
-    || fail "DashboardWeatherBlock does not read the live daily high"
-grep -q 'WeatherService.lowText' "$WBLOCK" \
-    || fail "DashboardWeatherBlock does not read the live daily low"
-grep -q 'WeatherService.glyph' "$WBLOCK" \
-    || fail "DashboardWeatherBlock does not read the live condition glyph"
-grep -q 'WeatherService.city' "$WBLOCK" \
-    || fail "DashboardWeatherBlock does not read the live city"
-grep -q 'WeatherService.stale' "$WBLOCK" \
-    || fail "DashboardWeatherBlock does not show the stale marker"
-grep -q 'WeatherService.refresh()' "$DCENTER" \
-    || fail "DashboardCenter does not refresh the weather on open"
-
-# The weather glyphs exist in the one icon registry.
-for glyph in weatherSunny weatherCloudy weatherFog weatherRainy weatherSnowy weatherStorm; do
-    grep -q "property string $glyph" "$ROOT/config/Icons.qml" \
-        || fail "Icons.qml misses the $glyph glyph"
-done
-
 # Reading surfaces carry palette tokens only.
+VBLOCK="$ROOT/windows/DashboardVolumeBlock.qml"
+PBLOCK="$ROOT/windows/DashboardPlayerBlock.qml"
+WBLOCK="$ROOT/windows/DashboardWeatherBlock.qml"
 for surface in "$SINFO" "$SMON" "$ASVC" "$WSVC" "$SBLOCK" "$CBLOCK" "$VBLOCK" "$PBLOCK" "$WBLOCK"; do
     if grep -qnE '#[0-9a-fA-F]{3,8}' "$surface"; then
         fail "$(basename "$surface") carries raw hex; palette tokens only"

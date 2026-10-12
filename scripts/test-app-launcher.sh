@@ -2,18 +2,18 @@
 # Headless gate for the app launcher (tickets 02-03).
 #
 # A full QML boot needs a compositor, so this gate does not boot one. It
-# checks two things that run anywhere:
-#   1. structural assertions over the QML: AppService holds the pure logic in
-#      AppLogic.js as one-line delegates, persists to the app-launcher state
-#      file, launches terminal entries through the kitty prefix, the view
-#      builds highlighted rows from the ranked sections, Escape reaches the
-#      search input past the panel Shortcut, stale queries reset on open,
-#      section headers paint no tile, and the context menu is generic while
-#      the view wires right-click, Right/Menu, hide, actions, and copy;
+# keeps the checks that lint and boot-check cannot make, and drops the ones
+# that only restated implementation text (property names, binding text,
+# function bodies, call counts). What remains:
+#   1. structural boundaries: the state-file name, the pure-logic seam, the
+#      shared-delegate and active-list rules, the palette boundary, the apps
+#      menu seam, and the hanging-menu input-mask block (a past regression);
 #   2. node runs of the shipped pure logic (ranking, match ranges, markup,
 #      section building, hidden filtering, recent/pin/hide/unhide mutation,
 #      menu building, state parsing) through tests/qmljs.js, so a broken
-#      AppLogic.js fails the gate instead of a mirror that cannot drift.
+#      AppLogic.js fails the gate instead of a mirror that cannot drift;
+#   3. the offscreen qmltestrunner suites for the mode, wheel, and menu-key
+#      handlers.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,253 +24,31 @@ LOGIC="$ROOT/services/AppLogic.js"
 SVC="$ROOT/services/AppService.qml"
 VIEW="$ROOT/windows/DashboardAppsView.qml"
 
-# --- 1. pure logic lives in AppLogic.js behind one-line AppService delegates ---
+# --- 1. pure logic lives in AppLogic.js, imported by AppService ---
 test -f "$LOGIC" \
     || fail "services/AppLogic.js is missing"
 grep -q '^\.pragma library' "$LOGIC" \
     || fail "AppLogic.js is not a .pragma library"
 grep -q '^import "AppLogic.js" as AppLogic' "$SVC" \
     || fail "AppService does not import AppLogic.js"
-for fn in rank matchRanges sections browseRows resultRows parseState recordLaunch togglePin visibleEntries hide unhide resolveHidden menuItems shellQuote shellCommand makeRecords runningCounts; do
-    grep -q "function $fn" "$LOGIC" \
-        || fail "AppLogic.js has no $fn"
-    grep -q "AppLogic.$fn" "$SVC" \
-        || fail "AppService does not delegate $fn to AppLogic"
-done
-grep -q 'function markup' "$LOGIC" \
-    || fail "AppLogic.js has no markup helper"
-grep -q 'AppLogic.markup' "$SVC" \
-    || fail "AppService does not delegate markup to AppLogic"
-grep -q 'function escapeHtml' "$LOGIC" \
-    || fail "AppLogic.js has no escapeHtml helper"
 
-# --- 2. persistence, launch, and terminal prefix ---
+# --- 2. persistence ---
 grep -q 'name: "app-launcher"' "$SVC" \
     || fail "AppService does not persist to the app-launcher state file"
-grep -q 'readonly property string defaultTerminal: "kitty -e"' "$SVC" \
-    || fail "AppService default terminal is not kitty -e"
-grep -q 'AppLogic.terminalArgv' "$SVC" \
-    || fail "AppService does not delegate terminalArgv to AppLogic"
-grep -q 'function terminalArgv' "$LOGIC" \
-    || fail "AppLogic.js has no terminalArgv"
-grep -q 'function setTerminal' "$SVC" \
-    || fail "AppService has no setTerminal"
-grep -q 'payload\["terminal"\]' "$SVC" \
-    || fail "AppService saveState does not persist the terminal"
-grep -q 'Quickshell.execDetached' "$SVC" \
-    || fail "AppService does not launch through execDetached"
-grep -q 'record.runInTerminal' "$SVC" \
-    || fail "AppService ignores runInTerminal"
-grep -qF 'root.terminalPrefix.concat(record.command' "$SVC" \
-    || fail "AppService launch paths drop the terminal prefix"
-grep -qF 'root.terminalPrefix.concat(["sh", "-c"' "$SVC" \
-    || fail "AppService runQuery drops the terminal prefix"
-grep -q 'Quickshell.iconPath' "$SVC" \
-    || fail "AppService has no iconPath lookup"
-grep -q 'root.iconCache' "$SVC" \
-    || fail "AppService icon lookups are not cached"
-grep -q 'onEntriesChanged: root.iconCache = ({})' "$SVC" \
-    || fail "AppService does not clear the icon cache when the snapshot changes"
-grep -q 'DesktopEntries.applications.values' "$SVC" \
-    || fail "AppService does not snapshot DesktopEntries.applications"
-grep -q 'entry.execute()' "$SVC" \
-    || fail "AppService launch does not execute the entry"
-grep -q 'DashboardService.close()' "$SVC" \
-    || fail "AppService launch does not close the dashboard"
 
-# --- 3. tokens: selection role, icon size, tile ink, star and terminal glyphs ---
-grep -q 'property color selection' "$ROOT/config/Colors.qml" \
-    || fail "Colors has no selection role"
-grep -q 'property color tileInk' "$ROOT/config/Colors.qml" \
-    || fail "Colors has no tileInk role"
-grep -q 'Colors.tileInk' "$ROOT/components/AppIcon.qml" \
-    || fail "AppIcon does not paint the letter tile with tileInk"
-grep -q 'Colors.tileInk' "$ROOT/components/ContextMenu.qml" \
-    || fail "ContextMenu header tile does not paint with tileInk"
-grep -q 'contrastRatio(root.accent, root.background) < 3' "$ROOT/config/Colors.qml" \
-    || fail "Colors.selection does not branch on accent contrast"
-grep -q 'appIconSize' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no appIconSize token"
-grep -q 'property string star' "$ROOT/config/Icons.qml" \
-    || fail "Icons.qml has no star glyph"
-grep -q 'property string terminal' "$ROOT/config/Icons.qml" \
-    || fail "Icons.qml has no terminal glyph"
-
-# --- 4. the view renders highlighted rows plus the run fallback ---
-grep -q 'AppService.browseRows' "$VIEW" \
-    || fail "DashboardAppsView does not build the browse rows through AppService"
-grep -q 'AppService.resultRows' "$VIEW" \
-    || fail "DashboardAppsView does not build the result rows through AppService"
-grep -q 'AppService.markup' "$VIEW" \
-    || fail "DashboardAppsView does not highlight matched characters"
-grep -q 'AppService.runQuery' "$VIEW" \
-    || fail "DashboardAppsView has no Run-query row"
-grep -q 'Colors.selection' "$VIEW" \
-    || fail "DashboardAppsView does not use the selection fill"
-grep -q 'Globals.appRailWidth' "$VIEW" \
-    || fail "DashboardAppsView does not draw the selection rail"
-grep -q 'Globals.appIconSize' "$VIEW" \
-    || fail "DashboardAppsView does not size the row icon from Globals"
-grep -q 'Icons.star' "$VIEW" \
-    || fail "DashboardAppsView does not mark pinned rows with the star"
-grep -q 'Globals.reducedMotion' "$VIEW" \
-    || fail "DashboardAppsView ignores reduced motion"
-for key in Qt.Key_Up Qt.Key_Down Qt.Key_PageUp Qt.Key_PageDown Qt.Key_Tab Qt.Key_Return \
-    Qt.AltModifier Qt.Key_P Qt.ControlModifier Qt.Key_Escape Qt.Key_Backtab; do
-    grep -q "$key" "$VIEW" \
-        || fail "DashboardAppsView missed the $key key"
-done
-grep -q 'Qt.MiddleButton' "$VIEW" \
-    || fail "DashboardAppsView does not keep the dashboard on middle-click"
+# --- 4. the launcher carries palette tokens only ---
 if grep -qnE '#[0-9a-fA-F]{3,8}' "$VIEW" "$SVC"; then
     fail "app launcher carries raw hex; palette tokens only"
 fi
-
-# --- 4b. Esc reaches the view and stale query resets on open ---
-grep -q 'Keys.onShortcutOverride' "$VIEW" \
-    || fail "search input does not override the Escape shortcut"
-grep -qF 'event.key === Qt.Key_Escape && root.query !== ""' "$VIEW" \
-    || fail "Escape override does not gate on a non-empty query"
-grep -q 'function resetSearch' "$VIEW" \
-    || fail "DashboardAppsView has no resetSearch"
-grep -q 'root.resetSearch()' "$VIEW" \
-    || fail "DashboardAppsView never resets the search on open"
-
-# --- 4c. header and app row are exclusive Loader subtrees; actions load on
-# the active row only; the reserved trailing width never reflows ---
-grep -q 'active: idAppRow.isHeader' "$VIEW" \
-    || fail "the header subtree is not gated to header rows"
-grep -q 'active: !idAppRow.isHeader' "$VIEW" \
-    || fail "the app row subtree is not created exclusively"
-grep -q 'active: idAppRow.actionsActive' "$VIEW" \
-    || fail "the inline actions are not created only for the active row"
-grep -q 'readonly property real actionsWidth' "$VIEW" \
-    || fail "the view does not reserve a fixed actions width"
-grep -q 'Layout.preferredWidth: root.actionsWidth' "$VIEW" \
-    || fail "the trailing actions width is not reserved from a constant"
-if grep -q 'idAppRowActions.implicitWidth' "$VIEW"; then
-    fail "the trailing width still collapses to the instantiated actions"
-fi
-grep -q 'reuseItems: true' "$VIEW" \
-    || fail "the app list does not reuse delegates"
-grep -q 'ListView.onReused' "$VIEW" \
-    || fail "reused delegates do not reset their per-row state"
-REUSED_BLOCK="$(awk '/ListView.onReused/{flag=1} flag{print} flag && /^[[:space:]]*\}$/{exit}' "$VIEW")"
-test -n "$REUSED_BLOCK" || fail "could not extract the ListView.onReused handler"
-echo "$REUSED_BLOCK" | grep -q 'idAppRow.killTipShown = false' \
-    || fail "the onReused handler does not reset the kill tooltip state"
-if echo "$REUSED_BLOCK" | grep -q 'rowHovered'; then
-    fail "the onReused handler clears rowHovered instead of following the pointer"
-fi
-grep -q 'value: idAppRowMouse.containsMouse' "$VIEW" \
-    || fail "row hover is not derived from the row MouseArea's containsMouse"
-grep -q 'info.record' "$VIEW" \
-    || fail "the delegate does not read the row record"
-if grep -q 'info\.entry' "$VIEW"; then
-    fail "the delegate still reads the removed info.entry"
-fi
-grep -q 'record: section.items\[i\]' "$LOGIC" \
-    || fail "the row-building helper does not carry the app record"
 
 # --- 4d. shared context menu plus launcher wiring ---
 CTX="$ROOT/components/ContextMenu.qml"
 test -f "$CTX" \
     || fail "components/ContextMenu.qml is missing"
-grep -q 'signal triggered' "$CTX" \
-    || fail "ContextMenu does not report a triggered item"
-grep -q 'property var items' "$CTX" \
-    || fail "ContextMenu has no item model"
-grep -q 'property var header' "$CTX" \
-    || fail "ContextMenu has no header"
-grep -q 'Colors.danger' "$CTX" \
-    || fail "ContextMenu has no danger style"
-grep -q 'submenu' "$CTX" \
-    || fail "ContextMenu has no submenu"
-grep -qF 'root.opened && event.key === Qt.Key_Escape' "$CTX" \
-    || fail "ContextMenu does not override the panel Escape shortcut"
-grep -q 'Icons.chevronRight' "$CTX" \
-    || fail "ContextMenu does not mark submenus with a chevron"
-grep -q 'Globals.reducedMotion' "$CTX" \
-    || fail "ContextMenu ignores reduced motion"
-grep -q 'Globals.menuWidth' "$CTX" \
-    || fail "ContextMenu does not use the menu width token"
-for key in Qt.Key_Down Qt.Key_Up Qt.Key_Right Qt.Key_Left Qt.Key_Return; do
-    grep -q "$key" "$CTX" \
-        || fail "ContextMenu missed the $key key"
-done
-CTX_HANDLE="$(awk '/^    function handleKey/{flag=1} flag{print} flag && /^    \}$/{exit}' "$CTX")"
-test -n "$CTX_HANDLE" || fail "could not extract ContextMenu.handleKey"
-echo "$CTX_HANDLE" | grep -A5 'event.key === Qt.Key_Left' | grep -q 'root.leaveSubmenu()' \
-    || fail "Left inside a submenu does not return to the parent menu"
-echo "$CTX_HANDLE" | grep -A5 'event.key === Qt.Key_Left' | grep -q 'root.closeMenu()' \
-    || fail "Left on the top level does not close the menu"
-
-grep -q 'ContextMenu' "$VIEW" \
-    || fail "DashboardAppsView does not mount the context menu"
-grep -q 'Qt.RightButton' "$VIEW" \
-    || fail "DashboardAppsView does not open the menu on right-click"
-grep -q 'Qt.Key_Menu' "$VIEW" \
-    || fail "DashboardAppsView does not open the menu on the Menu key"
-if grep -q 'Qt.Key_F10' "$VIEW"; then
-    fail "DashboardAppsView still opens the menu on Shift+F10"
-fi
-grep -q 'Qt.Key_Right' "$VIEW" \
-    || fail "DashboardAppsView does not open the menu on the Right key"
-grep -qF 'idAppsSearch.cursorPosition === idAppsSearch.length' "$VIEW" \
-    || fail "Right does not gate on the search cursor being at the end"
-grep -q 'function runMenuItem' "$SVC" \
-    || fail "AppService has no menu dispatcher"
 grep -q 'AppLogic.menuAction(item, row)' "$SVC" \
     || fail "AppService does not dispatch menu actions through AppLogic.menuAction"
 
-# --- 4e. menu fits the card without growing it, and forwards typed text ---
-grep -q 'acceptedButtons: Qt.AllButtons' "$CTX" \
-    || fail "ContextMenu scrim does not accept every mouse button"
-grep -q 'signal typedText' "$CTX" \
-    || fail "ContextMenu does not forward printable text"
-grep -q 'root.availableHeight' "$CTX" \
-    || fail "ContextMenu does not cap its height to the view"
-grep -q 'idMenuList' "$CTX" \
-    || fail "ContextMenu item column is not scrollable"
-grep -q 'property int menuMaxWidth' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no menuMaxWidth token"
-grep -q 'Globals.menuMaxWidth' "$CTX" \
-    || fail "ContextMenu does not cap its width to the max token"
-grep -q 'FontMetrics' "$CTX" \
-    || fail "ContextMenu does not measure its item text"
-for fn in itemWidth fittedWidth measureWidths; do
-    grep -q "function $fn" "$CTX" \
-        || fail "ContextMenu has no $fn"
-done
-grep -qF 'onItemsChanged: root.measureWidths()' "$CTX" \
-    || fail "ContextMenu does not remeasure its width when the items change"
-grep -q 'root.mainWidth' "$CTX" \
-    || fail "ContextMenu does not size the main menu from its content"
-grep -q 'root.submenuWidth' "$CTX" \
-    || fail "ContextMenu does not size the submenu from its content"
-CTX_MEASURE="$(awk '/^    function measureWidths/{flag=1} flag{print} flag && /^    \}$/{exit}' "$CTX")"
-test -n "$CTX_MEASURE" || fail "could not extract ContextMenu.measureWidths"
-echo "$CTX_MEASURE" | grep -qF 'root.mainWidth = root.fittedWidth(root.items)' \
-    || fail "the main menu width is not measured from its items"
-echo "$CTX_MEASURE" | grep -qF 'root.submenuWidth = widest' \
-    || fail "the submenu width is not measured from its items"
-CTX_WIDTH="$(awk '/^    function itemWidth/{flag=1} flag{print} flag && /^    \}$/{exit}' "$CTX")"
-test -n "$CTX_WIDTH" || fail "could not extract ContextMenu.itemWidth"
-echo "$CTX_WIDTH" | grep -qF '2 * Globals.menuMargin' \
-    || fail "the menu width does not account for the column margins"
-echo "$CTX_WIDTH" | grep -q 'Globals.menuGlyphWidth' \
-    || fail "the menu width does not reserve the glyph column"
-echo "$CTX_WIDTH" | grep -q 'Globals.scrollbarWidth' \
-    || fail "the menu width does not reserve the scrollbar"
-echo "$CTX_WIDTH" | grep -q 'Globals.rowSpacing' \
-    || fail "the menu width does not reserve the label and trailing gaps"
-grep -q 'onTypedText' "$VIEW" \
-    || fail "DashboardAppsView does not handle forwarded text"
-if grep -q 'idAppsContextMenu.anchorY\|idAppsContextMenu.contentHeight' "$VIEW"; then
-    fail "DashboardAppsView still grows its height for the menu"
-fi
-grep -q 'implicitHeight: idAppsLayout.implicitHeight' "$VIEW" \
-    || fail "DashboardAppsView height is not just the search field plus list"
+# --- 4e. the hanging menu may grow past the card without resizing it ---
 grep -q 'idAppsContextMenu.boundsHeight = root.menuBoundsHeight()' "$VIEW" \
     || fail "the Apps menu cannot hang below a short card"
 grep -q 'property real boundsHeight: root.height' "$CTX" \
@@ -321,110 +99,10 @@ grep -q 'slideOffset: root.slideOffset' "$ROOT/windows/DashboardCenter.qml" \
     || fail "DashboardCenter does not pass the slide offset to the Apps view"
 grep -q 'property real slideOffset' "$VIEW" \
     || fail "DashboardAppsView has no slideOffset input"
-grep -qF 'Icons[AppLogic.menuGlyphKey(item)]' "$SVC" \
-    || fail "AppService does not resolve menu glyphs from Icons by key"
-grep -q 'AppLogic.menuGlyphKey' "$SVC" \
-    || fail "AppService does not delegate the menu glyph table to AppLogic"
-if grep -q 'Icons.chevronRight' "$VIEW"; then
-    fail "DashboardAppsView gives iconless actions a submenu chevron"
-fi
 
-grep -q 'function hide' "$SVC" \
-    || fail "AppService has no hide action"
-grep -q 'AppLogic.hide' "$SVC" \
-    || fail "AppService does not delegate hide to AppLogic"
-grep -q 'function unhide' "$SVC" \
-    || fail "AppService has no unhide action"
-grep -q 'AppLogic.unhide' "$SVC" \
-    || fail "AppService does not delegate unhide to AppLogic"
-UNHIDE_BODY="$(awk '/^    function unhide/{flag=1} flag && /^    }$/{print; exit} flag{print}' "$SVC")"
-echo "$UNHIDE_BODY" | grep -q 'setState' \
-    || fail "AppService unhide does not write the shared state through setState"
-grep -q 'function launchAction' "$SVC" \
-    || fail "AppService has no desktop action launch"
-grep -q 'function copyCommand' "$SVC" \
-    || fail "AppService has no copy launch command"
-grep -q 'wl-copy' "$SVC" \
-    || fail "AppService does not copy through wl-copy"
-
-for glyph in open openInApp copy eyeOff starOutline; do
-    grep -q "property string $glyph" "$ROOT/config/Icons.qml" \
-        || fail "Icons.qml has no $glyph glyph"
-done
-for token in menuWidth menuMaxWidth menuItemHeight menuMargin menuSeparatorHeight menuLabelHeight menuSubmenuGap; do
-    grep -q "$token" "$ROOT/config/Globals.qml" \
-        || fail "Globals has no $token token"
-done
-
-# --- 4f. running windows, inline actions, and the Focus/Kill menu items ---
-grep -q 'const ENTRY_KEY_STOPLIST' "$LOGIC" \
-    || fail "AppLogic.js has no entry-key stoplist constant"
-for fn in entryKeys classMatches windowMatches windowIndexesFor; do
-    grep -q "function $fn" "$LOGIC" \
-        || fail "AppLogic.js has no $fn"
-done
+# --- 4f. launcher menu seam ---
 grep -q 'import "AppLogic.js" as AppLogic' "$ROOT/services/HyprlandFocus.qml" \
     || fail "HyprlandFocus does not import AppLogic.js"
-grep -q 'AppLogic.classMatches' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus.classMatches is not delegated to AppLogic"
-grep -q 'toplevel.wayland.appId' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus dropped the Wayland appId source"
-grep -q 'function focusAddress' "$ROOT/services/HyprlandFocus.qml" \
-    || fail "HyprlandFocus has no address focus entry point"
-for fn in windowsFor runningCount focusWindows killWindows; do
-    grep -q "function $fn" "$SVC" \
-        || fail "AppService has no $fn"
-done
-grep -q 'readonly property var runningMap' "$SVC" \
-    || fail "AppService has no running map"
-grep -q 'Hyprland.toplevels' "$SVC" \
-    || fail "AppService does not read Hyprland.toplevels"
-grep -q 'AppLogic.makeRecords' "$SVC" \
-    || fail "AppService does not snapshot entries through AppLogic.makeRecords"
-grep -q 'AppLogic.runningCounts' "$SVC" \
-    || fail "AppService does not count running windows through AppLogic.runningCounts"
-BUILDRECORDS_BLOCK="$(awk '/^    function buildRecords/{flag=1} flag{print} flag && /^    \}$/{exit}' "$SVC")"
-test -n "$BUILDRECORDS_BLOCK" || fail "could not extract AppService.buildRecords"
-echo "$BUILDRECORDS_BLOCK" | grep -q 'index: j' \
-    || fail "AppService drops the desktop action's original index"
-grep -q 'AppLogic.windowIndexesFor' "$SVC" \
-    || fail "AppService does not match windows through AppLogic"
-grep -q 'HyprlandFocus.focusAddress' "$SVC" \
-    || fail "AppService focus does not focus the matched window address"
-FOCUS_BODY="$(awk '/^    function focusWindows/{flag=1} flag && /^    }$/{print; exit} flag{print}' "$SVC")"
-echo "$FOCUS_BODY" | grep -q 'DashboardService.close()' \
-    || fail "AppService focusWindows does not close the dashboard"
-echo "$FOCUS_BODY" | grep -q 'HyprlandFocus.focusAddress' \
-    || fail "AppService focusWindows does not use focusAddress"
-focus_close_ln="$(echo "$FOCUS_BODY" | grep -n 'DashboardService.close()' | head -1 | cut -d: -f1)"
-focus_addr_ln="$(echo "$FOCUS_BODY" | grep -n 'HyprlandFocus.focusAddress' | head -1 | cut -d: -f1)"
-[ "$focus_close_ln" -lt "$focus_addr_ln" ] \
-    || fail "AppService focusWindows must close the dashboard before focusing"
-grep -q 'wayland' "$SVC" \
-    || fail "AppService kill does not use the Wayland handle"
-grep -q '\.close()' "$SVC" \
-    || fail "AppService kill does not close the window"
-
-grep -q 'IconButton' "$VIEW" \
-    || fail "DashboardAppsView does not compose IconButton"
-grep -q 'Icons.focus' "$VIEW" \
-    || fail "DashboardAppsView has no Focus glyph"
-grep -q 'Icons.more' "$VIEW" \
-    || fail "DashboardAppsView has no More glyph"
-grep -q 'hoverColor: Colors.danger' "$VIEW" \
-    || fail "DashboardAppsView kill does not hover in Colors.danger"
-grep -q 'AppService.runningCount' "$VIEW" \
-    || fail "DashboardAppsView does not read the running count"
-grep -q 'AppService.focusWindows' "$VIEW" \
-    || fail "DashboardAppsView does not focus a running app"
-grep -q 'AppService.killWindows' "$VIEW" \
-    || fail "DashboardAppsView does not kill a running app"
-grep -q 'Layout.preferredWidth: root.actionsWidth' "$VIEW" \
-    || fail "DashboardAppsView does not reserve the trailing width"
-grep -q 'Globals.tooltipDelayMs' "$VIEW" \
-    || fail "DashboardAppsView kill tooltip ignores the tooltip delay"
-grep -q 'idAppRow.killTipShown' "$VIEW" \
-    || fail "DashboardAppsView has no kill tooltip"
 grep -q 'AppService.menuDescriptors(' "$VIEW" \
     || fail "DashboardAppsView does not bind its menu through AppService.menuDescriptors"
 grep -q 'AppService.runMenuItem(' "$VIEW" \
@@ -434,165 +112,13 @@ for fn in menuGlyph submenuGlyph runMenuItem; do
         fail "DashboardAppsView still defines $fn"
     fi
 done
-for glyph in focus more; do
-    grep -q "property string $glyph" "$ROOT/config/Icons.qml" \
-        || fail "Icons.qml has no $glyph glyph"
-done
-grep -q 'appInlineSeparatorHeight' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no appInlineSeparatorHeight token"
-
-# --- 4g. open-on-workspace: pure mapping, submenu, Ctrl+digit, Lua dispatch ---
-for fn in workspaceFor workspaceKeys firstEmptyWorkspace workspaceMenu; do
-    grep -q "function $fn" "$LOGIC" \
-        || fail "AppLogic.js has no $fn"
-done
-grep -q 'AppLogic.workspaceFor' "$SVC" \
-    || fail "AppService does not delegate workspaceFor to AppLogic"
-grep -q 'function totalWorkspaces' "$SVC" \
-    || fail "AppService has no total workspace count"
-grep -q 'AppLogic.workspaceKeys' "$SVC" \
-    || fail "AppService does not delegate the footer key cap to AppLogic"
-grep -q 'AppLogic.workspaceMenu' "$SVC" \
-    || fail "AppService does not build the workspace submenu through AppLogic"
-grep -q 'function launchOnWorkspace' "$SVC" \
-    || fail "AppService has no launchOnWorkspace"
-LAUNCH_BODY="$(awk '/^    function launchOnWorkspace/{flag=1} flag && /^    }$/{print; exit} flag{print}' "$SVC")"
-echo "$LAUNCH_BODY" | grep -q 'shellCommand' \
-    || fail "AppService launchOnWorkspace does not build the command through shellCommand"
-grep -q 'MonitorService.firstWorkspaceFor' "$SVC" \
-    || fail "AppService workspace mapping does not use MonitorService.firstWorkspaceFor"
-grep -q 'MonitorService.workspacesPerMonitor' "$SVC" \
-    || fail "AppService workspace mapping does not use MonitorService.workspacesPerMonitor"
-grep -q 'MonitorService.enabledMonitors' "$SVC" \
-    || fail "AppService workspace menu does not filter to the enabled monitors"
-grep -q 'MonitorService.orderedMonitors' "$SVC" \
-    || fail "AppService workspace menu does not follow MonitorService.orderedMonitors"
-grep -q 'menuItem("label"' "$LOGIC" \
-    || fail "AppLogic workspace menu does not emit a monitor label"
-grep -q 'Hyprland.monitors' "$SVC" \
-    || fail "AppService workspace menu does not read each monitor's activeWorkspace"
-grep -q 'DashboardService.anchorScreen' "$SVC" \
-    || fail "AppService does not anchor workspaces to the dashboard screen"
-grep -q 'Hyprland.dispatch' "$SVC" \
-    || fail "AppService does not dispatch the workspace launch through Hyprland"
-grep -q 'hl.dsp.exec_cmd' "$SVC" \
-    || fail "AppService workspace launch is not a Lua hl.dsp.exec_cmd call"
-grep -q 'workspace = ' "$SVC" \
-    || fail "AppService workspace launch does not pass the workspace rule"
-grep -q 'MonitorLogic.escapeLua' "$SVC" \
-    || fail "AppService does not escape the Lua command string"
-grep -q 'open-workspace' "$LOGIC" \
-    || fail "AppLogic menu does not handle open-workspace"
-grep -q 'function menuGlyphKey' "$LOGIC" \
-    || fail "AppLogic has no submenu glyph mapping"
-grep -q 'AppService.launchOnWorkspace' "$VIEW" \
-    || fail "DashboardAppsView does not launch on a workspace"
-grep -q 'AppService.workspaceFor' "$VIEW" \
-    || fail "DashboardAppsView does not resolve the absolute workspace"
-grep -q 'ctrl 0' "$LOGIC" \
-    || fail "AppLogic workspaceMenu does not hint workspace 10 as ctrl 0"
-grep -qF 'disabled: enabledNames.indexOf(monitorName) === -1' "$SVC" \
-    || fail "AppService does not tag disabled monitors for AppLogic to filter"
-grep -q 'monitor.disabled !== true' "$LOGIC" \
-    || fail "AppLogic workspaceMenu does not drop disabled monitors"
-grep -qF 'active: root.activeWorkspaceFor(hyprMonitors, monitorName)' "$SVC" \
-    || fail "AppService does not resolve each monitor's active workspace"
-grep -qF 'AppLogic.workspaceMenu(monitors, MonitorService.workspacesPerMonitor, name, occupied, fallback)' "$SVC" \
-    || fail "AppService does not pass the anchor fallback to AppLogic"
-grep -q 'firstWorkspaceFor(fallbackName)' "$SVC" \
-    || fail "AppService does not fall back to the anchor block when no monitor is enabled"
-grep -q 'anchorFallback' "$LOGIC" \
-    || fail "AppLogic workspaceMenu has no anchor fallback"
-RUNMENU_BLOCK="$(awk '/^    function runMenuItem/{flag=1} flag{print} flag && /^    \}$/{exit}' "$SVC")"
-test -n "$RUNMENU_BLOCK" || fail "could not extract AppService.runMenuItem"
-echo "$RUNMENU_BLOCK" | grep -q 'AppLogic.menuAction(item, row)' \
-    || fail "runMenuItem does not dispatch through the pure menuAction table"
-DIGIT_BLOCK="$(awk '/Qt.ControlModifier\) !== 0/{flag=1} flag{print} flag && /event.accepted = true/{exit}' "$VIEW")"
-echo "$DIGIT_BLOCK" | grep -q 'AppService.workspaceFor' \
-    || fail "Ctrl+digit branch does not resolve the absolute workspace through AppService.workspaceFor"
-echo "$DIGIT_BLOCK" | grep -q 'AppService.launchOnWorkspace' \
-    || fail "Ctrl+digit branch does not launch on the target workspace"
-echo "$DIGIT_BLOCK" | grep -qF 'event.key - Qt.Key_0' \
-    || fail "Ctrl+digit branch does not map the key to a workspace number"
-if echo "$DIGIT_BLOCK" | grep -q 'slot >= 1'; then
-    fail "Ctrl+digit branch still drops Ctrl+0 with a slot floor"
-fi
-echo "$DIGIT_BLOCK" | grep -q 'event.accepted = true' \
-    || fail "Ctrl+digit branch does not consume the key"
-for glyph in workspace circle circleOutline; do
-    grep -q "property string $glyph" "$ROOT/config/Icons.qml" \
-        || fail "Icons.qml has no $glyph glyph"
-done
 
 # --- 4h. the shared AppIcon owns the row artwork ---
-grep -q 'AppIcon {' "$VIEW" \
-    || fail "DashboardAppsView does not compose the shared AppIcon"
-grep -q 'source: idAppRow.iconSource' "$VIEW" \
-    || fail "DashboardAppsView does not feed AppIcon the resolved source"
 if grep -qE '^[[:space:]]*text:.*charAt' "$VIEW"; then
     fail "DashboardAppsView still paints an inline letter tile"
 fi
 
-# --- 4i. the Apps tab grows downward, the list and menu scroll smoothly ---
-DCENTER="$ROOT/windows/DashboardCenter.qml"
-grep -q 'Globals.dashboardAppsMaxFraction' "$DCENTER" \
-    || fail "DashboardCenter does not raise the card on the Apps tab"
-grep -q 'DashboardService.anchorScreen' "$DCENTER" \
-    || fail "DashboardCenter app height does not read the anchor screen"
-grep -q 'Globals.dashboardMaxHeight' "$DCENTER" \
-    || fail "DashboardCenter app height does not fall back to dashboardMaxHeight"
-if grep -q 'appListMaxHeight' "$VIEW" "$ROOT/config/Globals.qml"; then
-    fail "the app list is still capped by appListMaxHeight"
-fi
-for token in 'property real dashboardAppsMaxFraction: 0.8' 'property int scrollbarWidth' \
-    'property int scrollbarRadius' 'property int wheelStep' 'property int wheelMs'; do
-    grep -q "$token" "$ROOT/config/Globals.qml" \
-        || fail "Globals has no $token token"
-done
-grep -q 'property int wheelStep: 240' "$ROOT/config/Globals.qml" \
-    || fail "Globals.wheelStep is not 240"
-
-# --- 4j. the Apps view is bounded by PanelShell, so the list scrolls ---
-APPS_MOUNT="$(awk '/^    DashboardAppsView \{/{flag=1} flag{print} flag && /^    \}$/{exit}' "$DCENTER")"
-test -n "$APPS_MOUNT" || fail "could not extract the DashboardAppsView mount"
-echo "$APPS_MOUNT" | grep -q 'Layout.fillHeight: true' \
-    || fail "DashboardCenter does not let the Apps view fill the height it is given"
-echo "$APPS_MOUNT" | grep -q 'Layout.fillWidth: true' \
-    || fail "DashboardCenter does not let the Apps view fill the width"
-APPS_LAYOUT="$(awk '/^    ColumnLayout \{/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-echo "$APPS_LAYOUT" | grep -q 'id: idAppsLayout' \
-    || fail "could not extract the idAppsLayout ColumnLayout"
-# Only the layout's own (8-space) properties count, not nested children.
-echo "$APPS_LAYOUT" | grep -qx '        anchors.fill: parent' \
-    || fail "idAppsLayout does not fill the Apps view root"
-if echo "$APPS_LAYOUT" | grep -qE '^        anchors( \{$|\.(top|left|right|bottom):)'; then
-    fail "idAppsLayout still anchors edge by edge, so the list is never bounded"
-fi
-
-SCROLLBAR="$ROOT/components/ScrollBar.qml"
-test -f "$SCROLLBAR" \
-    || fail "components/ScrollBar.qml is missing"
-grep -q 'import QtQuick.Controls as Controls' "$SCROLLBAR" \
-    || fail "ScrollBar is not built on QtQuick.Controls"
-grep -q 'Controls.ScrollBar' "$SCROLLBAR" \
-    || fail "ScrollBar does not root on the Controls ScrollBar"
-grep -q 'Colors.border' "$SCROLLBAR" \
-    || fail "ScrollBar track is not Colors.border"
-grep -q 'Colors.textSubtle' "$SCROLLBAR" \
-    || fail "ScrollBar handle is not Colors.textSubtle"
-grep -q 'Colors.accent' "$SCROLLBAR" \
-    || fail "ScrollBar does not accent on hover or press"
-grep -q 'Globals.scrollbarWidth' "$SCROLLBAR" \
-    || fail "ScrollBar does not size from Globals.scrollbarWidth"
-grep -q 'Globals.scrollbarRadius' "$SCROLLBAR" \
-    || fail "ScrollBar does not round from Globals.scrollbarRadius"
-grep -q 'root.decrease()' "$SCROLLBAR" \
-    || fail "ScrollBar track does not page up"
-grep -q 'root.increase()' "$SCROLLBAR" \
-    || fail "ScrollBar track does not page down"
-grep -q 'visible: root.size < 1' "$SCROLLBAR" \
-    || fail "ScrollBar is not shown only on overflow"
-
+# --- 4n. the smooth-wheel seam: pure SmoothWheelLogic.js behind SmoothWheel ---
 SMOOTH="$ROOT/components/SmoothWheel.qml"
 SMOOTHLOGIC="$ROOT/components/SmoothWheelLogic.js"
 test -f "$SMOOTH" \
@@ -603,203 +129,6 @@ grep -q '^\.pragma library' "$SMOOTHLOGIC" \
     || fail "SmoothWheelLogic.js is not a .pragma library"
 grep -q 'import "SmoothWheelLogic.js" as SmoothWheelLogic' "$SMOOTH" \
     || fail "SmoothWheel does not import SmoothWheelLogic.js"
-for fn in clampTarget wheelTarget wheelStep isContinuousPhase wheelMode; do
-    grep -q "function $fn" "$SMOOTHLOGIC" \
-        || fail "SmoothWheelLogic.js has no $fn"
-done
-for fn in clampTarget wheelStep isContinuousPhase wheelMode; do
-    grep -q "SmoothWheelLogic.$fn" "$SMOOTH" \
-        || fail "SmoothWheel does not delegate $fn to SmoothWheelLogic"
-done
-grep -q 'function isContinuousScroll' "$SMOOTH" \
-    || fail "SmoothWheel has no continuous-source check"
-grep -q 'SmoothWheelLogic.isContinuousPhase' "$SMOOTH" \
-    || fail "SmoothWheel does not delegate the phase decision to SmoothWheelLogic"
-grep -q 'event.phase' "$SMOOTH" \
-    || fail "SmoothWheel does not read the wheel event's scroll phase"
-grep -q 'Qt.NoScrollPhase' "$SMOOTH" \
-    || fail "SmoothWheel does not treat NoScrollPhase as a discrete wheel"
-if grep -q 'event.device\|PointerDevice' "$SMOOTH"; then
-    fail "SmoothWheel still keys the scroll path on the pointer device"
-fi
-if grep -qE 'function (scrollTo|setTarget)\b' "$SMOOTH"; then
-    fail "SmoothWheel keeps the dead scrollTo/setTarget entry points"
-fi
-grep -q 'anchors.fill: root.flickable' "$SMOOTH" \
-    || fail "SmoothWheel overlay does not fill its target Flickable"
-grep -q 'anchors.fill: parent' "$SMOOTH" \
-    || fail "SmoothWheel wheel MouseArea does not fill the overlay"
-grep -q 'MouseArea {' "$SMOOTH" \
-    || fail "SmoothWheel does not route the wheel through a MouseArea"
-grep -q 'onWheel: wheel => {' "$SMOOTH" \
-    || fail "SmoothWheel MouseArea has no wheel handler"
-grep -q 'wheel.accepted = false' "$SMOOTH" \
-    || fail "SmoothWheel does not leave an unhandled wheel for the parent"
-grep -q 'root.handleWheel(wheel)' "$SMOOTH" \
-    || fail "SmoothWheel MouseArea does not forward onWheel to handleWheel"
-grep -q 'acceptedButtons: Qt.NoButton' "$SMOOTH" \
-    || fail "SmoothWheel MouseArea intercepts clicks; it must take no buttons"
-if grep -q 'WheelHandler' "$SMOOTH"; then
-    fail "SmoothWheel still uses a WheelHandler; blocking cannot conditionally forward"
-fi
-grep -q 'event.pixelDelta' "$SMOOTH" \
-    || fail "SmoothWheel ignores the trackpad pixelDelta"
-grep -q 'event.angleDelta.y' "$SMOOTH" \
-    || fail "SmoothWheel ignores the wheel angleDelta"
-grep -q 'Globals.wheelStep' "$SMOOTH" \
-    || fail "SmoothWheel does not step by the wheel token"
-grep -q 'Globals.wheelMs' "$SMOOTH" \
-    || fail "SmoothWheel does not glide for the wheel duration"
-grep -q 'flickable.moving' "$SMOOTH" \
-    || fail "SmoothWheel does not stop on a user drag"
-
-# The notch decision and the move path must stay on the live path: handleWheel
-# composes the pure wheelStep result and routes through moveTo, and the
-# reduced-motion jump lives inside moveTo, not on unreachable code.
-HANDLE_BODY="$(awk '/^    function handleWheel/{flag=1} flag && /^    }$/{print; exit} flag{print}' "$SMOOTH")"
-test -n "$HANDLE_BODY" || fail "could not extract SmoothWheel.handleWheel"
-echo "$HANDLE_BODY" | grep -q 'SmoothWheelLogic.wheelStep' \
-    || fail "handleWheel does not compose the wheel decision in SmoothWheelLogic"
-echo "$HANDLE_BODY" | grep -q 'SmoothWheelLogic.wheelMode' \
-    || fail "handleWheel does not pick the scroll path through SmoothWheelLogic.wheelMode"
-echo "$HANDLE_BODY" | grep -q 'root.isContinuousScroll' \
-    || fail "handleWheel does not pick the scroll path by the event's scroll phase"
-echo "$HANDLE_BODY" | grep -q 'mode === "pixel"' \
-    || fail "handleWheel has no pixel-source branch"
-echo "$HANDLE_BODY" | grep -q 'root.moveTo(' \
-    || fail "handleWheel does not route the notch through the shared move path"
-echo "$HANDLE_BODY" | grep -q 'if (!result.moved)' \
-    || fail "handleWheel accepts a notch before checking the position changed"
-echo "$HANDLE_BODY" | grep -q 'if (next === root.flickable.contentY)' \
-    || fail "the trackpad path accepts a wheel before checking the position changed"
-MOVE_BODY="$(awk '/^    function moveTo/{flag=1} flag && /^    }$/{print; exit} flag{print}' "$SMOOTH")"
-test -n "$MOVE_BODY" || fail "could not extract SmoothWheel.moveTo"
-echo "$MOVE_BODY" | grep -q 'Globals.reducedMotion' \
-    || fail "the shared move path does not honor reduced motion"
-
-APPS_SCROLLBARS="$(grep -c 'Controls.ScrollBar.vertical: ScrollBar' "$VIEW")"
-[ "$APPS_SCROLLBARS" -eq 2 ] \
-    || fail "the two Apps lists do not each have a scrollbar (found $APPS_SCROLLBARS)"
-APPS_WHEELS="$(grep -c 'SmoothWheel {' "$VIEW")"
-[ "$APPS_WHEELS" -eq 2 ] \
-    || fail "the two Apps lists do not each use the smooth wheel (found $APPS_WHEELS)"
-grep -q 'flickable: idAppsBrowseList' "$VIEW" \
-    || fail "the browse smooth wheel does not target the browse list"
-grep -q 'flickable: idAppsResultList' "$VIEW" \
-    || fail "the result smooth wheel does not target the result list"
-grep -q 'root.activeSmoothWheel.stop()' "$VIEW" \
-    || fail "keyboard scroll does not stop the active list's glide"
-
-grep -q 'Controls.ScrollBar.vertical: ScrollBar' "$CTX" \
-    || fail "the context menu has no scrollbar"
-grep -q 'SmoothWheel {' "$CTX" \
-    || fail "the context menu does not use the smooth wheel"
-grep -q 'flickable: idMenuList' "$CTX" \
-    || fail "the menu smooth wheel does not target the menu list"
-grep -q 'flickable: idSubmenuList' "$CTX" \
-    || fail "the menu smooth wheel does not target the submenu list"
-grep -q 'idMenuSmoothWheel.stop()' "$CTX" \
-    || fail "the context menu does not stop the glide before keyboard scroll"
-
-grep -q 'Globals.cardHPadding + Globals.scrollbarWidth' "$VIEW" \
-    || fail "app rows do not reserve the scrollbar width"
-grep -q 'Globals.pillHPadding + Globals.scrollbarWidth' "$CTX" \
-    || fail "menu rows do not reserve the scrollbar width"
-
-# --- 4k. idle-tab cost, icon load, and the apps bench ---
-LAUNCHER_DECL="$(grep 'readonly property bool launcherActive' "$VIEW")"
-test -n "$LAUNCHER_DECL" || fail "the Apps view has no active-tab gate property"
-echo "$LAUNCHER_DECL" | grep -q 'root.visible' \
-    || fail "launcherActive ignores the view visibility"
-echo "$LAUNCHER_DECL" | grep -q 'root.windowShown' \
-    || fail "launcherActive ignores dashboard visibility"
-grep -q 'property bool windowShown: DashboardService.dashboardVisible' "$VIEW" \
-    || fail "windowShown does not default to dashboard visibility"
-grep -q 'windowShown: root.visible' "$ROOT/windows/DashboardCenter.qml" \
-    || fail "the dashboard does not hold launcher rows through its close slide"
-BROWSE_GATE="$(awk '/readonly property var browseRows/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-test -n "$BROWSE_GATE" || fail "the Apps view has no browse row model"
-echo "$BROWSE_GATE" | grep -q 'if (!root.launcherActive)' \
-    || fail "browseRows does not return early while the tab is not visible"
-echo "$BROWSE_GATE" | grep -A1 'if (!root.launcherActive)' | grep -qE 'return (rows|\[\]);' \
-    || fail "the browseRows active gate does not return an empty row list"
-echo "$BROWSE_GATE" | grep -q 'AppService.browseRows' \
-    || fail "browseRows does not build from AppService.browseRows"
-if echo "$BROWSE_GATE" | grep -q 'query'; then
-    fail "browseRows still depends on the query"
-fi
-RESULT_GATE="$(awk '/readonly property var resultRows/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-test -n "$RESULT_GATE" || fail "the Apps view has no result row model"
-echo "$RESULT_GATE" | grep -q 'if (!root.launcherActive || root.query.trim() === "")' \
-    || fail "resultRows is not gated by launcherActive and an empty query"
-echo "$RESULT_GATE" | grep -A1 'if (!root.launcherActive' | grep -qE 'return (rows|\[\]);' \
-    || fail "the resultRows gate does not return an empty row list"
-echo "$RESULT_GATE" | grep -q 'AppService.resultRows' \
-    || fail "resultRows does not build from AppService.resultRows"
-grep -q 'asynchronous: true' "$ROOT/components/AppIcon.qml" \
-    || fail "AppIcon does not load its image asynchronously"
-grep -q 'cache: true' "$ROOT/components/AppIcon.qml" \
-    || fail "AppIcon does not cache its image"
-grep -q 'function appsBench(): string' "$ROOT/dev/DevProbe.qml" \
-    || fail "DevProbe has no appsBench"
-grep -q 'view.bench()' "$ROOT/dev/DevProbe.qml" \
-    || fail "DevProbe appsBench does not call the view's bench"
-grep -q 'found: false, reason:' "$ROOT/dev/DevProbe.qml" \
-    || fail "appsBench does not report why it found no launcher"
-grep -q 'DashboardService.selectTab(priorTab)' "$ROOT/dev/DevProbe.qml" \
-    || fail "appsBench does not restore the dashboard tab it changed"
-grep -q 'found: false, reason:' "$VIEW" \
-    || fail "the apps bench does not report an inactive launcher"
-grep -q 'DevGeometry.register("dashboard.apps", root)' "$VIEW" \
-    || fail "the Apps view does not register itself for the bench"
-for part in snapshotMs emptyMs stepsMs clearMs runningMapMs; do
-    grep -q "$part" "$VIEW" \
-        || fail "the apps bench does not time $part"
-done
-grep -q 'idAppsBrowseList.forceLayout()' "$VIEW" \
-    || fail "the apps bench does not force the browse layout on the empty/clear steps"
-grep -q 'idAppsResultList.forceLayout()' "$VIEW" \
-    || fail "the apps bench does not force the result layout after each query step"
-grep -q 'appsBench' "$ROOT/docs/dev/debugging-quickshell.md" \
-    || fail "the apps bench is not documented in the Dev probe list"
-grep -q 'function buildRecords' "$SVC" \
-    || fail "AppService has no rebuildable record snapshot"
-grep -q 'AppService.buildRecords' "$VIEW" \
-    || fail "the apps bench does not rebuild the AppService snapshot"
-grep -q 'AppLogic.runningCounts' "$SVC" \
-    || fail "AppService runningMap does not use runningCounts"
-
-# --- 4l. the footer hint bar composes KeyHint and binds the workspace key cap ---
-grep -q 'idAppsFooter' "$VIEW" \
-    || fail "DashboardAppsView has no footer"
-FOOTER_COUNT="$(grep -c 'KeyHint {' "$VIEW")"
-[ "$FOOTER_COUNT" -eq 3 ] \
-    || fail "the Apps footer does not compose KeyHint exactly three times (found $FOOTER_COUNT)"
-grep -q 'AppService.workspaceKeys()' "$VIEW" \
-    || fail "the footer workspace hint does not come from the pure key cap"
-grep -q 'ctrl 1–' "$LOGIC" \
-    || fail "the workspace key cap does not use the en-dash range"
-grep -q 'ctrl 1–9, 0' "$LOGIC" \
-    || fail "the workspace key cap does not cover Ctrl+0 for the tenth workspace"
-grep -qF 'key: "→"' "$VIEW" \
-    || fail "the footer More key cap is not the right arrow"
-if grep -q '⇧F10' "$VIEW"; then
-    fail "the footer still shows the Shift+F10 key cap"
-fi
-grep -q 'qsTr("On workspace")' "$VIEW" \
-    || fail "the footer does not label the workspace hint through qsTr"
-grep -q 'qsTr("hover a row for actions")' "$VIEW" \
-    || fail "the footer has no faint hover hint"
-grep -q 'Colors.textFaint' "$VIEW" \
-    || fail "the footer hover hint is not Colors.textFaint"
-FOOTER_BLOCK="$(awk '/id: idAppsFooter$/{flag=1} flag{print} flag && /^        \}$/{exit}' "$VIEW")"
-test -n "$FOOTER_BLOCK" || fail "could not extract the Apps footer"
-echo "$FOOTER_BLOCK" | grep -q 'Globals.hairlineHeight' \
-    || fail "the footer rule is not a hairline"
-echo "$FOOTER_BLOCK" | grep -q 'Colors.border' \
-    || fail "the footer rule is not Colors.border"
-grep -q 'property int appsFooterGap' "$ROOT/config/Globals.qml" \
-    || fail "Globals has no appsFooterGap token"
 
 # --- 4m. two lists share one delegate and route through the active list ---
 DELEGATE_COMPONENTS="$(grep -c 'id: idAppRowDelegate' "$VIEW")"
@@ -808,81 +137,9 @@ DELEGATE_COMPONENTS="$(grep -c 'id: idAppRowDelegate' "$VIEW")"
 DELEGATE_USES="$(grep -c '^[[:space:]]*delegate: idAppRowDelegate$' "$VIEW")"
 [ "$DELEGATE_USES" -eq 2 ] \
     || fail "both Apps lists do not share the one delegate Component (found $DELEGATE_USES)"
-grep -q 'Controls.ScrollBar.vertical: ScrollBar { id: idAppsBrowseScrollBar }' "$VIEW" \
-    || fail "the browse list does not carry its own ScrollBar"
-grep -q 'Controls.ScrollBar.vertical: ScrollBar { id: idAppsResultScrollBar }' "$VIEW" \
-    || fail "the result list does not carry its own ScrollBar"
 if grep -qnE '\bidAppsList\b' "$VIEW"; then
     fail "a list-specific idAppsList reference survives; route through root.activeList"
 fi
-grep -q 'root.activeList' "$VIEW" \
-    || fail "the view has no active-list abstraction"
-grep -q 'root.activeRows' "$VIEW" \
-    || fail "the view has no active-rows abstraction"
-grep -q 'root.activeSmoothWheel' "$VIEW" \
-    || fail "the view has no active-wheel abstraction"
-grep -q 'readonly property bool querying: root.query.trim() !== ""' "$VIEW" \
-    || fail "querying is not derived from the trimmed query"
-grep -q 'readonly property var activeRows: root.querying ? root.resultRows : root.browseRows' "$VIEW" \
-    || fail "activeRows does not map a query to the result rows"
-grep -q 'readonly property var activeList: root.querying ? idAppsResultList : idAppsBrowseList' "$VIEW" \
-    || fail "activeList does not map a query to the result list"
-grep -q 'readonly property var activeSmoothWheel: root.querying ? idAppsResultSmoothWheel : idAppsBrowseSmoothWheel' "$VIEW" \
-    || fail "activeSmoothWheel does not map a query to the result wheel"
-grep -q 'visible: !root.querying' "$VIEW" \
-    || fail "the browse slot is not visible only on an empty query"
-grep -q 'visible: root.querying' "$VIEW" \
-    || fail "the result slot is not visible only on a query"
-REGISTER_BLOCK="$(awk '/^    function registerLists/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-test -n "$REGISTER_BLOCK" || fail "could not extract registerLists"
-echo "$REGISTER_BLOCK" | grep -q 'root.query.trim() !== ""' \
-    || fail "registerLists does not derive the active list from the source query"
-if echo "$REGISTER_BLOCK" | grep -q 'root.activeList'; then
-    fail "registerLists registers the stale activeList"
-fi
-echo "$REGISTER_BLOCK" | grep -q 'DevGeometry.register("dashboard.apps.list"' \
-    || fail "registerLists does not register the active list"
-grep -q 'DevGeometry.register("dashboard.apps.browseList", idAppsBrowseList)' "$VIEW" \
-    || fail "the browse list is not registered for the probe"
-grep -q 'DevGeometry.register("dashboard.apps.resultList", idAppsResultList)' "$VIEW" \
-    || fail "the result list is not registered for the probe"
-ONQUERY_BLOCK="$(awk '/^    onQueryChanged:/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-test -n "$ONQUERY_BLOCK" || fail "could not extract the onQueryChanged handler"
-echo "$ONQUERY_BLOCK" | grep -qF 'const querying = root.query.trim() !== ""' \
-    || fail "onQueryChanged does not derive the mode from the source query"
-if echo "$ONQUERY_BLOCK" | grep -qE 'root\.(querying|activeList)\b'; then
-    fail "onQueryChanged reads a stale derived mode instead of the source query"
-fi
-echo "$ONQUERY_BLOCK" | grep -q 'idAppsBrowseList.selectedIndex = 0' \
-    || fail "clearing the query does not reset the browse selection"
-echo "$ONQUERY_BLOCK" | grep -q 'idAppsBrowseList.positionViewAtBeginning()' \
-    || fail "clearing the query does not restore the browse list to the top"
-echo "$ONQUERY_BLOCK" | grep -q 'idAppsResultList.selectedIndex = 0' \
-    || fail "a query change does not select the first result"
-echo "$ONQUERY_BLOCK" | grep -q 'idAppsResultList.positionViewAtBeginning()' \
-    || fail "entering a query does not restore the results list to the top"
-ONQUERYING_BLOCK="$(awk '/^    onQueryingChanged:/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-test -n "$ONQUERYING_BLOCK" || fail "could not extract the onQueryingChanged handler"
-echo "$ONQUERYING_BLOCK" | grep -q 'idAppsBrowseSmoothWheel.stop()' \
-    || fail "a mode change does not stop the hidden browse wheel"
-echo "$ONQUERYING_BLOCK" | grep -q 'idAppsResultSmoothWheel.stop()' \
-    || fail "a mode change does not stop the hidden result wheel"
-grep -q 'idAppRow.useMarkup' "$VIEW" \
-    || fail "the row name has no markup gate"
-grep -q 'idAppRow.useMarkup ? Text.StyledText : Text.PlainText' "$VIEW" \
-    || fail "the row name is not StyledText only when it has markup"
-
-# --- 4n. closing the menu drops the menu-only state, after the trigger runs ---
-grep -qF 'onClosed: root.onMenuClosed()' "$VIEW" \
-    || fail "the context menu does not route close through onMenuClosed"
-MENUCLOSE_BLOCK="$(awk '/^    function onMenuClosed/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-test -n "$MENUCLOSE_BLOCK" || fail "could not extract onMenuClosed"
-echo "$MENUCLOSE_BLOCK" | grep -q 'root.focusSearch()' \
-    || fail "closing the menu does not restore search focus"
-echo "$MENUCLOSE_BLOCK" | grep -q 'root.menuRow = null' \
-    || fail "closing the menu does not clear the menu row"
-echo "$MENUCLOSE_BLOCK" | grep -q 'root.menuPinned = false' \
-    || fail "closing the menu does not clear the menu pin state"
 
 # --- 4o. offscreen behavioral checks (skip without Qt 6) ---
 QMLTESTRUNNER="${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}"

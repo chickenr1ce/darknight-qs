@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import qs.config
 import qs.services
+import "PowerLogic.js" as PowerLogic
 
 Singleton {
     id: root
@@ -17,30 +18,33 @@ Singleton {
     property string hostName: ""
     property string uptime: ""
 
-    readonly property var actions: [
-        { actionId: "lock", label: qsTr("Lock"), glyph: Icons.lock, hint: "1", dangerous: false },
-        { actionId: "suspend", label: qsTr("Suspend"), glyph: Icons.powerSleep, hint: "2", dangerous: false },
-        { actionId: "logout", label: qsTr("Logout"), glyph: Icons.logout, hint: "3", dangerous: false },
-        { actionId: "reboot", label: qsTr("Reboot"), glyph: Icons.restart, hint: "4", dangerous: true },
-        { actionId: "shutdown", label: qsTr("Shutdown"), glyph: Icons.power, hint: "5", dangerous: true },
-        { actionId: "winboot", label: qsTr("Reboot to Windows"), glyph: Icons.windows, hint: "6", dangerous: true }
-    ]
-
-    readonly property string armedLabel: {
-        for (let i = 0; i < root.actions.length; i++) {
-            if (root.actions[i].actionId === root.armedAction)
-                return root.actions[i].label;
+    readonly property var actions: {
+        const chrome = {
+            lock: { glyph: Icons.lock, hint: "1" },
+            suspend: { glyph: Icons.powerSleep, hint: "2" },
+            logout: { glyph: Icons.logout, hint: "3" },
+            reboot: { glyph: Icons.restart, hint: "4" },
+            shutdown: { glyph: Icons.power, hint: "5" },
+            winboot: { glyph: Icons.windows, hint: "6" }
+        };
+        const table = PowerLogic.actions();
+        const out = [];
+        for (let i = 0; i < table.length; i++) {
+            const entry = table[i];
+            out.push({
+                actionId: entry.id,
+                label: entry.label,
+                glyph: chrome[entry.id].glyph,
+                hint: chrome[entry.id].hint,
+                dangerous: entry.dangerous
+            });
         }
-        return "";
+        return out;
     }
 
-    readonly property bool armedDangerous: {
-        for (let i = 0; i < root.actions.length; i++) {
-            if (root.actions[i].actionId === root.armedAction)
-                return root.actions[i].dangerous === true;
-        }
-        return false;
-    }
+    readonly property string armedLabel: PowerLogic.label(root.armedAction)
+
+    readonly property bool armedDangerous: PowerLogic.dangerous(root.armedAction)
 
     PanelState {
         id: idPanelState
@@ -101,40 +105,27 @@ Singleton {
     }
 
     function arm(actionId: string) {
-        if (actionId === "lock") {
-            root.executeAction(actionId);
-            return;
-        }
-        root.armedAction = actionId;
+        root.applyResult(PowerLogic.press({ armed: root.armedAction }, actionId));
+    }
+
+    function isArmed(actionId: string): bool {
+        return PowerLogic.isArmed({ armed: root.armedAction }, actionId);
     }
 
     function cancel() {
-        root.armedAction = "";
+        root.armedAction = PowerLogic.cancel({ armed: root.armedAction }).armed;
     }
 
     function confirmArmed() {
-        if (root.armedAction === "")
-            return;
-        root.executeAction(root.armedAction);
+        root.applyResult(PowerLogic.confirm({ armed: root.armedAction }));
     }
 
-    function executeAction(actionId: string) {
-        if (actionId === "lock")
-            idRunProcess.command = ["sh", "-c", "command -v hyprlock >/dev/null 2>&1 && exec hyprlock || { command -v betterlockscreen >/dev/null 2>&1 && exec betterlockscreen -l || exec i3lock; }"];
-        else if (actionId === "suspend")
-            idRunProcess.command = ["sh", "-c", "playerctl pause -a 2>/dev/null; mpc -q pause 2>/dev/null; systemctl suspend"];
-        else if (actionId === "logout")
-            idRunProcess.command = ["hyprctl", "dispatch", "exit"];
-        else if (actionId === "reboot")
-            idRunProcess.command = ["systemctl", "reboot"];
-        else if (actionId === "shutdown")
-            idRunProcess.command = ["systemctl", "poweroff"];
-        else if (actionId === "winboot")
-            idRunProcess.command = ["sh", "-c", "pkexec efibootmgr -n 0000 && systemctl reboot"];
-        else
-            return;
-        idRunProcess.running = true;
-        idPanelState.visible = false;
-        root.armedAction = "";
+    function applyResult(result: var) {
+        root.armedAction = result.state.armed;
+        if (result.run !== null) {
+            idRunProcess.command = result.run;
+            idRunProcess.running = true;
+            idPanelState.visible = false;
+        }
     }
 }
