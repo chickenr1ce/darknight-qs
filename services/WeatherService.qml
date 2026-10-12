@@ -20,8 +20,7 @@ Singleton {
     property string searchQuery: ""
     property var locationResults: []
     property bool locationSearched: false
-    property bool geocodeQueued: false
-    readonly property bool searchBusy: idGeocodeProcess.running
+    readonly property bool searchBusy: idGeocodeRun.running
 
     property real temperatureC: 0
     property int weatherCode: -1
@@ -30,7 +29,7 @@ Singleton {
     property real lowC: 0
     property double fetchedAtMs: 0
     property bool lastPollFailed: false
-    property bool pollQueued: false
+    property bool locationPollIssued: false
     property date now: new Date()
 
     readonly property bool hasData: root.fetchedAtMs > 0
@@ -47,7 +46,6 @@ Singleton {
         interval: root.pollMs
         running: true
         repeat: true
-        triggeredOnStart: true
         onTriggered: root.repoll()
     }
 
@@ -73,10 +71,17 @@ Singleton {
                 root.lastPollFailed = true;
                 console.warn("weather fetch failed with exit " + code + ": " + idWeatherErrorCollector.text.trim());
             }
-            if (root.pollQueued) {
-                root.pollQueued = false;
-                idWeatherProcess.running = true;
-            }
+            idWeatherRun.finished(code === 0);
+        }
+    }
+
+    CoalescedRun {
+        id: idWeatherRun
+
+        process: idWeatherProcess
+
+        starter: () => {
+            idWeatherProcess.running = true;
         }
     }
 
@@ -107,10 +112,17 @@ Singleton {
                 root.applyLocations(idGeocodeCollector.text);
             else
                 console.warn("weather geocode failed with exit " + code + ": " + idGeocodeErrorCollector.text.trim());
-            if (root.geocodeQueued) {
-                root.geocodeQueued = false;
-                idGeocodeProcess.running = true;
-            }
+            idGeocodeRun.finished(code === 0);
+        }
+    }
+
+    CoalescedRun {
+        id: idGeocodeRun
+
+        process: idGeocodeProcess
+
+        starter: () => {
+            idGeocodeProcess.running = true;
         }
     }
 
@@ -128,6 +140,10 @@ Singleton {
         name: "weather-location"
         createDir: true
         onParsed: text => root.applyLocation(text)
+        onLoadedChanged: {
+            if (idLocationState.loaded)
+                Qt.callLater(root.bootPoll);
+        }
     }
 
     function refresh(): void {
@@ -135,10 +151,15 @@ Singleton {
     }
 
     function repoll(): void {
-        if (idWeatherProcess.running)
-            root.pollQueued = true;
-        else
-            idWeatherProcess.running = true;
+        idWeatherRun.request();
+    }
+
+    // Boot fetches once. The saved-location parse already issues the fetch
+    // when its city differs from the default, so the load-completion trigger
+    // asks WeatherLogic whether it still owns the boot fetch.
+    function bootPoll(): void {
+        if (WeatherLogic.shouldBootPoll(root.locationPollIssued))
+            root.repoll();
     }
 
     function requestUrl(): string {
@@ -217,10 +238,7 @@ Singleton {
     }
 
     function repollGeocode(): void {
-        if (idGeocodeProcess.running)
-            root.geocodeQueued = true;
-        else
-            idGeocodeProcess.running = true;
+        idGeocodeRun.request();
     }
 
     function applyLocations(text: string): void {
@@ -267,6 +285,7 @@ Singleton {
         root.locationName = name;
         root.latitude = latitude;
         root.longitude = longitude;
+        root.locationPollIssued = true;
         root.repoll();
     }
 

@@ -17,7 +17,6 @@ Singleton {
     property var monitors: []
     property var monitorNames: []
     property bool monitorsLoaded: false
-    property bool pendingRefresh: false
     property bool toggleSettling: false
     property bool settleGraceUsed: false
     property int toggleEpoch: 0
@@ -56,7 +55,15 @@ Singleton {
 
         command: ["hyprctl", "monitors", "all", "-j"]
         stdout: idMonitorsCollector
-        onExited: root.consumePendingRefresh()
+        onExited: code => idMonitorsRun.finished(code === 0)
+    }
+
+    CoalescedRun {
+        id: idMonitorsRun
+
+        process: idMonitorsProcess
+
+        starter: root.startMonitorPoll
     }
 
     StdioCollector {
@@ -163,20 +170,18 @@ Singleton {
     }
 
     function refreshMonitors(): void {
-        if (idMonitorsProcess.running || idCommandProcess.running) {
-            root.pendingRefresh = true;
-            return;
-        }
-        root.pendingRefresh = false;
-        root.pollEpoch = root.toggleEpoch;
-        idMonitorsProcess.running = true;
+        idMonitorsRun.request();
     }
 
-    function consumePendingRefresh(): void {
-        if (!root.pendingRefresh)
-            return;
-        root.pendingRefresh = false;
-        root.refreshMonitors();
+    // A drain bypasses refreshMonitors, so it re-checks the two-process
+    // exclusion itself: hyprctl eval owns the compositor while it runs, and
+    // its own exit requests the refresh that takes over.
+    function startMonitorPoll(): bool {
+        if (idCommandProcess.running)
+            return false;
+        root.pollEpoch = root.toggleEpoch;
+        idMonitorsProcess.running = true;
+        return true;
     }
 
     function escapeLua(value: string): string {

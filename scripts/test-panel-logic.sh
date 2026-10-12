@@ -957,8 +957,11 @@ grep -q 'property int toggleEpoch' "$MSVC" \
     || fail "MonitorService does not epoch-guard the post-command settling clear"
 grep -q 'idCommandWatchdog' "$MSVC" \
     || fail "MonitorService has no watchdog for a hung hyprctl command"
-grep -q 'property bool pendingRefresh' "$MSVC" \
-    || fail "MonitorService drops a refresh that lands mid-poll"
+# A refresh that lands mid-poll is held and drained by the run now; the node
+# gate for the hold/drain is scripts/test-coalesced-run.sh, so here only the
+# adoption is pinned.
+grep -q 'CoalescedRun {' "$MSVC" \
+    || fail "MonitorService does not coalesce its monitor poll through CoalescedRun"
 grep -q 'function escapeLua' "$MSVC" \
     || fail "MonitorService does not escape the output name for the Lua spec"
 grep -q 'property bool monitorsLoaded' "$MSVC" \
@@ -1553,6 +1556,21 @@ check('location/blank-name', wl.isValidLocation({ name: '  ', latitude: 48.85, l
 check('location/bad-lat', wl.isValidLocation({ name: 'Paris', latitude: 91, longitude: 2.35 }), false);
 check('location/bad-lon', wl.isValidLocation({ name: 'Paris', latitude: 48.85, longitude: 200 }), false);
 check('location/malformed', wl.isValidLocation({ name: 'Paris' }), false);
+
+// The boot fetch: with a saved city the location parse issues the fetch, so
+// the load-completion trigger stays quiet; with no saved city (or the default
+// city) it owns the fetch. Either way exactly one request, so the timer's
+// triggeredOnStart no longer races the parse into a second, queued fetch.
+check('boot/load-polls-without-parse', wl.shouldBootPoll(false), true);
+check('boot/load-quiet-after-parse', wl.shouldBootPoll(true), false);
+const bootFetches = locationPollIssued => {
+    let fetches = locationPollIssued ? 1 : 0;
+    if (wl.shouldBootPoll(locationPollIssued))
+        fetches += 1;
+    return fetches;
+};
+check('boot/saved-city-one-fetch', bootFetches(true), 1);
+check('boot/no-saved-city-one-fetch', bootFetches(false), 1);
 NODEEOF
 
 node - "$ROOT/tests/qmljs.js" "$ROOT/services/StateParsers.js" <<'NODEEOF'
@@ -2016,8 +2034,13 @@ grep -A6 'function refresh(): string' "$TSVC" | grep -q 'reloadPalette' \
     || fail "the IPC refresh does not reload the active palette (M3)"
 grep -q 'no background named' "$TSVC" \
     || fail "selectBackground does not refuse an unknown background (L1)"
-grep -q 'backgroundQueuedPath' "$TSVC" \
-    || fail "a second background pick is not queued (L2)"
+# L2 (a second background pick is queued, latest wins, retries capped at 5)
+# is CoalescedRun's behaviour now; the node gate for it is
+# scripts/test-coalesced-run.sh, so here only the adoption is pinned.
+grep -q 'CoalescedRun {' "$TSVC" \
+    || fail "ThemeService does not coalesce its process runs through CoalescedRun"
+grep -qF 'maxRetries: 5' "$TSVC" \
+    || fail "the background apply retry budget is not 5 (L2)"
 grep -q 'render-theme.sh exited non-zero' "$TSVC" \
     || fail "a non-zero renderer exit is not logged (L4)"
 # Per-app target gating: the target list, its per-key state behind the

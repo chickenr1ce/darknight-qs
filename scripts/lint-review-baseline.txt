@@ -37,6 +37,9 @@ services/CalendarService.qml BND-1 property var -- use a typed property (int, st
 services/CalendarService.qml BND-2 Imperative '=' on 'inMonth' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/CalendarService.qml BND-2 Imperative '=' on 'inMonth' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/CavaService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/CoalescedRun.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/CoalescedRun.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/CoalescedRun.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety

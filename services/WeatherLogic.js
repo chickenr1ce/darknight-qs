@@ -130,3 +130,13 @@ function parseLocations(text) {
     }
     return out;
 }
+
+// WeatherService fetches once at boot, but two events can request that fetch:
+// the saved-location state parsing (when its city differs from the default)
+// and the location state finishing its load. Requesting from both fetches
+// twice, and CoalescedRun would run the queued second request anyway, so the
+// load-completion trigger asks this before polling: it owns the boot fetch
+// only when the parse did not already issue one.
+function shouldBootPoll(locationPollIssued) {
+    return !locationPollIssued;
+}

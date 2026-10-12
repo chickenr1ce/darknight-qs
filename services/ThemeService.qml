@@ -45,21 +45,16 @@ Singleton {
     readonly property var backgrounds: ThemeParsers.parseBackgrounds(root.backgroundsJson)
     readonly property string backgroundsDir: root.backgroundDirFor(root.activeTheme)
     property string appliedBackgroundPath: ""
-    property string backgroundQueuedPath: ""
-    property int backgroundAttempts: 0
 
     readonly property string catalogScriptPath: Quickshell.shellDir + "/scripts/theme-catalog-scan.sh"
     readonly property string renderScriptPath: Quickshell.shellDir + "/scripts/render-theme.sh"
     readonly property string backgroundsScriptPath: Quickshell.shellDir + "/scripts/theme-backgrounds-scan.sh"
     property string catalogText: ""
-    property bool catalogQueued: false
     property bool catalogReady: false
     property string renderPaletteJson: ""
-    property bool renderQueued: false
     property string backgroundsListText: ""
     property string backgroundsListDir: ""
     property string backgroundScanDir: ""
-    property bool backgroundsQueued: false
     readonly property var catalog: ThemeParsers.parseCatalog(root.catalogText, root.themeRoot)
     readonly property var backgroundList: ThemeParsers.parseBackgroundList(root.backgroundsListText, root.backgroundsListDir)
     readonly property string rememberedBackgroundName: {
@@ -82,7 +77,6 @@ Singleton {
 
     property bool colorsTrusted: false
     property string statPath: ""
-    property bool statQueued: false
 
     property bool hasPalette: false
     property string mode: ""
@@ -165,11 +159,18 @@ Singleton {
                     root.markPaletteResolved();
                 if (root.activeTheme !== "" && root.hasPalette && root.effectiveMode("") !== root.mode)
                     root.applyPalette(ThemeParsers.parseColors(idPaletteFile.text(), root.catalogMode(root.activeTheme)));
-                if (root.catalogQueued) {
-                    root.catalogQueued = false;
-                    Qt.callLater(root.refresh);
-                }
             }
+        }
+        onExited: code => idCatalogRun.finished(code === 0)
+    }
+
+    CoalescedRun {
+        id: idCatalogRun
+
+        process: idCatalogProcess
+
+        starter: () => {
+            idCatalogProcess.running = true;
         }
     }
 
@@ -178,6 +179,22 @@ Singleton {
 
         command: ["stat", "-c", "%f|%s", root.colorsPath]
         stdout: idStatCollector
+        onExited: code => idStatRun.finished(code === 0)
+    }
+
+    CoalescedRun {
+        id: idStatRun
+
+        process: idStatProcess
+
+        // A drain bypasses statPalette, so it re-checks the precondition
+        // itself: a theme reset emptied colorsPath since the request queued.
+        starter: path => {
+            if (root.colorsPath === "")
+                return false;
+            root.statPath = path;
+            idStatProcess.running = true;
+        }
     }
 
     Process {
@@ -187,10 +204,22 @@ Singleton {
         onExited: code => {
             if (code !== 0)
                 console.warn("ThemeService: render-theme.sh exited non-zero (" + code + ")");
-            if (root.renderQueued) {
-                root.renderQueued = false;
-                Qt.callLater(root.renderDesktop);
-            }
+            idRenderRun.finished(code === 0);
+        }
+    }
+
+    CoalescedRun {
+        id: idRenderRun
+
+        process: idRenderProcess
+
+        // A drain bypasses renderDesktop, so it re-checks the preconditions
+        // itself, like the old Qt.callLater(renderDesktop) drain did.
+        starter: () => {
+            if (!root.paletteResolved || !root.targetsLoaded)
+                return false;
+            idRenderProcess.running = true;
+            root.applyCurrentBackground();
         }
     }
 
@@ -202,12 +231,34 @@ Singleton {
 
             onStreamFinished: root.applyBackgroundScan(idBackgroundScanCollector.text)
         }
+        onExited: code => idBackgroundScanRun.finished(code === 0)
+    }
+
+    CoalescedRun {
+        id: idBackgroundScanRun
+
+        process: idBackgroundScanProcess
+
+        starter: dir => root.startBackgroundScan(dir)
     }
 
     Process {
         id: idBackgroundApplyProcess
 
-        onExited: code => root.backgroundApplyExited(code)
+        onExited: code => root.backgroundApplyExited(code === 0)
+    }
+
+    CoalescedRun {
+        id: idBackgroundApplyRun
+
+        process: idBackgroundApplyProcess
+
+        // HEAD held one 5-retry budget across picks until the next
+        // refreshBackgrounds reset it; each new pick here requests afresh,
+        // so it starts on a clean budget of 5.
+        maxRetries: 5
+        starter: root.startBackgroundApply
+        onRetry: idBackgroundRetryTimer.restart()
     }
 
     Timer {
@@ -215,7 +266,7 @@ Singleton {
 
         interval: 2000
         repeat: false
-        onTriggered: root.applyCurrentBackground()
+        onTriggered: idBackgroundApplyRun.release()
     }
 
     StdioCollector {
@@ -311,11 +362,7 @@ Singleton {
 
     function refresh(): void {
         root.refreshBackgrounds();
-        if (idCatalogProcess.running) {
-            root.catalogQueued = true;
-            return;
-        }
-        idCatalogProcess.running = true;
+        idCatalogRun.request();
     }
 
     function catalogDisplayName(name: string): string {
@@ -430,12 +477,7 @@ Singleton {
     function renderDesktop(): void {
         if (!root.paletteResolved || !root.targetsLoaded)
             return;
-        if (idRenderProcess.running) {
-            root.renderQueued = true;
-            return;
-        }
-        idRenderProcess.running = true;
-        root.applyCurrentBackground();
+        idRenderRun.request();
     }
 
     function backgroundEntry(name: string): var {
@@ -454,16 +496,18 @@ Singleton {
     }
 
     function refreshBackgrounds(): void {
-        const dir = root.backgroundDirFor(root.activeTheme);
         root.backgroundsListText = "";
         root.backgroundsListDir = "";
-        root.backgroundAttempts = 0;
+        idBackgroundApplyRun.resetAttempts();
+        const dir = root.backgroundDirFor(root.activeTheme);
         if (dir === "")
             return;
-        if (idBackgroundScanProcess.running) {
-            root.backgroundsQueued = true;
-            return;
-        }
+        idBackgroundScanRun.request(dir);
+    }
+
+    function startBackgroundScan(dir: string): void {
+        root.backgroundsListText = "";
+        root.backgroundsListDir = "";
         root.backgroundScanDir = dir;
         idBackgroundScanProcess.exec(["sh", root.backgroundsScriptPath, dir, String(ThemeParsers.backgroundMaxBytes())]);
     }
@@ -474,10 +518,6 @@ Singleton {
             root.backgroundsListText = output;
             root.applyCurrentBackground();
         }
-        if (root.backgroundsQueued) {
-            root.backgroundsQueued = false;
-            Qt.callLater(root.refreshBackgrounds);
-        }
     }
 
     function applyCurrentBackground(): void {
@@ -487,31 +527,34 @@ Singleton {
     function applyBackground(path: string): void {
         if (path === "")
             return;
-        if (idBackgroundApplyProcess.running) {
-            root.backgroundQueuedPath = path;
-            return;
-        }
-        if (path === root.appliedBackgroundPath)
-            return;
-        root.appliedBackgroundPath = path;
-        idBackgroundApplyProcess.exec(["awww", "img", path]);
+        idBackgroundApplyRun.request(path);
     }
 
-    function backgroundApplyExited(code: int): void {
-        if (code === 0) {
-            root.backgroundAttempts = 0;
-        } else if (root.currentBackgroundPath !== "") {
-            root.appliedBackgroundPath = "";
-            if (root.backgroundAttempts < 5) {
-                root.backgroundAttempts += 1;
-                idBackgroundRetryTimer.restart();
-            }
+    function startBackgroundApply(path: string): bool {
+        if (path === root.appliedBackgroundPath) {
+            // Same pick again (a retry replay, or a drain of a queued no-op):
+            // declaring no launch closes the run instead of leaving it
+            // phantom-running.
+            return false;
         }
-        if (root.backgroundQueuedPath !== "") {
-            const queued = root.backgroundQueuedPath;
-            root.backgroundQueuedPath = "";
-            Qt.callLater(() => root.applyBackground(queued));
+        root.appliedBackgroundPath = path;
+        idBackgroundApplyProcess.exec(["awww", "img", path]);
+        return true;
+    }
+
+    function backgroundApplyExited(ok: bool): void {
+        if (ok) {
+            idBackgroundApplyRun.finished(true);
+            return;
         }
+        // An empty background list has nothing to retry: close the run ok so
+        // it does not arm five futile retries.
+        if (root.currentBackgroundPath === "") {
+            idBackgroundApplyRun.finished(true);
+            return;
+        }
+        root.appliedBackgroundPath = "";
+        idBackgroundApplyRun.finished(false);
     }
 
     function selectBackground(file: string): string {
@@ -549,12 +592,7 @@ Singleton {
     function statPalette(): void {
         if (root.colorsPath === "")
             return;
-        if (idStatProcess.running) {
-            root.statQueued = true;
-            return;
-        }
-        root.statPath = root.colorsPath;
-        idStatProcess.running = true;
+        idStatRun.request(root.colorsPath);
     }
 
     function applyStat(output: string): void {
@@ -564,10 +602,6 @@ Singleton {
             root.colorsTrusted = false;
             root.applyPalette(null);
             root.markPaletteResolved();
-        }
-        if (root.statQueued) {
-            root.statQueued = false;
-            Qt.callLater(root.statPalette);
         }
     }
 

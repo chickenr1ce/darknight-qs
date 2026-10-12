@@ -26,7 +26,6 @@ Singleton {
     readonly property var selectedDayEvents: root.eventDays[root.selectedIso] || []
 
     property bool eventsLastPollFailed: false
-    property bool eventsPollQueued: false
 
     property var hiddenCalendars: []
     readonly property var eventCalendars: Array.isArray(root.eventsCache.calendars) ? root.eventsCache.calendars : []
@@ -55,8 +54,6 @@ Singleton {
     readonly property var monthCells: CalendarLogic.monthCells(root.viewYear, root.viewMonth, root.todayIso, root.selectedIso, root.eventDays)
 
     property var zoneTimes: ({})
-
-    property bool zonePollQueued: false
 
     onWorldZonesChanged: Qt.callLater(root.repollZoneTimes)
 
@@ -89,8 +86,8 @@ Singleton {
         repeat: true
         triggeredOnStart: true
         onTriggered: {
-            if (!idZoneProcess.running)
-                idZoneProcess.running = true;
+            if (!idZoneRun.running)
+                idZoneRun.request();
         }
     }
 
@@ -99,18 +96,23 @@ Singleton {
 
         command: ["python3", Quickshell.shellDir + "/scripts/calendar-clock.py"].concat(root.worldZones)
         stdout: idZoneCollector
+        onExited: code => idZoneRun.finished(code === 0)
+    }
+
+    CoalescedRun {
+        id: idZoneRun
+
+        process: idZoneProcess
+
+        starter: () => {
+            idZoneProcess.running = true;
+        }
     }
 
     StdioCollector {
         id: idZoneCollector
 
-        onStreamFinished: {
-            root.zoneTimes = StateParsers.parseZoneTimes(idZoneCollector.text);
-            if (root.zonePollQueued) {
-                root.zonePollQueued = false;
-                idZoneProcess.running = true;
-            }
-        }
+        onStreamFinished: root.zoneTimes = StateParsers.parseZoneTimes(idZoneCollector.text)
     }
 
     Timer {
@@ -151,10 +153,17 @@ Singleton {
                 root.eventsLastPollFailed = true;
                 console.warn("calendar-fetch failed with exit " + code + ": " + idEventsErrorCollector.text.trim());
             }
-            if (root.eventsPollQueued) {
-                root.eventsPollQueued = false;
-                idEventsProcess.running = true;
-            }
+            idEventsRun.finished(code === 0);
+        }
+    }
+
+    CoalescedRun {
+        id: idEventsRun
+
+        process: idEventsProcess
+
+        starter: () => {
+            idEventsProcess.running = true;
         }
     }
 
@@ -275,17 +284,11 @@ Singleton {
     }
 
     function repollEvents() {
-        if (idEventsProcess.running)
-            root.eventsPollQueued = true;
-        else
-            idEventsProcess.running = true;
+        idEventsRun.request();
     }
 
     function repollZoneTimes() {
-        if (idZoneProcess.running)
-            root.zonePollQueued = true;
-        else
-            idZoneProcess.running = true;
+        idZoneRun.request();
     }
 
     function isValidZoneName(name: string): bool {

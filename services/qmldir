@@ -26,3 +26,4 @@ PanelState 1.0 PanelState.qml
 BarAnchor 1.0 BarAnchor.qml
 PanelTrigger 1.0 PanelTrigger.qml
 StateFile 1.0 StateFile.qml
+CoalescedRun 1.0 CoalescedRun.qml

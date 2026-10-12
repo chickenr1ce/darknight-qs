@@ -21,7 +21,6 @@ Singleton {
     property bool authMissing: false
     property string lastError: ""
     property string pendingDeviceId: ""
-    property bool pollQueued: false
 
     readonly property bool hasDevices: root.devices.length > 0
     readonly property bool transferring: idTransferProcess.running
@@ -41,7 +40,20 @@ Singleton {
 
         command: ["python3", root.scriptPath, "devices"]
         stdout: StdioCollector { id: idDevicesCollector }
-        onExited: code => root.applyDevicesResult(code, idDevicesCollector.text)
+        onExited: code => {
+            root.applyDevicesResult(code, idDevicesCollector.text);
+            idDevicesRun.finished(code === 0);
+        }
+    }
+
+    CoalescedRun {
+        id: idDevicesRun
+
+        process: idDevicesProcess
+
+        starter: () => {
+            idDevicesProcess.running = true;
+        }
     }
 
     Process {
@@ -53,11 +65,7 @@ Singleton {
     }
 
     function refreshDevices(): void {
-        if (idDevicesProcess.running) {
-            root.pollQueued = true;
-            return;
-        }
-        idDevicesProcess.running = true;
+        idDevicesRun.request();
     }
 
     function transferTo(deviceId: string): void {
@@ -68,10 +76,6 @@ Singleton {
     }
 
     function applyDevicesResult(code: int, text: string): void {
-        if (root.pollQueued) {
-            root.pollQueued = false;
-            idDevicesProcess.running = true;
-        }
         const parsed = root.parseResponse(text);
         if (code !== 0 || !parsed.ok) {
             root.authMissing = parsed.error === "auth_missing";
