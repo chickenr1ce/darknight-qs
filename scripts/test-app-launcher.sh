@@ -218,12 +218,10 @@ grep -q 'Qt.Key_Right' "$VIEW" \
     || fail "DashboardAppsView does not open the menu on the Right key"
 grep -qF 'idAppsSearch.cursorPosition === idAppsSearch.length' "$VIEW" \
     || fail "Right does not gate on the search cursor being at the end"
-grep -q 'AppService.hide' "$VIEW" \
-    || fail "DashboardAppsView does not hide entries"
-grep -q 'AppService.launchAction' "$VIEW" \
-    || fail "DashboardAppsView does not run desktop actions"
-grep -q 'AppService.copyCommand' "$VIEW" \
-    || fail "DashboardAppsView does not copy the launch command"
+grep -q 'function runMenuItem' "$SVC" \
+    || fail "AppService has no menu dispatcher"
+grep -q 'AppLogic.menuAction(item, row)' "$SVC" \
+    || fail "AppService does not dispatch menu actions through AppLogic.menuAction"
 
 # --- 4e. menu fits the card without growing it, and forwards typed text ---
 grep -q 'acceptedButtons: Qt.AllButtons' "$CTX" \
@@ -323,8 +321,10 @@ grep -q 'slideOffset: root.slideOffset' "$ROOT/windows/DashboardCenter.qml" \
     || fail "DashboardCenter does not pass the slide offset to the Apps view"
 grep -q 'property real slideOffset' "$VIEW" \
     || fail "DashboardAppsView has no slideOffset input"
-grep -q 'Icons.openInApp' "$VIEW" \
-    || fail "DashboardAppsView does not give open-keep its own glyph"
+grep -qF 'Icons[AppLogic.menuGlyphKey(item)]' "$SVC" \
+    || fail "AppService does not resolve menu glyphs from Icons by key"
+grep -q 'AppLogic.menuGlyphKey' "$SVC" \
+    || fail "AppService does not delegate the menu glyph table to AppLogic"
 if grep -q 'Icons.chevronRight' "$VIEW"; then
     fail "DashboardAppsView gives iconless actions a submenu chevron"
 fi
@@ -425,11 +425,14 @@ grep -q 'Globals.tooltipDelayMs' "$VIEW" \
     || fail "DashboardAppsView kill tooltip ignores the tooltip delay"
 grep -q 'idAppRow.killTipShown' "$VIEW" \
     || fail "DashboardAppsView has no kill tooltip"
-grep -q 'AppService.menuItems(record, root.menuPinned, row.kind === "run"' "$VIEW" \
-    || fail "DashboardAppsView menu does not pass the running count"
-for id in focus-window kill; do
-    grep -q "\"$id\"" "$VIEW" \
-        || fail "DashboardAppsView menu does not handle $id"
+grep -q 'AppService.menuDescriptors(' "$VIEW" \
+    || fail "DashboardAppsView does not bind its menu through AppService.menuDescriptors"
+grep -q 'AppService.runMenuItem(' "$VIEW" \
+    || fail "DashboardAppsView does not trigger its menu through AppService.runMenuItem"
+for fn in menuGlyph submenuGlyph runMenuItem; do
+    if grep -q "function $fn" "$VIEW"; then
+        fail "DashboardAppsView still defines $fn"
+    fi
 done
 for glyph in focus more; do
     grep -q "property string $glyph" "$ROOT/config/Icons.qml" \
@@ -478,10 +481,10 @@ grep -q 'workspace = ' "$SVC" \
     || fail "AppService workspace launch does not pass the workspace rule"
 grep -q 'MonitorLogic.escapeLua' "$SVC" \
     || fail "AppService does not escape the Lua command string"
-grep -q 'open-workspace' "$VIEW" \
-    || fail "DashboardAppsView menu does not handle open-workspace"
-grep -q 'submenuGlyph' "$VIEW" \
-    || fail "DashboardAppsView has no submenu glyph mapping"
+grep -q 'open-workspace' "$LOGIC" \
+    || fail "AppLogic menu does not handle open-workspace"
+grep -q 'function menuGlyphKey' "$LOGIC" \
+    || fail "AppLogic has no submenu glyph mapping"
 grep -q 'AppService.launchOnWorkspace' "$VIEW" \
     || fail "DashboardAppsView does not launch on a workspace"
 grep -q 'AppService.workspaceFor' "$VIEW" \
@@ -500,13 +503,10 @@ grep -q 'firstWorkspaceFor(fallbackName)' "$SVC" \
     || fail "AppService does not fall back to the anchor block when no monitor is enabled"
 grep -q 'anchorFallback' "$LOGIC" \
     || fail "AppLogic workspaceMenu has no anchor fallback"
-RUNMENU_BLOCK="$(awk '/^    function runMenuItem/{flag=1} flag{print} flag && /^    \}$/{exit}' "$VIEW")"
-test -n "$RUNMENU_BLOCK" || fail "could not extract runMenuItem"
-echo "$RUNMENU_BLOCK" | grep -qF 'AppService.launchOnWorkspace(row.record, item.workspace, false);' \
-    || fail "the submenu launch does not pass the absolute workspace directly"
-if echo "$RUNMENU_BLOCK" | grep -q 'workspaceFor'; then
-    fail "the submenu launch still re-resolves the workspace through workspaceFor"
-fi
+RUNMENU_BLOCK="$(awk '/^    function runMenuItem/{flag=1} flag{print} flag && /^    \}$/{exit}' "$SVC")"
+test -n "$RUNMENU_BLOCK" || fail "could not extract AppService.runMenuItem"
+echo "$RUNMENU_BLOCK" | grep -q 'AppLogic.menuAction(item, row)' \
+    || fail "runMenuItem does not dispatch through the pure menuAction table"
 DIGIT_BLOCK="$(awk '/Qt.ControlModifier\) !== 0/{flag=1} flag{print} flag && /event.accepted = true/{exit}' "$VIEW")"
 echo "$DIGIT_BLOCK" | grep -q 'AppService.workspaceFor' \
     || fail "Ctrl+digit branch does not resolve the absolute workspace through AppService.workspaceFor"
@@ -931,11 +931,14 @@ else
 fi
 
 # --- 5. ranking, sections, markup, and state run under node ---
-node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/services/MonitorLogic.js" <<'NODEEOF'
+node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/services/MonitorLogic.js" "$ROOT/config/Icons.qml" "$SVC" <<'NODEEOF'
+const fs = require('fs');
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('app-launcher');
 const al = qmljs.load(process.argv[3]);
 const ml = qmljs.load(process.argv[4]);
+const iconsSrc = fs.readFileSync(process.argv[5], 'utf8');
+const svcSrc = fs.readFileSync(process.argv[6], 'utf8');
 
 const RAW = [
   { id: 'firefox.desktop', name: 'Firefox', genericName: 'Web Browser', keywords: ['browser', 'web'], command: ['firefox'], startupClass: 'firefox', icon: 'firefox' },
@@ -1542,6 +1545,94 @@ check('arg/qt-rule',
       'Kill Firefox (3 windows)');
 check('arg/order', arg.call(arg.call('%2 then %1', 'a'), 'b'), 'b then a');
 check('arg/marker-not-prefix', arg.call('%10 %1', 'x'), '%10 x');
+
+// menuGlyphKey: every top-level item the menu can emit names a glyph property,
+// and every non-empty key (submenu included) exists in Icons.qml, so a missing
+// glyph fails here instead of rendering an empty slot. The submenu covers the
+// new, current, occupied, and plain workspace items.
+const iconNames = (iconsSrc.match(/readonly property string (\w+)/g) || [])
+    .map(s => s.replace('readonly property string ', ''));
+const glyphWs = al.workspaceMenu([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1', [3]);
+const glyphSource = al.menuItems(noActions, false, false, 0)
+    .concat(al.menuItems(noActions, true, false, 2))
+    .concat(al.menuItems(withActions, false, false, 2))
+    .concat(al.menuItems(null, false, true))
+    .concat(al.menuItems(noActions, false, false, 2, glyphWs));
+const topItems = glyphSource.filter(i => i.kind === 'item' && i.id.indexOf('action:') !== 0);
+check('glyph/top-nonempty',
+      topItems.length > 0 && topItems.every(i => al.menuGlyphKey(i) !== ''),
+      true);
+const glyphKeys = glyphSource.filter(i => i.kind === 'item').map(i => al.menuGlyphKey(i))
+    .concat(glyphWs.map(i => al.menuGlyphKey(i)));
+check('glyph/keys-known', glyphKeys.every(k => k === '' || iconNames.indexOf(k) !== -1), true);
+check('glyph/submenu-exercised',
+      ['workspace-new', 'workspace'].every(id => glyphWs.some(i => i.id === id))
+          && glyphWs.some(i => i.current) && glyphWs.some(i => i.occupied)
+          && glyphWs.some(i => i.id === 'workspace' && !i.current && !i.occupied),
+      true);
+check('glyph/open', al.menuGlyphKey({ id: 'open' }), 'open');
+check('glyph/open-keep', al.menuGlyphKey({ id: 'open-keep' }), 'openInApp');
+check('glyph/pin', al.menuGlyphKey({ id: 'pin' }), 'starOutline');
+check('glyph/unpin', al.menuGlyphKey({ id: 'unpin' }), 'star');
+check('glyph/hide', al.menuGlyphKey({ id: 'hide' }), 'eyeOff');
+check('glyph/copy-command', al.menuGlyphKey({ id: 'copy-command' }), 'copy');
+check('glyph/run', al.menuGlyphKey({ id: 'run' }), 'terminal');
+check('glyph/focus-window', al.menuGlyphKey({ id: 'focus-window' }), 'focus');
+check('glyph/kill', al.menuGlyphKey({ id: 'kill' }), 'close');
+check('glyph/open-workspace', al.menuGlyphKey({ id: 'open-workspace' }), 'workspace');
+check('glyph/workspace-new', al.menuGlyphKey({ id: 'workspace-new' }), 'plus');
+check('glyph/workspace-current',
+      al.menuGlyphKey({ id: 'workspace', current: true, occupied: true }), 'circle');
+check('glyph/workspace-occupied',
+      al.menuGlyphKey({ id: 'workspace', current: false, occupied: true }), 'circleOutline');
+check('glyph/workspace-plain',
+      al.menuGlyphKey({ id: 'workspace', current: false, occupied: false }), '');
+check('glyph/action-none', al.menuGlyphKey({ id: 'action:0' }), '');
+check('glyph/null', al.menuGlyphKey(null), '');
+
+// menuAction: the id-to-service table. Every item maps to one AppService call
+// with the row's record, the submenu item carries its absolute workspace, the
+// run row copies its query, and a separator, label, or unknown id is a no-op.
+const runRow = { kind: 'run', query: 'zzzz' };
+const appRow = { kind: 'app', record: noActions };
+const wsItem = glyphWs.find(i => i.id === 'workspace');
+const wsNew = glyphWs.find(i => i.id === 'workspace-new');
+const actionCases = [
+  ['open', { kind: 'item', id: 'open' }, appRow, { op: 'launch', args: [noActions, false] }],
+  ['open-keep', { kind: 'item', id: 'open-keep' }, appRow, { op: 'launchKeep', args: [noActions] }],
+  ['open-workspace', { kind: 'item', id: 'open-workspace' }, appRow, null],
+  ['workspace', wsItem, appRow, { op: 'launchOnWorkspace', args: [noActions, wsItem.workspace, false] }],
+  ['workspace-new', wsNew, appRow, { op: 'launchOnWorkspace', args: [noActions, wsNew.workspace, false] }],
+  ['pin', { kind: 'item', id: 'pin' }, appRow, { op: 'togglePin', args: ['firefox.desktop'] }],
+  ['unpin', { kind: 'item', id: 'unpin' }, appRow, { op: 'togglePin', args: ['firefox.desktop'] }],
+  ['hide', { kind: 'item', id: 'hide' }, appRow, { op: 'hide', args: ['firefox.desktop'] }],
+  ['run', { kind: 'item', id: 'run' }, runRow, { op: 'runQuery', args: ['zzzz'] }],
+  ['focus-window', { kind: 'item', id: 'focus-window' }, appRow, { op: 'focusWindows', args: [noActions] }],
+  ['kill', { kind: 'item', id: 'kill' }, appRow, { op: 'killWindows', args: [noActions] }],
+  ['copy-command-app', { kind: 'item', id: 'copy-command' }, appRow, { op: 'copyCommand', args: [noActions] }],
+  ['copy-command-run', { kind: 'item', id: 'copy-command' }, runRow, { op: 'copyText', args: ['zzzz'] }],
+  ['action', { kind: 'item', id: 'action:1', actionIndex: 1 }, appRow, { op: 'launchAction', args: [noActions, 1] }],
+];
+for (const c of actionCases)
+  check('action/' + c[0], al.menuAction(c[1], c[2]), c[3]);
+check('action/null-item', al.menuAction(null, appRow), null);
+check('action/null-row', al.menuAction({ kind: 'item', id: 'open' }, null), null);
+check('action/separator', al.menuAction({ kind: 'separator', id: '' }, appRow), null);
+check('action/label', al.menuAction({ kind: 'label', id: '', text: 'Actions' }, appRow), null);
+check('action/unknown', al.menuAction({ kind: 'item', id: 'nope' }, appRow), null);
+
+// The table's ops are the contract with the service: each must name a function
+// AppService still exposes, so a rename cannot leave a dead menu item.
+const actionOps = [];
+for (const c of actionCases) {
+  if (c[3] && actionOps.indexOf(c[3].op) === -1)
+    actionOps.push(c[3].op);
+}
+check('action/ops', actionOps.slice().sort(),
+      ['copyCommand', 'copyText', 'focusWindows', 'hide', 'killWindows', 'launch',
+       'launchAction', 'launchKeep', 'launchOnWorkspace', 'runQuery', 'togglePin']);
+for (const op of actionOps)
+  check('action/op-fn-' + op, new RegExp('function ' + op + '\\(').test(svcSrc), true);
 NODEEOF
 
 # --- 6. smooth-wheel math runs under node ---

@@ -463,6 +463,72 @@ function menuItems(entry, pinned, isRun, runningCount, workspaceItems) {
     return items;
 }
 
+function menuGlyphKey(item) {
+    if (!item)
+        return "";
+    const id = item.id;
+    if (id === "open")
+        return "open";
+    if (id === "open-keep")
+        return "openInApp";
+    if (id === "pin")
+        return "starOutline";
+    if (id === "unpin")
+        return "star";
+    if (id === "hide")
+        return "eyeOff";
+    if (id === "copy-command")
+        return "copy";
+    if (id === "run")
+        return "terminal";
+    if (id === "focus-window")
+        return "focus";
+    if (id === "kill")
+        return "close";
+    if (id === "open-workspace")
+        return "workspace";
+    if (id === "workspace-new")
+        return "plus";
+    if (id === "workspace") {
+        if (item.current)
+            return "circle";
+        if (item.occupied)
+            return "circleOutline";
+    }
+    return "";
+}
+
+function menuAction(item, row) {
+    if (!item || !row)
+        return null;
+    const record = row.record;
+    const id = item.id;
+    if (id === "open")
+        return { op: "launch", args: [record, false] };
+    if (id === "open-keep")
+        return { op: "launchKeep", args: [record] };
+    if (id === "workspace" || id === "workspace-new")
+        return { op: "launchOnWorkspace", args: [record, item.workspace, false] };
+    if (id === "pin" || id === "unpin")
+        return { op: "togglePin", args: [record.id] };
+    if (id === "hide")
+        return { op: "hide", args: [record.id] };
+    if (id === "run")
+        return { op: "runQuery", args: [row.query] };
+    if (id === "focus-window")
+        return { op: "focusWindows", args: [record] };
+    if (id === "kill")
+        return { op: "killWindows", args: [record] };
+    if (id === "copy-command") {
+        if (row.kind === "run")
+            return { op: "copyText", args: [row.query] };
+        return { op: "copyCommand", args: [record] };
+    }
+    if (id.indexOf("action:") === 0)
+        return { op: "launchAction", args: [record, item.actionIndex] };
+    return null;
+}
+
 function workspaceFor(n, totalWorkspaces) {
     const key = Math.round(Number(n));
     const total = Math.round(Number(totalWorkspaces));

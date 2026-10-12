@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import qs.config
 import qs.services
 import "AppLogic.js" as AppLogic
 import "MonitorLogic.js" as MonitorLogic
@@ -406,6 +407,31 @@ Singleton {
 
     function menuItems(record, pinned, isRun, runningCount): var {
         return AppLogic.menuItems(record, pinned, isRun, runningCount, root.workspaceMenuItems());
+    }
+
+    function menuDescriptors(row, pinned): var {
+        if (!row)
+            return [];
+        const record = row.record || null;
+        const items = root.menuItems(record, pinned, row.kind === "run",
+            record ? root.runningCount(record) : 0);
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.kind !== "item")
+                continue;
+            item.glyph = Icons[AppLogic.menuGlyphKey(item)] || "";
+            if (item.image !== "")
+                item.image = root.iconForName(item.image);
+            for (let j = 0; j < item.submenu.length; j++)
+                item.submenu[j].glyph = Icons[AppLogic.menuGlyphKey(item.submenu[j])] || "";
+        }
+        return items;
+    }
+
+    function runMenuItem(item, row): void {
+        const action = AppLogic.menuAction(item, row);
+        if (action)
+            root[action.op].apply(root, action.args);
     }
 
     function applyState(jsonText): void {

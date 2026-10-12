@@ -60,27 +60,7 @@ Item {
         + Globals.hairlineHeight + 4 * Globals.listSpacing
     readonly property int actionsHeight: Globals.uiCaptionSize + 2 * Globals.iconButtonPadding
 
-    readonly property var menuItems: {
-        const out = [];
-        const row = root.menuRow;
-        if (!row)
-            return out;
-        const record = row.record || null;
-        const source = AppService.menuItems(record, root.menuPinned, row.kind === "run",
-            record ? AppService.runningCount(record) : 0);
-        for (let i = 0; i < source.length; i++) {
-            const item = source[i];
-            if (item.kind === "item") {
-                item.glyph = root.menuGlyph(item.id);
-                if (item.image !== "")
-                    item.image = AppService.iconForName(item.image);
-                for (let j = 0; j < item.submenu.length; j++)
-                    item.submenu[j].glyph = root.submenuGlyph(item.submenu[j]);
-            }
-            out.push(item);
-        }
-        return out;
-    }
+    readonly property var menuItems: AppService.menuDescriptors(root.menuRow, root.menuPinned)
 
     readonly property var menuHeader: {
         const row = root.menuRow;
@@ -850,7 +830,7 @@ Item {
         items: root.menuItems
         header: root.menuHeader
         onClosed: root.onMenuClosed()
-        onTriggered: item => root.runMenuItem(item)
+        onTriggered: item => AppService.runMenuItem(item, root.menuRow)
         onTypedText: text => root.forwardTypedText(text)
     }
 
@@ -860,44 +840,6 @@ Item {
         if (key === "recent")
             return qsTr("Recent");
         return qsTr("All apps");
-    }
-
-    function menuGlyph(id: string): string {
-        if (id === "open")
-            return Icons.open;
-        if (id === "open-keep")
-            return Icons.openInApp;
-        if (id === "pin")
-            return Icons.starOutline;
-        if (id === "unpin")
-            return Icons.star;
-        if (id === "hide")
-            return Icons.eyeOff;
-        if (id === "copy-command")
-            return Icons.copy;
-        if (id === "run")
-            return Icons.terminal;
-        if (id === "focus-window")
-            return Icons.focus;
-        if (id === "kill")
-            return Icons.close;
-        if (id === "open-workspace")
-            return Icons.workspace;
-        return "";
-    }
-
-    function submenuGlyph(item): string {
-        if (!item)
-            return "";
-        if (item.id === "workspace-new")
-            return Icons.plus;
-        if (item.id === "workspace") {
-            if (item.current)
-                return Icons.circle;
-            if (item.occupied)
-                return Icons.circleOutline;
-        }
-        return "";
     }
 
     function clampSelection(): void {
@@ -989,35 +931,6 @@ Item {
             root.menuRow = null;
             root.menuPinned = false;
         });
-    }
-
-    function runMenuItem(item): void {
-        const row = root.menuRow;
-        if (!item || !row)
-            return;
-        if (item.id === "open")
-            AppService.launch(row.record, false);
-        else if (item.id === "open-keep")
-            AppService.launchKeep(row.record);
-        else if (item.id === "workspace" || item.id === "workspace-new")
-            AppService.launchOnWorkspace(row.record, item.workspace, false);
-        else if (item.id === "pin" || item.id === "unpin")
-            AppService.togglePin(row.record.id);
-        else if (item.id === "hide")
-            AppService.hide(row.record.id);
-        else if (item.id === "run")
-            AppService.runQuery(row.query);
-        else if (item.id === "focus-window")
-            AppService.focusWindows(row.record);
-        else if (item.id === "kill")
-            AppService.killWindows(row.record);
-        else if (item.id === "copy-command") {
-            if (row.kind === "run")
-                AppService.copyText(row.query);
-            else
-                AppService.copyCommand(row.record);
-        } else if (item.id.indexOf("action:") === 0)
-            AppService.launchAction(row.record, item.actionIndex);
     }
 
     function forwardTypedText(text: string): void {
