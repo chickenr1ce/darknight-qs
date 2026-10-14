@@ -187,10 +187,14 @@ dead.
 ### Toplevel class
 
 `HyprlandToplevel` has no `class` property. Class matching reads
-`lastIpcObject`, which is empty on this machine under Hyprland's Lua IPC, so a
-matcher keyed on it never matches anything. Read `toplevel.wayland.appId`
-instead. `quickshell ipc --pid <pid> call devprobe toplevels` dumps the
-address, title, appId, and IPC object for every toplevel.
+`lastIpcObject`, which fills once `Hyprland.refreshToplevels()` has run (the
+Workspaces tab calls it on show and on layout events); code that reads it without
+a refresh may find it empty or stale. A live probe on 2026-10-14 (Hyprland
+0.56.2, Quickshell 0.3.2) found it fully populated — class, at, size, workspace,
+fullscreen — in an instance that refreshes, so the appId advice for class
+matching stands: read `toplevel.wayland.appId` instead. `quickshell ipc --pid
+<pid> call devprobe toplevels` dumps the address, title, appId, and IPC object
+for every toplevel.
 
 ## Lint entry points
 

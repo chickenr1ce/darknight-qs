@@ -126,6 +126,22 @@ Singleton {
         return path;
     }
 
+    function iconForClass(cls): string {
+        const name = String(cls ?? "").trim();
+        if (name === "")
+            return "";
+        const entry = DesktopEntries.heuristicLookup(name);
+        return entry ? root.iconForName(entry.icon) : "";
+    }
+
+    function appNameForClass(cls): string {
+        const name = String(cls ?? "").trim();
+        if (name === "")
+            return "";
+        const entry = DesktopEntries.heuristicLookup(name);
+        return entry && entry.name ? String(entry.name) : name;
+    }
+
     function launch(record, keepOpen): void {
         if (!record)
             return;

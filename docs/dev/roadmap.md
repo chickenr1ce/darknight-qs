@@ -114,6 +114,13 @@ Build only if it earns daily use.
   Focus/Kill/Pin on a running app, a shared context menu, absolute-workspace
   launch through the Hyprland Lua API, a hidden-apps Settings section, and the
   `dashboard apps` IPC target. ADR 0018; user page `docs/user/app-launcher.md`.
+- Workspaces tab: the dashboard's Workspaces tab
+  (`windows/DashboardWorkspacesView.qml`, `services/WorkspaceService.qml`,
+  `services/WorkspaceLogic.js`) shows one non-wrapping row of workspace maps per
+  enabled monitor, each map drawing its windows at their real positions. Left
+  click on a map or a window switches to that workspace, a drag moves a window to another workspace, a right
+  click opens the window menu, and a middle click closes the window gracefully.
+  ADR 0019; user page `docs/user/workspaces-tab.md`.
 - Cava restart backoff: a repeatedly crashing cava process retries at 1.5 s,
   doubling to a 30 s ceiling, and a settings-driven restart does not count as a
   crash (`services/CavaLogic.js`).

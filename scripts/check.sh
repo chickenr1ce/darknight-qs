@@ -50,6 +50,7 @@ run "panel logic" ./scripts/test-panel-logic.sh
 run "coalesced run" ./scripts/test-coalesced-run.sh
 run "theme background" ./scripts/test-theme-background.sh
 run "app launcher" ./scripts/test-app-launcher.sh
+run "workspaces" ./scripts/test-workspaces.sh
 run "tray menu" ./scripts/test-tray-menu.sh
 run "qs-theme" ./scripts/test-qs-theme.sh
 run "seed-themes" ./scripts/test-seed-themes.sh

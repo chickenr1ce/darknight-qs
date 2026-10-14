@@ -22,6 +22,7 @@ from its Documentation section.
 - [`user/ipc.md`](user/ipc.md) — the shell's IPC targets (`power`, `calendar`, `notifications`, `cava`, `audio`, `dashboard`, `dnd`, `volume`): functions, placement, and Lua keybind examples.
 - [`user/app-launcher.md`](user/app-launcher.md) — the dashboard Apps tab: keys, mouse, context menu, pin/hide/unhide, and the Super keybind.
 - [`user/audio.md`](user/audio.md) — the audio card: output, input with a level meter, per-app volume, and the mouse map.
+- [`user/workspaces-tab.md`](user/workspaces-tab.md) — the dashboard Workspaces tab: the workspace maps, the mouse actions, and the window menu.
 
 ## Dev docs — [`dev/`](dev/)
 

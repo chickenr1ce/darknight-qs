@@ -48,6 +48,16 @@ QtObject {
     readonly property int dashboardMaxHeight: 600
     readonly property real dashboardAppsMaxFraction: 0.8
     readonly property int dashboardUsageWidth: 320
+    readonly property int workspacesRefreshMs: 80
+    readonly property int workspaceTileCompactWidth: 100
+    readonly property real workspaceWindowGap: 2
+    readonly property int workspaceWindowIconSize: 18
+    readonly property int workspaceWindowIconMargin: 2
+    readonly property int workspaceTileCurrentBorderWidth: 2
+    readonly property real workspaceWindowFillMix: 0.22
+    readonly property real workspaceWindowBorderMix: 0.55
+    readonly property real workspaceTileShownBorderMix: 0.45
+    readonly property int workspaceDragThreshold: 4
     readonly property int appIconSize: 28
     readonly property int appsFooterGap: 8
     readonly property int menuWidth: 236

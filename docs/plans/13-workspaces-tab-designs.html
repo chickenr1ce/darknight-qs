@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE · Dashboard Workspaces tab (round 2: 6 options)</title>
+<!--
+  PROTOTYPE, throwaway. Question: what should the dashboard's Workspaces tab (today the "Coming soon"
+  placeholder in DashboardCenter) look like, given the card has no fixed size?
+  Round 2: round 1 (five variants) narrowed to the Overview grid (1) and Monitor lanes (2); the
+  scratchpad is gone. Six options inside a mock of DashboardCenter, switchable with
+  ?variant=1a|1b|1c|2a|2b|2c (or ← / → when no field is focused).
+    1a one row per monitor (tiles shrink, never wrap)    2a empty columns full width, dashed
+    1b current workspace large (2×2, dense packing)      2b only occupied columns, empties as header chips
+    1c occupied only, empties as header chips            2c one row per workspace, windows flow sideways
+  Card size is a knob, not a constant: ?w= (card width), ?h= (max height), ?hmode=fit|fixed, plus the
+  bottom-right drag handle and the size presets. Every variant reflows with container queries on the
+  card body, so judge each one at 560, 720, 1000 and 1280 wide, and at short and tall heights.
+  The data knobs (?mons=1..3, ?ws=1..10 per monitor, ?density=light|normal|heavy) mirror
+  MonitorService.workspacesPerMonitor and the per-monitor contiguous workspace blocks.
+  Actions are stubs: they mutate in-memory state and log the hyprctl dispatch they stand for.
+  Colors map omarchy palette roles onto config/Colors.qml tokens; app hues use Colors.appColor()'s hash.
+-->
+<style>
+:root{--ui:"Geist","Inter",system-ui,sans-serif;--mono:"Iosevka","GeistMono Nerd Font","JetBrains Mono",ui-monospace,monospace;--rp:9px;--rc:6px;--jr:16px;--cw:720px;--maxh:600px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:var(--ui);font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:default}
+.scroll{overflow:auto;scrollbar-width:thin;scrollbar-color:var(--surface) transparent}
+
+/* ---------- desktop mock ---------- */
+#desk{position:fixed;inset:0;background:
+  radial-gradient(1100px 700px at 78% 88%,color-mix(in srgb,var(--accent) 24%,transparent),transparent 62%),
+  radial-gradient(900px 600px at 8% 18%,color-mix(in srgb,var(--purple) 18%,transparent),transparent 60%),
+  linear-gradient(160deg,var(--bg2),var(--bg))}
+.win{position:absolute;top:44px;bottom:12px;background:var(--bg);border:2px solid var(--surface);border-radius:8px;overflow:hidden;opacity:.9}
+.win.active{border-color:var(--accent)}
+.win .tb{height:30px;display:flex;align-items:center;padding:0 10px;background:var(--bg2);font-size:12px;color:var(--subtle)}
+.win .blk{margin:16px;height:14px;border-radius:4px;background:var(--surface)}
+#bar{position:fixed;top:4px;left:10px;right:10px;height:28px;background:var(--bg);border-radius:var(--rp);display:flex;align-items:center;gap:4px;padding:0 6px;font-family:var(--mono);font-size:13px;z-index:40}
+.mod{height:22px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:6px;color:var(--text)}
+.wss{display:flex;gap:2px}
+.bws{min-width:22px;height:22px;padding:0 6px;display:grid;place-items:center;border-radius:5px;color:var(--faint)}
+.bws.occ{color:var(--subtle)}.bws.cur{color:var(--accent);background:var(--accentDim)}
+.hair{width:1px;height:12px;background:var(--surface);margin:0 4px}
+#title{position:absolute;left:50%;transform:translateX(-50%);max-width:40%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+/* ---------- dashboard card ---------- */
+#dash{position:fixed;top:31px;left:calc(50% - var(--cw) / 2);width:var(--cw);padding:12px;display:flex;flex-direction:column;gap:8px;z-index:30;
+  background:var(--bg);border:1px solid var(--surface);border-top:0;border-radius:0 0 var(--rp) var(--rp);box-shadow:0 18px 40px rgba(0,0,0,.28)}
+#dash::before,#dash::after{content:"";position:absolute;top:0;width:var(--jr);height:var(--jr);pointer-events:none}
+#dash::before{left:calc(-1 * var(--jr));background:radial-gradient(circle at 0 100%,transparent calc(var(--jr) - 1px),var(--surface) calc(var(--jr) - 1px),var(--surface) var(--jr),var(--bg) var(--jr))}
+#dash::after{right:calc(-1 * var(--jr));background:radial-gradient(circle at 100% 100%,transparent calc(var(--jr) - 1px),var(--surface) calc(var(--jr) - 1px),var(--surface) var(--jr),var(--bg) var(--jr))}
+.dhead{display:flex;align-items:center;gap:8px;flex:none}
+.tabs{flex:1;display:flex;gap:8px;min-width:0}
+.tab{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--subtle);font-size:14px;padding-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab i{display:block;width:100%;height:2px;border-radius:1px;background:transparent}
+.tab.on{color:var(--text);font-weight:600}.tab.on i{background:var(--accent)}
+.gear{width:28px;height:28px;border-radius:var(--rc);display:grid;place-items:center;color:var(--subtle);font-size:16px}
+#body{container:wsbody/inline-size;display:flex;flex-direction:column;min-height:0;max-height:calc(var(--maxh) - 64px)}
+#dash.fixed #body{height:calc(var(--maxh) - 64px)}
+#body>*{flex:1 1 auto;min-height:0}
+#grip{position:absolute;right:-7px;bottom:-7px;width:18px;height:18px;border-radius:50%;background:#fafafa;box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:nwse-resize;z-index:5;display:grid;place-items:center;color:#111;font:11px system-ui}
+#sizeTag{position:absolute;right:16px;bottom:-24px;font:11px ui-monospace,monospace;color:#fafafa;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:4px;pointer-events:none}
+
+/* ---------- shared primitives ---------- */
+.ic{display:inline-grid;place-items:center;flex:none;border-radius:24%;font-weight:600;letter-spacing:-.02em;background:hsl(var(--h) 65% 72%);color:rgba(0,0,0,.6)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.sec{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--subtle)}
+.sec .ln{flex:1;height:1px;background:var(--surface)}
+.sec .n{color:var(--faint);text-transform:none;letter-spacing:0;font-family:var(--mono)}
+.ib{width:24px;height:24px;border-radius:5px;display:grid;place-items:center;color:var(--subtle);font-size:12px;flex:none}
+.ib:hover{background:var(--hover);color:var(--text)}
+.ib.on{color:var(--accent)}
+.ib.kill:hover{color:var(--danger)}
+.btn{height:28px;padding:0 10px;border-radius:var(--rc);border:1px solid var(--surface);background:var(--bg2);display:inline-flex;align-items:center;gap:6px;font-size:12.5px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--onAccent);font-weight:600}
+.urg{width:6px;height:6px;border-radius:50%;background:var(--danger);display:inline-block;flex:none}
+.tag{font-size:10.5px;font-family:var(--mono);padding:0 5px;line-height:16px;border-radius:4px;border:1px solid var(--surface);color:var(--subtle);white-space:nowrap}
+.tag.acc{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.over{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accentDim)!important}
+[draggable=true]{cursor:grab}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+/* minimap (variants 1 and 3) */
+.mini{position:relative;aspect-ratio:var(--ar);background:var(--bg2);border:1px solid var(--surface);border-radius:var(--rc);overflow:hidden;transition:border-color .14s}
+.mini:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--surface))}
+.mini.cur{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.mini.vis:not(.cur){border-color:color-mix(in srgb,var(--accent) 45%,var(--surface))}
+.mini .w{position:absolute;border-radius:3px;background:color-mix(in srgb,hsl(var(--h) 60% 65%) 22%,var(--bg));border:1px solid color-mix(in srgb,hsl(var(--h) 60% 65%) 55%,var(--bg));display:grid;place-items:center;overflow:hidden;transition:border-color .14s}
+.mini .w:hover{border-color:var(--text)}
+.mini .w.foc{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.mini .w.fl{box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:2}
+.mini .w.fs{z-index:3}
+.mini .w .urg{position:absolute;top:3px;right:3px}
+.mini .w .wt{position:absolute;left:4px;right:4px;bottom:2px;font-size:10px;color:var(--text);opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.mini .plus{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint);font-size:18px}
+.mini.empty{border-style:dashed;background:transparent}
+
+/* ---------- 1 · Overview (shared) ---------- */
+.v1{display:flex;flex-direction:column;gap:12px;padding-right:4px}
+.v1 .cell{display:flex;flex-direction:column;gap:5px;min-width:0;container-type:inline-size}
+.v1 .cap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--subtle);min-width:0}
+.v1 .cap .num{color:var(--text);font-weight:600}
+.v1 .cap.cur .num{color:var(--accent)}
+.v1 .cap .ell{flex:1}
+@container (width < 100px){.v1 .cap .ell{display:none}.v1 .cap{justify-content:center}}
+@container (width < 70px){.mini .w .ic{display:none}}
+.v1 .status{position:sticky;bottom:0;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--subtle);background:var(--bg);border-top:1px solid var(--surface);padding:7px 2px 0;min-height:28px}
+.empties{display:flex;gap:4px;align-items:center;text-transform:none;letter-spacing:0;font-size:11px;color:var(--faint)}
+.ep{min-width:24px;height:20px;padding:0 6px;border-radius:4px;border:1px dashed var(--surface);font-family:var(--mono);font-size:11px;color:var(--subtle)}
+.ep:hover{border-color:var(--accent);color:var(--accent)}
+.none{font-size:12px;color:var(--faint);padding:14px;border:1px dashed var(--surface);border-radius:var(--rc);text-align:center}
+
+/* 1A · one row per monitor: tiles shrink, never wrap */
+.v1a .row{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:8px}
+
+/* 1B · current workspace large: it spans 2×2 and dense flow packs the rest around it */
+.v1b .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tmin,132px),1fr));grid-auto-flow:dense;gap:10px 8px;align-items:start}
+.v1b .hero{grid-column:span 2;grid-row:span 2}
+.v1b .hero .cap{font-size:13px}
+@container wsbody (width < 560px){.v1b .grid{--tmin:100px}}
+@container wsbody (width > 980px){.v1b .grid{--tmin:168px}}
+
+/* 1C · occupied only: one row when they fit, empties become chips in the monitor header */
+.v1c .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(max(var(--tmin,148px),(100% - (var(--n) - 1) * 8px) / var(--n)),1fr));gap:10px 8px}
+@container wsbody (width < 560px){.v1c .grid{--tmin:120px}}
+
+/* ---------- 2 · Lanes (shared) ---------- */
+.v2{display:flex;flex-direction:column;gap:12px;padding-right:4px}
+.lane{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cols{display:flex;gap:6px;min-width:0}
+.col{flex:1 1 0;min-width:0;background:var(--bg2);border:1px solid var(--surface);border-radius:var(--rc);padding:5px;display:flex;flex-direction:column;gap:2px;transition:border-color .14s}
+.col.cur{border-color:var(--accent)}
+.col.vis:not(.cur){border-color:color-mix(in srgb,var(--accent) 40%,var(--surface))}
+.col .ch{display:flex;align-items:center;gap:6px;padding:2px 4px 5px;font-size:11px;color:var(--subtle)}
+.col .ch .num{font-size:15px;font-weight:650;color:var(--text)}
+.col.cur .ch .num{color:var(--accent)}
+.col .ch:hover .num{text-decoration:underline}
+.chip{display:flex;align-items:center;gap:7px;height:30px;padding:0 6px;border-radius:5px;font-size:12.5px;min-width:0}
+.chip:hover{background:var(--hover)}
+.chip.foc{background:var(--sel)}
+.chip .t{flex:1;display:flex;flex-direction:column;min-width:0;line-height:1.15}
+.chip .t small{font-size:10.5px;color:var(--subtle)}
+.chip .x{display:none}.chip:hover .x{display:grid}
+.chip .fl{font-size:10px;color:var(--subtle)}
+.void{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:64px;color:var(--faint);font-size:12px}
+.void .btn{height:24px;font-size:11.5px;opacity:0;transition:opacity .14s}
+.col:hover .void .btn,.wsr:hover .void .btn{opacity:1}
+@container wsbody (width < 600px){.v2a .cols,.v2b .cols{flex-wrap:wrap}.v2a .col,.v2b .col{flex:1 1 calc(50% - 3px)}}
+@container wsbody (width > 1000px){.chip{height:34px}.chip .t small{font-size:11px}}
+
+/* 2A · empty columns keep full width, dashed, with a launch affordance on hover */
+.v2a .col.empty{background:transparent;border-style:dashed}
+.v2a .col.empty .ch .num{color:var(--faint)}
+
+/* 2B · only occupied columns; empties are chips in the lane header */
+
+/* 2C · one row per workspace, windows flow left to right */
+.v2c .rows{display:flex;flex-direction:column;gap:4px}
+@container wsbody (width > 960px){.v2c .rows{display:grid;grid-template-columns:1fr 1fr;align-items:start}}
+.wsr{display:grid;grid-template-columns:32px minmax(0,1fr);align-items:start;gap:6px;padding:4px;border:1px solid var(--surface);border-radius:var(--rc);background:var(--bg2);transition:border-color .14s}
+.wsr.cur{border-color:var(--accent)}
+.wsr.vis:not(.cur){border-color:color-mix(in srgb,var(--accent) 40%,var(--surface))}
+.wsr .num{height:30px;border-radius:5px;font-size:15px;font-weight:650;color:var(--text)}
+.wsr .num:hover{background:var(--hover)}
+.wsr.cur .num{color:var(--accent)}
+.wsr .flow{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.wsr .chip{flex:0 1 auto;max-width:250px;background:var(--bg)}
+.wsr .chip.foc{background:var(--sel)}
+.wsr.empty{background:transparent;border-style:dashed}
+.wsr.empty .num{color:var(--faint)}
+.wsr .void{flex-direction:row;justify-content:flex-start;min-height:30px;padding-left:4px}
+.wsr .void .btn{height:22px;font-size:11px}
+
+
+/* ---------- toast + prototype chrome (deliberately NOT themed) ---------- */
+#toast{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);z-index:55;padding:8px 14px;background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp);font:12px var(--mono);box-shadow:0 10px 30px rgba(0,0,0,.35);transition:opacity .18s,transform .18s;pointer-events:none}
+#toast.hide{opacity:0;transform:translate(-50%,8px)}
+#switch{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:6px;padding:5px;background:#fafafa;color:#111;border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.45);font:12.5px/1 system-ui,sans-serif}
+#switch button{width:30px;height:30px;border-radius:50%;font-size:16px;color:#111;cursor:pointer}
+#switch button:hover{background:#e6e6e6}
+#switch .lab{min-width:210px;text-align:center;font-weight:650}
+#switch select{font:inherit;border:1px solid #ccc;border-radius:999px;padding:5px 8px;background:#fff;color:#111}
+#switch .div{width:1px;height:20px;background:#ddd}
+#knobs{position:fixed;left:12px;bottom:14px;z-index:90;width:250px;background:rgba(10,10,10,.88);color:#ddd;border-radius:10px;font:11.5px/1.4 system-ui,sans-serif;padding:9px 11px;box-shadow:0 6px 24px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:7px}
+#knobs h4,#state h4{margin:0;font:600 10px system-ui;letter-spacing:.1em;color:#999}
+#knobs label{display:flex;align-items:center;gap:8px}
+#knobs label span{width:70px;color:#aaa}
+#knobs input[type=range]{flex:1;accent-color:#fafafa}
+#knobs select{flex:1;font:inherit;background:#222;color:#eee;border:1px solid #444;border-radius:5px;padding:2px 4px}
+#knobs .pre{display:flex;gap:4px;flex-wrap:wrap}
+#knobs .pre button{font:inherit;font-size:10.5px;color:#eee;background:#2a2a2a;border:1px solid #444;border-radius:5px;padding:2px 6px;cursor:pointer}
+#knobs .pre button:hover{border-color:#aaa}
+#state{position:fixed;right:12px;bottom:14px;z-index:90;width:300px;background:rgba(10,10,10,.86);color:#ddd;border-radius:10px;font:11px/1.5 ui-monospace,monospace;padding:8px 10px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+#state .k{color:#888}#state .log{color:#9fe0a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+<div id="desk">
+  <div class="win" style="left:10px;right:calc(50% + 4px)"><div class="tb">kitty — ~/.config/quickshell</div><div class="blk" style="width:60%"></div><div class="blk" style="width:40%"></div></div>
+  <div class="win active" style="left:calc(50% + 4px);right:10px"><div class="tb">Firefox</div><div class="blk" style="width:40%;height:22px"></div><div class="blk" style="width:86%"></div><div class="blk" style="width:78%"></div></div>
+</div>
+<div id="bar">
+  <div class="wss" id="wss"></div>
+  <div class="hair"></div>
+  <div class="mod">Tue 13 Oct&nbsp;&nbsp;14:32</div>
+  <div id="title" class="mod"></div>
+  <div style="flex:1"></div>
+  <div class="mod">▂▅▇▃▆▂</div><div class="mod">♪ 62%</div><div class="mod">⏻</div>
+</div>
+
+<div id="dash">
+  <div class="dhead"><div class="tabs" id="tabs"></div><button class="gear">⚙</button></div>
+  <div id="body"></div>
+  <div id="grip" title="Drag to resize the card">⤡</div>
+  <div id="sizeTag"></div>
+</div>
+<div id="toast" class="hide"></div>
+
+<div id="switch">
+  <button id="prev" title="Previous variant (←)">‹</button>
+  <div class="lab" id="vlab"></div>
+  <button id="next" title="Next variant (→)">›</button>
+  <div class="div"></div>
+  <select id="themeSel" title="Theme"></select>
+</div>
+
+<div id="knobs">
+  <h4>CARD SIZE · not fixed</h4>
+  <label><span>Width <b id="wv"></b></span><input type="range" id="kw" min="440" max="1400" step="10"></label>
+  <label><span>Max height <b id="hv"></b></span><input type="range" id="kh" min="260" max="1000" step="10"></label>
+  <label><span>Height</span><select id="khm"><option value="fit">Fit content, up to max</option><option value="fixed">Always max</option></select></label>
+  <div class="pre">
+    <button data-pre="480,420">Narrow</button><button data-pre="720,600">Today 720×600</button><button data-pre="1000,720">Wide</button><button data-pre="1280,860">Ultrawide</button><button data-pre="900,340">Short</button>
+  </div>
+  <h4>DATA</h4>
+  <label><span>Monitors</span><select id="kmon"><option>1</option><option>2</option><option>3</option></select></label>
+  <label><span>WS / monitor</span><select id="kws"></select></label>
+  <label><span>Windows</span><select id="kden"><option value="light">Light</option><option value="normal">Normal</option><option value="heavy">Heavy</option></select></label>
+</div>
+<div id="state"><h4>PROTOTYPE STATE</h4><div id="stateB"></div></div>
+
+<script>
+// ---------------- palettes ----------------
+const THEMES = {
+  darknight:{mode:'dark',accent:'#b4befe',muted:'#9d93ad',background:'#141118',dark_background:'#27222f',lighter_background:'#282936',foreground:'#cac4d4',dark_foreground:'#4f455f',red:'#ff5252',magenta:'#a980db'},
+  outpost:{mode:'dark',accent:'#d3ae78',muted:'#a1afa9',background:'#14282d',dark_background:'#102126',lighter_background:'#253c41',foreground:'#e8dfc4',red:'#d78f79',magenta:'#b5a0ba'},
+  haven:{mode:'light',accent:'#795334',muted:'#526056',background:'#EEE8DA',dark_background:'#E7DFD0',lighter_background:'#E2DAC9',foreground:'#263D40',red:'#8C4036',magenta:'#6C4D6C'},
+  vantablack:{mode:'dark',accent:'#8d8d8d',muted:'#7a7a7a',background:'#000000',dark_background:'#090909',lighter_background:'#1a1a1a',foreground:'#ffffff',red:'#a4a4a4',magenta:'#9b9b9b'},
+};
+
+// ---------------- fake Hyprland ----------------
+const MONS = [{name:'DP-1',w:2560,h:1440},{name:'HDMI-A-1',w:1920,h:1080},{name:'eDP-1',w:1920,h:1200}];
+const CATALOG = [
+  {cls:'firefox',name:'Firefox',wt:5,titles:['Quickshell guide — Mozilla Firefox','chickenr1ce/darknight-qs · GitHub','Hyprland Wiki — Dispatchers','YouTube — lofi hip hop radio','Qt 6.11 — ListView QML Type']},
+  {cls:'kitty',name:'kitty',wt:6,titles:['~/.config/quickshell','nvim windows/DashboardCenter.qml','btop','lazygit','~/fleet','yazi ~/Downloads']},
+  {cls:'code',name:'Code',wt:2,titles:['DashboardCenter.qml — quickshell','README.md — fleet']},
+  {cls:'spotify',name:'Spotify',wt:1,titles:['Spotify Premium']},
+  {cls:'discord',name:'Discord',wt:2,titles:['#general — Hyprland','Friends — Discord']},
+  {cls:'obsidian',name:'Obsidian',wt:1,titles:['2026-10-13 — vault — Obsidian']},
+  {cls:'org.gnome.Nautilus',name:'Files',wt:1,titles:['Downloads','worktrees']},
+  {cls:'steam',name:'Steam',wt:1,titles:['Steam','Friends List']},
+  {cls:'thunderbird',name:'Thunderbird',wt:1,titles:['Inbox — alexiz — Thunderbird']},
+  {cls:'mpv',name:'mpv',wt:1,titles:['talk-2026.mkv — mpv']},
+  {cls:'zathura',name:'Zathura',wt:1,titles:['qt6-book.pdf [1/412]']},
+  {cls:'signal',name:'Signal',wt:1,titles:['Signal']},
+  {cls:'gimp',name:'GIMP',wt:1,titles:['[wallpaper] (imported)-1.0 (RGB 8-bit) 3840x2160 – GIMP']},
+];
+const appOf = cls => CATALOG.find(a => a.cls === cls);
+
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// Dwindle: split the longer side in half, the first window takes one half, the rest recurse into the other.
+function dwindle(r, n, ar) {
+  if (n <= 0) return [];
+  if (n === 1) return [r];
+  const wide = r.w * ar >= r.h;
+  const a = wide ? {x:r.x, y:r.y, w:r.w / 2, h:r.h} : {x:r.x, y:r.y, w:r.w, h:r.h / 2};
+  const b = wide ? {x:r.x + r.w / 2, y:r.y, w:r.w / 2, h:r.h} : {x:r.x, y:r.y + r.h / 2, w:r.w, h:r.h / 2};
+  return [a, ...dwindle(b, n - 1, ar)];
+}
+
+const SPECIAL = -99;
+function generate(monCount, wsPer, density) {
+  const R = rng(monCount * 100 + wsPer * 10 + ({light:1,normal:2,heavy:3})[density]);
+  const pool = CATALOG.flatMap(a => Array(a.wt).fill(a));
+  const range = {light:[0,2], normal:[0,4], heavy:[1,6]}[density];
+  const mons = MONS.slice(0, monCount).map((m, i) => ({...m, idx:i, first:i * wsPer + 1, active:i * wsPer + 1}));
+  const wins = []; let addr = 0x5a10;
+  const used = {};
+  for (const m of mons) for (let k = 0; k < wsPer; k++) {
+    const id = m.first + k;
+    let n = range[0] + Math.floor(R() * (range[1] - range[0] + 1));
+    if (k === 0) n = Math.max(n, 2);
+    if (k === 1 && m.idx === 0) n = Math.max(n, 3);
+    if (R() < .25 && k > 1) n = 0;
+    for (let j = 0; j < n; j++) {
+      const a = pool[Math.floor(R() * pool.length)];
+      used[a.cls] = (used[a.cls] || 0);
+      const title = a.titles[used[a.cls]++ % a.titles.length];
+      wins.push({addr:'0x' + (addr += 0x1c0).toString(16), cls:a.cls, title, ws:id, fl:false, fs:false, urgent:false});
+    }
+  }
+  // A few flavours: one floating window, one urgent window.
+  const flo = wins.find(w => w.ws === mons[0].first + 1 && w.cls === 'kitty') || wins[wins.length - 1];
+  if (flo) flo.fl = true;
+  const urg = wins.filter(w => w.cls === 'discord' || w.cls === 'signal' || w.cls === 'thunderbird')[0];
+  if (urg) urg.urgent = true;
+  if (wsPer > 1) mons[0].active = mons[0].first + 1;
+  const d = {mons, wins, focMon:0, focus:null};
+  for (const id of new Set(wins.map(w => w.ws))) relayout(d, id);
+  d.focus = (wins.find(w => w.ws === mons[0].active && !w.fl) || wins[0]).addr;
+  return d;
+}
+function monOfWs(d, id) { return id === SPECIAL ? d.mons[d.focMon] : d.mons.find(m => id >= m.first && id < m.first + S.wsPer); }
+function arOf(d, id) { const m = monOfWs(d, id); return m.w / m.h; }
+function relayout(d, id) {
+  const ar = arOf(d, id), on = d.wins.filter(w => w.ws === id);
+  const tiled = on.filter(w => !w.fl), rects = dwindle({x:0, y:0, w:1, h:1}, tiled.length, ar);
+  tiled.forEach((w, i) => w.r = rects[i]);
+  on.filter(w => w.fl).forEach((w, i) => w.r = {x:.22 + i * .05, y:.18 + i * .05, w:.5, h:.56});
+}
+
+// ---------------- state ----------------
+const P = new URLSearchParams(location.search);
+const KEYS = ['1a','1b','1c','2a','2b','2c'];
+const clampI = (v, lo, hi, dflt) => { const n = parseInt(v, 10); return isNaN(n) ? dflt : Math.max(lo, Math.min(hi, n)); };
+const S = {
+  variant: KEYS.includes(P.get('variant')) ? P.get('variant') : '1a',
+  theme: THEMES[P.get('theme')] ? P.get('theme') : 'darknight',
+  cw: clampI(P.get('w'), 440, 1400, 720), maxh: clampI(P.get('h'), 260, 1000, 600),
+  hmode: P.get('hmode') === 'fixed' ? 'fixed' : 'fit',
+  mons: clampI(P.get('mons'), 1, 3, 2), wsPer: clampI(P.get('ws'), 1, 10, 5),
+  density: ['light','normal','heavy'].includes(P.get('density')) ? P.get('density') : 'normal',
+  sel: null, q: '', group: 'ws', lsel: 0, hover: '', log: [],
+};
+let D = generate(S.mons, S.wsPer, S.density);
+
+// ---------------- helpers ----------------
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function hue(name) { let h = 5381; for (const ch of name.trim().toLowerCase()) h = ((h * 33) + ch.charCodeAt(0)) >>> 0; return ((h % 11) + 1) * 30; }
+const H = cls => hue(appOf(cls).name);
+function icon(cls, size) { const a = appOf(cls); return `<span class="ic" style="--h:${H(cls)};width:${size}px;height:${size}px;font-size:${Math.round(size * .5)}px">${esc(a.name[0].toUpperCase())}</span>`; }
+const wsIds = () => D.mons.flatMap(m => Array.from({length:S.wsPer}, (_, k) => m.first + k));
+const winsOn = id => D.wins.filter(w => w.ws === id);
+const isCur = id => D.mons[D.focMon].active === id;
+const isVis = id => D.mons.some(m => m.active === id);
+const wsLabel = id => id === SPECIAL ? 'S' : String(id);
+const wsName = id => id === SPECIAL ? 'Scratchpad' : `Workspace ${id}`;
+const focusWin = () => D.wins.find(w => w.addr === D.focus);
+function hexRgb(h) { h = h.replace('#',''); return [0,2,4].map(i => parseInt(h.slice(i, i + 2), 16) / 255); }
+function lum(h) { return hexRgb(h).map(c => c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4)).reduce((s, c, i) => s + c * [.2126,.7152,.0722][i], 0); }
+function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); }
+function mix(a, b, t) { const A = hexRgb(a), B = hexRgb(b); return '#' + A.map((c, i) => Math.round((c + (B[i] - c) * t) * 255).toString(16).padStart(2, '0')).join(''); }
+function rgba(h, a) { const [r, g, b] = hexRgb(h).map(c => Math.round(c * 255)); return `rgba(${r},${g},${b},${a})`; }
+function applyTheme() {
+  const t = THEMES[S.theme], s = document.documentElement.style;
+  const faint = t.dark_foreground && contrast(t.dark_foreground, t.background) < contrast(t.accent, t.background) ? t.dark_foreground : mix(t.background, t.foreground, .35);
+  const weak = contrast(t.accent, t.background) < 3.2;
+  const vars = {'--bg':t.background,'--bg2':t.dark_background,'--surface':t.lighter_background,'--text':t.foreground,'--subtle':t.muted,'--faint':faint,
+    '--accent':t.accent,'--purple':t.magenta,'--danger':t.red,'--accentDim':rgba(t.accent,.14),'--hover':mix(t.background,t.foreground,.06),
+    '--sel':weak ? mix(t.background,t.foreground,.11) : rgba(t.accent,.14),'--onAccent':contrast(t.background,t.accent) >= 3 ? t.background : t.foreground};
+  for (const k in vars) s.setProperty(k, vars[k]);
+}
+
+// ---------------- actions (stubs) ----------------
+function log(cmd) { S.log.unshift(cmd); S.log.length = Math.min(S.log.length, 4); toast(cmd); }
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.remove('hide'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hide'), 1500); }
+const A = {
+  go(id) {
+    if (id === SPECIAL) { log('hyprctl dispatch togglespecialworkspace scratch'); return; }
+    const m = monOfWs(D, id); m.active = id; D.focMon = m.idx;
+    const w = winsOn(id).find(w => !w.fl) || winsOn(id)[0]; D.focus = w ? w.addr : null;
+    log(`hyprctl dispatch workspace ${id}`);
+  },
+  focus(addr) {
+    const w = D.wins.find(w => w.addr === addr); if (!w) return;
+    if (w.ws !== SPECIAL) { const m = monOfWs(D, w.ws); m.active = w.ws; D.focMon = m.idx; }
+    D.focus = addr; w.urgent = false; log(`hyprctl dispatch focuswindow address:${addr}`);
+  },
+  move(addr, ws) {
+    const w = D.wins.find(w => w.addr === addr); if (!w || w.ws === ws) return;
+    const from = w.ws; w.ws = ws; D.wins.splice(D.wins.indexOf(w), 1); D.wins.push(w);
+    relayout(D, from); relayout(D, ws); log(`hyprctl dispatch movetoworkspacesilent ${ws === SPECIAL ? 'special:scratch' : ws},address:${addr}`);
+  },
+  close(addr) {
+    const w = D.wins.find(w => w.addr === addr); if (!w) return;
+    D.wins.splice(D.wins.indexOf(w), 1); relayout(D, w.ws);
+    if (D.focus === addr) D.focus = null; log(`hyprctl dispatch closewindow address:${addr}`);
+  },
+  float(addr) { const w = D.wins.find(w => w.addr === addr); w.fl = !w.fl; relayout(D, w.ws); log(`hyprctl dispatch togglefloating address:${addr}`); },
+  full(addr) { const w = D.wins.find(w => w.addr === addr); w.fs = !w.fs; log(`hyprctl dispatch fullscreen (on ${addr})`); },
+  launch(id) { log(`hyprctl dispatch workspace ${id} → open Apps tab with "On workspace ${id}"`); },
+};
+
+// ---------------- shared renderers ----------------
+function mini(id, {drop = true, titles = false, cls = ''} = {}) {
+  const on = winsOn(id), ar = arOf(D, id);
+  const st = [isCur(id) ? 'cur' : '', isVis(id) ? 'vis' : '', on.length ? '' : 'empty', cls].join(' ');
+  const g = .018;
+  const ws = on.map(w => {
+    const r = w.fs ? {x:0, y:0, w:1, h:1} : w.r;
+    const style = `--h:${H(w.cls)};left:${(r.x + g) * 100}%;top:${(r.y + g * ar) * 100}%;width:${(r.w - 2 * g) * 100}%;height:${(r.h - 2 * g * ar) * 100}%`;
+    const c = ['w', w.addr === D.focus ? 'foc' : '', w.fl ? 'fl' : '', w.fs ? 'fs' : ''].join(' ');
+    return `<div class="${c}" style="${style}" draggable="true" data-drag="${w.addr}" data-focus="${w.addr}" data-hover="${esc(appOf(w.cls).name + ' — ' + w.title)}">${icon(w.cls, 18)}${w.urgent ? '<span class="urg"></span>' : ''}${titles ? `<span class="wt">${esc(w.title)}</span>` : ''}</div>`;
+  }).join('');
+  return `<div class="mini ${st}" style="--ar:${ar}" ${drop ? `data-drop="${id}"` : ''} data-go="${id}">${ws}${on.length ? '' : '<span class="plus">+</span>'}</div>`;
+}
+const appSummary = id => { const names = [...new Set(winsOn(id).map(w => appOf(w.cls).name))]; return names.length ? names.join(', ') : 'Empty'; };
+const winRowActs = w => `<button class="ib ${w.fl ? 'on' : ''}" data-act="float" data-addr="${w.addr}" title="Toggle floating">◱</button><button class="ib ${w.fs ? 'on' : ''}" data-act="full" data-addr="${w.addr}" title="Fullscreen">⛶</button><button class="ib kill" data-act="close" data-addr="${w.addr}" title="Close window">✕</button>`;
+
+// ---------------- variants ----------------
+const monIds = m => Array.from({length:S.wsPer}, (_, k) => m.first + k);
+const focTag = m => m.idx === D.focMon && D.mons.length > 1 ? '<span class="tag acc">focused</span>' : '';
+const monSec = (m, extra = '') => `<div class="sec">${esc(m.name)} <span class="n">${m.w}×${m.h}</span><span class="ln"></span>${extra}${focTag(m)}</div>`;
+const empties = ids => ids.length ? `<span class="empties">empty ${ids.map(id => `<button class="ep" data-go="${id}" data-drop="${id}" title="Go to ${id}">${id}</button>`).join('')}</span>` : '';
+const cell = (id, hero = false) => `<div class="cell ${hero ? 'hero' : ''}">${mini(id)}<div class="cap ${isCur(id) ? 'cur' : ''}"><span class="num">${id}</span><span class="ell">${esc(appSummary(id))}</span>${winsOn(id).some(w => w.urgent) ? '<span class="urg"></span>' : ''}</div></div>`;
+const status = () => `<div class="status" id="status">${esc(S.hover || 'Click a workspace to switch, a window to focus it. Drag a window onto another workspace to move it.')}</div>`;
+const wsTag = id => isCur(id) ? '<span class="tag acc">here</span>' : isVis(id) ? '<span class="tag">shown</span>' : '';
+const chip = w => `<div class="chip ${w.addr === D.focus ? 'foc' : ''}" draggable="true" data-drag="${w.addr}" data-focus="${w.addr}">${icon(w.cls, 18)}<div class="t"><span class="ell">${esc(appOf(w.cls).name)}${w.fl ? ' <span class="fl">◱</span>' : ''}</span><small class="ell">${esc(w.title)}</small></div>${w.urgent ? '<span class="urg"></span>' : ''}<button class="ib kill x" data-act="close" data-addr="${w.addr}">✕</button></div>`;
+const voidHtml = id => `<div class="void">Empty<button class="btn" data-act="launch" data-ws="${id}">+ Launch</button></div>`;
+const col = id => { const on = winsOn(id); return `<div class="col ${isCur(id) ? 'cur' : ''} ${isVis(id) ? 'vis' : ''} ${on.length ? '' : 'empty'}" data-drop="${id}"><div class="ch" data-go="${id}"><span class="num">${id}</span>${wsTag(id)}</div>${on.length ? on.map(chip).join('') : voidHtml(id)}</div>`; };
+const wsRow = id => { const on = winsOn(id); return `<div class="wsr ${isCur(id) ? 'cur' : ''} ${isVis(id) ? 'vis' : ''} ${on.length ? '' : 'empty'}" data-drop="${id}"><button class="num" data-go="${id}" title="Go to ${id}">${id}</button><div class="flow">${on.length ? on.map(chip).join('') : voidHtml(id)}</div></div>`; };
+
+const V = {
+  '1a': {name:'Overview · one row per monitor', render() {
+    return `<div class="v1 v1a scroll">${D.mons.map(m => monSec(m) + `<div class="row" style="--n:${S.wsPer}">${monIds(m).map(id => cell(id)).join('')}</div>`).join('')}${status()}</div>`;
+  }},
+  '1b': {name:'Overview · current workspace large', render() {
+    return `<div class="v1 v1b scroll">${D.mons.map(m => monSec(m) + `<div class="grid">${monIds(m).map(id => cell(id, S.wsPer > 1 && id === m.active)).join('')}</div>`).join('')}${status()}</div>`;
+  }},
+  '1c': {name:'Overview · occupied only', render() {
+    return `<div class="v1 v1c scroll">${D.mons.map(m => {
+      const occ = monIds(m).filter(id => winsOn(id).length), emp = monIds(m).filter(id => !winsOn(id).length);
+      return monSec(m, empties(emp)) + (occ.length ? `<div class="grid" style="--n:${Math.max(occ.length, 3)}">${occ.map(id => cell(id)).join('')}</div>` : `<div class="none" data-drop="${m.active}">No windows on ${esc(m.name)}</div>`);
+    }).join('')}${status()}</div>`;
+  }},
+  '2a': {name:'Lanes · empty columns full width', render() {
+    return `<div class="v2 v2a scroll">${D.mons.map(m => `<div class="lane">${monSec(m)}<div class="cols">${monIds(m).map(col).join('')}</div></div>`).join('')}</div>`;
+  }},
+  '2b': {name:'Lanes · empties in the header', render() {
+    return `<div class="v2 v2b scroll">${D.mons.map(m => {
+      const occ = monIds(m).filter(id => winsOn(id).length), emp = monIds(m).filter(id => !winsOn(id).length);
+      return `<div class="lane">${monSec(m, empties(emp))}${occ.length ? `<div class="cols">${occ.map(col).join('')}</div>` : `<div class="none" data-drop="${m.active}">No windows on ${esc(m.name)}</div>`}</div>`;
+    }).join('')}</div>`;
+  }},
+  '2c': {name:'Lanes · workspace rows', render() {
+    return `<div class="v2 v2c scroll">${D.mons.map(m => `<div class="lane">${monSec(m)}<div class="rows">${monIds(m).map(wsRow).join('')}</div></div>`).join('')}</div>`;
+  }},
+};
+
+
+// ---------------- mount ----------------
+function mount() {
+  applyTheme();
+  const r = document.documentElement.style;
+  const cw = Math.min(S.cw, window.innerWidth - 40);
+  r.setProperty('--cw', cw + 'px'); r.setProperty('--maxh', S.maxh + 'px');
+  $('#dash').classList.toggle('fixed', S.hmode === 'fixed');
+  $('#tabs').innerHTML = [['dashboard','Dashboard'],['apps','Apps'],['performance','Performance'],['workspaces','Workspaces']].map(([k, l]) => `<div class="tab ${k === 'workspaces' ? 'on' : ''}">${l}<i></i></div>`).join('');
+  const sc = $('#body .scroll, #body .list, #body .pane, #body .mxw'); const keep = sc ? sc.scrollTop : 0;
+  $('#body').innerHTML = V[S.variant].render();
+  const sc2 = $('#body .scroll, #body .list, #body .pane, #body .mxw'); if (sc2) sc2.scrollTop = keep;
+  $('#vlab').textContent = `${S.variant} · ${V[S.variant].name}`;
+  // bar mock
+  const fm = D.mons[D.focMon];
+  $('#wss').innerHTML = Array.from({length:S.wsPer}, (_, k) => fm.first + k).map(id => `<div class="bws ${winsOn(id).length ? 'occ' : ''} ${isCur(id) ? 'cur' : ''}">${id}</div>`).join('');
+  const f = focusWin(); $('#title').textContent = f ? `${appOf(f.cls).name} — ${f.title}` : 'Desktop';
+  sizeTag(); syncKnobs(); renderState();
+}
+function sizeTag() { const d = $('#dash').getBoundingClientRect(); $('#sizeTag').textContent = `${Math.round(d.width)} × ${Math.round(d.height)}`; }
+function renderState() {
+  const d = $('#dash').getBoundingClientRect();
+  const rows = [['variant', `${S.variant} · ${V[S.variant].name}`], ['card', `${Math.round(d.width)}×${Math.round(d.height)} (max ${S.maxh}, ${S.hmode})`],
+    ['data', `${S.mons} mon × ${S.wsPer} ws · ${D.wins.length} windows`], ['active', D.mons.map(m => `${m.name}:${m.active}`).join('  ')],
+    ['focus', (f => f ? `${f.addr} ${appOf(f.cls).name} @${wsLabel(f.ws)}` : '—')(focusWin())]];
+  $('#stateB').innerHTML = rows.map(([k, v]) => `<div><span class="k">${k}</span> ${esc(v)}</div>`).join('') + S.log.map(l => `<div class="log">› ${esc(l)}</div>`).join('');
+}
+function syncURL() {
+  const u = new URL(location);
+  for (const [k, v] of Object.entries({variant:S.variant, theme:S.theme, w:S.cw, h:S.maxh, hmode:S.hmode, mons:S.mons, ws:S.wsPer, density:S.density})) u.searchParams.set(k, v);
+  history.replaceState(null, '', u);
+}
+function syncKnobs() {
+  $('#kw').value = S.cw; $('#kh').value = S.maxh; $('#wv').textContent = S.cw; $('#hv').textContent = S.maxh;
+  $('#khm').value = S.hmode; $('#kmon').value = S.mons; $('#kws').value = S.wsPer; $('#kden').value = S.density; $('#themeSel').value = S.theme;
+}
+function set(p, regen) { Object.assign(S, p); if (regen) { D = generate(S.mons, S.wsPer, S.density); S.sel = null; } syncURL(); mount(); }
+const cycle = d => set({variant: KEYS[(KEYS.indexOf(S.variant) + d + KEYS.length) % KEYS.length]});
+
+// ---------------- events ----------------
+$('#prev').onclick = () => cycle(-1); $('#next').onclick = () => cycle(1);
+$('#themeSel').innerHTML = Object.keys(THEMES).map(k => `<option value="${k}">Theme: ${k}</option>`).join('');
+$('#themeSel').onchange = e => set({theme: e.target.value});
+$('#kws').innerHTML = Array.from({length:10}, (_, i) => `<option>${i + 1}</option>`).join('');
+$('#kw').oninput = e => set({cw: +e.target.value}); $('#kh').oninput = e => set({maxh: +e.target.value});
+$('#khm').onchange = e => set({hmode: e.target.value});
+$('#kmon').onchange = e => set({mons: +e.target.value}, true); $('#kws').onchange = e => set({wsPer: +e.target.value}, true);
+$('#kden').onchange = e => set({density: e.target.value}, true);
+document.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => { const [w, h] = b.dataset.pre.split(',').map(Number); set({cw: w, maxh: h}); });
+window.addEventListener('resize', () => mount());
+
+// Corner grip: the card stays centred under the bar, so width grows by twice the pointer travel.
+$('#grip').addEventListener('pointerdown', e => {
+  e.preventDefault(); const sx = e.clientX, sy = e.clientY, w0 = S.cw, h0 = S.maxh;
+  const mv = ev => set({cw: Math.max(440, Math.min(1400, Math.round((w0 + 2 * (ev.clientX - sx)) / 10) * 10)), maxh: Math.max(260, Math.min(1000, Math.round((h0 + ev.clientY - sy) / 10) * 10))});
+  const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up);
+});
+
+let lastCycle = '';
+$('#body').addEventListener('click', e => {
+  const act = e.target.closest('[data-act]');
+  if (act) {
+    const k = act.dataset.act;
+    if (k === 'group') { S.group = act.dataset.g; S.lsel = 0; mount(); return; }
+    if (k === 'move') A.move(act.dataset.addr, +act.dataset.ws);
+    else if (k === 'launch') A.launch(+act.dataset.ws);
+    else A[k](act.dataset.addr);
+    mount(); return;
+  }
+  const cyc = e.target.closest('[data-cycle]');
+  if (cyc) {
+    const [cls, id] = cyc.dataset.cycle.split('|'), here = D.wins.filter(w => w.cls === cls && w.ws === +id);
+    const i = here.findIndex(w => w.addr === D.focus); A.focus(here[(i + 1) % here.length].addr); mount(); return;
+  }
+  const f = e.target.closest('[data-focus]'); if (f) { A.focus(f.dataset.focus); mount(); return; }
+  const g = e.target.closest('[data-go]'); if (g) { A.go(+g.dataset.go); mount(); }
+});
+$('#body').addEventListener('mouseover', e => {
+  const h = e.target.closest('[data-hover]'), st = $('#status'); if (!st) return;
+  if (h) st.textContent = h.dataset.hover;
+});
+let dragAddr = null;
+$('#body').addEventListener('dragstart', e => { const d = e.target.closest('[data-drag]'); if (!d) return; dragAddr = d.dataset.drag; e.dataTransfer.setData('text/plain', dragAddr); e.dataTransfer.effectAllowed = 'move'; });
+$('#body').addEventListener('dragover', e => { const t = e.target.closest('[data-drop]'); if (!t || !dragAddr) return; e.preventDefault(); document.querySelectorAll('.over').forEach(x => x !== t && x.classList.remove('over')); t.classList.add('over'); });
+$('#body').addEventListener('dragleave', e => { const t = e.target.closest('[data-drop]'); if (t && !t.contains(e.relatedTarget)) t.classList.remove('over'); });
+$('#body').addEventListener('drop', e => { const t = e.target.closest('[data-drop]'); if (!t || !dragAddr) return; e.preventDefault(); A.move(dragAddr, +t.dataset.drop); dragAddr = null; mount(); });
+$('#body').addEventListener('dragend', () => { dragAddr = null; document.querySelectorAll('.over').forEach(x => x.classList.remove('over')); });
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea,select,[contenteditable]')) return;
+  if (e.key === 'ArrowLeft') cycle(-1); else if (e.key === 'ArrowRight') cycle(1);
+});
+
+mount();
+new ResizeObserver(() => { sizeTag(); renderState(); }).observe($('#dash'));
+</script>
+</body>
+</html>

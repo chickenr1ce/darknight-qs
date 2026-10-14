@@ -24,7 +24,9 @@ PanelShell {
     windowHeight: root.appsMaxHeight
     attachedToBar: true
     junctionRadius: DashboardService.junctionRadius
-    inputOverlay: idDashboardAppsView.menuInputBox
+    inputOverlay: DashboardService.activeTab === "workspaces"
+        ? idDashboardWorkspacesView.menuInputBox
+        : idDashboardAppsView.menuInputBox
     // Own namespace so Hyprland can skip its layer fade (no_anim layer rule);
     // the slide in PanelShell is the only motion.
     WlrLayershell.namespace: "quickshell-dashboard"
@@ -43,6 +45,7 @@ PanelShell {
         DevGeometry.register("dashboard.volume", idDashboardVolume);
         DevGeometry.register("dashboard.settings", idDashboardSettingsView);
         idDashboardAppsView.registerProbe();
+        idDashboardWorkspacesView.registerProbe();
     }
 
     readonly property real halfBlockWidth: (Globals.dashboardWidth - 2 * Globals.panelPadding - Math.round(Globals.dashboardWidth * 0.27) - 2 * Globals.rowSpacing) / 2
@@ -157,7 +160,7 @@ PanelShell {
 
         Layout.fillWidth: true
 
-        visible: DashboardService.activeTab !== "dashboard" && DashboardService.activeTab !== "settings" && DashboardService.activeTab !== "apps"
+        visible: DashboardService.activeTab !== "dashboard" && DashboardService.activeTab !== "settings" && DashboardService.activeTab !== "apps" && DashboardService.activeTab !== "workspaces"
         implicitHeight: idPlaceholderLabel.implicitHeight + 4 * Globals.panelPadding
 
         Text {
@@ -184,6 +187,17 @@ PanelShell {
 
         visible: DashboardService.activeTab === "apps"
         windowShown: root.visible
+        windowRoom: root.windowHeight
+        slideOffset: root.slideOffset
+    }
+
+    DashboardWorkspacesView {
+        id: idDashboardWorkspacesView
+
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+
+        visible: DashboardService.activeTab === "workspaces"
         windowRoom: root.windowHeight
         slideOffset: root.slideOffset
     }

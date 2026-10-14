@@ -54,12 +54,20 @@ services/SpotifyService.qml BND-2 Imperative '=' on 'idTransferProcess.running' 
 services/ThemeService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/WeatherService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/AudioCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+services/WorkspaceService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/WorkspaceService.qml BND-2 Imperative '=' on 'root.model' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/DashboardAppsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/DashboardAppsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/DashboardAppsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/DashboardAppsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+windows/DashboardWorkspacesView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/DashboardWorkspacesView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/DashboardWorkspacesView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/DashboardWorkspacesView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+windows/DashboardWorkspacesView.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
+windows/DashboardWorkspacesView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationPopups.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)

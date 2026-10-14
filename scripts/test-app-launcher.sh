@@ -63,8 +63,9 @@ grep -q 'readonly property Item inputBox: idMenuInputBox' "$CTX" \
     || fail "ContextMenu does not expose its menu bounding box for the input mask"
 grep -q 'readonly property Item menuInputBox: idAppsContextMenu.inputBox' "$VIEW" \
     || fail "DashboardAppsView does not forward the menu input box to the dashboard"
-grep -q 'inputOverlay: idDashboardAppsView.menuInputBox' "$ROOT/windows/DashboardCenter.qml" \
-    || fail "the hanging Apps menu is not in the dashboard input mask"
+if ! grep -A2 'inputOverlay:' "$ROOT/windows/DashboardCenter.qml" | grep -q 'idDashboardAppsView.menuInputBox'; then
+    fail "the hanging Apps menu is not in the dashboard input mask"
+fi
 grep -A1 'item: root.inputOverlay' "$ROOT/components/PanelShell.qml" | grep -q 'intersection: Intersection.Combine' \
     || fail "PanelShell does not join inputOverlay to its mask"
 grep -q 'width: !root.opened ? 0' "$CTX" \
