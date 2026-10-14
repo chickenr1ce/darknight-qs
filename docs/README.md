@@ -37,8 +37,9 @@ Reference for contributors and agents.
 
 ## Cross-cutting records
 
-- [`adr/`](adr/) — architecture decision records.
-- [`agents/`](agents/) — issue tracker and triage labels.
+- [`adr/`](adr/) — architecture decision records. Number a new one with
+  `scripts/next-adr.sh`, which reads every branch and worktree.
+- [`agents/`](agents/) — issue tracker, triage labels, and delegated-work rules.
 - [`incidents/`](incidents/) — one-off incident write-ups.
 - [`plans/`](plans/) — frozen migration and design plan artifacts ([index](plans/README.md)).
 - [`../CONTEXT.md`](../CONTEXT.md) — domain glossary.

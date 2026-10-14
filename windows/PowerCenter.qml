@@ -24,6 +24,7 @@ PanelShell {
     readonly property int rowHeight: root.glyphBoxSize + 2 * Globals.cardPadding
 
     panel: PowerService.panelState
+    geometryName: "power.panel"
 
     Shortcut {
         id: idPowerKey1

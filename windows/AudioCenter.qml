@@ -44,35 +44,8 @@ PanelShell {
         Globals.centerMaxHeight - 2 * Globals.panelPadding
         - idAudioHeader.implicitHeight - Globals.spacing - root.appsFixedHeight)
 
-    // Section heading in the calendar's caption idiom, so it reads below the
-    // card title instead of competing with it.
-    component SectionLabel: Text {
-        textFormat: Text.PlainText
-        elide: Text.ElideRight
-        color: Colors.textSubtle
-
-        font {
-            family: Globals.uiFontFamily
-            pixelSize: Globals.uiCaptionSize
-            weight: Font.Medium
-            letterSpacing: Globals.uiLetterSpacing
-        }
-    }
-
-    // Hairline with padding so sections sit a full Globals.spacing apart.
-    component SectionDivider: Item {
-        implicitHeight: Globals.hairlineHeight + 2 * (Globals.spacing - Globals.listSpacing)
-
-        Rectangle {
-            anchors.verticalCenter: parent.verticalCenter
-
-            width: parent.width
-            height: Globals.hairlineHeight
-            color: Colors.border
-        }
-    }
-
     panel: AudioService.panelState
+    geometryName: "audio.panel"
     panelWidth: Globals.centerWidth
 
     Component.onCompleted: DevGeometry.register("audio.card", idAudioBody)
@@ -111,7 +84,7 @@ PanelShell {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
 
-            text: qsTr("Output").toUpperCase()
+            text: qsTr("Output")
         }
 
         Dropdown {
@@ -159,7 +132,7 @@ PanelShell {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
 
-                text: qsTr("Input").toUpperCase()
+                text: qsTr("Input")
             }
 
             Text {
@@ -257,7 +230,7 @@ PanelShell {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
 
-                text: qsTr("Apps").toUpperCase()
+                text: qsTr("Apps")
             }
 
             Text {

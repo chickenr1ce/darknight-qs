@@ -10,6 +10,7 @@ PanelShell {
     id: root
 
     panel: CavaService.panelState
+    geometryName: "cava.panel"
 
     PanelHeader {
         id: idCavaHeader

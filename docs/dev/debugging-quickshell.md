@@ -56,7 +56,10 @@ worktree, drive it with `quickshell ipc --pid <pid>`.
 - For exact widget geometry, register the item once with
   `DevGeometry.register("<area>.<name>", <id>)` (import `qs.dev`) and read it
   with `quickshell ipc --pid <pid> call devprobe geom <name>` — plain numbers
-  (`x`, `y`, `width`, `height`, implicit sizes, `visible`), never QML objects.
+  (`x`, `y`, `width`, `height`, implicit sizes, `visible`, and `screenRect`, the
+  compositor rectangle `grim -g` takes, for an item in a top-left-anchored
+  window such as every `PanelShell`), never QML objects. A `PanelShell` with
+  `geometryName` set registers its whole card (`audio.panel`, `calendar.panel`).
   `devprobe geomNames` lists every registered target. Registrations are
   permanent one-liners in the component, so geometry reads never need a
   temporary handler. Open the surface through IPC first so layout has run.
@@ -127,6 +130,15 @@ daily shell; `scripts/restart.sh` with no `--probe` brings the daily one back,
 and `scripts/instance.sh log` tails the new boot's errors.
 
 ## Visual iteration loop
+
+`scripts/capture.sh <config> <geom> -- <ipc call>` is the non-disruptive capture:
+it boots the config in a throwaway instance (as `boot-check.sh` does), opens the
+surface with the IPC call, and grabs the registered card with `grim`, leaving
+the running shell alone. `scripts/capture.sh . audio.panel -- audio toggle`
+prints the PNG path and the geometry snapshot; the agent reads the PNG. A UI
+change hands off with a capture of every surface it touches, and the reviewer
+judges the capture (hierarchy, column alignment, a match with sibling panels)
+beside the diff.
 
 Taste questions converge only side by side: render variants as A/B captures
 before asking, never sequential single passes. Drive the loop without the

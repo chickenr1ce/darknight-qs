@@ -9,6 +9,14 @@ Last updated: 2026-10-14.
 
 ## Open
 
+### Audio card persistence check
+
+The audio card (ADR 0020) relies on WirePlumber to restore every choice it
+makes, and that was never run. Done when, after setting the output, the input,
+an output volume, an input mute, and one app's volume from the card, both
+`systemctl --user restart pipewire pipewire-pulse wireplumber` and one reboot
+bring all five back, and the date is recorded.
+
 ### Hotplug verification
 
 Phase 5 shipped DP-1 gating and the 1–5 / 6–10 workspace split, but the unplug

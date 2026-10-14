@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 import Quickshell
 import qs.config
+import qs.dev
 import qs.services
 
 
@@ -26,6 +27,8 @@ PanelWindow {
     // Extra item whose rect joins the input mask, for content drawn past the
     // card inside the window (the Apps context menu hanging below a short card).
     property Item inputOverlay: null
+    // DevGeometry name for the whole card, so scripts/capture.sh can grab it.
+    property string geometryName: ""
     // The panel's current slide offset (negative mid-slide, 0 when settled),
     // so a host can measure positions against the settled layout.
     readonly property real slideOffset: idPanel.y
@@ -90,8 +93,16 @@ PanelWindow {
     implicitHeight: root.windowHeight
     visible: root.panelVisible || idPanel.reveal > 0
 
-    Component.onCompleted: PanelGrab.register(root)
-    Component.onDestruction: PanelGrab.unregister(root)
+    Component.onCompleted: {
+        PanelGrab.register(root);
+        if (root.geometryName !== "")
+            DevGeometry.register(root.geometryName, idPanel);
+    }
+    Component.onDestruction: {
+        PanelGrab.unregister(root);
+        if (root.geometryName !== "")
+            DevGeometry.unregister(root.geometryName);
+    }
 
     onOutsideClicked: {
         if (root.panel)

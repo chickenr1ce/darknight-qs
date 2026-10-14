@@ -48,10 +48,14 @@ cross-cutting docs change on the branch that owns them.
 
 ## Lifecycle
 
-`.scratch/<feature>/issues/` lives only as long as the feature. When all tickets
-are done, review is complete, and the branch merges: promote lasting lessons to
-`docs/` (coding conventions, spec, retro output), then delete the folder in the
-same merge/squash commit. Git history is the archive — deletion loses nothing.
+`.scratch/<feature>/` lives only as long as the feature, and it is committed on
+the feature branch from the first ticket on (`scripts/lint-conventions.sh` fails
+on an untracked file under `.scratch/`). When all tickets are done, review is
+complete, and the branch merges: promote lasting lessons to `docs/` (coding
+conventions, spec, retro output), move every unfinished step (a
+`ready-for-human` ticket, a pending live check) into `docs/dev/roadmap.md`, then
+delete the folder in the same merge/squash commit. Git history is the archive,
+because the folder was committed before it was deleted.
 Session handoffs (`~/.config/opencode/handoff-*.md`) die the same way: delete
 once the feature merges and its cutover verifies.
 

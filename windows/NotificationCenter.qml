@@ -14,6 +14,7 @@ PanelShell {
     property string pendingScrollApp: ""
 
     panel: NotificationServer.panelState
+    geometryName: "center.panel"
 
     function toggleGroup(appName: string) {
         const expanding = root.expandedGroups[appName] !== true;

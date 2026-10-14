@@ -21,6 +21,7 @@ PanelShell {
     property bool showingSettings: false
 
     panel: CalendarService.panelState
+    geometryName: "calendar.panel"
 
     PanelHeader {
         id: idCalendarHeader
@@ -205,39 +206,21 @@ PanelShell {
 
                 spacing: Globals.spacing
 
-                Text {
+                SectionLabel {
                     id: idAgendaTitle
 
                     width: idBodyColumn.width
-
-                    textFormat: Text.PlainText
-                    text: CalendarService.dateLabel(CalendarService.selectedIso).toUpperCase()
-                    color: Colors.textSubtle
-
-                    font {
-                        family: Globals.uiFontFamily
-                        pixelSize: Globals.uiCaptionSize
-                        weight: Font.Medium
-                        letterSpacing: Globals.uiLetterSpacing
-                    }
+                    text: CalendarService.dateLabel(CalendarService.selectedIso)
                 }
 
-                Text {
+                SectionLabel {
                     id: idStaleMarker
 
                     width: idBodyColumn.width
 
                     visible: CalendarService.eventsStale
-                    textFormat: Text.PlainText
-                    text: CalendarService.staleLabel().toUpperCase()
+                    text: CalendarService.staleLabel()
                     color: Colors.warning
-
-                    font {
-                        family: Globals.uiFontFamily
-                        pixelSize: Globals.uiCaptionSize
-                        weight: Font.Medium
-                        letterSpacing: Globals.uiLetterSpacing
-                    }
                 }
 
                 Column {
@@ -321,21 +304,12 @@ PanelShell {
 
                     spacing: Globals.rowSpacing
 
-                    Text {
+                    SectionLabel {
+                        id: idWorldTitle
+
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
-
-                        textFormat: Text.PlainText
-                        elide: Text.ElideRight
-                        text: qsTr("World clock").toUpperCase()
-                        color: Colors.textSubtle
-
-                        font {
-                            family: Globals.uiFontFamily
-                            pixelSize: Globals.uiCaptionSize
-                            weight: Font.Medium
-                            letterSpacing: Globals.uiLetterSpacing
-                        }
+                        text: qsTr("World clock")
                     }
 
                     PillButton {

@@ -426,6 +426,7 @@ All panels and plugins share tokens and primitives; never invent a parallel visu
 ### No new primitive
 
 - If a panel needs a button, card, header, or shell, extend the shared component in `components/` (`PanelShell`, `PanelHeader`, `Card`, `IconButton`, `PillButton`, `PressFeedback`, `PressScale`).
+- A heading inside a panel is a `SectionLabel` (uppercase caption, below the `PanelHeader` title in weight); sections in a `Globals.listSpacing` column are split by a `SectionDivider`. `scripts/lint-conventions.sh` fails a `text: ....toUpperCase()` heading in `windows/` or `modules/`.
 - New panels compose `PanelShell` plus `PanelHeader`; new rows and cards compose `Card`. Ad-hoc `Rectangle` plus `MouseArea` buttons are off-limits.
 
 ### No copied rows
@@ -542,7 +543,9 @@ so run a new git-using check through the gate rather than on its own.
 
 Verification is `scripts/check.sh`: type lint (`scripts/lint.sh`, which fails on
 an unresolved type name), style lint (`scripts/lint-review.sh`), shell lint
-(`scripts/lint-shell.sh`, skips when shellcheck is not installed), the headless
+(`scripts/lint-shell.sh`, skips when shellcheck is not installed), the repo's
+own structure rules (`scripts/lint-conventions.sh`: unique icon codepoints,
+`SectionLabel` headings, tracked `.scratch/`), the headless
 `scripts/test-*.sh` gates, and `scripts/check-live-log.sh` (skips when no
 instance is running). The style linter is vendored at
 `scripts/qt_qml_lint.py` (BSD-3-Clause, The Qt Company). `scripts/check.sh`

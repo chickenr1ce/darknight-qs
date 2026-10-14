@@ -325,24 +325,14 @@ Item {
 
                                 spacing: Globals.listSpacing
 
-                                Text {
+                                SectionLabel {
                                     id: idAppRowHeaderTitle
 
                                     Layout.fillWidth: true
                                     Layout.minimumWidth: 0
                                     Layout.alignment: Qt.AlignVCenter
 
-                                    textFormat: Text.PlainText
-                                    elide: Text.ElideRight
-                                    text: idAppRow.isHeader ? root.sectionTitle(idAppRow.info.key).toUpperCase() : ""
-                                    color: Colors.textSubtle
-
-                                    font {
-                                        family: Globals.uiFontFamily
-                                        pixelSize: Globals.uiCaptionSize
-                                        weight: Font.Medium
-                                        letterSpacing: Globals.uiLetterSpacing
-                                    }
+                                    text: idAppRow.isHeader ? root.sectionTitle(idAppRow.info.key) : ""
                                 }
 
                                 Text {

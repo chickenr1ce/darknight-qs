@@ -14,6 +14,7 @@ PanelShell {
     anchorScreen: DashboardService.anchorScreen
     anchorCenterX: DashboardService.anchorCenterX
     panelVisible: DashboardService.dashboardVisible
+    geometryName: "dashboard.panel"
     panelWidth: Globals.dashboardWidth
     readonly property real appsMaxHeight: Math.max(Globals.dashboardMaxHeight,
         Math.round(Globals.dashboardAppsMaxFraction
