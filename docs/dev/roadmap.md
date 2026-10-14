@@ -24,6 +24,14 @@ run never happened. Source: the `Variants` block in `shell.qml`. Done when each
 output is unplugged and replugged, the bar recreates with no errors, and the
 date is recorded.
 
+### Workspaces tab live checks
+
+The Workspaces tab (ADR 0019) was verified live on one monitor only. Still
+unrun: the two- and three-monitor layouts, Float/Tile and Fullscreen from the
+window menu, the menu flipping and scrolling near a screen edge, and a middle
+click on an editor with unsaved changes still prompting to save. Done when each
+is run and the date is recorded.
+
 ### Architecture review follow-ups
 
 Cards 05 to 11 of `docs/plans/12-architecture-review.html` are pending; its
