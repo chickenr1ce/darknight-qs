@@ -103,6 +103,8 @@ QtObject {
     readonly property int focusRetryMs: 250
     readonly property int focusRetryTicks: 12
     readonly property int panelSettleMs: 20
+    // Delay before re-sending pointer focus once a panel maps (see PanelGrab).
+    readonly property int panelRefocusMs: 80
     readonly property int cavaRestartBaseMs: 1500
     readonly property int cavaRestartMaxMs: 30000
 

@@ -3,6 +3,8 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
+import qs.config
 
 Singleton {
     id: root
@@ -14,6 +16,7 @@ Singleton {
 
     property var barWindows: []
     property var members: []
+    property int shownCount: 0
 
     HyprlandFocusGrab {
         id: idFocusGrab
@@ -21,6 +24,48 @@ Singleton {
         active: root.active
         windows: root.windows
         onCleared: root.dismiss()
+    }
+
+    // Hyprland hands pointer focus to a keyboard-focusable layer when it maps,
+    // wherever the cursor is, so the bar module under a still cursor loses hover
+    // and the next click lands on the panel. A cursor move in place makes
+    // Hyprland hit-test again and give pointer focus back to what is under it.
+    onVisiblePanelsChanged: {
+        if (root.visiblePanels.length > root.shownCount)
+            idRefocusTimer.restart();
+        else if (root.visiblePanels.length === 0)
+            idRefocusTimer.stop();
+        root.shownCount = root.visiblePanels.length;
+    }
+
+    Timer {
+        id: idRefocusTimer
+
+        interval: Globals.panelRefocusMs
+        onTriggered: {
+            if (idRefocusProcess.running)
+                idRefocusTimer.restart();
+            else
+                idRefocusProcess.running = true;
+        }
+    }
+
+    Process {
+        id: idRefocusProcess
+
+        command: ["hyprctl", "cursorpos"]
+        stdout: StdioCollector {
+            id: idRefocusCollector
+
+            onStreamFinished: {
+                const match = idRefocusCollector.text.trim().match(/(-?\d+)\s*,\s*(-?\d+)/);
+                if (!match) {
+                    console.warn("PanelGrab: cannot parse hyprctl cursorpos, skipping refocus");
+                    return;
+                }
+                Hyprland.dispatch(`hl.dsp.cursor.move({ x = ${match[1]}, y = ${match[2]} })`);
+            }
+        }
     }
 
     function registerBar(window) {
