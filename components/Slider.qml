@@ -11,6 +11,7 @@ Item {
     property real stepSize: 1
     property real value: 0
     property bool disabled: false
+    property bool dimmed: false
     property string accessibleName: ""
 
     signal moved(real value)
@@ -27,7 +28,7 @@ Item {
 
     implicitWidth: 120
     implicitHeight: 18
-    opacity: root.disabled ? 0.45 : 1
+    opacity: root.disabled || root.dimmed ? 0.45 : 1
     activeFocusOnTab: !root.disabled
 
     Accessible.role: Accessible.Slider

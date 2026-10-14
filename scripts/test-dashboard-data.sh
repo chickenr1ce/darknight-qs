@@ -218,6 +218,96 @@ check('sink/hidden-drops', visibleSinks([JADE, EASY, PEBBLE], [al.keyFor(EASY)])
 check('sink/saved-order', visibleSinks([JADE, PEBBLE, HDMI], [], [al.keyFor(PEBBLE), al.keyFor(JADE)]).map(s => s.key), [al.keyFor(PEBBLE), al.keyFor(JADE), al.keyFor(HDMI)]);
 check('sink/drops-non-sinks', visibleSinks([{ isSink: false, isStream: false, audio: {}, name: 'mic' }]), []);
 
+// isSourceNode discovers the inputs the same way: not a sink, not a stream,
+// and a media class of Audio/Source. Quickshell's node-type table only maps
+// exact classes, so a virtual source (Audio/Source/Virtual) carries no audio
+// and is a source on its class alone.
+const FIFINE = { isSink: false, isStream: false, audio: {}, properties: { 'media.class': 'Audio/Source' }, description: 'FIFINE K669 Microphone Mono', name: 'alsa_input.usb-FIFINE_K669-00.mono-fallback' };
+const V11 = { isSink: false, isStream: false, audio: {}, properties: { 'media.class': 'Audio/Source' }, description: 'Nuroum V11 Analog Stereo', name: 'alsa_input.usb-Nuroum_V11-02.analog-stereo' };
+const EASY_SOURCE = { isSink: false, isStream: false, audio: null, properties: { 'media.class': 'Audio/Source/Virtual' }, description: 'Easy Effects Source', name: 'easyeffects_source' };
+const CAVA_IN = { isSink: false, isStream: true, audio: {}, properties: { 'media.class': 'Stream/Input/Audio' }, name: 'cava' };
+
+check('source/real', al.isSourceNode(FIFINE), true);
+check('source/virtual', al.isSourceNode({ isSink: false, isStream: false, audio: {}, properties: { 'media.class': 'Audio/Source/Virtual' } }), true);
+check('source/virtual-unaudio', al.isSourceNode(EASY_SOURCE), true);
+check('source/sink', al.isSourceNode(JADE), false);
+check('source/sink-class', al.isSourceNode({ isSink: false, isStream: false, audio: {}, properties: { 'media.class': 'Audio/Sink' } }), false);
+check('source/stream', al.isSourceNode(CAVA_IN), false);
+check('source/no-audio', al.isSourceNode({ isSink: false, isStream: false, audio: null, properties: { 'media.class': 'Audio/Source' } }), false);
+check('source/no-properties', al.isSourceNode({ isSink: false, isStream: false, audio: {} }), false);
+check('source/null', al.isSourceNode(null), false);
+check('source/discover-all', [FIFINE, V11, JADE, EASY_SOURCE, CAVA_IN].filter(al.isSourceNode).map(n => n.name), [FIFINE.name, V11.name, EASY_SOURCE.name]);
+
+// appName reads application.name and falls back to the node name, empty when
+// neither is set. captureAppNames keeps the distinct apps recording from the
+// tracked node, in first-seen order, and ignores every non-capture target.
+check('app/name', al.appName({ properties: { 'application.name': 'Discord' }, name: 'discord-stream' }), 'Discord');
+check('app/name-fallback', al.appName({ properties: {}, name: 'pw-record' }), 'pw-record');
+check('app/name-missing', al.appName({ properties: {} }), '');
+check('app/no-properties', al.appName({ name: 'pw-record' }), 'pw-record');
+check('app/null', al.appName(null), '');
+
+function linkGroup(mediaClass, app) {
+    return { target: { name: '', properties: { 'media.class': mediaClass, 'application.name': app } } };
+}
+check('capture/empty', al.captureAppNames([]), []);
+check('capture/null', al.captureAppNames(null), []);
+check('capture/one', al.captureAppNames([linkGroup('Stream/Input/Audio', 'Discord')]), ['Discord']);
+check('capture/dedupe', al.captureAppNames([linkGroup('Stream/Input/Audio', 'Discord'), linkGroup('Stream/Input/Audio', 'Discord')]), ['Discord']);
+check('capture/first-seen-order', al.captureAppNames([linkGroup('Stream/Input/Audio', 'OBS'), linkGroup('Stream/Input/Audio', 'Discord'), linkGroup('Stream/Input/Audio', 'OBS')]), ['OBS', 'Discord']);
+check('capture/ignores-playback', al.captureAppNames([linkGroup('Stream/Output/Audio', 'Spotify')]), []);
+check('capture/ignores-unclassed', al.captureAppNames([{ target: { name: 'ee_sie_spectrum', properties: {} } }]), []);
+check('capture/skips-empty-name', al.captureAppNames([linkGroup('Stream/Input/Audio', '')]), []);
+check('capture/skips-null-group', al.captureAppNames([null]), []);
+
+// isAppStream is the mixer's filter: a playback stream is an audio node whose
+// media class is exactly Stream/Output/Audio, so EasyEffects internals (empty
+// class) and cava (Stream/Input/Audio) drop out with no special case. It is
+// null-safe on the node and on properties.
+check('appstream/playback', al.isAppStream({ isStream: true, audio: {}, properties: { 'media.class': 'Stream/Output/Audio' }, name: 'spotify' }), true);
+check('appstream/capture', al.isAppStream(CAVA_IN), false);
+check('appstream/empty-class', al.isAppStream({ isStream: true, audio: {}, properties: { 'media.class': '' }, name: 'ee_soe_output_level' }), false);
+check('appstream/sink', al.isAppStream({ isSink: true, isStream: false, audio: {}, properties: { 'media.class': 'Audio/Sink' } }), false);
+check('appstream/no-audio', al.isAppStream({ isStream: true, audio: null, properties: { 'media.class': 'Stream/Output/Audio' } }), false);
+check('appstream/no-properties', al.isAppStream({ isStream: true, audio: {}, name: 'spotify' }), false);
+check('appstream/null', al.isAppStream(null), false);
+
+// appName / streamTitle / appIconName read the dotted properties with the
+// ticket's fallbacks, and streamTitle blanks the title when the app reports
+// its own name as the media name in any case (Spotify), whose casing appName
+// then prefers.
+const SPOTIFY_STREAM = { id: 80, name: 'spotify', properties: {
+    'application.name': 'Spotify',
+    'media.name': 'Track One',
+    'application.icon-name': 'spotify',
+    'application.process.binary': 'spotify'
+} };
+check('stream/app-name', al.appName(SPOTIFY_STREAM), 'Spotify');
+check('stream/title', al.streamTitle(SPOTIFY_STREAM), 'Track One');
+check('stream/icon-name', al.appIconName(SPOTIFY_STREAM), 'spotify');
+check('stream/app-name-fallback', al.appName({ properties: {}, name: 'pw-play' }), 'pw-play');
+check('stream/title-missing', al.streamTitle({ properties: {} }), '');
+check('stream/title-equals-app', al.streamTitle({ name: 'spotify', properties: { 'application.name': 'Spotify', 'media.name': 'Spotify' } }), '');
+check('stream/app-name-media-casing', al.appName({ name: 'spotify', properties: { 'application.name': 'spotify', 'media.name': 'Spotify' } }), 'Spotify');
+check('stream/title-equals-app-any-case', al.streamTitle({ name: 'spotify', properties: { 'application.name': 'spotify', 'media.name': 'Spotify' } }), '');
+check('stream/icon-missing', al.appIconName({ properties: {} }), '');
+check('stream/icon-binary-fallback', al.appIconName({ properties: { 'application.process.binary': 'firefox' } }), 'firefox');
+check('stream/img-null', [al.appName(null), al.streamTitle(null), al.appIconName(null)], ['', '', '']);
+
+// sortStreams orders by appName case-insensitive, then by id, and returns a
+// new array (the caller's list is left untouched).
+const FIREFOX_71 = { id: 71, properties: { 'application.name': 'Firefox' } };
+const FIREFOX_70 = { id: 70, properties: { 'application.name': 'Firefox' } };
+check('streams/sort-case-insensitive', al.sortStreams([SPOTIFY_STREAM, FIREFOX_71]).map(n => n.id), [71, 80]);
+check('streams/sort-id-tiebreak', al.sortStreams([FIREFOX_71, FIREFOX_70]).map(n => n.id), [70, 71]);
+check('streams/sort-no-mutation', (() => {
+    const input = [SPOTIFY_STREAM, FIREFOX_71];
+    al.sortStreams(input);
+    return input.map(n => n.id);
+})(), [80, 71]);
+check('streams/sort-new-array', al.sortStreams([SPOTIFY_STREAM]) === SPOTIFY_STREAM, false);
+check('streams/sort-null-safe', al.sortStreams([{ id: 9, properties: {} }, null]).map(n => (n ? n.id : -1)), [-1, 9]);
+
 check('volume/round-half-up', al.percentForVolume(0.555), 56);
 check('volume/clamp-high', al.percentForVolume(1.4), 100);
 check('volume/clamp-low', al.percentForVolume(-0.2), 0);
@@ -263,6 +353,15 @@ check('fraction/full', al.volumeFraction(1), 1);
 check('fraction/clamp-high', al.volumeFraction(1.4), 1);
 check('fraction/clamp-low', al.volumeFraction(-0.2), 0);
 check('fraction/nan', al.volumeFraction('nope'), 0);
+
+// indexOfKey is the dropdown's current index over shaped entries ({key, ...}):
+// the first key match wins, an absent key or an empty list reads -1, and a
+// null entry is skipped rather than thrown.
+check('index/match', al.indexOfKey([{ key: 'pebble' }, { key: 'jade' }], 'jade'), 1);
+check('index/no-match', al.indexOfKey([{ key: 'pebble' }, { key: 'jade' }], 'hdmi'), -1);
+check('index/empty', al.indexOfKey([], 'pebble'), -1);
+check('index/duplicate-first', al.indexOfKey([{ key: 'pebble', order: 1 }, { key: 'pebble', order: 2 }], 'pebble'), 0);
+check('index/null-entry', al.indexOfKey([null, { key: 'pebble' }], 'pebble'), 1);
 NODEEOF
 
 # --- 7b. weather plus spotify pure logic: node runs of the shipped modules ---

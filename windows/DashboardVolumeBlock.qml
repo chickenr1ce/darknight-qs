@@ -31,7 +31,8 @@ Card {
                 required property var modelData
 
                 readonly property var sinkNode: modelData.node
-                readonly property int percent: AudioService.percentForVolume(idSinkRow.sinkNode.audio.volume)
+                readonly property var sinkAudio: idSinkRow.sinkNode ? idSinkRow.sinkNode.audio : null
+                readonly property bool sinkMuted: Boolean(idSinkRow.sinkAudio) && idSinkRow.sinkAudio.muted
 
                 spacing: Globals.rowSpacing
 
@@ -41,7 +42,7 @@ Card {
                     Layout.preferredWidth: root.sinkGlyphWidth
                     Layout.alignment: Qt.AlignVCenter
 
-                    text: idSinkRow.sinkNode.audio.muted ? Icons.volumeMute : Icons.volumeHigh
+                    text: idSinkRow.sinkMuted ? Icons.volumeMute : Icons.volumeHigh
                     size: Globals.uiBodySize
                     color: Colors.textSubtle
                 }
@@ -63,38 +64,16 @@ Card {
                     }
                 }
 
-                Slider {
-                    id: idSinkSlider
+                VolumeControl {
+                    id: idSinkVolume
 
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     Layout.alignment: Qt.AlignVCenter
 
-                    from: 0
-                    to: 100
-                    stepSize: 1
-                    value: idSinkRow.percent
+                    node: idSinkRow.sinkNode
+                    showMute: false
                     accessibleName: idSinkRow.modelData.label
-                    onMoved: value => AudioService.setVolume(idSinkRow.sinkNode, value)
-                }
-
-                Text {
-                    id: idSinkValue
-
-                    Layout.preferredWidth: Globals.volumeValueWidth
-                    Layout.alignment: Qt.AlignVCenter
-
-                    horizontalAlignment: Text.AlignRight
-                    textFormat: Text.PlainText
-                    text: idSinkRow.percent + "%"
-                    color: Colors.textSubtle
-
-                    font {
-                        family: Globals.uiFontFamily
-                        pixelSize: Globals.uiCaptionSize
-                        weight: Font.Medium
-                        features: ({ "tnum": 1 })
-                    }
                 }
             }
         }

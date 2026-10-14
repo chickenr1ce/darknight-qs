@@ -16,7 +16,7 @@ When more than one instance is running, pass the pid before `call`
 (`quickshell ipc --pid <pid> call ...`) so the call reaches the intended one;
 `docs/dev/debugging-quickshell.md` covers finding the pid. Most functions return
 a short string that the call prints. The bar-anchored toggles (`calendar`,
-`notifications`, `cava`) answer `ok` when the request reached the bar module and
+`notifications`, `cava`, `audio`) answer `ok` when the request reached the bar module and
 an `error: ...` message when it cannot; `power` is declared `void`, prints
 nothing, and is a no-op when its module is hidden.
 
@@ -49,6 +49,13 @@ nothing, and is a no-op when its module is hidden.
 | --- | --- | --- | --- |
 | `toggle` | — | `ok` / `error: cava module is hidden` | Opens or closes the Cava visualiser panel under the bar's cava module. |
 | `close` | — | `ok` | Closes the panel. |
+
+### `audio`
+
+| Function | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `toggle` | — | `ok` / `error: audio module is hidden` | Opens or closes the audio card under the bar's audio module. |
+| `close` | — | — | Closes the card. Returns nothing. |
 
 ### `dashboard`
 
@@ -105,11 +112,11 @@ output, 100.
 
 ## Placement
 
-- `power`, `calendar`, `notifications`, and `cava` open under their bar trigger
-  on the primary monitor, the same anchor a click uses. The trigger module
-  registers the anchor while it is visible, so a hidden module has nothing to
-  open under: the toggle answers `error: ...` (`calendar`, `notifications`,
-  `cava`) or does nothing (`power`).
+- `power`, `calendar`, `notifications`, `cava`, and `audio` open under their bar
+  trigger on the primary monitor, the same anchor a click uses. The trigger
+  module registers the anchor while it is visible, so a hidden module has
+  nothing to open under: the toggle answers `error: ...` (`calendar`,
+  `notifications`, `cava`, `audio`) or does nothing (`power`).
 - `dashboard` opens on the Hyprland-focused monitor, falling back to the primary
   monitor, then to the first screen. `dashboard settings <section>` opens on the
   same monitor, deep-linked. `dashboard apps` uses the same monitor and is the

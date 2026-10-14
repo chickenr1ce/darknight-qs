@@ -5,7 +5,7 @@ Planned work that is not done yet. Completed plan artifacts are frozen under
 work are in `docs/adr/`; domain terms in `CONTEXT.md`; coding rules in
 `docs/dev/CODING_STANDARDS.md`.
 
-Last updated: 2026-10-12.
+Last updated: 2026-10-14.
 
 ## Open
 
@@ -93,11 +93,18 @@ Build only if it earns daily use.
   (`services/PolkitService.qml` + `windows/PolkitDialog.qml`, B2 "Context
   Runner"), replacing the external `polkit-kde-agent`. ADR 0015; the 2026-08-23
   incident is closed in `docs/incidents/polkit-agent-incident.md`.
-- IPC targets: `power`, `calendar`, `notifications`, `cava`, `dashboard`, `dnd`,
-  and `volume` `IpcHandler`s, with the bar-anchor wiring extracted into
-  `services/BarAnchor.qml` and the per-module trigger adapter into
-  `services/PanelTrigger.qml` so a bar-panel IPC toggle reuses the click path. DND state
-  persists in the `notifications` state file. User page `docs/user/ipc.md`.
+- IPC targets: `power`, `calendar`, `notifications`, `cava`, `audio`,
+  `dashboard`, `dnd`, and `volume` `IpcHandler`s, with the bar-anchor wiring
+  extracted into `services/BarAnchor.qml` and the per-module trigger adapter
+  into `services/PanelTrigger.qml` so a bar-panel IPC toggle reuses the click
+  path. DND state persists in the `notifications` state file. User page
+  `docs/user/ipc.md`.
+- Audio card: right-clicking the bar's audio module opens a floating card
+  (`windows/AudioCenter.qml`) with output, input (default mic, volume, live
+  level meter, "in use by"), and a per-app mixer, replacing `pavucontrol` as
+  the everyday path. Defaults go through `AudioService` with `wpctl
+  set-default`; WirePlumber restores every choice, so the shell adds no state
+  file. ADR 0020; user page `docs/user/audio.md`.
 - Volume OSD: an event-driven level readout (`windows/VolumeOsd.qml`) raised by
   PipeWire volume or mute changes from any source, bottom-center on the focused
   monitor, click-through, and off-switchable in Settings → Audio. ADR 0017.

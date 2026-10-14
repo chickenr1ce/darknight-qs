@@ -130,6 +130,7 @@ Setup and how-to pages live under [`docs/`](docs/README.md). The most used ones:
 - [qs-theme](docs/user/qs-theme.md) and [theme desktop setup](docs/user/theme-desktop-setup.md) for themes and backgrounds.
 - [Polkit](docs/user/polkit.md) for the authentication prompt.
 - [App launcher](docs/user/app-launcher.md) for the dashboard Apps tab.
+- [Audio card](docs/user/audio.md) for output, input, and per-app volume.
 - [IPC targets](docs/user/ipc.md) for keybind-driven panels.
 - [Calendar](docs/user/calendar.md), [weather](docs/user/weather.md), and [Spotify Connect](docs/user/spotify-connect.md) for the optional integrations.
 

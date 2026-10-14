@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE · Audio window (4 variants)</title>
+<!--
+  PROTOTYPE, throwaway. Question: what should the window look like that opens when you right-click the bar's
+  audio module (it launches pavucontrol today, modules/Audio.qml openMixer())? It must hold an app mixer and
+  the current output and input, and the choices must survive a reboot.
+  Switch with ?variant=1..4, or the bottom bar / ← →. Right-click the audio module to open, Esc or click
+  outside to close. Left-click cycles outputs, the wheel steps volume, as the real module does.
+  Persistence is the one thing this prototype checks, so state goes to localStorage under
+  "PROTOTYPE-audio-window" (wipe me). "Simulate reboot" in the state drawer (key S) reloads from it.
+  The real build would split it: default sink/source and device volumes are WirePlumber's job (it already
+  restores them), the shell keeps its own preferences (app order, hidden apps, per-app output pins) in a
+  StateFile, like audio-outputs (ADR 0014).
+  DECISION 2026-10-14: variant 1, as a floating card under the module (no bar junction), like the calendar
+  and cava cards. Checking WirePlumber 0.5 showed it already saves every choice in the card, so the shell keeps
+  no state file of its own. Decision record: docs/adr/0020-audio-card.md.
+  Colors are the darknight palette mapped onto config/Colors.qml tokens.
+-->
+<style>
+:root{
+  --bg:#141118;--bg2:#27222f;--bg0:#0e0c11;--surface:#282936;--text:#cac4d4;--faint:#4f455f;--subtle:#9d93ad;
+  --accent:#b4befe;--purple:#a980db;--red:#ff5252;--green:#a6e3a1;--yellow:#d7d370;--cyan:#94e2d5;--blue:#89b4fa;
+  --accentDim:rgba(180,190,254,.14);
+  --ui:"Geist","Inter",system-ui,sans-serif;--mono:"Iosevka","GeistMono Nerd Font","JetBrains Mono",ui-monospace,monospace;
+  --rp:9px;--rc:6px;--jr:16px;--barH:28px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:var(--ui);font-size:14px;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:default}
+svg{display:block}
+.sp{flex:1}
+
+/* desktop */
+#desk{position:fixed;inset:0;background:
+  radial-gradient(1100px 700px at 78% 88%,color-mix(in srgb,var(--accent) 22%,transparent),transparent 62%),
+  radial-gradient(900px 600px at 8% 18%,color-mix(in srgb,var(--purple) 18%,transparent),transparent 60%),
+  linear-gradient(160deg,var(--bg2),var(--bg))}
+.win{position:absolute;top:48px;bottom:14px;background:var(--bg);border:2px solid var(--surface);border-radius:8px;opacity:.95;overflow:hidden}
+.win.active{border-color:var(--accent)}
+.win pre{margin:0;padding:14px;font-family:var(--mono);font-size:12.5px;line-height:1.65;color:var(--faint)}
+.win pre b{color:var(--accent);font-weight:400}
+
+/* bar: the unified slab */
+#bar{position:fixed;top:4px;left:10px;right:10px;height:var(--barH);background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp);display:flex;align-items:center;padding:0 6px;gap:4px;font-family:var(--mono);font-size:15px;z-index:20}
+#bar.attached{border-bottom-color:var(--bg)}
+.mod{height:22px;display:flex;align-items:center;gap:5px;padding:0 9px;border-radius:5px;color:var(--accent);font-weight:600}
+.mod:hover{background:var(--accentDim)}
+.ws{display:flex;gap:6px;padding:0 6px}.ws i{width:8px;height:8px;border-radius:4px;background:var(--faint)}.ws i.on{width:20px;background:var(--accent)}
+#clock{position:absolute;left:50%;transform:translateX(-50%);color:var(--text)}
+#audioMod.open{background:var(--accentDim)}
+.tip{position:fixed;z-index:30;padding:5px 12px;border-radius:5px;background:var(--bg);border:1px solid var(--surface);font-size:13px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .14s}
+
+/* panel shells */
+#panelHost{position:fixed;z-index:19;top:calc(4px + var(--barH) - 1px)}
+.slab{position:relative;background:var(--bg);border:1px solid var(--surface);border-top:0;border-radius:0 0 var(--rp) var(--rp);animation:drop .18s cubic-bezier(.2,.8,.2,1)}
+.slab::before,.slab::after{content:"";position:absolute;top:0;width:var(--jr);height:var(--jr)}
+.slab::before{left:calc(-1 * var(--jr) - 1px);background:radial-gradient(circle at 0 100%,transparent calc(var(--jr) - 1px),var(--surface) calc(var(--jr) - 1px),var(--surface) var(--jr),var(--bg) var(--jr))}
+.slab::after{right:calc(-1 * var(--jr) - 1px);background:radial-gradient(circle at 100% 100%,transparent calc(var(--jr) - 1px),var(--surface) calc(var(--jr) - 1px),var(--surface) var(--jr),var(--bg) var(--jr))}
+.float{margin-top:9px;background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp);box-shadow:0 14px 40px rgba(0,0,0,.45);animation:drop .14s ease-out}
+@keyframes drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* shared atoms */
+.cap{font-size:12px;color:var(--subtle);letter-spacing:.02em}
+.h{font-size:15px;font-weight:600;color:var(--text)}
+.muted-t{color:var(--faint)!important}
+.tile{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--bg);flex:none}
+.ib{width:26px;height:26px;border-radius:5px;display:grid;place-items:center;color:var(--subtle);flex:none}
+.ib:hover{background:var(--accentDim);color:var(--accent)}
+.ib.on{color:var(--red)}
+.ib svg{width:16px;height:16px}
+.pct{font-family:var(--mono);font-size:13px;color:var(--subtle);width:38px;text-align:right;flex:none}
+.pill{height:24px;padding:0 10px;border-radius:5px;background:var(--bg2);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;color:var(--subtle)}
+.pill:hover{color:var(--text)}
+.pill.on{background:var(--accent);color:var(--bg);font-weight:600}
+.sep{height:1px;background:var(--surface);margin:10px 0}
+.dot{width:6px;height:6px;border-radius:3px;background:var(--green);flex:none}
+.dot.idle{background:var(--faint)}
+
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:18px;margin:0;flex:1;min-width:0;--v:50%}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--accent) var(--v),var(--surface) var(--v))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:7px;background:var(--accent);margin-top:-5px;border:3px solid var(--bg)}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--surface)}
+input[type=range]::-moz-range-progress{height:4px;border-radius:2px;background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:7px;background:var(--accent);border:3px solid var(--bg)}
+input[type=range].m::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--faint) var(--v),var(--surface) var(--v))}
+input[type=range].m::-webkit-slider-thumb{background:var(--faint)}
+input[type=range].m::-moz-range-progress,input[type=range].m::-moz-range-thumb{background:var(--faint)}
+
+select{font:inherit;font-size:13px;color:var(--text);background:var(--bg2);border:1px solid var(--surface);border-radius:5px;height:28px;padding:0 8px;outline:none;min-width:0}
+select:focus{border-color:var(--accent)}
+
+.meter{height:3px;border-radius:2px;background:var(--surface);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--green);transition:width .08s linear}
+
+/* ---------- V1 stacked sheet ---------- */
+.v1{width:400px;padding:14px 16px 12px}
+.v1 .sec{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.v1 .row{display:flex;align-items:center;gap:10px;height:34px}
+.v1 .dev{flex:1;display:flex;align-items:center;gap:8px}
+.v1 .dev select{flex:1}
+.v1 .app .nm{width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px}
+.v1 .app .sub{font-size:11px;color:var(--faint)}
+.v1 .foot{display:flex;align-items:center;gap:8px;margin-top:6px}
+.v1 .meterwrap{margin:2px 0 4px 36px}
+
+/* ---------- V2 mixer board ---------- */
+.v2{padding:12px 14px 14px}
+.v2 .top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.v2 .strips{display:flex;gap:6px}
+.strip{width:78px;border-radius:var(--rc);background:var(--bg2);padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative}
+.strip.master{width:112px;background:color-mix(in srgb,var(--accent) 9%,var(--bg2));outline:1px solid color-mix(in srgb,var(--accent) 28%,transparent)}
+.strip .lbl{font-size:11.5px;text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strip .fwrap{height:170px;display:flex;gap:6px;align-items:stretch}
+.strip input[type=range]{writing-mode:vertical-lr;direction:rtl;height:170px;width:18px;flex:none}
+.strip input[type=range]::-webkit-slider-runnable-track{width:4px;height:auto;background:linear-gradient(0deg,var(--accent) var(--v),var(--surface) var(--v))}
+.strip input[type=range]::-webkit-slider-thumb{margin-top:0;margin-left:-5px;width:16px;height:16px;border-radius:4px}
+.strip input[type=range].m::-webkit-slider-runnable-track{background:linear-gradient(0deg,var(--faint) var(--v),var(--surface) var(--v))}
+.vmeter{width:4px;border-radius:2px;background:var(--surface);position:relative;overflow:hidden}
+.vmeter i{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(0deg,var(--green) 70%,var(--yellow));transition:height .08s linear}
+.strip .gap{width:1px;background:var(--surface);margin:0 4px}
+.strip select{width:100%;font-size:11px;height:22px;padding:0 3px}
+.v2 .divider{width:1px;background:var(--surface);margin:0 6px}
+.v2 .kind{position:absolute;top:-8px;left:8px;font-size:10px;letter-spacing:.06em;color:var(--subtle);background:var(--bg);padding:0 4px;text-transform:uppercase}
+
+/* ---------- V3 tabbed popover ---------- */
+.v3{width:330px}
+.v3 .hd{display:flex;align-items:center;gap:8px;padding:12px 12px 0}
+.v3 .tabs{display:flex;gap:2px;padding:10px 12px 0;border-bottom:1px solid var(--surface)}
+.v3 .tab{padding:6px 10px 8px;font-size:13px;color:var(--subtle);border-bottom:2px solid transparent;margin-bottom:-1px}
+.v3 .tab.on{color:var(--text);border-color:var(--accent)}
+.v3 .tab small{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:4px}
+.v3 .body{padding:8px 8px 10px;min-height:250px}
+.v3 .devrow{border-radius:var(--rc);padding:8px;display:flex;flex-direction:column;gap:6px}
+.v3 .devrow:hover{background:var(--bg2)}
+.v3 .devrow.on{background:var(--accentDim)}
+.v3 .devrow .t{display:flex;align-items:center;gap:8px}
+.v3 .radio{width:14px;height:14px;border-radius:7px;border:2px solid var(--faint);flex:none}
+.v3 .devrow.on .radio{border:4px solid var(--accent)}
+.v3 .devrow .s{display:flex;align-items:center;gap:6px;padding-left:22px}
+.v3 .approw{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--rc)}
+.v3 .approw:hover{background:var(--bg2)}
+.v3 .approw .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.v3 .approw .mid .n{font-size:13px;display:flex;gap:6px;align-items:center}
+.v3 .approw .mid .n span:last-child{color:var(--faint);font-size:11px}
+.v3 .strip0{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--surface)}
+
+/* ---------- V4 routing ---------- */
+.v4{width:640px;padding:12px 14px 14px}
+.v4 .lanes{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:8px}
+.lane{border-radius:var(--rc);background:var(--bg2);padding:10px;display:flex;flex-direction:column;gap:8px;min-height:210px;border:1px dashed transparent;transition:border-color .1s}
+.lane.def{outline:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+.lane.drop{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg2))}
+.lane .lh{display:flex;align-items:center;gap:6px}
+.lane .lh .n{font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lane .defb{font-size:10.5px;padding:2px 6px;border-radius:4px;background:var(--surface);color:var(--subtle)}
+.lane.def .defb{background:var(--accent);color:var(--bg);font-weight:600}
+.chip{background:var(--bg);border:1px solid var(--surface);border-radius:var(--rc);padding:6px 8px;display:flex;flex-direction:column;gap:4px;cursor:grab}
+.chip:active{cursor:grabbing}
+.chip .t{display:flex;align-items:center;gap:6px;font-size:12.5px}
+.chip .t .tile{width:20px;height:20px;font-size:11px;border-radius:5px}
+.chip .s{display:flex;align-items:center;gap:4px}
+.chip .pin{font-size:10px;color:var(--accent)}
+.lane .empty{font-size:12px;color:var(--faint);text-align:center;margin:auto 0}
+.v4 .mic{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;border-radius:var(--rc);background:var(--bg2)}
+.v4 .mic select{width:200px}
+
+/* proto chrome */
+#switcher{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:100;display:flex;align-items:center;gap:4px;background:#fff;color:#111;border-radius:999px;padding:4px;box-shadow:0 8px 30px rgba(0,0,0,.5);font-family:system-ui,sans-serif;font-size:13px}
+#switcher button{width:30px;height:30px;border-radius:15px;color:#111;font-size:16px;cursor:pointer}
+#switcher button:hover{background:#eee}
+#switcher .lab{padding:0 10px;min-width:220px;text-align:center;font-weight:600}
+#switcher .lab small{font-weight:400;color:#666;margin-left:6px}
+#drawer{position:fixed;right:14px;bottom:70px;width:360px;max-height:60vh;z-index:100;background:#fff;color:#111;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);font-family:system-ui,sans-serif;font-size:12px;display:none;flex-direction:column}
+#drawer.on{display:flex}
+#drawer header{display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid #eee;font-weight:600}
+#drawer header button{font-size:12px;padding:3px 8px;border-radius:5px;background:#eee;color:#111;cursor:pointer}
+#drawer pre{margin:0;padding:10px;overflow:auto;font-size:11px;line-height:1.45}
+#drawer .note{padding:8px 10px;border-top:1px solid #eee;color:#555;line-height:1.4}
+#hint{position:fixed;left:14px;bottom:22px;z-index:100;font-family:system-ui,sans-serif;font-size:12px;color:#fff;background:rgba(0,0,0,.45);padding:6px 10px;border-radius:6px}
+#toast{position:fixed;top:44px;right:14px;z-index:50;width:300px;padding:10px 12px;border-radius:var(--rp);background:var(--bg);border:1px solid var(--surface);font-size:13px;display:none}
+</style>
+</head>
+<body>
+<div id="desk">
+  <div class="win active" style="left:12px;width:calc(55% - 18px)"><pre>
+<b>~/.config/quickshell</b> on main
+❯ qs ipc call volume status
+<b>42%</b> · Creative Pebble V3
+
+❯ wpctl status
+ Sinks:
+  *  52. Creative Pebble V3       [vol: 0.42]
+     61. JadeAudio JIEZI          [vol: 0.70]
+     74. HDMI / DisplayPort 2     [vol: 1.00]</pre></div>
+  <div class="win" style="left:55%;right:12px"><pre>
+<b>Spotify</b> — Tycho, Awake
+
+▮▮▮▮▮▮▮▮▮▮▯▯▯▯▯▯  2:41 / 4:43</pre></div>
+</div>
+
+<div id="bar">
+  <div class="ws"><i class="on"></i><i></i><i></i><i></i></div>
+  <div id="clock">Wed 14 Oct  21:07</div>
+  <div class="sp"></div>
+  <div class="mod" style="color:var(--text)">󰻠 12%</div>
+  <div class="mod" id="audioMod"><span id="audioGlyph"></span><span id="audioPct"></span></div>
+  <div class="mod" style="color:var(--text)">⏻</div>
+</div>
+<div class="tip" id="tip"></div>
+<div id="panelHost"></div>
+<div id="toast"></div>
+
+<div id="hint">Right-click the audio module · left-click cycles output · wheel = volume · S = saved state</div>
+<div id="switcher">
+  <button id="prev" title="Previous (←)">‹</button>
+  <div class="lab" id="vlab"></div>
+  <button id="next" title="Next (→)">›</button>
+  <button id="stateBtn" title="Saved state (S)" style="width:auto;padding:0 10px;font-size:12px">state</button>
+</div>
+<div id="drawer">
+  <header>Persisted state <span class="sp"></span><button id="reboot">Simulate reboot</button><button id="reset">Reset</button></header>
+  <pre id="statePre"></pre>
+  <div class="note">Written on every change. "Simulate reboot" reloads the page with the panel closed; everything below should come back. In the real build, <code>defaultSink</code>/<code>defaultSource</code> and device volumes are WirePlumber's (it already restores them); the rest goes to a <code>StateFile</code> named <code>audio-mixer</code>.</div>
+</div>
+
+<script>
+const KEY = "PROTOTYPE-audio-window";
+const VARIANTS = [
+  {k:"1", name:"Stacked sheet (chosen)", pos:"float"},
+  {k:"2", name:"Mixer board", pos:"slab"},
+  {k:"3", name:"Tabbed popover", pos:"float"},
+  {k:"4", name:"Routing lanes", pos:"slab"},
+];
+
+const DEFAULTS = {
+  defaultSink: "alsa_output.usb-Creative_Pebble_V3-00.analog-stereo",
+  defaultSource: "alsa_input.usb-Fifine_K669-00.mono-fallback",
+  sinks: {
+    "alsa_output.usb-Creative_Pebble_V3-00.analog-stereo": {label:"Creative Pebble V3", kind:"speakers", vol:42, muted:false},
+    "alsa_output.usb-JadeAudio_JIEZI-00.analog-stereo": {label:"JadeAudio JIEZI", kind:"headphones", vol:70, muted:false},
+    "alsa_output.pci-0000_01_00.1.hdmi-stereo-extra1": {label:"HDMI / DisplayPort 2", kind:"display", vol:100, muted:false},
+  },
+  sources: {
+    "alsa_input.usb-Fifine_K669-00.mono-fallback": {label:"Fifine K669", vol:80, muted:false},
+    "alsa_input.pci-0000_00_1f.3.analog-stereo": {label:"Built-in Audio", vol:60, muted:false},
+  },
+  // keyed by application.name, so volume and output pin survive the app restarting
+  apps: {
+    "Spotify":  {vol:65, muted:false, pin:null, playing:true,  hue:"#a6e3a1", detail:"Tycho — Awake"},
+    "Firefox":  {vol:100,muted:false, pin:null, playing:true,  hue:"#fab387", detail:"YouTube"},
+    "Hades II": {vol:55, muted:false, pin:"alsa_output.usb-JadeAudio_JIEZI-00.analog-stereo", playing:true, hue:"#ff7a7a", detail:"Game"},
+    "Discord":  {vol:80, muted:false, pin:null, playing:false, hue:"#89b4fa", detail:"Voice · idle", usesMic:true},
+    "System sounds": {vol:30, muted:true, pin:null, playing:false, hue:"#9d93ad", detail:"Notifications"},
+  },
+  hiddenApps: [],
+  v3tab: "out",
+};
+
+let S = load();
+function load(){ try{ const j = JSON.parse(localStorage.getItem(KEY)); if(j) return Object.assign(structuredClone(DEFAULTS), j); }catch(e){} return structuredClone(DEFAULTS); }
+function save(){ localStorage.setItem(KEY, JSON.stringify(S)); renderState(); }
+function persistedView(){
+  const out = {
+    "wireplumber (restores itself)": {
+      defaultSink:S.defaultSink, defaultSource:S.defaultSource,
+      sinkVolumes:Object.fromEntries(Object.entries(S.sinks).map(([k,v])=>[k,{vol:v.vol,muted:v.muted}])),
+      sourceVolumes:Object.fromEntries(Object.entries(S.sources).map(([k,v])=>[k,{vol:v.vol,muted:v.muted}])),
+      streamVolumes:Object.fromEntries(Object.entries(S.apps).map(([k,v])=>[k,{vol:v.vol,muted:v.muted}])),
+    },
+    "~/.local/state/quickshell/audio-mixer": {
+      appPins:Object.fromEntries(Object.entries(S.apps).filter(([,v])=>v.pin).map(([k,v])=>[k,v.pin])),
+      hiddenApps:S.hiddenApps, lastTab:S.v3tab,
+    }
+  };
+  return JSON.stringify(out,null,2);
+}
+
+/* ---- helpers ---- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ICON = {
+  speaker:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>',
+  mute:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>',
+  mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  micOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 10V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 5 2.2M5 11a7 7 0 0 0 11.5 5.4M19 11a7 7 0 0 1-.6 2.8M12 18v3M3 3l18 18"/></svg>',
+  headphones:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>',
+  speakers:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="6" r="1"/></svg>',
+  display:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  eyeOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.9 17.9A10 10 0 0 1 12 20c-7 0-10-8-10-8a18 18 0 0 1 5.1-5.9M9.9 4.2A9 9 0 0 1 12 4c7 0 10 8 10 8a18 18 0 0 1-2.2 3.2M3 3l18 18"/></svg>',
+  ext:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',
+};
+const sinkOf = k => S.sinks[k];
+const curSink = () => S.sinks[S.defaultSink];
+const curSrc = () => S.sources[S.defaultSource];
+const appOut = a => a.pin && S.sinks[a.pin] ? a.pin : S.defaultSink;
+const visibleApps = () => Object.entries(S.apps).filter(([n])=>!S.hiddenApps.includes(n));
+const tile = (n,a,size) => `<div class="tile" style="background:${a.hue}${size?`;width:${size}px;height:${size}px`:""}">${esc(n[0])}</div>`;
+// one slider markup for every variant; data-k is a path into S
+const slider = (k, v, muted, extra="") => `<input type="range" min="0" max="100" value="${v}" data-k="${k}" class="${muted?"m":""}" style="--v:${v}%" ${extra}>`;
+const pct = (k,v) => `<span class="pct" data-show="${k}">${v}%</span>`;
+const muteBtn = (k, muted, mic) => `<button class="ib ${muted?"on":""}" data-mute="${k}" title="${muted?"Unmute":"Mute"}">${mic?(muted?ICON.micOff:ICON.mic):(muted?ICON.mute:ICON.speaker)}</button>`;
+const sinkOptions = sel => Object.entries(S.sinks).map(([k,v])=>`<option value="${esc(k)}" ${k===sel?"selected":""}>${esc(v.label)}</option>`).join("");
+const srcOptions = sel => Object.entries(S.sources).map(([k,v])=>`<option value="${esc(k)}" ${k===sel?"selected":""}>${esc(v.label)}</option>`).join("");
+function getPath(k){ const [kind,id,f] = k.split("|"); const o = kind==="sink"?S.sinks:kind==="src"?S.sources:S.apps; return [o[id], f||"vol"]; }
+
+/* ---------- V1 stacked sheet ---------- */
+function V1(){
+  const sk = S.defaultSink, s = curSink(), rk = S.defaultSource, r = curSrc();
+  const micUser = Object.entries(S.apps).find(([,a])=>a.usesMic);
+  return `<div class="v1">
+    <div class="sec"><span class="h">Output</span><span class="sp"></span><button class="ib" title="Open pavucontrol">${ICON.ext}</button></div>
+    <div class="row"><div class="dev"><span class="ib" style="color:var(--accent)">${ICON[s.kind]}</span><select data-sink>${sinkOptions(sk)}</select></div></div>
+    <div class="row">${muteBtn("sink|"+sk+"|muted", s.muted)}${slider("sink|"+sk, s.vol, s.muted)}${pct("sink|"+sk, s.vol)}</div>
+    <div class="sep"></div>
+    <div class="sec"><span class="h">Input</span><span class="sp"></span>${micUser?`<span class="cap">in use by ${esc(micUser[0])}</span>`:""}</div>
+    <div class="row"><div class="dev"><span class="ib" style="color:var(--accent)">${ICON.mic}</span><select data-src>${srcOptions(rk)}</select></div></div>
+    <div class="row">${muteBtn("src|"+rk+"|muted", r.muted, true)}${slider("src|"+rk, r.vol, r.muted)}${pct("src|"+rk, r.vol)}</div>
+    <div class="meterwrap"><div class="meter"><i data-meter="mic"></i></div></div>
+    <div class="sep"></div>
+    <div class="sec"><span class="h">Apps</span><span class="sp"></span><span class="cap">${visibleApps().length} streams</span></div>
+    ${visibleApps().map(([n,a])=>`<div class="row app">
+      ${tile(n,a)}
+      <div style="width:96px;display:flex;flex-direction:column"><span class="nm ${a.muted?"muted-t":""}">${esc(n)}</span><span class="sub">${a.pin&&a.pin!==S.defaultSink?"→ "+esc(sinkOf(a.pin).label):esc(a.detail)}</span></div>
+      ${slider("app|"+n, a.vol, a.muted)}${pct("app|"+n, a.vol)}${muteBtn("app|"+n+"|muted", a.muted)}
+    </div>`).join("")}
+    ${S.hiddenApps.length?`<div class="foot"><span class="cap">${S.hiddenApps.length} hidden</span><button class="pill" data-unhide>show all</button></div>`:""}
+  </div>`;
+}
+
+/* ---------- V2 mixer board ---------- */
+function V2(){
+  const sk = S.defaultSink, s = curSink(), rk = S.defaultSource, r = curSrc();
+  const strip = (cls, label, sub, k, v, muted, meterKey, extra="", mic=false) => `<div class="strip ${cls}">
+      ${extra}
+      <div class="lbl ${muted?"muted-t":""}" title="${esc(label)}">${label}</div>
+      <div class="fwrap">${slider(k, v, muted)}<div class="vmeter"><i data-meter="${meterKey}"></i></div></div>
+      <span class="pct" data-show="${k}" style="width:auto">${v}%</span>
+      ${muteBtn(k+"|muted", muted, mic)}
+      ${sub}
+    </div>`;
+  return `<div class="v2">
+    <div class="top"><span class="h">Mixer</span><span class="cap">· drag faders, pick the device under each master</span><span class="sp"></span><button class="ib" title="Open pavucontrol">${ICON.ext}</button></div>
+    <div class="strips">
+      ${strip("master", "Output", `<select data-sink title="Output device">${sinkOptions(sk)}</select>`, "sink|"+sk, s.vol, s.muted, "out", `<span class="kind">master</span>`)}
+      ${strip("master", "Input", `<select data-src title="Input device">${srcOptions(rk)}</select>`, "src|"+rk, r.vol, r.muted, "mic", "", true)}
+      <div class="divider"></div>
+      ${visibleApps().map(([n,a])=>strip("", `${esc(n)}`, `<select data-pin="${esc(n)}" title="Send to">${`<option value="">→ default</option>`+Object.entries(S.sinks).map(([k,v])=>`<option value="${esc(k)}" ${a.pin===k?"selected":""}>→ ${esc(v.label)}</option>`).join("")}</select>`,
+        "app|"+n, a.vol, a.muted, "app:"+n, `<div style="margin-bottom:-2px">${tile(n,a,24)}</div>`)).join("")}
+    </div>
+  </div>`;
+}
+
+/* ---------- V3 tabbed popover ---------- */
+function V3(){
+  const t = S.v3tab;
+  const tabs = [["out","Output",Object.keys(S.sinks).length],["in","Input",Object.keys(S.sources).length],["apps","Apps",visibleApps().length]];
+  let body = "";
+  if(t==="out") body = Object.entries(S.sinks).map(([k,v])=>`<div class="devrow ${k===S.defaultSink?"on":""}" data-setsink="${esc(k)}">
+      <div class="t"><span class="radio"></span><span class="ib" style="width:20px;height:20px">${ICON[v.kind]}</span><span style="font-size:13.5px;flex:1">${esc(v.label)}</span>${k===S.defaultSink?`<span class="cap">default</span>`:""}</div>
+      <div class="s">${muteBtn("sink|"+k+"|muted", v.muted)}${slider("sink|"+k, v.vol, v.muted)}${pct("sink|"+k, v.vol)}</div></div>`).join("");
+  if(t==="in") body = Object.entries(S.sources).map(([k,v])=>`<div class="devrow ${k===S.defaultSource?"on":""}" data-setsrc="${esc(k)}">
+      <div class="t"><span class="radio"></span><span class="ib" style="width:20px;height:20px">${ICON.mic}</span><span style="font-size:13.5px;flex:1">${esc(v.label)}</span>${k===S.defaultSource?`<span class="cap">default</span>`:""}</div>
+      <div class="s">${muteBtn("src|"+k+"|muted", v.muted, true)}${slider("src|"+k, v.vol, v.muted)}${pct("src|"+k, v.vol)}</div>
+      ${k===S.defaultSource?`<div class="s"><span style="width:26px"></span><div class="meter" style="flex:1"><i data-meter="mic"></i></div><span class="pct"></span></div>`:""}</div>`).join("")
+      + `<div class="cap" style="padding:8px">Recording: Discord</div>`;
+  if(t==="apps") body = visibleApps().map(([n,a])=>`<div class="approw">
+      ${tile(n,a)}
+      <div class="mid"><div class="n"><span class="dot ${a.playing?"":"idle"}"></span><span class="${a.muted?"muted-t":""}">${esc(n)}</span><span>${esc(a.detail)}</span></div>
+        <div style="display:flex;align-items:center;gap:6px">${slider("app|"+n, a.vol, a.muted)}${pct("app|"+n, a.vol)}</div></div>
+      ${muteBtn("app|"+n+"|muted", a.muted)}
+      <button class="ib" data-hide="${esc(n)}" title="Hide from mixer">${ICON.eyeOff}</button></div>`).join("")
+      + (S.hiddenApps.length?`<div style="padding:6px 8px"><button class="pill" data-unhide>${S.hiddenApps.length} hidden · show</button></div>`:"");
+  const s = curSink();
+  return `<div class="v3">
+    <div class="hd"><span class="h">Sound</span><span class="sp"></span><button class="ib" title="Open pavucontrol">${ICON.ext}</button></div>
+    <div class="tabs">${tabs.map(([k,l,c])=>`<button class="tab ${t===k?"on":""}" data-tab="${k}">${l}<small>${c}</small></button>`).join("")}</div>
+    <div class="body">${body}</div>
+    <div class="strip0">${muteBtn("sink|"+S.defaultSink+"|muted", s.muted)}<span style="font-size:12.5px;width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.label)}</span>${slider("sink|"+S.defaultSink, s.vol, s.muted)}${pct("sink|"+S.defaultSink, s.vol)}</div>
+  </div>`;
+}
+
+/* ---------- V4 routing lanes ---------- */
+function V4(){
+  const sinks = Object.entries(S.sinks);
+  const rk = S.defaultSource, r = curSrc();
+  return `<div class="v4">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span class="h">Audio</span><span class="cap">· drag an app onto an output to send it there (pins survive reboot) · click "default" to switch</span><span class="sp"></span><button class="ib">${ICON.ext}</button></div>
+    <div class="lanes" style="--n:${sinks.length}">
+      ${sinks.map(([k,v])=>{
+        const apps = visibleApps().filter(([,a])=>appOut(a)===k);
+        return `<div class="lane ${k===S.defaultSink?"def":""}" data-lane="${esc(k)}">
+          <div class="lh"><span class="ib" style="width:20px;height:20px;color:var(--accent)">${ICON[v.kind]}</span><span class="n">${esc(v.label)}</span><button class="defb" data-setsink="${esc(k)}">default</button></div>
+          <div style="display:flex;align-items:center;gap:4px">${muteBtn("sink|"+k+"|muted", v.muted)}${slider("sink|"+k, v.vol, v.muted)}${pct("sink|"+k, v.vol)}</div>
+          <div class="meter"><i data-meter="lane:${esc(k)}"></i></div>
+          ${apps.length?apps.map(([n,a])=>`<div class="chip" draggable="true" data-drag="${esc(n)}">
+              <div class="t">${tile(n,a)}<span class="${a.muted?"muted-t":""}" style="flex:1">${esc(n)}</span>${a.pin?`<span class="pin" title="Pinned here">pinned</span>`:""}<span class="dot ${a.playing?"":"idle"}"></span></div>
+              <div class="s">${muteBtn("app|"+n+"|muted", a.muted)}${slider("app|"+n, a.vol, a.muted)}${pct("app|"+n, a.vol)}</div></div>`).join("")
+            :`<div class="empty">drop an app here</div>`}
+        </div>`;}).join("")}
+    </div>
+    <div class="mic">
+      <span class="ib" style="color:var(--accent)">${ICON.mic}</span><select data-src>${srcOptions(rk)}</select>
+      ${muteBtn("src|"+rk+"|muted", r.muted, true)}${slider("src|"+rk, r.vol, r.muted)}${pct("src|"+rk, r.vol)}
+      <div class="meter" style="width:80px"><i data-meter="mic"></i></div>
+    </div>
+  </div>`;
+}
+
+const RENDER = {"1":V1,"2":V2,"3":V3,"4":V4};
+
+/* ---------- shell ---------- */
+let variant = new URLSearchParams(location.search).get("variant") || "1";
+if(!RENDER[variant]) variant = "1";
+let open = false;
+
+function renderBar(){
+  const s = curSink();
+  $("#audioGlyph").textContent = s.muted ? "󰖁" : "󰕾";
+  $("#audioPct").textContent = s.vol + "%";
+  $("#audioMod").classList.toggle("open", open);
+  if(open) $("#tip").style.opacity = 0;
+  $("#bar").classList.toggle("attached", open && VARIANTS.find(v=>v.k===variant).pos==="slab");
+}
+function renderPanel(){
+  const host = $("#panelHost");
+  if(!open){ host.innerHTML = ""; renderBar(); return; }
+  const v = VARIANTS.find(v=>v.k===variant);
+  host.innerHTML = `<div class="${v.pos}">${RENDER[variant]()}</div>`;
+  // centre under the module, clamped to the screen like PanelShell.clampLeft
+  const m = $("#audioMod").getBoundingClientRect();
+  const w = host.firstElementChild.offsetWidth;
+  const left = Math.max(10 + (v.pos==="slab"?16:0), Math.min(innerWidth - 10 - w - (v.pos==="slab"?16:0), m.left + m.width/2 - w/2));
+  host.style.left = left + "px";
+  renderBar();
+}
+function render(){ renderPanel(); $("#vlab").innerHTML = `${variant} · ${VARIANTS.find(v=>v.k===variant).name}<small>${variant}/${VARIANTS.length}</small>`; }
+function renderState(){ $("#statePre").textContent = persistedView(); }
+
+function setVariant(k){ variant = k; const u = new URL(location); u.searchParams.set("variant", k); history.replaceState(null,"",u); render(); }
+function step(d){ const i = VARIANTS.findIndex(v=>v.k===variant); setVariant(VARIANTS[(i+d+VARIANTS.length)%VARIANTS.length].k); }
+
+function toast(msg){ const t = $("#toast"); t.innerHTML = msg; t.style.display="block"; clearTimeout(t._h); t._h = setTimeout(()=>t.style.display="none", 1800); }
+
+/* bar module: same bindings as modules/Audio.qml */
+const mod = $("#audioMod");
+mod.addEventListener("contextmenu", e => { e.preventDefault(); clearTimeout(mod._h); $("#tip").style.opacity = 0; open = !open; render(); });
+mod.addEventListener("click", () => {
+  const ks = Object.keys(S.sinks); S.defaultSink = ks[(ks.indexOf(S.defaultSink)+1)%ks.length];
+  toast(`<b>Audio Switched</b><br><span style="color:var(--subtle)">Output: ${esc(curSink().label)}</span>`); save(); render();
+});
+mod.addEventListener("wheel", e => { e.preventDefault(); const s = curSink(); s.vol = Math.max(0, Math.min(100, s.vol + (e.deltaY<0?5:-5))); save(); render(); }, {passive:false});
+mod.addEventListener("mouseenter", () => { const t = $("#tip"); t.textContent = curSink().label; const r = mod.getBoundingClientRect(); t.style.left = (r.left + r.width/2 - 70) + "px"; t.style.top = (r.bottom + 10) + "px"; mod._h = setTimeout(()=>{ if(!open) t.style.opacity = 1; }, 500); });
+mod.addEventListener("mouseleave", () => { clearTimeout(mod._h); $("#tip").style.opacity = 0; });
+
+document.addEventListener("mousedown", e => {
+  if(!open) return;
+  if(e.target.closest("#panelHost,#audioMod,#switcher,#drawer")) return;
+  open = false; render();
+});
+
+/* panel interactions, delegated */
+const host = $("#panelHost");
+host.addEventListener("input", e => {
+  const el = e.target;
+  if(el.matches("input[type=range]")){
+    const [o,f] = getPath(el.dataset.k); o[f] = +el.value;
+    document.querySelectorAll(`[data-k="${CSS.escape(el.dataset.k)}"]`).forEach(x=>{ if(x!==el) x.value = el.value; x.style.setProperty("--v", el.value+"%"); });
+    document.querySelectorAll(`[data-show="${CSS.escape(el.dataset.k)}"]`).forEach(x=>x.textContent = el.value+"%");
+    save(); renderBar();
+  }
+});
+host.addEventListener("change", e => {
+  const el = e.target;
+  if(el.matches("[data-sink]")) S.defaultSink = el.value;
+  else if(el.matches("[data-src]")) S.defaultSource = el.value;
+  else if(el.matches("[data-pin]")) S.apps[el.dataset.pin].pin = el.value || null;
+  else return;
+  save(); render();
+});
+host.addEventListener("click", e => {
+  const b = e.target.closest("[data-mute],[data-tab],[data-hide],[data-unhide],[data-setsink],[data-setsrc]");
+  if(!b) return;
+  if(b.dataset.mute){ const [o,f] = getPath(b.dataset.mute); o[f] = !o[f]; }
+  else if(b.dataset.tab) S.v3tab = b.dataset.tab;
+  else if(b.dataset.hide) S.hiddenApps.push(b.dataset.hide);
+  else if(b.hasAttribute("data-unhide")) S.hiddenApps = [];
+  else if(b.dataset.setsink){ if(e.target.closest("input,button:not([data-setsink])")) return; S.defaultSink = b.dataset.setsink; }
+  else if(b.dataset.setsrc){ if(e.target.closest("input,button")) return; S.defaultSource = b.dataset.setsrc; }
+  save(); render();
+});
+/* V4 drag an app onto an output lane = pin it there; onto the default lane = unpin */
+host.addEventListener("dragstart", e => { const c = e.target.closest("[data-drag]"); if(c) e.dataTransfer.setData("text/plain", c.dataset.drag); });
+host.addEventListener("dragover", e => { const l = e.target.closest("[data-lane]"); if(l){ e.preventDefault(); host.querySelectorAll(".lane").forEach(x=>x.classList.toggle("drop", x===l)); } });
+host.addEventListener("dragleave", e => { if(!e.relatedTarget || !host.contains(e.relatedTarget)) host.querySelectorAll(".lane").forEach(x=>x.classList.remove("drop")); });
+host.addEventListener("drop", e => {
+  const l = e.target.closest("[data-lane]"); if(!l) return; e.preventDefault();
+  const n = e.dataTransfer.getData("text/plain"); const k = l.dataset.lane;
+  S.apps[n].pin = k === S.defaultSink ? null : k; save(); render();
+});
+
+/* fake level meters so idle vs playing reads at a glance */
+setInterval(() => {
+  if(!open) return;
+  const lvl = a => a.playing && !a.muted ? (0.35 + Math.random()*0.6) * a.vol : 0;
+  host.querySelectorAll("[data-meter]").forEach(el => {
+    const m = el.dataset.meter; let v = 0;
+    if(m==="mic"){ const r = curSrc(); v = r.muted ? 0 : (Math.random()<.5 ? Math.random()*r.vol*.8 : Math.random()*12); }
+    else if(m==="out"){ const s = curSink(); v = s.muted ? 0 : Math.max(0,...visibleApps().filter(([,a])=>appOut(a)===S.defaultSink).map(([,a])=>lvl(a))) * s.vol/100; }
+    else if(m.startsWith("lane:")){ const k = m.slice(5), s = S.sinks[k]; v = s.muted ? 0 : Math.max(0,...visibleApps().filter(([,a])=>appOut(a)===k).map(([,a])=>lvl(a))) * s.vol/100; }
+    else if(m.startsWith("app:")){ v = lvl(S.apps[m.slice(4)]); }
+    if(el.parentElement.classList.contains("vmeter")) el.style.height = v + "%"; else el.style.width = v + "%";
+  });
+}, 110);
+
+/* proto chrome */
+$("#prev").onclick = () => step(-1);
+$("#next").onclick = () => step(1);
+$("#stateBtn").onclick = () => $("#drawer").classList.toggle("on");
+$("#reboot").onclick = () => { sessionStorage.setItem(KEY+"-rebooted","1"); location.reload(); };
+$("#reset").onclick = () => { localStorage.removeItem(KEY); S = load(); save(); render(); };
+document.addEventListener("keydown", e => {
+  if(e.target.closest("input,textarea,select,[contenteditable]")) return;
+  if(e.key==="ArrowLeft"){ e.preventDefault(); step(-1); }
+  else if(e.key==="ArrowRight"){ e.preventDefault(); step(1); }
+  else if(e.key==="Escape"){ open = false; render(); }
+  else if(e.key.toLowerCase()==="s") $("#drawer").classList.toggle("on");
+});
+
+render(); renderState();
+if(sessionStorage.getItem(KEY+"-rebooted")){ sessionStorage.removeItem(KEY+"-rebooted"); $("#drawer").classList.add("on"); toast("<b>Rebooted</b><br><span style='color:var(--subtle)'>State restored from disk. Right-click the audio module.</span>"); }
+</script>
+</body>
+</html>

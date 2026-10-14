@@ -14,11 +14,21 @@ Singleton {
 
     readonly property PwNode defaultSink: Pipewire.defaultAudioSink
 
+    readonly property PwNode defaultSource: Pipewire.defaultAudioSource
+
+    readonly property PanelState panelState: idPanelState
+
+    readonly property BarAnchor barAnchor: idBarAnchor
+
     property var hiddenKeys: []
     property var orderKeys: []
     property bool osdEnabled: true
 
+    readonly property var pipewireNodes: Pipewire.nodes && Pipewire.nodes.values ? Pipewire.nodes.values : []
+
     readonly property var sinkNodes: root.orderedNodes(root.discoveredSinkNodes, root.orderKeys)
+
+    readonly property var sourceNodes: root.orderedNodes(root.discoveredSourceNodes, [])
 
     readonly property var sinks: {
         const out = [];
@@ -39,13 +49,51 @@ Singleton {
     }
 
     readonly property var discoveredSinkNodes: {
-        const values = Pipewire.nodes && Pipewire.nodes.values ? Pipewire.nodes.values : [];
+        const nodes = root.pipewireNodes;
         const out = [];
-        for (let i = 0; i < values.length; i++) {
-            if (root.isSinkNode(values[i]))
-                out.push(values[i]);
+        for (let i = 0; i < nodes.length; i++) {
+            root.retainNodeState(nodes[i]);
+            if (root.isSinkNode(nodes[i]))
+                out.push(nodes[i]);
         }
         return out;
+    }
+
+    readonly property var discoveredSourceNodes: {
+        const nodes = root.pipewireNodes;
+        const out = [];
+        for (let i = 0; i < nodes.length; i++) {
+            root.retainNodeState(nodes[i]);
+            if (root.isSourceNode(nodes[i]))
+                out.push(nodes[i]);
+        }
+        return out;
+    }
+
+    readonly property var sources: {
+        const out = [];
+        const nodes = root.sourceNodes;
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            out.push({
+                node: node,
+                key: root.keyFor(node),
+                label: root.rawLabelFor(node),
+                isDefault: root.isDefaultSourceNode(node)
+            });
+        }
+        return out;
+    }
+
+    readonly property var appStreams: {
+        const nodes = root.pipewireNodes;
+        const out = [];
+        for (let i = 0; i < nodes.length; i++) {
+            root.retainNodeState(nodes[i]);
+            if (root.isAppStream(nodes[i]))
+                out.push(nodes[i]);
+        }
+        return root.sortStreams(out);
     }
 
     onHiddenKeysChanged: root.persist()
@@ -61,7 +109,64 @@ Singleton {
     }
 
     PwObjectTracker {
-        objects: root.sinkNodes
+        // A node's properties map (media.class, application.name) stays empty
+        // until the node is bound, and a virtual source is not typed as an audio
+        // node, so discovery and the "in use by" list need every node bound.
+        objects: root.pipewireNodes
+    }
+
+    CoalescedRun {
+        id: idAudioDefaultSinkRun
+
+        process: idAudioDefaultSinkProcess
+
+        starter: nodeId => {
+            idAudioDefaultSinkProcess.command = ["wpctl", "set-default", String(nodeId)];
+            idAudioDefaultSinkProcess.running = true;
+        }
+    }
+
+    Process {
+        id: idAudioDefaultSinkProcess
+
+        onExited: code => idAudioDefaultSinkRun.finished(code === 0)
+    }
+
+    CoalescedRun {
+        id: idAudioDefaultSourceRun
+
+        process: idAudioDefaultSourceProcess
+
+        starter: nodeId => {
+            idAudioDefaultSourceProcess.command = ["wpctl", "set-default", String(nodeId)];
+            idAudioDefaultSourceProcess.running = true;
+        }
+    }
+
+    Process {
+        id: idAudioDefaultSourceProcess
+
+        onExited: code => idAudioDefaultSourceRun.finished(code === 0)
+    }
+
+    PanelState {
+        id: idPanelState
+    }
+
+    BarAnchor {
+        id: idBarAnchor
+    }
+
+    IpcHandler {
+        target: "audio"
+
+        function toggle(): string {
+            return idBarAnchor.requestToggle() ? "ok" : "error: audio module is hidden";
+        }
+
+        function close(): void {
+            idPanelState.closeFromOutside();
+        }
     }
 
     IpcHandler {
@@ -92,8 +197,24 @@ Singleton {
         }
     }
 
+    // PwNodeIface notifies only `properties` and `ready`; every other node
+    // property is constant, so a discovery binding that reads a class flag
+    // alone records no dependency on that node. Reading both here, for every
+    // node, subscribes each discovery binding (the JS engine captures these
+    // reads into its caller) to the state that can change a node's class.
+    function retainNodeState(node): void {
+        if (!node)
+            return;
+        void node.properties;
+        void node.ready;
+    }
+
     function isSinkNode(node): bool {
         return AudioLogic.isSinkNode(node);
+    }
+
+    function isSourceNode(node): bool {
+        return AudioLogic.isSourceNode(node);
     }
 
     function keyFor(node): string {
@@ -104,12 +225,40 @@ Singleton {
         return AudioLogic.rawLabelFor(node);
     }
 
+    function appName(node): string {
+        return AudioLogic.appName(node);
+    }
+
+    function isAppStream(node): bool {
+        return AudioLogic.isAppStream(node);
+    }
+
+    function streamTitle(node): string {
+        return AudioLogic.streamTitle(node);
+    }
+
+    function appIconName(node): string {
+        return AudioLogic.appIconName(node);
+    }
+
+    function sortStreams(nodes): var {
+        return AudioLogic.sortStreams(nodes);
+    }
+
+    function captureAppNames(linkGroups): var {
+        return AudioLogic.captureAppNames(linkGroups);
+    }
+
     function isHidden(node): bool {
         return root.hiddenKeys.indexOf(root.keyFor(node)) !== -1;
     }
 
     function isDefaultNode(node): bool {
         return Boolean(node) && Boolean(root.defaultSink) && node.id === root.defaultSink.id;
+    }
+
+    function isDefaultSourceNode(node): bool {
+        return Boolean(node) && Boolean(root.defaultSource) && node.id === root.defaultSource.id;
     }
 
     function orderedNodes(nodes, orderKeys): var {
@@ -154,6 +303,10 @@ Singleton {
         return out;
     }
 
+    function indexOfKey(entries, key): int {
+        return AudioLogic.indexOfKey(entries, key);
+    }
+
     function percentForVolume(volume): int {
         return AudioLogic.percentForVolume(volume);
     }
@@ -170,8 +323,22 @@ Singleton {
         return AudioLogic.volumeFraction(volume);
     }
 
-    function volumeGlyph(audioNode): string {
-        return audioNode === null ? Icons.volumeOff : (audioNode.muted ? Icons.volumeMute : Icons.volumeHigh);
+    function volumeGlyph(audioNode, micGlyphs = false): string {
+        if (!audioNode)
+            return micGlyphs ? Icons.micOff : Icons.volumeOff;
+        if (audioNode.muted)
+            return micGlyphs ? Icons.micOff : Icons.volumeMute;
+        return micGlyphs ? Icons.mic : Icons.volumeHigh;
+    }
+
+    function setDefaultSink(node): void {
+        if (node)
+            idAudioDefaultSinkRun.request(node.id);
+    }
+
+    function setDefaultSource(node): void {
+        if (node)
+            idAudioDefaultSourceRun.request(node.id);
     }
 
     function setVolume(node, percent): void {

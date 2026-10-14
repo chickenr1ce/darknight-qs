@@ -123,6 +123,7 @@ ShellRoot {
                 }
                 Audio {
                     monitorName: idPanelWindow.monitorName
+                    triggerScreen: idPanelWindow.modelData
                 }
                 Notifications {
                     monitorName: idPanelWindow.monitorName
@@ -172,6 +173,8 @@ ShellRoot {
     CalendarCenter {}
 
     CavaCenter {}
+
+    AudioCenter {}
 
     PowerCenter {}
 

@@ -11,11 +11,12 @@ ModuleBox {
     id: root
 
     property string monitorName: ""
+    property ShellScreen triggerScreen: null
     property bool tooltipArmed: false
     visible: BarVisibilityService.isVisible("audio") && Globals.onPrimaryMonitor(root.monitorName)
 
     readonly property PwNode defaultSink: Pipewire.defaultAudioSink
-    readonly property bool tooltipShown: root.isHovered && root.tooltipArmed
+    readonly property bool tooltipShown: root.isHovered && root.tooltipArmed && !AudioService.panelState.visible
     readonly property int tooltipAnimMs: Globals.reducedMotion ? 0 : Globals.hoverMs
     readonly property string currentOutputName: root.defaultSink ? AudioService.rawLabelFor(root.defaultSink) : qsTr("No output")
 
@@ -25,7 +26,7 @@ ModuleBox {
 
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton)
-            openMixer();
+            idAudioTrigger.toggle();
         else
             cycleAudioSink();
     }
@@ -60,19 +61,11 @@ ModuleBox {
         const next = sinks[(currentIndex + 1) % sinks.length];
         if (AudioService.isDefaultNode(next.node))
             return;
-        if (!idAudioSetDefaultProcess.running) {
-            idAudioSetDefaultProcess.command = ["wpctl", "set-default", String(next.node.id)];
-            idAudioSetDefaultProcess.running = true;
-        }
+        AudioService.setDefaultSink(next.node);
         if (!idAudioNotifyProcess.running) {
             idAudioNotifyProcess.command = ["notify-send", "Audio Switched", `Output: ${next.label}`];
             idAudioNotifyProcess.running = true;
         }
-    }
-
-    function openMixer(): void {
-        idAudioMixerProcess.command = ["pavucontrol"];
-        idAudioMixerProcess.running = true;
     }
 
     Row {
@@ -103,6 +96,16 @@ ModuleBox {
                 weight: Font.DemiBold
             }
         }
+    }
+
+    PanelTrigger {
+        id: idAudioTrigger
+
+        anchor: AudioService.barAnchor
+        panelState: AudioService.panelState
+        trigger: root
+        triggerScreen: root.triggerScreen
+        active: root.visible
     }
 
     PwObjectTracker {
@@ -242,12 +245,6 @@ ModuleBox {
     }
 
     Process {
-        id: idAudioSetDefaultProcess
-    }
-    Process {
         id: idAudioNotifyProcess
-    }
-    Process {
-        id: idAudioMixerProcess
     }
 }

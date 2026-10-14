@@ -132,6 +132,9 @@ QtObject {
     readonly property int volumeLabelWidth: 84
     readonly property int volumeValueWidth: 40
     readonly property int volumeStep: 5
+    readonly property int meterHeight: 3
+    readonly property int mixerIconSize: 28
+    readonly property int mixerLabelWidth: 96
     readonly property int usageDetailWidth: 68
     readonly property int listSpacing: 6
     readonly property int rowSpacing: 8

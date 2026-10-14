@@ -31,6 +31,8 @@ QtObject {
     readonly property string volumeHigh: "󰕾"  // md-volume_high U+F057E
     readonly property string volumeMute: "󰝟"  // md-volume_mute U+F075F
     readonly property string volumeOff: "󰖁"  // md-volume_off U+F0581
+    readonly property string mic: "󰍬"  // md-microphone U+F036C
+    readonly property string micOff: "󰍭"  // md-microphone_off U+F036D
     readonly property string bell: "󰂚"  // md-bell U+F009A
     readonly property string bellBadge: "󱅫"  // md-bell_badge U+F116B
     readonly property string bellOffOutline: "󰪑"  // md-bell_off_outline U+F0A91
@@ -47,7 +49,10 @@ QtObject {
     readonly property string logout: "󰍃"  // md-logout U+F0343
     readonly property string restart: "󰜉"  // md-restart U+F0709
     readonly property string windows: "󰍲"  // md-microsoft U+F0372
-    readonly property string open: "󰏌"  // md-open_in_new U+F03CC
+    readonly property string openExternal: "󰏌"  // md-open_in_new U+F03CC
+    // Named alias: AppLogic.menuGlyphKey maps the launcher's Open item to the
+    // "open" key, which AppService resolves through Icons[key].
+    readonly property string open: root.openExternal
     readonly property string openInApp: "󰏋"  // md-open_in_app U+F03CB
     readonly property string copy: "󰆏"  // md-content_copy U+F018F
     readonly property string eyeOff: "󰈉"  // md-eye_off U+F0209
