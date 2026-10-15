@@ -356,8 +356,9 @@ best-effort whenever a Spicetify file's bytes change; it never runs
 appear on the **next Spotify start**, not live. When Spicetify's config directory
 is absent, the target logs `spicetify: not installed` and skips as success (the
 run still exits zero), unlike a broken template, which fails the run. Switching
-Spicetify off in Themed apps renders the theme's own `[Spicetify]` default colors
-into `color.ini` and still writes `user.css`, which is the theme's layout, not a
+Spicetify off in Themed apps renders the `text` theme's DarkNight colors (a
+color option the pinned template does not ship) into the `Quickshell` option of
+`color.ini` and still writes `user.css`, which is the theme's layout, not a
 color layer.
 
 ## Verify

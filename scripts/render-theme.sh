@@ -538,41 +538,54 @@ def render_firefox(enabled):
 # Spicetify config (selection stays a manual step). An absent config root means
 # there is no Spicetify to recolor, so the target skips as success. After a real
 # byte change it refreshes the client best-effort; it never runs the
-# version-gated restore command, which force-restarts Spotify.
+# version-gated restore command, which force-restarts Spotify. Disabled, the
+# [Quickshell] option carries the DarkNight colors instead of the palette.
 SPICETIFY_COLOR_TEMPLATE = "spicetify-color.ini"
 SPICETIFY_USER_TEMPLATE = "spicetify-user.css"
 
 
-def spicetify_theme():
-    """The vendored color.ini text and its own [Spicetify] default values.
+# The colors a disabled target renders into [Quickshell]: the `text` theme's
+# DarkNight color option, which the pinned template does not ship. Values are
+# from the upstream theme's DarkNight scheme as installed through Marketplace
+# (repo metadata lastUpdated 2026-01-18, read 2026-10-15). The disabled test in
+# scripts/test-panel-logic.sh mirrors them.
+SPICETIFY_DISABLED_SCHEME = {
+    "accent": "a980db",
+    "accent-active": "a980db",
+    "accent-inactive": "141118",
+    "banner": "a980db",
+    "border-active": "a980db",
+    "border-inactive": "262429",
+    "header": "262429",
+    "highlight": "24283b",
+    "main": "141118",
+    "notification": "a980db",
+    "notification-error": "ff5252",
+    "subtext": "6c7086",
+    "text": "cac4d4",
+}
 
-    The disabled [Quickshell] layer reads these values straight from the
-    shipped template, so the fallback cannot drift from the theme it ships."""
-    with open(os.path.join(template_dir, SPICETIFY_COLOR_TEMPLATE),
-              encoding="utf-8") as handle:
-        text = handle.read()
-    for section, values in parse_ini_text(text):
-        if section == "Spicetify":
-            return text, values
-    raise RenderError("no [Spicetify] section in %s" % SPICETIFY_COLOR_TEMPLATE)
 
-
-def spicetify_disabled_color(text, defaults):
+def spicetify_disabled_color(text, scheme):
     """The vendored template with [Quickshell]'s palette values replaced by the
-    theme's own [Spicetify] defaults, key for key."""
+    disabled scheme's values, key for key."""
     out = []
     in_quickshell = False
+    seen_quickshell = False
     for line in text.splitlines(keepends=True):
         stripped = line.strip()
         if stripped.startswith("[") and stripped.endswith("]"):
             in_quickshell = stripped[1:-1].strip() == "Quickshell"
+            seen_quickshell = seen_quickshell or in_quickshell
             out.append(line)
             continue
         if in_quickshell and "=" in stripped and stripped[0] not in "#;":
             key = stripped.partition("=")[0].strip()
-            if key in defaults:
-                line = "%s = %s\n" % (key, defaults[key])
+            if key in scheme:
+                line = "%s = %s\n" % (key, scheme[key])
         out.append(line)
+    if not seen_quickshell:
+        raise RenderError("no [Quickshell] section in %s" % SPICETIFY_COLOR_TEMPLATE)
     result = "".join(out)
     if UNRESOLVED.search(result):
         raise RenderError("unresolved placeholder in %s" % SPICETIFY_COLOR_TEMPLATE)
@@ -602,8 +615,11 @@ def render_spicetify(enabled):
     if enabled:
         color = load(SPICETIFY_COLOR_TEMPLATE, tokens)
     else:
-        template_text, defaults = spicetify_theme()
-        color = spicetify_disabled_color(template_text, defaults)
+        with open(os.path.join(template_dir, SPICETIFY_COLOR_TEMPLATE),
+                  encoding="utf-8") as handle:
+            template_text = handle.read()
+        color = spicetify_disabled_color(template_text,
+                                         SPICETIFY_DISABLED_SCHEME)
     css = load(SPICETIFY_USER_TEMPLATE, tokens)
     wrote_color = emit(os.path.join(theme_dir, "color.ini"), color)
     wrote_css = emit(os.path.join(theme_dir, "user.css"), css)

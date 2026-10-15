@@ -131,7 +131,8 @@ braces, so CSS braces in a template do not trip it.
   Vencord enable and the Firefox import. A render finishes with a best-effort
   `spicetify refresh`, never `spicetify apply`, which is version-gated on this
   machine and force-restarts the client. Disabled, the color option is rendered
-  from the theme's own default values rather than removed.
+  from the theme's own default values rather than removed (superseded
+  2026-10-15: DarkNight's values, see that amendment).
 - 2026-10-10 (Spicetify selection): "selects once" above is unconfirmed. Whether
   a plain `spicetify refresh` picks up the theme and color-option selection, or
   the user must run a version-gated `spicetify restore backup apply` (repeated
@@ -248,3 +249,8 @@ braces, so CSS braces in a template do not trip it.
   `--apply` behind a prompt, with `--wire-apps`/`--no-wire-apps` to force or
   suppress it. The renderer is unchanged: it never injects an `@import` into a
   user sheet and never writes `settings.json`.
+- 2026-10-15 (Spicetify disabled colors): a disabled Spicetify target renders
+  the `text` theme's DarkNight colors into the `Quickshell` option instead of the
+  `[Spicetify]` defaults. The pinned template does not ship DarkNight, so the
+  renderer holds its values; the user's Marketplace theme is `text` with
+  DarkNight, so switching theming off now matches it.

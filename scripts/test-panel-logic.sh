@@ -2787,16 +2787,27 @@ if grep -qvx refresh "$RENDER_STUB_LOG"; then
     fail "a real Spicetify change logged a non-refresh invocation"
 fi
 
-# Disabled: the [Quickshell] section carries the theme's own [Spicetify]
-# defaults, and user.css is still written (it is the theme's layout).
+# Disabled: the [Quickshell] section carries the DarkNight colors, every key
+# the enabled section has, and user.css is still written (it is the theme's layout).
 SP_OFF="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-spicetify-XXXXXX")"
 mkdir -p "$SP_OFF/spicetify/Themes"
 HOME="$SP_OFF" XDG_CONFIG_HOME="$SP_OFF" sh "$RENDER" "$RENDER_PALETTE" "kitty"
 SP_OFF_DIR="$SP_OFF/spicetify/Themes/quickshell"
 test -f "$SP_OFF_DIR/user.css" \
     || fail "a disabled Spicetify target wrote no user.css"
+cmp -s "$SP_OFF_DIR/user.css" "$SP_TPL_CSS" \
+    || fail "a disabled Spicetify user.css is not the vendored template verbatim"
 python3 - "$SP_OFF_DIR/color.ini" "$SP_TPL_INI" <<'PYEOF'
 import re
+
+# Mirrors SPICETIFY_DISABLED_SCHEME in scripts/render-theme.sh.
+DARKNIGHT = {
+    "accent": "a980db", "accent-active": "a980db", "accent-inactive": "141118",
+    "banner": "a980db", "border-active": "a980db", "border-inactive": "262429",
+    "header": "262429", "highlight": "24283b", "main": "141118",
+    "notification": "a980db", "notification-error": "ff5252",
+    "subtext": "6c7086", "text": "cac4d4",
+}
 import sys
 
 def fail(message):
@@ -2827,22 +2838,39 @@ def parse(text):
 
 dest = parse(open(sys.argv[1], encoding="utf-8").read())
 template = parse(open(sys.argv[2], encoding="utf-8").read())
-defaults = {}
+template_keys = None
 for section, values in template:
-    if section == "Spicetify":
-        defaults = values
+    if section == "Quickshell":
+        template_keys = set(values)
 quickshell = None
 for section, values in dest:
     if section == "Quickshell":
         quickshell = values
 if quickshell is None:
     fail("a disabled Spicetify color.ini has no [Quickshell] section")
-if not defaults:
-    fail("the vendored template has no [Spicetify] defaults")
-if quickshell != defaults:
-    fail("a disabled [Quickshell] section is not the theme's [Spicetify] defaults")
+if template_keys is None:
+    fail("the vendored template has no [Quickshell] section")
+if set(DARKNIGHT) != template_keys:
+    fail("the DarkNight fallback does not cover the template's [Quickshell] keys")
+if quickshell != DARKNIGHT:
+    fail("a disabled [Quickshell] section is not the DarkNight colors")
 if re.search(r"\{\{[A-Za-z0-9_]+\}\}", open(sys.argv[1], encoding="utf-8").read()):
     fail("a disabled color.ini left an unresolved placeholder")
+
+def outside_quickshell(text):
+    lines = []
+    inside = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            inside = stripped[1:-1].strip() == "Quickshell"
+        if not inside:
+            lines.append(line)
+    return lines
+
+if outside_quickshell(open(sys.argv[1], encoding="utf-8").read()) != \
+        outside_quickshell(open(sys.argv[2], encoding="utf-8").read()):
+    fail("a disabled color.ini differs from the template outside [Quickshell]")
 PYEOF
 
 # No Spicetify config root: skip as success, log the skip, write nothing.
