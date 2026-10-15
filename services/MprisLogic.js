@@ -2,6 +2,7 @@
 
 const BROWSER_TOKENS = ["firefox", "firefox-esr", "waterfox", "floorp", "zen-browser", "chromium", "chrome", "brave", "vivaldi", "opera", "microsoft-edge", "thorium", "ladybird", "epiphany"]
 const BROWSER_EXACT = ["zen"]
+const VOLUME_SYNC_KEYS = ["spotify"]
 
 function playerKey(player) {
     if (!player)
@@ -23,6 +24,36 @@ function defaultAllowed(key) {
             return false;
     }
     return true;
+}
+
+function volumeSyncStreamKey(node) {
+    if (!node || !node.isStream)
+        return "";
+    const properties = node.properties || {};
+    const name = properties["application.name"] || properties["application.process.binary"] || node.name || "";
+    const key = String(name).toLowerCase().trim();
+    return VOLUME_SYNC_KEYS.indexOf(key) === -1 ? "" : key;
+}
+
+function playerSyncKeys(player) {
+    if (!player)
+        return [];
+    const bus = String(player.dbusName || "").toLowerCase().replace("org.mpris.mediaplayer2.", "");
+    const instance = bus.indexOf(".instance");
+    const names = [playerKey(player), String(player.identity || "").toLowerCase().trim(), instance === -1 ? bus : bus.slice(0, instance)];
+    return names.filter(name => name !== "");
+}
+
+function syncedPlayerFor(node, players) {
+    const key = volumeSyncStreamKey(node);
+    if (key === "")
+        return null;
+    const list = players || [];
+    for (let i = 0; i < list.length; i++) {
+        if (playerSyncKeys(list[i]).indexOf(key) !== -1)
+            return list[i];
+    }
+    return null;
 }
 
 function parseApps(jsonText) {

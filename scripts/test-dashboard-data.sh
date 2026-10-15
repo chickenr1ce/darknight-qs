@@ -10,9 +10,9 @@
 #      the palette boundary;
 #   2. node runs of the shipped pure parsing plus mapping helpers
 #      (fastfetch JSON, uptime format, /proc samples, MPRIS repeat cycle,
-#      sink volume percent, Open-Meteo JSON, temperature plus rain format,
-#      WMO code mapping, weather staleness). These load the real
-#      *Logic.js / *Parsers.js modules through tests/qmljs.js, so a change
+#      MPRIS volume sync, sink volume percent, Open-Meteo JSON, temperature
+#      plus rain format, WMO code mapping, weather staleness). These load the
+#      real *Logic.js / *Parsers.js modules through tests/qmljs.js, so a change
 #      to the source is exercised directly; no mirror to keep in step.
 set -euo pipefail
 
@@ -73,6 +73,8 @@ CBLOCK="$ROOT/windows/DashboardCpuBlock.qml"
 ASVC="$ROOT/services/AudioService.qml"
 grep -q 'import "AudioLogic.js" as AudioLogic' "$ASVC" \
     || fail "AudioService does not import AudioLogic.js"
+grep -q 'import "MprisLogic.js" as MprisLogic' "$ASVC" \
+    || fail "AudioService does not import MprisLogic.js; the stream/player match belongs there"
 grep -q 'name: "audio-outputs"' "$ASVC" \
     || fail "AudioService does not persist curated outputs behind a StateFile"
 if grep -q 'match: "JadeAudio"\|match: "AB13X"\|match: "Pebble"' "$ASVC" "$ROOT/modules/Audio.qml"; then
@@ -94,7 +96,8 @@ node - "$ROOT/tests/qmljs.js" "$ROOT/services/MprisLogic.js" <<'NODEEOF'
 // defaultAllowed hides the browser seed by exact token or substring;
 // parseApps reads the persisted app map; sameApps compares label plus allowed;
 // mergeApps keeps in-memory entries the file does not know; formatTime renders
-// m:ss clamped at zero; nextLoopState cycles None -> Playlist -> Track -> None.
+// m:ss clamped at zero; nextLoopState cycles None -> Playlist -> Track -> None;
+// syncedPlayerFor matches a playback stream to an allowlisted player.
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('dashboard-data');
 const mpris = qmljs.load(process.argv[3]);
@@ -145,6 +148,50 @@ check('time/seconds', mpris.formatTime(74), '1:14');
 check('time/pad', mpris.formatTime(65), '1:05');
 check('time/negative', mpris.formatTime(-5), '0:00');
 check('time/long', mpris.formatTime(3725), '62:05');
+
+// syncedPlayerFor is the app-stream slider's second write: a stream matches a
+// player only when both resolve to the same allowlisted key, so Spotify (whose
+// MPRIS volume is its output stream volume) matches and a browser or mpv
+// (whose MPRIS volume is a separate element volume) never does. The stream key
+// reads application.name, then the process binary, then the node name, and the
+// player key is playerKey. Only a stream node is a candidate, so a sink reads
+// null even when it is named like an allowlisted app.
+const SYNC_STREAM = { id: 80, name: 'spotify', isStream: true, properties: {
+    'media.class': 'Stream/Output/Audio',
+    'application.name': 'spotify',
+    'application.process.binary': 'spotify',
+    'media.name': 'Spotify'
+} };
+const FIREFOX_STREAM = { id: 71, name: 'Firefox', isStream: true, properties: {
+    'media.class': 'Stream/Output/Audio',
+    'application.name': 'Firefox',
+    'application.process.binary': 'firefox',
+    'media.name': 'Home / X'
+} };
+const SYNC_PLAYER = { desktopEntry: 'spotify', identity: 'Spotify', dbusName: 'org.mpris.MediaPlayer2.spotify' };
+const FIREFOX_PLAYER = { desktopEntry: 'firefox', identity: 'Mozilla Firefox', dbusName: 'org.mpris.MediaPlayer2.firefox.instance_1_50' };
+
+check('sync/spotify', mpris.syncedPlayerFor(SYNC_STREAM, [SYNC_PLAYER]), SYNC_PLAYER);
+check('sync/case-insensitive', mpris.syncedPlayerFor({ isStream: true, properties: { 'application.name': 'SPOTIFY' } }, [SYNC_PLAYER]), SYNC_PLAYER);
+check('sync/binary-fallback', mpris.syncedPlayerFor({ isStream: true, properties: { 'application.process.binary': 'spotify' } }, [SYNC_PLAYER]), SYNC_PLAYER);
+check('sync/node-name-fallback', mpris.syncedPlayerFor({ isStream: true, name: 'spotify', properties: {} }, [SYNC_PLAYER]), SYNC_PLAYER);
+check('sync/skips-null-player', mpris.syncedPlayerFor(SYNC_STREAM, [null, SYNC_PLAYER]), SYNC_PLAYER);
+check('sync/skips-other-player', mpris.syncedPlayerFor(SYNC_STREAM, [FIREFOX_PLAYER, SYNC_PLAYER]), SYNC_PLAYER);
+check('sync/firefox', mpris.syncedPlayerFor(FIREFOX_STREAM, [FIREFOX_PLAYER]), null);
+check('sync/mpv', mpris.syncedPlayerFor({ isStream: true, properties: { 'application.name': 'mpv' } }, [{ desktopEntry: 'mpv', identity: 'mpv' }]), null);
+check('sync/no-player', mpris.syncedPlayerFor(SYNC_STREAM, [FIREFOX_PLAYER]), null);
+check('sync/no-players', mpris.syncedPlayerFor(SYNC_STREAM, []), null);
+check('sync/null-players', mpris.syncedPlayerFor(SYNC_STREAM, null), null);
+check('sync/no-name', mpris.syncedPlayerFor({ isStream: true, properties: {} }, [SYNC_PLAYER]), null);
+check('sync/sink', mpris.syncedPlayerFor({ isSink: true, isStream: false, audio: {}, name: 'alsa_output.pci-0000_28_00.1.hdmi-stereo', properties: { 'media.class': 'Audio/Sink' } }, [SYNC_PLAYER]), null);
+check('sync/sink-named-spotify', mpris.syncedPlayerFor({ isSink: true, isStream: false, audio: {}, name: 'spotify', properties: { 'application.name': 'spotify' } }, [SYNC_PLAYER]), null);
+check('sync/null-node', mpris.syncedPlayerFor(null, [SYNC_PLAYER]), null);
+check('sync/null-both', mpris.syncedPlayerFor(null, null), null);
+const FLATPAK_PLAYER = { desktopEntry: 'com.spotify.Client', identity: 'Spotify', dbusName: 'org.mpris.MediaPlayer2.spotify' };
+check('sync/flatpak', mpris.syncedPlayerFor(SYNC_STREAM, [FLATPAK_PLAYER]), FLATPAK_PLAYER);
+const BUS_ONLY_PLAYER = { dbusName: 'org.mpris.MediaPlayer2.spotify.instance123' };
+check('sync/dbus-name', mpris.syncedPlayerFor(SYNC_STREAM, [BUS_ONLY_PLAYER]), BUS_ONLY_PLAYER);
+check('sync/ncspot', mpris.syncedPlayerFor({ isStream: true, properties: { 'application.name': 'ncspot' } }, [{ desktopEntry: 'ncspot', identity: 'ncspot', dbusName: 'org.mpris.MediaPlayer2.ncspot' }]), null);
 NODEEOF
 
 SSVC="$ROOT/services/SpotifyService.qml"

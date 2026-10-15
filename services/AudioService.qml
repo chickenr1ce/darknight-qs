@@ -3,10 +3,12 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import qs.config
 import qs.services
 import "AudioLogic.js" as AudioLogic
+import "MprisLogic.js" as MprisLogic
 import "StateParsers.js" as StateParsers
 
 Singleton {
@@ -25,6 +27,8 @@ Singleton {
     property bool osdEnabled: true
 
     readonly property var pipewireNodes: Pipewire.nodes && Pipewire.nodes.values ? Pipewire.nodes.values : []
+
+    readonly property var mprisPlayers: Mpris.players && Mpris.players.values ? Mpris.players.values : []
 
     readonly property var sinkNodes: root.orderedNodes(root.discoveredSinkNodes, root.orderKeys)
 
@@ -342,8 +346,15 @@ Singleton {
     }
 
     function setVolume(node, percent): void {
-        if (node && node.audio)
-            node.audio.volume = root.volumeForPercent(percent);
+        if (!node || !node.audio)
+            return;
+        const volume = root.volumeForPercent(percent);
+        node.audio.volume = volume;
+        if (!AudioLogic.isAppStream(node))
+            return;
+        const player = MprisLogic.syncedPlayerFor(node, root.mprisPlayers);
+        if (player && player.canControl && player.volumeSupported)
+            player.volume = volume;
     }
 
     function stepVolume(node, direction: int): void {
