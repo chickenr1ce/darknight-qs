@@ -389,7 +389,7 @@ PanelShell {
     PwNodeLinkTracker {
         id: idInputLinks
 
-        // Quickshell 0.3.1 PwNodeLinkTracker::updateLinks returns instead of
+        // Quickshell 0.3.2 PwNodeLinkTracker::updateLinks returns instead of
         // continuing on a monitor target, so a briefly stale caption is accepted.
         node: AudioService.defaultSource
     }

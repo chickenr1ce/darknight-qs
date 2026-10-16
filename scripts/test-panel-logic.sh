@@ -3065,7 +3065,7 @@ if printf '%s\n' "$intentional_branch" | grep -q 'idCavaRestartTimer'; then
     fail "onExited intentional branch schedules the restart timer"
 fi
 # restartAnalyser's deferred block must set running=true with no !running guard:
-# under Quickshell 0.3.1 running=false only SIGTERMs, so the pointer is still
+# under Quickshell 0.3.2 running=false only SIGTERMs, so the pointer is still
 # alive when the deferred block runs and a guard would skip the replacement.
 restart_body="$(awk '/^    function restartAnalyser/,/^    }$/' "$CAVASVC")"
 test -n "$restart_body" || fail "could not extract CavaService restartAnalyser"
@@ -3162,7 +3162,7 @@ OSD="$ROOT/windows/VolumeOsd.qml"
 test -f "$OSD" \
     || fail "windows/VolumeOsd.qml is missing"
 # PwNodeAudio.volume declares its NOTIFY as volumesChanged; binding the
-# auto-named onVolumeChanged would never fire (installed 0.3.1 qmltypes).
+# auto-named onVolumeChanged would never fire (installed 0.3.2 qmltypes).
 if grep -q 'onVolumeChanged' "$OSD"; then
     fail "VolumeOsd binds onVolumeChanged, which PwNodeAudio does not emit"
 fi

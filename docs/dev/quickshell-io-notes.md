@@ -22,7 +22,7 @@ change, and file load).
   ordered FIFO is a different shape and stays hand-rolled
   (`services/HyprlandFocus.qml`). Never restart a run to pick up new arguments;
   queue instead.
-- Signal order, verified against v0.3.1 `src/io/process.cpp`: a normal exit
+- Signal order, verified against v0.3.2 `src/io/process.cpp`: a normal exit
   emits `exited` and then `runningChanged`, and stdout parsing
   (`onStreamFinished`) runs before both, in the same call stack.
 - A failed start emits `runningChanged` only and never `exited`; an empty

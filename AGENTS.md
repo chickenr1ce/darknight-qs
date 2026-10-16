@@ -36,5 +36,5 @@ is `docs/README.md`.
 | Feature tickets and ticket conventions | `docs/agents/issue-tracker.md` |
 | Briefing an implementer or reviewer subagent | `docs/agents/delegated-work.md` |
 | Current context, roadmap, domain terms, why-decisions | `docs/dev/roadmap.md`, `docs/plans/README.md`, `CONTEXT.md`, `docs/adr/` (read the ADRs touching an area before changing it) |
-| Research a Quickshell component | https://quickshell.org/docs/v0.3.1/guide/ |
+| Research a Quickshell component | https://quickshell.org/docs/v0.3.2/guide/ |
 | Qt 6 API details | `qt-docs` MCP (`qt_documentation_search` → `qt_documentation_read`), pass `version: "6.11"` (installed Qt 6.11.2; the server otherwise serves 6.12) |

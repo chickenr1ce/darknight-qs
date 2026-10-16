@@ -20,7 +20,7 @@ disclaimer are in [NOTICE](NOTICE).
 
 | Tool | Why it is needed |
 | --- | --- |
-| [Quickshell](https://quickshell.org) 0.3.1 or newer | the shell runtime |
+| [Quickshell](https://quickshell.org) 0.3.2 or newer | the shell runtime |
 | [Hyprland](https://hyprland.org) | the Wayland compositor; workspaces, focus, and window title come from Hyprland IPC |
 | [PipeWire](https://pipewire.org) | audio devices and volume |
 | [`cava`](https://github.com/karlstav/cava) | the audio visualizer |

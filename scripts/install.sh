@@ -113,7 +113,7 @@ check_lockscreen() {
     warn "no lock screen tool (optional) — install one of: hyprlock (official), betterlockscreen (AUR), i3lock (official)"
 }
 
-# Quickshell 0.3.1 is the floor named in the README. Parse the version and
+# Quickshell 0.3.2 is the floor named in the README. Parse the version and
 # compare with sort -V; an unparseable string stays a warning, not a failure.
 check_quickshell() {
     have quickshell || { miss "quickshell (required) — install package: quickshell"; MISSING_REQUIRED+=("quickshell"); return; }
@@ -124,11 +124,11 @@ check_quickshell() {
         warn "quickshell present, version not parsed from: ${raw:-<no output>}"
         return
     fi
-    if [[ "$(printf '%s\n%s\n' "0.3.1" "$version" | sort -V | head -n1)" == "0.3.1" ]]; then
+    if [[ "$(printf '%s\n%s\n' "0.3.2" "$version" | sort -V | head -n1)" == "0.3.2" ]]; then
         ok "quickshell $version"
     else
-        miss "quickshell $version (need 0.3.1 or newer) — install package: quickshell"
-        MISSING_REQUIRED+=("quickshell >= 0.3.1")
+        miss "quickshell $version (need 0.3.2 or newer) — install package: quickshell"
+        MISSING_REQUIRED+=("quickshell >= 0.3.2")
     fi
 }
 
