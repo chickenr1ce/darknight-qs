@@ -2733,14 +2733,19 @@ if set(quickshell) != default_keys:
     fail("[Quickshell] key set differs (missing %s, extra %s)" % (
         sorted(default_keys - set(quickshell)),
         sorted(set(quickshell) - default_keys)))
+# The pane border: background moved a tenth toward foreground.
+bg, fg = (palette[k].lstrip("#") for k in ("background", "foreground"))
+subtle_border = "".join(
+    "%02x" % round(int(bg[i:i + 2], 16) + (int(fg[i:i + 2], 16) - int(bg[i:i + 2], 16)) * 0.1)
+    for i in (0, 2, 4))
 expected = {
     "accent": palette["accent"],
     "accent-active": palette["accent"],
-    "accent-inactive": palette["selection"],
+    "accent-inactive": palette["background"],
     "banner": palette["accent"],
     "border-active": palette["accent"],
-    "border-inactive": palette["muted"],
-    "header": palette["muted"],
+    "border-inactive": subtle_border,
+    "header": subtle_border,
     "highlight": palette["selection"],
     "main": palette["background"],
     "notification": palette["accent"],

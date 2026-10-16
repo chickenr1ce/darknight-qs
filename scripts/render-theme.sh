@@ -210,6 +210,13 @@ def ink(value):
     return "#000000" if contrast("#000000", value) >= contrast("#ffffff", value) else "#ffffff"
 
 
+def mix(a, b, weight):
+    """`a` moved `weight` of the way toward `b`, as #rrggbb."""
+    pa, pb = channels(a), channels(b)
+    return "#" + "".join(
+        "%02x" % round(x + (y - x) * weight) for x, y in zip(pa[:3], pb[:3]))
+
+
 def build_tokens(palette):
     tokens = {}
     # The CSS `color-scheme` keyword from the palette mode, so the Firefox
@@ -256,6 +263,12 @@ def build_tokens(palette):
         tokens["readable_" + key] = (
             tokens[key] if contrast(tokens[key], tokens["background"]) >= PILL_TEXT_MIN
             else background_ink)
+    # A pane border one step off the background, for Spicetify's
+    # border-inactive and header (the pane labels): the background moved a
+    # tenth toward the foreground, so it stays subtle in both modes. `muted`
+    # is a text role and drew the pane frames at near-text contrast.
+    tokens["subtle_border_hex"] = mix(
+        tokens["background"], tokens["foreground"], 0.1)[1:]
     # A five-step text ramp for the Vencord template, which is pure
     # substitution and cannot branch on mode: the palette's foreground roles
     # ordered by contrast against the background, text_1 the highest contrast
