@@ -13,6 +13,9 @@ Singleton {
     readonly property bool active: root.visiblePanels.length > 0
     readonly property bool closing: root.members.some(member => member.visible && !member.panelVisible)
     readonly property var windows: root.active ? root.barWindows.concat(root.visiblePanels) : []
+    // Screens with a panel or tray menu on them, closing slide included, so
+    // the bar there can rise above a fullscreen window while it shows.
+    readonly property var shownScreens: root.members.filter(member => member.visible).map(member => member.screen)
 
     property var barWindows: []
     property var members: []

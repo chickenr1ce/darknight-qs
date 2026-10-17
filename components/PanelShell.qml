@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Shapes
 import Quickshell
+import Quickshell.Wayland
 import qs.config
 import qs.dev
 import qs.services
@@ -32,6 +33,10 @@ PanelWindow {
     // The panel's current slide offset (negative mid-slide, 0 when settled),
     // so a host can measure positions against the settled layout.
     readonly property real slideOffset: idPanel.y
+
+    // Latched once the panel first holds the keyboard after opening, so a
+    // later focus loss (a modal dialog) can't make it grab Exclusive again.
+    property bool keyboardTaken: false
 
     signal outsideClicked()
 
@@ -77,8 +82,6 @@ PanelWindow {
 
     screen: root.anchorScreen
 
-    focusable: true
-
     anchors {
         top: true
         left: true
@@ -93,6 +96,17 @@ PanelWindow {
     implicitHeight: root.windowHeight
     visible: root.panelVisible || idPanel.reveal > 0
 
+    // Hyprland won't hand an on-demand layer the keyboard on map while a
+    // pointer constraint is active (a fullscreen game locking the cursor), so
+    // the panel opens Exclusive to take it, then drops to on-demand: an
+    // exclusive layer gets all pointer input, deadening the bar and outside
+    // clicks. The focus grab keeps the keyboard on the panel after the drop.
+    WlrLayershell.keyboardFocus: {
+        if (!root.panelVisible)
+            return WlrKeyboardFocus.None;
+        return root.keyboardTaken ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive;
+    }
+
     Component.onCompleted: {
         PanelGrab.register(root);
         if (root.geometryName !== "")
@@ -103,6 +117,10 @@ PanelWindow {
         if (root.geometryName !== "")
             DevGeometry.unregister(root.geometryName);
     }
+
+    // A reopen mid-slide may still hold the keyboard, and no active change
+    // would follow to drop the Exclusive grab.
+    onPanelVisibleChanged: root.keyboardTaken = root.panelVisible && idPanel.Window.active
 
     onOutsideClicked: {
         if (root.panel)
@@ -184,6 +202,9 @@ PanelWindow {
         // chrome and the cards over it fade separately, so the cards seem
         // to outlive the panel.
         layer.enabled: !root.attachedToBar && idPanel.reveal > 0 && idPanel.reveal < 1
+
+        Window.onActiveChanged: if (idPanel.Window.active && root.panelVisible)
+            root.keyboardTaken = true
 
         // Inverted ternaries: the Behavior starts before these bindings
         // refresh (CODING_STANDARDS.md), so they read the previous state.

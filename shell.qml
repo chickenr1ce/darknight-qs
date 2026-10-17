@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Wayland
 import qs.config
 import qs.dev
 import qs.modules
@@ -29,6 +30,11 @@ ShellRoot {
 
             implicitHeight: Globals.barHeight + Globals.barTopMargin
             color: "transparent"
+
+            // Hyprland hides a Top layer mapped before a fullscreen window but
+            // draws a panel mapped after it, so a dashboard opened over a game
+            // would hang from a missing bar. Overlay draws above fullscreen.
+            WlrLayershell.layer: PanelGrab.shownScreens.includes(idPanelWindow.modelData) ? WlrLayer.Overlay : WlrLayer.Top
 
             Component.onCompleted: PanelGrab.registerBar(idPanelWindow)
             Component.onDestruction: PanelGrab.unregisterBar(idPanelWindow)
