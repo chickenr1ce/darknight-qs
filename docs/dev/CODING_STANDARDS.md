@@ -210,6 +210,15 @@ Timer { id: idMediaTimer }
   (`hyprctl cursorpos`) and restore it after with
   `hl.dsp.cursor.move({ x, y })`; focus stays on the window
   (verified live 2026-09-13).
+- **Hand the keyboard back once, with no key held, after the surface unmaps**:
+  the `wl_keyboard.enter` that returns focus lists held keys, and gamescope
+  replays them, so closing on an Escape press opened CS2's pause menu. A
+  keyboard handed back while the surface is still mapped re-arms a game's
+  pointer lock with the pointer on the panel, and Hyprland, locked, never
+  hit-tests it back, so mouse look dies until a workspace switch.
+  `PanelShell` closes on the Escape release and keeps keyboard focus and the
+  `PanelGrab` grab through the closing slide (verified live 2026-10-18, CS2
+  under gamescope).
 - **`hyprctl keyword` is dead under Hyprland's Lua config parser**:
   `hyprctl keyword monitor DP-2,disable` prints `keyword can't work with
   non-legacy parsers. Use eval.` and no-ops, so a `Process` around it updates

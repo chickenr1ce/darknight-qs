@@ -37,6 +37,9 @@ PanelWindow {
     // Latched once the panel first holds the keyboard after opening, so a
     // later focus loss (a modal dialog) can't make it grab Exclusive again.
     property bool keyboardTaken: false
+    // Set by an Escape press the panel itself takes; the close waits for the
+    // release (see idEscapeShortcut).
+    property bool escapeArmed: false
 
     signal outsideClicked()
 
@@ -101,10 +104,16 @@ PanelWindow {
     // the panel opens Exclusive to take it, then drops to on-demand: an
     // exclusive layer gets all pointer input, deadening the bar and outside
     // clicks. The focus grab keeps the keyboard on the panel after the drop.
+    // The closing slide keeps the keyboard too: handed back before the
+    // surface unmaps, it re-arms a game's pointer lock while the pointer
+    // still sits on the panel, and Hyprland, locked, never hit-tests it back
+    // to the game, so mouse look stays dead until a workspace switch.
     WlrLayershell.keyboardFocus: {
-        if (!root.panelVisible)
+        if (!root.visible)
             return WlrKeyboardFocus.None;
-        return root.keyboardTaken ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive;
+        if (!root.panelVisible || root.keyboardTaken)
+            return WlrKeyboardFocus.OnDemand;
+        return WlrKeyboardFocus.Exclusive;
     }
 
     Component.onCompleted: {
@@ -120,19 +129,26 @@ PanelWindow {
 
     // A reopen mid-slide may still hold the keyboard, and no active change
     // would follow to drop the Exclusive grab.
-    onPanelVisibleChanged: root.keyboardTaken = root.panelVisible && idPanel.Window.active
+    onPanelVisibleChanged: {
+        root.keyboardTaken = root.panelVisible && idPanel.Window.active;
+        root.escapeArmed = false;
+    }
 
     onOutsideClicked: {
         if (root.panel)
             root.panel.closeFromOutside();
     }
 
+    // Closing on the press hands the keyboard back with Escape still held,
+    // and the enter event lists held keys: gamescope replays it as a fresh
+    // press, so CS2 opens its pause menu. The press only arms the close; the
+    // release (caught on idPanel) fires it.
     Shortcut {
         id: idEscapeShortcut
 
         enabled: root.panelVisible
         sequence: "Escape"
-        onActivated: root.outsideClicked()
+        onActivated: root.escapeArmed = true
     }
 
     mask: Region {
@@ -203,8 +219,24 @@ PanelWindow {
         // to outlive the panel.
         layer.enabled: !root.attachedToBar && idPanel.reveal > 0 && idPanel.reveal < 1
 
-        Window.onActiveChanged: if (idPanel.Window.active && root.panelVisible)
-            root.keyboardTaken = true
+        // Default focus, so a key release reaches this item in a panel with
+        // no focused field; a field inside still passes its release up here.
+        focus: true
+
+        Window.onActiveChanged: {
+            if (idPanel.Window.active && root.panelVisible)
+                root.keyboardTaken = true;
+            // The release went elsewhere; close rather than strand the panel.
+            if (!idPanel.Window.active && root.escapeArmed)
+                root.outsideClicked();
+        }
+
+        Keys.onReleased: event => {
+            if (event.key !== Qt.Key_Escape || event.isAutoRepeat || !root.escapeArmed)
+                return;
+            event.accepted = true;
+            root.outsideClicked();
+        }
 
         // Inverted ternaries: the Behavior starts before these bindings
         // refresh (CODING_STANDARDS.md), so they read the previous state.

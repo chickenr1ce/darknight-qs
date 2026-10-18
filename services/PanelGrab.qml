@@ -10,12 +10,15 @@ Singleton {
     id: root
 
     readonly property var visiblePanels: root.members.filter(member => member.panelVisible)
-    readonly property bool active: root.visiblePanels.length > 0
     readonly property bool closing: root.members.some(member => member.visible && !member.panelVisible)
-    readonly property var windows: root.active ? root.barWindows.concat(root.visiblePanels) : []
+    // Panels still mapped, closing slide included. The grab holds until the
+    // last one unmaps, so the compositor hands focus back once, after the
+    // surface is gone (PanelShell's keyboardFocus has the why).
+    readonly property var shownPanels: root.members.filter(member => member.visible)
+    readonly property var windows: root.shownPanels.length > 0 ? root.barWindows.concat(root.shownPanels) : []
     // Screens with a panel or tray menu on them, closing slide included, so
     // the bar there can rise above a fullscreen window while it shows.
-    readonly property var shownScreens: root.members.filter(member => member.visible).map(member => member.screen)
+    readonly property var shownScreens: root.shownPanels.map(member => member.screen)
 
     property var barWindows: []
     property var members: []
@@ -24,7 +27,7 @@ Singleton {
     HyprlandFocusGrab {
         id: idFocusGrab
 
-        active: root.active
+        active: root.shownPanels.length > 0
         windows: root.windows
         onCleared: root.dismiss()
     }

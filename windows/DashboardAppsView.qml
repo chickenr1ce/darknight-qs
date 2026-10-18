@@ -970,11 +970,10 @@ Item {
         } else if (event.key === Qt.Key_Menu) {
             root.openMenuForSelection();
             event.accepted = true;
-        } else if (event.key === Qt.Key_Escape) {
-            if (root.query !== "")
-                idAppsSearch.clear();
-            else
-                DashboardService.close();
+        } else if (event.key === Qt.Key_Escape && root.query !== "") {
+            // An empty query leaves Escape to PanelShell, which closes on the
+            // release so a fullscreen game never gets the held key.
+            idAppsSearch.clear();
             event.accepted = true;
         }
     }
