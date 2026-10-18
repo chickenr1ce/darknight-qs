@@ -161,7 +161,7 @@ Item {
     }
 
     Behavior on x {
-        enabled: !root.armed
+        enabled: !root.armed && BarLayoutService.reorderMotion
         NumberAnimation {
             duration: Globals.reducedMotion ? 0 : Globals.barReorderMs
         }

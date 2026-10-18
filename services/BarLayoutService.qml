@@ -36,6 +36,9 @@ Singleton {
     property real pointerX: 0
     property real pointerY: 0
     property bool suppressClick: false
+    // True while the user is reordering and for one glide after, so slots
+    // animate a reorder but snap on startup, layout load and width changes.
+    property bool reorderMotion: false
 
     readonly property bool wouldCancel: root.dragging && BarLayoutLogic.shouldCancelRelease(root.pointerY, Globals.barHeight, Globals.barTopMargin)
     readonly property var previewOrder: root.dragging && !root.wouldCancel
@@ -50,6 +53,13 @@ Singleton {
         name: "bar-layout"
         createDir: true
         onParsed: text => root.applyLayout(text)
+    }
+
+    Timer {
+        id: idReorderMotionTimer
+
+        interval: Globals.barReorderMs * 2
+        onTriggered: root.reorderMotion = false
     }
 
     IpcHandler {
@@ -89,6 +99,7 @@ Singleton {
         const next = BarLayoutLogic.move(root.order, key, section, index);
         if (BarLayoutLogic.sameOrder(root.order, next))
             return false;
+        root.startReorderMotion();
         root.left = next.left;
         root.right = next.right;
         root.saveLayout();
@@ -98,6 +109,7 @@ Singleton {
     function reset(): void {
         if (BarLayoutLogic.sameOrder(root.order, root.defaults))
             return;
+        root.startReorderMotion();
         root.left = root.defaults.left.slice();
         root.right = root.defaults.right.slice();
         root.saveLayout();
@@ -124,6 +136,8 @@ Singleton {
         root.pointerX = pointerX;
         root.pointerY = pointerY;
         root.suppressClick = true;
+        idReorderMotionTimer.stop();
+        root.reorderMotion = true;
         root.dragging = true;
     }
 
@@ -167,7 +181,13 @@ Singleton {
         root.dragIndex = 0;
         root.pointerX = 0;
         root.pointerY = 0;
+        root.startReorderMotion();
         Qt.callLater(() => root.clearClickSuppression());
+    }
+
+    function startReorderMotion(): void {
+        root.reorderMotion = true;
+        idReorderMotionTimer.restart();
     }
 
     function clearClickSuppression(): void {
