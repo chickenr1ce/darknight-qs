@@ -31,6 +31,7 @@ is `docs/README.md`.
 | --- | --- |
 | QML or `scripts/*.sh` change | `docs/dev/CODING_STANDARDS.md` (read first) |
 | Live behavior, IPC probing, geometry, screenshots | `docs/dev/debugging-quickshell.md` |
+| Fullscreen game, focus, or input-grab bug (self-reproduce with injected input first) | `docs/dev/debugging-quickshell.md` § Fullscreen game and input-grab bugs |
 | Quickshell `Io` (`Process` lifecycle, polling, `FileView` cache) | `docs/dev/quickshell-io-notes.md` |
 | Adding a settings section | `docs/dev/settings-sections.md` |
 | Feature tickets and ticket conventions | `docs/agents/issue-tracker.md` |

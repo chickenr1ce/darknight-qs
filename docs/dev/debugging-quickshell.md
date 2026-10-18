@@ -152,12 +152,11 @@ saved to disk (`grim` to `/tmp`) plus a pixel or geometry reading. Read the surf
 geometry from the devprobe `geom` snapshot immediately before `grim`; the
 dashboard and its tabs are layer surfaces, so `hyprctl clients` does not list
 them. Confirm a clean reload afterward
-with `scripts/reload.sh`. No packaged Wayland input injector is installed:
-`wtype`, `ydotool`, `dotool`, and `wlrctl` are absent, and `xdotool` is
-X11-only. The probe is the reliable hands-free trigger. `/dev/uinput` is
-writable by this user, so a small helper can inject a real pointer or key
-event when one is needed. Every save closes popups, so batch probe edits
-together and reopen through IPC after each reload.
+with `scripts/reload.sh`. `ydotool` (with `ydotoold`) injects real pointer
+and key events through `/dev/uinput`; `xdotool` is X11-only. The probe is the
+hands-free trigger for opening surfaces; use `ydotool` for the input itself.
+Every save closes popups, so batch probe edits together and reopen through IPC
+after each reload.
 
 ## Focus changes
 
@@ -178,6 +177,30 @@ Closing a grabbed panel makes the compositor restore the previously focused
 window, which overrides a focus request that follows too soon. `HyprlandFocus`
 waits for `PanelGrab.closing` before dispatching, so a request issued by a
 panel's own click lands after the restore.
+
+## Fullscreen game and input-grab bugs
+
+Reproduce these yourself before asking the user to; a repro round costs them a
+manual test and a game restart. Drive it hands-free:
+
+- Switch to the game workspace with
+  `hyprctl dispatch "hl.dsp.focus({ workspace = <n> })"`, open and close the
+  panel with `quickshell ipc --pid <pid> call dashboard apps` and
+  `... call dashboard close`, and send input with
+  `ydotool key <code>:1 <code>:0` and `ydotool mousemove -x N -y 0`.
+- Judge the result from `grim -s 0.25` captures saved to `/tmp/opencode/`,
+  compared with `compare -metric RMSE`, taking a no-input pair first as the
+  noise floor.
+  Read a few crops by eye; the numbers alone are noisy.
+- Record focus changes with `socat` on Hyprland's
+  `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock`.
+- Inject input only while the user has stepped away; it moves their pointer
+  and keyboard (see Focus changes).
+- Kill background helpers with a bracketed pattern (`pkill -f '[r]ecord.sh'`):
+  a plain `pkill -f record.sh` also matches the parent `bash -c` that carries
+  the pattern in its own command line, and kills the shell running it.
+
+The user confirms the fix last, once your own run passes.
 
 ## Second instance rule
 
