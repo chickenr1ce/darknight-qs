@@ -16,7 +16,7 @@ ModuleBox {
     visible: BarVisibilityService.isVisible("audio") && Globals.onPrimaryMonitor(root.monitorName)
 
     readonly property PwNode defaultSink: Pipewire.defaultAudioSink
-    readonly property bool tooltipShown: root.isHovered && root.tooltipArmed && !AudioService.panelState.visible
+    readonly property bool tooltipShown: root.isHovered && root.tooltipArmed && !AudioService.panelState.visible && !BarLayoutService.dragging
     readonly property int tooltipAnimMs: Globals.reducedMotion ? 0 : Globals.hoverMs
     readonly property string currentOutputName: root.defaultSink ? AudioService.rawLabelFor(root.defaultSink) : qsTr("No output")
 

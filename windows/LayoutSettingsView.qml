@@ -30,6 +30,43 @@ ColumnLayout {
         }
     }
 
+    RowLayout {
+        id: idResetRow
+
+        Layout.fillWidth: true
+
+        visible: root.barVisibilityRelevant || SettingsFilter.matches(root.filter, qsTr("Reset bar order"))
+        spacing: Globals.rowSpacing
+
+        Text {
+            id: idResetLabel
+
+            Layout.fillWidth: true
+            Layout.minimumWidth: 0
+
+            textFormat: Text.PlainText
+            elide: Text.ElideRight
+            text: qsTr("Reset bar order")
+            color: Colors.text
+
+            font {
+                family: Globals.uiFontFamily
+                pixelSize: Globals.uiBodySize
+            }
+        }
+
+        PillButton {
+            id: idResetButton
+
+            Layout.alignment: Qt.AlignVCenter
+
+            text: qsTr("Reset")
+            accessibleName: qsTr("Reset bar order")
+            disabled: BarLayoutService.isDefaultOrder
+            onClicked: BarLayoutService.reset()
+        }
+    }
+
     Repeater {
         id: idMarginRows
 

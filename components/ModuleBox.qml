@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.config
+import qs.services
 
 // Transparent hit-region: hover tint + underline, press squash/pulse; emits clicked(mouse)/wheelMoved(wheel).
 Rectangle {
@@ -104,6 +105,8 @@ Rectangle {
         z: 1
 
         onClicked: mouse => {
+            if (BarLayoutService.suppressClick)
+                return;
             idPressFeedback.pulse();
             root.clicked(mouse);
         }

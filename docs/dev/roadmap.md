@@ -32,6 +32,16 @@ window menu, the menu flipping and scrolling near a screen edge, and a middle
 click on an editor with unsaved changes still prompting to save. Done when each
 is run and the date is recorded.
 
+### Disabled pill buttons look enabled
+
+`components/PillButton.qml` makes a `disabled` pill inert but draws it like an
+enabled one at rest, so a no-op button looks clickable. Found on the bar-reorder
+"Reset bar order" row; it also affects Clear All in
+`windows/NotificationCenter.qml`, the confirm pills in `windows/PowerCenter.qml`,
+and the disabled pills in `windows/DashboardPlayerBlock.qml`. Done when
+`PillButton` dims its own content while `disabled` (a shared token, not
+per-view opacity) and those surfaces are captured.
+
 ### Architecture review follow-ups
 
 Cards 05 to 11 of `docs/plans/12-architecture-review.html` are pending; its

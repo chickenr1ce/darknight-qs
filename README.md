@@ -2,7 +2,9 @@
 
 A Quickshell bar and desktop shell for a Hyprland desktop. It replaces waybar
 with one unified slab: workspaces, tray, media and audio, CPU, a dashboard,
-quick panels, notifications, and a power menu.
+quick panels, notifications, and a power menu. Hold a bar module for about
+300 ms and drag it to reorder the left and right sections; Settings → Layout →
+Reset bar order restores the default.
 
 Please note that this project was mostly vibecoded.
 

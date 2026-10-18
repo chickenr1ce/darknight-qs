@@ -2,14 +2,15 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import qs.config
+import qs.components
 import qs.dev
 import qs.modules
 import qs.windows
 import qs.services
+import "services/BarLayoutLogic.js" as BarLayoutLogic
 
 
 ShellRoot {
@@ -61,8 +62,8 @@ ShellRoot {
                 radius: Globals.slabRadius
                 color: Colors.background
 
-                readonly property real leftClusterEdge: idSpacer.x + Globals.slabEdgePadding
-                readonly property real rightClusterEdge: idSpacer.x + idSpacer.width + Globals.slabEdgePadding
+                readonly property real leftClusterEdge: idBarModules.layout.leftEnd + Globals.slabEdgePadding
+                readonly property real rightClusterEdge: idBarModules.layout.rightStart + Globals.slabEdgePadding
 
                 Rectangle {
                     id: idLeftHairline
@@ -91,10 +92,15 @@ ShellRoot {
                 }
             }
 
-            RowLayout {
-                id: idBarLayout
+            Item {
+                id: idBarModules
 
-                spacing: Globals.spacing
+                readonly property var slots: [idClockSlot, idWorkspacesSlot, idTraySlot, idCavaSlot, idMediaSlot, idAudioSlot, idNotificationsSlot, idPowerSlot]
+                readonly property var widths: idBarModules.measure(slot => slot.implicitWidth)
+                readonly property var visibleMap: idBarModules.measure(slot => slot.shown)
+                readonly property var dragGeometry: ({ widths: idBarModules.widths, visible: idBarModules.visibleMap, spacing: Globals.spacing, width: idBarModules.width })
+                readonly property Item armedSlot: idBarModules.slots.find(slot => slot.armed) ?? null
+                readonly property var layout: BarLayoutLogic.positions(BarLayoutService.previewOrder, idBarModules.widths, idBarModules.visibleMap, Globals.spacing, idBarModules.width)
 
                 anchors {
                     fill: parent
@@ -103,42 +109,142 @@ ShellRoot {
                     topMargin: Globals.barTopMargin
                 }
 
-                Clock {
-                    monitorName: idPanelWindow.monitorName
-                    triggerScreen: idPanelWindow.modelData
-                }
-                Workspaces {
-                    monitorName: idPanelWindow.monitorName
-                }
-                Tray {
-                    monitorName: idPanelWindow.monitorName
-                    triggerScreen: idPanelWindow.modelData
+                BarDropPreview {
+                    id: idDropPreview
+
+                    x: idBarModules.armedSlot !== null ? idBarModules.layoutX(idBarModules.armedSlot.key) : 0
+                    width: idBarModules.armedSlot !== null ? idBarModules.armedSlot.width : 0
+                    height: Globals.barHeight
+                    active: idBarModules.armedSlot !== null
                 }
 
-                Item {
-                    id: idSpacer
-                    Layout.fillWidth: true
+                BarSlot {
+                    id: idClockSlot
+
+                    key: "clock"
+                    x: idBarModules.slotX(idClockSlot)
+                    dragGeometry: idBarModules.dragGeometry
+
+                    Clock {
+                        monitorName: idPanelWindow.monitorName
+                        triggerScreen: idPanelWindow.modelData
+                    }
                 }
 
-                Cava {
-                    monitorName: idPanelWindow.monitorName
-                    triggerScreen: idPanelWindow.modelData
-                }
-                Media {
-                    monitorName: idPanelWindow.monitorName
-                }
-                Audio {
-                    monitorName: idPanelWindow.monitorName
-                    triggerScreen: idPanelWindow.modelData
-                }
-                Notifications {
-                    monitorName: idPanelWindow.monitorName
-                    triggerScreen: idPanelWindow.modelData
+                BarSlot {
+                    id: idWorkspacesSlot
+
+                    key: "workspaces"
+                    x: idBarModules.slotX(idWorkspacesSlot)
+                    dragGeometry: idBarModules.dragGeometry
+
+                    Workspaces {
+                        monitorName: idPanelWindow.monitorName
+                    }
                 }
 
-                PowerMenu {
-                    monitorName: idPanelWindow.monitorName
-                    triggerScreen: idPanelWindow.modelData
+                BarSlot {
+                    id: idTraySlot
+
+                    key: "tray"
+                    x: idBarModules.slotX(idTraySlot)
+                    dragGeometry: idBarModules.dragGeometry
+
+                    Tray {
+                        monitorName: idPanelWindow.monitorName
+                        triggerScreen: idPanelWindow.modelData
+                    }
+                }
+
+                BarSlot {
+                    id: idCavaSlot
+
+                    key: "cava"
+                    x: idBarModules.slotX(idCavaSlot)
+                    dragGeometry: idBarModules.dragGeometry
+
+                    Cava {
+                        monitorName: idPanelWindow.monitorName
+                        triggerScreen: idPanelWindow.modelData
+                    }
+                }
+
+                BarSlot {
+                    id: idMediaSlot
+
+                    key: "media"
+                    x: idBarModules.slotX(idMediaSlot)
+                    dragGeometry: idBarModules.dragGeometry
+
+                    Media {
+                        monitorName: idPanelWindow.monitorName
+                    }
+                }
+
+                BarSlot {
+                    id: idAudioSlot
+
+                    key: "audio"
+                    x: idBarModules.slotX(idAudioSlot)
+                    dragGeometry: idBarModules.dragGeometry
+
+                    Audio {
+                        monitorName: idPanelWindow.monitorName
+                        triggerScreen: idPanelWindow.modelData
+                    }
+                }
+
+                BarSlot {
+                    id: idNotificationsSlot
+
+                    key: "notifications"
+                    x: idBarModules.slotX(idNotificationsSlot)
+                    dragGeometry: idBarModules.dragGeometry
+
+                    Notifications {
+                        monitorName: idPanelWindow.monitorName
+                        triggerScreen: idPanelWindow.modelData
+                    }
+                }
+
+                BarSlot {
+                    id: idPowerSlot
+
+                    key: "power"
+                    x: idBarModules.slotX(idPowerSlot)
+                    dragGeometry: idBarModules.dragGeometry
+
+                    PowerMenu {
+                        monitorName: idPanelWindow.monitorName
+                        triggerScreen: idPanelWindow.modelData
+                    }
+                }
+
+                function measure(pick) {
+                    const out = {};
+                    for (let i = 0; i < idBarModules.slots.length; i++)
+                        out[idBarModules.slots[i].key] = pick(idBarModules.slots[i]);
+                    return out;
+                }
+
+                function defersDismissAt(x, y) {
+                    for (let i = 0; i < idBarModules.slots.length; i++) {
+                        const slot = idBarModules.slots[i];
+                        if (slot.shown && !(slot.key === "tray") && x >= slot.x && x < slot.x + slot.width && y >= slot.y && y < slot.y + slot.height)
+                            return true;
+                    }
+                    return false;
+                }
+
+                function layoutX(key) {
+                    const x = idBarModules.layout.x[key];
+                    return Number.isFinite(x) ? x : 0;
+                }
+
+                function slotX(slot) {
+                    if (BarLayoutService.dragging && slot.armed)
+                        return BarLayoutLogic.dragX(BarLayoutService.pointerX, slot.width, idBarModules.width);
+                    return idBarModules.layoutX(slot.key);
                 }
             }
 
@@ -161,7 +267,9 @@ ShellRoot {
                 z: 100
                 acceptedButtons: Qt.AllButtons
                 onPressed: mouse => {
-                    TrayMenuService.dismiss();
+                    const point = idBarModules.mapFromItem(idBarDismissArea, mouse.x, mouse.y);
+                    if (!idBarModules.defersDismissAt(point.x, point.y))
+                        TrayMenuService.dismiss();
                     mouse.accepted = false;
                 }
             }

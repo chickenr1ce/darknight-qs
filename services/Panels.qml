@@ -24,6 +24,11 @@ Singleton {
         }
     }
 
+    function closeAll() {
+        for (let i = 0; i < root.panels.length; i++)
+            root.panels[i].visible = false;
+    }
+
     function toggleAt(panel, screen, centerX: real) {
         root.closeOtherPanels(panel);
         panel.toggleAt(screen, centerX);

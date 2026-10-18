@@ -103,6 +103,31 @@ output. `up`, `down`, and `set` change the level only, never the mute state.
 multiple of the step, `down` rounds down, and neither crosses 0 or, for a normal
 output, 100.
 
+### `bar`
+
+The bar's module order, one global left/right layout (ADR 0021). The keys are
+the bar modules: `clock`, `workspaces`, `tray`, `cava`, `media`, `audio`,
+`notifications`, and `power`.
+
+| Function | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `order` | — | JSON | The current order, for example `{"left":["clock","workspaces","tray"],"right":["cava","media","audio","notifications","power"]}`. Reads without changing it. |
+| `move` | `<key> <section> <index>` | `ok` / `error: unknown key <key>` / `error: unknown section <section>` | Moves one module to `<index>` in `left` or `right`. A move that leaves the order unchanged still answers `ok` and writes nothing. |
+| `reset` | — | — | Restores the default order. Returns nothing. |
+
+The examples are bare words, so they run unchanged in fish:
+
+```fish
+quickshell ipc call bar order
+quickshell ipc call bar move power left 0
+quickshell ipc call bar reset
+```
+
+The order is one layout for every monitor's bar and persists in the
+`bar-layout` state file under `$XDG_STATE_HOME/quickshell/`; `move` and `reset`
+persist it when the order changes, and a drag in the bar edits the same order. Settings → Layout →
+"Reset bar order" is the mouse route to `reset`.
+
 ### Other targets
 
 - `theme` — the `qs-theme` CLI drives it (`refresh`, `list`, `current`, `set`,

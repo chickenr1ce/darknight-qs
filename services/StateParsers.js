@@ -165,6 +165,49 @@ function parseBarMargins(jsonText) {
     return out;
 }
 
+function parseBarLayout(jsonText, keys, defaults) {
+    const fallback = { left: defaults.left.slice(), right: defaults.right.slice() };
+    let parsed = null;
+    try
+    {
+        parsed = JSON.parse(jsonText);
+    }
+    catch (e)
+    {
+        return fallback;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        return fallback;
+    const known = {};
+    for (let i = 0; i < keys.length; i++)
+        known[keys[i]] = true;
+    const placed = {};
+    const out = { left: [], right: [] };
+    const sections = ["left", "right"];
+    for (let s = 0; s < sections.length; s++) {
+        const section = sections[s];
+        const list = Array.isArray(parsed[section]) ? parsed[section] : [];
+        for (let i = 0; i < list.length; i++) {
+            const key = list[i];
+            if (known[key] === true && !(placed[key] === true)) {
+                placed[key] = true;
+                out[section].push(key);
+            }
+        }
+    }
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        if (placed[key] === true)
+            continue;
+        const section = defaults.left.indexOf(key) >= 0 ? "left" : "right";
+        let at = defaults[section].indexOf(key);
+        at = at < 0 ? out[section].length : Math.min(out[section].length, at);
+        out[section].splice(at, 0, key);
+        placed[key] = true;
+    }
+    return out;
+}
+
 function parseVisibility(jsonText, moduleKeys) {
     const out = {};
     for (let i = 0; i < moduleKeys.length; i++)

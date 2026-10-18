@@ -49,6 +49,7 @@ run "conventions" ./scripts/lint-conventions.sh
 run "conventions test" ./scripts/test-lint-conventions.sh
 run "lint imports" ./scripts/test-lint-imports.sh
 run "panel logic" ./scripts/test-panel-logic.sh
+run "bar layout" ./scripts/test-bar-layout.sh
 run "coalesced run" ./scripts/test-coalesced-run.sh
 run "theme background" ./scripts/test-theme-background.sh
 run "app launcher" ./scripts/test-app-launcher.sh

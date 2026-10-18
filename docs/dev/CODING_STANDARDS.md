@@ -417,6 +417,22 @@ assignments). Treat ORD-1 flags on `Layout.*` placement as false positives.
 - **`AuthFlow` reports a failed attempt through `failed`, not `supplementaryMessage`**: `completed(false)` sets `failed` and re-opens the session, while `supplementaryMessage` is only populated when PAM emits `show-error`. A PAM message row must show on `supplementaryMessage !== "" || failed`, and style it as an error only when `supplementaryIsError || failed` — PAM also sends informational notices (a faillock lockout) with `supplementaryIsError` false.
 - **A signal handler can read a stale binding**: `AuthFlow.failedChanged` fires before a sibling `hasMessage` binding re-evaluates, so a handler that guards on that binding sees the old value and the action silently never runs. Trigger on the property change directly (an `onHasMessageChanged`) and defer the work with `Qt.callLater`, which also coalesces the multiple triggers.
 - **`clip: true` is correct for a password field and a masked progress track**: `TextInput` scrolls its content but does not contain it, so an unclipped field paints a long value over its neighbours. The review linter's PRF-3 is a scene-graph batching advisory; bless a deliberate case with `scripts/lint-review.sh --update-baseline`.
+- **A pointer handler above a `MouseArea` starves it**: a handler in an overlay
+  `Item` stacked over a module takes the press, so the module's `MouseArea`
+  never sees a click. A `TapHandler` or `PointHandler` on the parent never fires
+  either while a child `MouseArea` holds the exclusive grab; a parent
+  `DragHandler` (`target: null`) still gets a passive grab, and its
+  `grabChanged` is the one signal that survives (found live 2026-10-18;
+  `tests/bar-slot-handlers.qml`, ADR 0021).
+- **Never close or unmap a surface while a press on the bar is held**: Hyprland
+  sends the bar a button release a few milliseconds after any panel surface or
+  the tray menu unmaps, which ends the hold. Defer the close to the release
+  (found live 2026-10-18; ADR 0021).
+- **A running animation keeps the render loop ticking**: a `FrameAnimation`
+  used to coalesce 1 kHz pointer moves to one per frame raised a drag's CPU
+  from ~11% to ~13% of a core, and a 5 ms `Timer` saved nothing measurable,
+  because the cost is Qt's event delivery and the redraw, not the QML handler
+  (measured 2026-10-18). Profile before coalescing input.
 
 ---
 

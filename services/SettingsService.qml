@@ -33,7 +33,7 @@ Singleton {
         {
             key: "layout",
             title: qsTr("Layout"),
-            options: [qsTr("Bar visibility")]
+            options: [qsTr("Bar visibility"), qsTr("Reset bar order")]
                 .concat(
                     BarVisibilityService.modules.map(module => module.title),
                     BarMarginService.rows.map(row => row.label)

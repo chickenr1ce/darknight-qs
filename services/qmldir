@@ -15,6 +15,7 @@ singleton SettingsFilter 1.0 SettingsFilter.qml
 singleton MonitorService 1.0 MonitorService.qml
 singleton BarVisibilityService 1.0 BarVisibilityService.qml
 singleton BarMarginService 1.0 BarMarginService.qml
+singleton BarLayoutService 1.0 BarLayoutService.qml
 singleton SystemInfo 1.0 SystemInfo.qml
 singleton SystemMonitor 1.0 SystemMonitor.qml
 singleton AudioService 1.0 AudioService.qml

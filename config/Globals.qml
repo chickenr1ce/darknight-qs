@@ -90,6 +90,9 @@ QtObject {
     readonly property int tooltipDelayMs: 1000
     readonly property int wheelMs: 160
     readonly property int wheelStep: 240
+    readonly property int barReorderMs: 160
+    readonly property int barDragHoldMs: 300
+    readonly property real barDragLiftScale: 1.05
 
     readonly property int toastMs: 180
     readonly property int toastStickyClampMs: 30000
@@ -152,6 +155,7 @@ QtObject {
     readonly property int rowSpacing: 8
     readonly property int fieldPadding: 5
     readonly property int hairlineHeight: 1
+    readonly property int dropSlotInset: 2
     readonly property int armedEdgeWidth: 2
     readonly property int bodyScrollMin: 160
     readonly property real uiLetterSpacing: 0.6

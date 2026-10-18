@@ -108,6 +108,8 @@ ModuleBox {
 
                     // Hyprland ≥0.56 evaluates IPC as Lua: the legacy "workspace N" string fails; use hl.dsp.focus.
                     onClicked: mouse => {
+                        if (BarLayoutService.suppressClick)
+                            return;
                         if (mouse.button === Qt.LeftButton) {
                             idPressFeedback.pulse();
                             Hyprland.dispatch(`hl.dsp.focus({ workspace = ${idWorkspaceButton.workspaceId} })`);

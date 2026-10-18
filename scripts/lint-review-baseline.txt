@@ -28,6 +28,8 @@ services/AppService.qml BND-1 property var -- use a typed property (int, string,
 services/AppService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/AudioService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/AudioService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/BarLayoutService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/BarLayoutService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/BarVisibilityService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/CalendarService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
