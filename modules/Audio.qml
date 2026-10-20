@@ -130,6 +130,7 @@ ModuleBox {
             from: 0
             to: 1
             duration: root.tooltipAnimMs
+            easing.type: Easing.OutQuad
         }
         NumberAnimation {
             target: idAudioLabel
@@ -150,6 +151,7 @@ ModuleBox {
             from: 0
             to: 1
             duration: root.tooltipAnimMs
+            easing.type: Easing.OutQuad
         }
         NumberAnimation {
             target: idAudioTooltipSlider

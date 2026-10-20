@@ -23,7 +23,7 @@ ColumnLayout {
 
         visible: root.motionRelevant
         label: qsTr("Reduced motion")
-        hint: qsTr("Dashboard and panel motion become instant.")
+        hint: qsTr("Slides and scaling turn off; panel fades stay.")
         value: Globals.reducedMotion
         onToggled: Globals.reducedMotion = !Globals.reducedMotion
     }

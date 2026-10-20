@@ -97,7 +97,6 @@ ModuleBox {
                 onClicked: mouse => {
                     if (BarLayoutService.suppressClick)
                         return;
-                    idPressFeedback.pulse();
                     switch (mouse.button) {
                     case Qt.LeftButton:
                         // onlyMenu items have no activation action.

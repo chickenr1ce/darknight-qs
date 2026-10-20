@@ -34,7 +34,8 @@ Item {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+                duration: Globals.hoverMs
+                easing.type: Easing.OutQuad
             }
         }
     }

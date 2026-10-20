@@ -96,3 +96,13 @@ The verdict came from `.scratch/dashboard-settings/prototype-junction.html`
   collapsed the card before it slid. Its rows now stay until the window unmaps.
   The input mask's height follows the slide (`height × reveal`), so during the
   slide a click on the strip the card has not yet covered reaches the desktop.
+- 2026-10-20 (motion-review): the slide now runs 200ms open and 180ms close,
+  both on the strong ease-out curve `Globals.easeOutCurve`; the InCubic close
+  delayed the moment the user watches. A dashboard opened from the keyboard
+  (any `dashboard` IPC call, which the Super tap uses) skips the opening slide
+  (`DashboardService.keyboardOpened`), since a launcher opened that often
+  should not animate. It still slides closed: Enter and Ctrl+digit launch on
+  the key press, and an instant close would unmap with the key held, handing
+  the keyboard back mid-press (CODING_STANDARDS §4). The 180ms close is a
+  buffer for that release, not a guarantee. Reduced motion swaps the slide
+  for a fade, and the input mask drops to zero as the fade-out starts.

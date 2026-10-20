@@ -371,14 +371,6 @@ Item {
                                 radius: Globals.cardRadius
                                 color: Colors.selection
                                 opacity: idAppRow.selected ? 1 : 0
-
-                                Behavior on opacity {
-                                    enabled: !Globals.reducedMotion
-
-                                    NumberAnimation {
-                                        duration: Globals.hoverMs
-                                    }
-                                }
                             }
 
                             Rectangle {

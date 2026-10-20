@@ -471,22 +471,24 @@ fi
 PSHELL="$ROOT/components/PanelShell.qml"
 grep -q 'property real reveal: root.panelVisible ? 1 : 0' "$PSHELL" \
     || fail "PanelShell has no reveal driver"
-grep -qF 'y: root.attachedToBar ? -idPanel.height * (1 - idPanel.reveal)' "$PSHELL" \
+grep -qF 'return root.attachedToBar ? -idPanel.height * (1 - idPanel.reveal)' "$PSHELL" \
     || fail "attached panels no longer slide from behind the bar"
 grep -qF 'visible: root.panelVisible || idPanel.reveal > 0' "$PSHELL" \
     || fail "the panel hides before its close slide finishes"
 grep -qF ': -8 * (1 - idPanel.reveal)' "$PSHELL" \
     || fail "floating panels lost their 8px drop"
-grep -qF 'opacity: root.attachedToBar ? 1 : idPanel.reveal' "$PSHELL" \
+grep -qF 'opacity: idPanel.slides ? 1 : idPanel.reveal' "$PSHELL" \
     || fail "floating panels no longer fade, or attached panels fade while sliding"
-grep -qF 'root.attachedToBar && root.panelVisible ? Easing.InCubic : Easing.OutCubic' "$PSHELL" \
-    || fail "the slide easing is no longer inverted; see CODING_STANDARDS on Behavior durations"
+grep -qF 'DashboardService.keyboardOpened' "$ROOT/windows/DashboardCenter.qml" \
+    || fail "the dashboard no longer skips its opening slide on keyboard opens"
+grep -qF 'root.instantReveal && !root.panelVisible' "$PSHELL" \
+    || fail "keyboard-opened dashboards must still slide closed (CODING_STANDARDS §4)"
 grep -qF 'root.panelVisible ? Globals.dashboardCloseMs : Globals.dashboardOpenMs' "$PSHELL" \
     || fail "the dashboard slide timing is missing or no longer inverted"
-grep -qF "idPanel.height * (root.attachedToBar ? idPanel.reveal : 1)" "$PSHELL" \
+grep -qF "idPanel.height * (idPanel.slides ? idPanel.reveal : (root.attachedToBar && !root.panelVisible ? 0 : 1))" "$PSHELL" \
     || fail "the input mask does not follow the slide"
-grep -q 'property int dashboardOpenMs: 240' "$ROOT/config/Globals.qml" \
-    || fail "Globals dashboardOpenMs is missing or no longer 240 (ADR 0005)"
+grep -q 'property int dashboardOpenMs: 200' "$ROOT/config/Globals.qml" \
+    || fail "Globals dashboardOpenMs is missing or no longer 200 (ADR 0005)"
 grep -q 'property int dashboardCloseMs: 180' "$ROOT/config/Globals.qml" \
     || fail "Globals dashboardCloseMs is missing or no longer 180 (ADR 0005)"
 grep -A1 'item: root.inputOverlay' "$PSHELL" | grep -q 'intersection: Intersection.Combine' \

@@ -294,8 +294,7 @@ PanelWindow {
                             loops: Animation.Infinite
                             from: -idProgressBar.width
                             to: idProgressTrack.width
-                            duration: 1200
-                            easing.type: Easing.InOutSine
+                            duration: Globals.progressSweepMs
                         }
                     }
                 }
@@ -550,7 +549,8 @@ PanelWindow {
                     from: 0.96
                     to: 1
                     duration: Globals.reducedMotion ? 0 : Globals.centerOpenMs
-                    easing.type: Easing.OutCubic
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Globals.easeOutCurve
                 }
 
                 NumberAnimation {
@@ -558,7 +558,8 @@ PanelWindow {
                     property: "opacity"
                     from: 0
                     to: 1
-                    duration: Globals.reducedMotion ? 0 : Globals.centerOpenMs
+                    duration: Globals.centerOpenMs
+                    easing.type: Easing.OutQuad
                 }
             }
         }

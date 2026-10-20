@@ -42,15 +42,16 @@ Rectangle {
             from: 0
             to: 1
             duration: Globals.toastMs
-            easing.type: Easing.OutCubic
+            easing.type: Easing.OutQuad
         }
         NumberAnimation {
             target: idEntranceSlide
             property: "x"
-            from: 48
+            from: Globals.reducedMotion ? 0 : 48
             to: 0
             duration: Globals.toastMs
-            easing.type: Easing.OutCubic
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Globals.easeOutCurve
         }
     }
 

@@ -21,6 +21,8 @@ Singleton {
     property alias anchorCenterX: idPanelState.anchorCenterX
 
     property string activeTab: "dashboard"
+    property bool keyboardOpened: false
+    property bool ipcRequest: false
     property int junctionRadius: Globals.junctionRadiusDefault
 
     onJunctionRadiusChanged: root.saveJunctionRadius()
@@ -44,7 +46,9 @@ Singleton {
             const screen = MonitorService.focusedScreen();
             if (screen === null)
                 return "error: no screen";
+            root.ipcRequest = true;
             root.toggleDashboardAt(screen, screen.width / 2);
+            root.ipcRequest = false;
             return "ok";
         }
 
@@ -52,7 +56,9 @@ Singleton {
             const screen = MonitorService.focusedScreen();
             if (screen === null)
                 return "error: no screen";
+            root.ipcRequest = true;
             root.openDashboardAt(screen, screen.width / 2);
+            root.ipcRequest = false;
             return "ok";
         }
 
@@ -65,7 +71,9 @@ Singleton {
             const screen = MonitorService.focusedScreen();
             if (screen === null)
                 return "error: no screen";
+            root.ipcRequest = true;
             root.toggleAppsAt(screen, screen.width / 2);
+            root.ipcRequest = false;
             return "ok";
         }
 
@@ -84,23 +92,33 @@ Singleton {
             const screen = MonitorService.focusedScreen();
             if (screen === null)
                 return "error: no screen";
+            root.ipcRequest = true;
             root.openSettingsAt(screen, screen.width / 2, section);
+            root.ipcRequest = false;
             return "ok: " + section;
         }
     }
 
+    function markOpenSource(): void {
+        if (!root.dashboardVisible)
+            root.keyboardOpened = root.ipcRequest;
+    }
+
     function toggleDashboardAt(screen, centerX: real): void {
+        root.markOpenSource();
         if (!root.dashboardVisible)
             root.activeTab = "dashboard";
         idPanelState.toggleAt(screen, centerX)
     }
 
     function openAppsAt(screen, centerX: real): void {
+        root.markOpenSource();
         root.activeTab = "apps";
         idPanelState.openAt(screen, centerX);
     }
 
     function toggleAppsAt(screen, centerX: real): void {
+        root.markOpenSource();
         if (!root.dashboardVisible) {
             root.activeTab = "apps";
             idPanelState.openAt(screen, centerX);
@@ -114,6 +132,7 @@ Singleton {
     }
 
     function openDashboardAt(screen, centerX: real): void {
+        root.markOpenSource();
         root.activeTab = "dashboard";
         idPanelState.openAt(screen, centerX)
     }
@@ -128,6 +147,7 @@ Singleton {
     }
 
     function openSettingsAt(screen, centerX: real, sectionKey: string): void {
+        root.markOpenSource();
         root.activeTab = "settings";
         SettingsService.requestSection(sectionKey);
         idPanelState.openAt(screen, centerX);

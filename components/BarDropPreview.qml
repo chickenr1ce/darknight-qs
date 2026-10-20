@@ -38,7 +38,8 @@ Item {
 
         NumberAnimation {
             duration: Globals.reducedMotion ? 0 : Globals.barReorderMs
-            easing.type: Easing.OutCubic
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Globals.easeInOutCurve
         }
     }
 }

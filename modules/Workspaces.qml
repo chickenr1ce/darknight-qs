@@ -111,7 +111,6 @@ ModuleBox {
                         if (BarLayoutService.suppressClick)
                             return;
                         if (mouse.button === Qt.LeftButton) {
-                            idPressFeedback.pulse();
                             Hyprland.dispatch(`hl.dsp.focus({ workspace = ${idWorkspaceButton.workspaceId} })`);
                         }
                     }

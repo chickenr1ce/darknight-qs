@@ -3,7 +3,7 @@ import QtQuick
 import qs.config
 
 // Shared press-squash driver: identical timing/easing on every surface.
-// Release overshoots via OutBack.
+// The press is slower and deliberate; the release snaps back.
 Item {
     id: root
 
@@ -19,8 +19,13 @@ Item {
 
     Behavior on scale {
         NumberAnimation {
-            duration: Globals.reducedMotion ? 0 : Globals.pressMs
-            easing.type: root.pressed ? Easing.OutQuad : Easing.OutBack
+            duration: {
+                if (Globals.reducedMotion)
+                    return 0;
+                return root.pressed ? Globals.pressReleaseMs : Globals.pressMs;
+            }
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Globals.easeOutCurve
         }
     }
 }

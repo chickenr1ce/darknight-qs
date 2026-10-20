@@ -353,11 +353,9 @@ Item {
         border.color: Colors.border
 
         Behavior on opacity {
-            enabled: !Globals.reducedMotion
-
             NumberAnimation {
                 duration: Globals.hoverMs
-                easing.type: Easing.OutCubic
+                easing.type: Easing.OutQuad
             }
         }
 
@@ -544,11 +542,9 @@ Item {
         border.color: Colors.border
 
         Behavior on opacity {
-            enabled: !Globals.reducedMotion
-
             NumberAnimation {
                 duration: Globals.hoverMs
-                easing.type: Easing.OutCubic
+                easing.type: Easing.OutQuad
             }
         }
 
@@ -662,10 +658,9 @@ Item {
                 opacity: idEntryRow.active ? 1 : 0
 
                 Behavior on opacity {
-                    enabled: !Globals.reducedMotion
-
                     NumberAnimation {
                         duration: Globals.hoverMs
+                        easing.type: Easing.OutQuad
                     }
                 }
             }

@@ -24,6 +24,7 @@ PanelWindow {
     property real panelMaxHeight: Globals.centerMaxHeight
     property real windowHeight: root.panelMaxHeight
     property bool attachedToBar: false
+    property bool instantReveal: false
     property int junctionRadius: 0
     // Extra item whose rect joins the input mask, for content drawn past the
     // card inside the window (the Apps context menu hanging below a short card).
@@ -157,7 +158,7 @@ PanelWindow {
         width: root.visible ? idPanel.width : 0
         // Attached panels take input only on the part slid into view, so a
         // click on the strip not yet covered still reaches the desktop.
-        height: root.visible ? Math.round(idPanel.height * (root.attachedToBar ? idPanel.reveal : 1)) : 0
+        height: root.visible ? Math.round(idPanel.height * (idPanel.slides ? idPanel.reveal : (root.attachedToBar && !root.panelVisible ? 0 : 1))) : 0
 
         Region {
             x: 0
@@ -204,20 +205,25 @@ PanelWindow {
 
         // 0 = hidden, 1 = shown. Attached panels slide down from behind the
         // bar (the window's top edge clips them) at full opacity; floating
-        // panels fade with an 8px drop.
+        // panels fade with an 8px drop. Reduced motion keeps the fade only.
         property real reveal: root.panelVisible ? 1 : 0
+        readonly property bool slides: root.attachedToBar && !Globals.reducedMotion
 
         anchors.left: parent.left
         anchors.right: parent.right
 
         height: Math.min(root.panelMaxHeight, idShellLayout.implicitHeight + 2 * Globals.panelPadding)
-        y: root.attachedToBar ? -idPanel.height * (1 - idPanel.reveal) : -8 * (1 - idPanel.reveal)
-        opacity: root.attachedToBar ? 1 : idPanel.reveal
+        y: {
+            if (Globals.reducedMotion)
+                return 0;
+            return root.attachedToBar ? -idPanel.height * (1 - idPanel.reveal) : -8 * (1 - idPanel.reveal);
+        }
+        opacity: idPanel.slides ? 1 : idPanel.reveal
 
         // Composite the fade as one surface: unlayered, the translucent
         // chrome and the cards over it fade separately, so the cards seem
         // to outlive the panel.
-        layer.enabled: !root.attachedToBar && idPanel.reveal > 0 && idPanel.reveal < 1
+        layer.enabled: !idPanel.slides && idPanel.reveal > 0 && idPanel.reveal < 1
 
         // Default focus, so a key release reaches this item in a panel with
         // no focused field; a field inside still passes its release up here.
@@ -243,13 +249,14 @@ PanelWindow {
         Behavior on reveal {
             NumberAnimation {
                 duration: {
-                    if (Globals.reducedMotion)
+                    if (root.instantReveal && !root.panelVisible)
                         return 0;
                     if (root.attachedToBar)
                         return root.panelVisible ? Globals.dashboardCloseMs : Globals.dashboardOpenMs;
                     return root.panelVisible ? Globals.centerCloseMs : Globals.centerOpenMs;
                 }
-                easing.type: root.attachedToBar && root.panelVisible ? Easing.InCubic : Easing.OutCubic
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Globals.easeOutCurve
             }
         }
 

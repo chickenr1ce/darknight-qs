@@ -24,12 +24,13 @@ PanelShell {
         : Globals.dashboardMaxHeight
     windowHeight: root.appsMaxHeight
     attachedToBar: true
+    instantReveal: DashboardService.keyboardOpened
     junctionRadius: DashboardService.junctionRadius
     inputOverlay: DashboardService.activeTab === "workspaces"
         ? idDashboardWorkspacesView.menuInputBox
         : idDashboardAppsView.menuInputBox
     // Own namespace so Hyprland can skip its layer fade (no_anim layer rule);
-    // the slide in PanelShell is the only motion.
+    // the slide in PanelShell is the only motion; keyboard opens skip the opening slide.
     WlrLayershell.namespace: "quickshell-dashboard"
     onOutsideClicked: DashboardService.closeDashboardFromOutside()
     onPanelVisibleChanged: if (root.panelVisible) {

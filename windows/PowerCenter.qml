@@ -172,7 +172,8 @@ PanelShell {
 
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+                            duration: Globals.hoverMs
+                            easing.type: Easing.OutQuad
                         }
                     }
                 }
@@ -193,7 +194,8 @@ PanelShell {
 
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+                            duration: Globals.hoverMs
+                            easing.type: Easing.OutQuad
                         }
                     }
                 }
@@ -223,8 +225,9 @@ PanelShell {
 
                         Behavior on scale {
                             NumberAnimation {
-                                duration: Globals.reducedMotion ? 0 : (idPowerRowItem.isPressed ? Globals.pressMs : Globals.hoverMs)
-                                easing.type: Easing.OutCubic
+                                duration: Globals.reducedMotion ? 0 : (idPowerRowItem.isPressed ? Globals.pressReleaseMs : Globals.pressMs)
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Globals.easeOutCurve
                             }
                         }
 
@@ -239,7 +242,8 @@ PanelShell {
 
                             Behavior on opacity {
                                 NumberAnimation {
-                                    duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+                                    duration: Globals.hoverMs
+                                    easing.type: Easing.OutQuad
                                 }
                             }
                         }
@@ -371,10 +375,7 @@ PanelShell {
                 pixelSize: Globals.uiBodySize
             }
 
-            onTextChanged: {
-                if (!Globals.reducedMotion)
-                    idQuestionSwap.restart();
-            }
+            onTextChanged: idQuestionSwap.restart()
         }
 
         PillButton {
@@ -405,14 +406,16 @@ PanelShell {
                 target: idPowerQuestion
                 property: "opacity"
                 to: 0
-                duration: Globals.reducedMotion ? 0 : Math.round(Globals.hoverMs / 2)
+                duration: Math.round(Globals.hoverMs / 2)
+                easing.type: Easing.OutQuad
             }
 
             NumberAnimation {
                 target: idPowerQuestion
                 property: "opacity"
                 to: 1
-                duration: Globals.reducedMotion ? 0 : Math.round(Globals.hoverMs / 2)
+                duration: Math.round(Globals.hoverMs / 2)
+                easing.type: Easing.OutQuad
             }
         }
     }

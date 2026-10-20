@@ -56,8 +56,9 @@ PanelWindow {
         displaced: Transition {
             NumberAnimation {
                 property: "y"
-                duration: Globals.toastMs
-                easing.type: Easing.OutCubic
+                duration: Globals.reducedMotion ? 0 : Globals.toastMs
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Globals.easeOutCurve
             }
         }
 

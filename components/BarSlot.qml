@@ -82,7 +82,8 @@ Item {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+                    duration: Globals.hoverMs
+                    easing.type: Easing.OutQuad
                 }
             }
         }
@@ -157,6 +158,8 @@ Item {
     Behavior on scale {
         NumberAnimation {
             duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Globals.easeOutCurve
         }
     }
 
@@ -164,6 +167,8 @@ Item {
         enabled: !root.armed && BarLayoutService.reorderMotion
         NumberAnimation {
             duration: Globals.reducedMotion ? 0 : Globals.barReorderMs
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Globals.easeInOutCurve
         }
     }
 

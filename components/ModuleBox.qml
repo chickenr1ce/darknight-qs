@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import qs.config
 import qs.services
 
-// Transparent hit-region: hover tint + underline, press squash/pulse; emits clicked(mouse)/wheelMoved(wheel).
+// Transparent hit-region: hover tint + underline, press squash; emits clicked(mouse)/wheelMoved(wheel).
 Rectangle {
     id: root
 
@@ -57,18 +57,17 @@ Rectangle {
         Behavior on opacity {
             NumberAnimation {
                 duration: Globals.hoverMs
+                easing.type: Easing.OutQuad
             }
         }
     }
 
-    // Softer 0.18 peak keeps the larger module region subtler than per-item pills.
     PressFeedback {
         id: idPressFeedback
 
         active: root.isHovered
         horizontalInset: root.pillInset
         verticalInset: Globals.moduleMargin
-        peakOpacity: 0.18
     }
 
     PressScale {
@@ -107,7 +106,6 @@ Rectangle {
         onClicked: mouse => {
             if (BarLayoutService.suppressClick)
                 return;
-            idPressFeedback.pulse();
             root.clicked(mouse);
         }
         onWheel: wheel => root.wheelMoved(wheel)

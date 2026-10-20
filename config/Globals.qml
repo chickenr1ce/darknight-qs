@@ -42,7 +42,7 @@ QtObject {
     readonly property real polkitScrimOpacity: 0.55
     readonly property int centerOpenMs: 140
     readonly property int centerCloseMs: 140
-    readonly property int dashboardOpenMs: 240
+    readonly property int dashboardOpenMs: 200
     readonly property int dashboardCloseMs: 180
     readonly property int dashboardWidth: 720
     readonly property int dashboardMaxHeight: 600
@@ -86,7 +86,8 @@ QtObject {
     readonly property int junctionRadiusMax: 32
 
     readonly property int hoverMs: 140
-    readonly property int pressMs: 120
+    readonly property int pressMs: 160
+    readonly property int pressReleaseMs: 100
     readonly property int tooltipDelayMs: 1000
     readonly property int wheelMs: 160
     readonly property int wheelStep: 240
@@ -95,6 +96,7 @@ QtObject {
     readonly property real barDragLiftScale: 1.05
 
     readonly property int toastMs: 180
+    readonly property int progressSweepMs: 900
     readonly property int toastStickyClampMs: 30000
     readonly property int osdHoldMs: 1400
     readonly property int osdArmMs: 500
@@ -111,11 +113,14 @@ QtObject {
     readonly property int cavaRestartBaseMs: 1500
     readonly property int cavaRestartMaxMs: 30000
 
-    readonly property real pressScaleModule: 0.94
-    readonly property real pressScalePill: 0.86
+    readonly property real pressScaleModule: 0.96
+    readonly property real pressScalePill: 0.95
     readonly property real pressScaleRow: 0.985
 
     property bool reducedMotion: false
+
+    readonly property var easeOutCurve: [0.23, 1, 0.32, 1, 1, 1]
+    readonly property var easeInOutCurve: [0.77, 0, 0.175, 1, 1, 1]
 
     readonly property int slabInset: root.barSideMargin + slabEdgePadding
     readonly property int slabEdgePadding: 6

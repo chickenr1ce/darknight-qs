@@ -80,7 +80,8 @@ ColumnLayout {
             property: "opacity"
             from: 0
             to: 1
-            duration: Globals.reducedMotion ? 0 : Globals.hoverMs
+            duration: Globals.hoverMs
+            easing.type: Easing.OutQuad
         }
         NumberAnimation {
             target: idToggleHint

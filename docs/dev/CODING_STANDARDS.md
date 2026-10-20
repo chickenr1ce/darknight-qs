@@ -281,11 +281,11 @@ Timer { id: idMediaTimer }
   still holds the previous value when the animation starts, so open runs at
   close speed and close at open speed (verified live 2026-09-16: open 220 /
   close 1000 appeared swapped). Read the inverted ternaries in `PanelShell`
-  (`panelVisible ? centerCloseMs : centerOpenMs`, the dashboard pair
-  `panelVisible ? dashboardCloseMs : dashboardOpenMs`, and the easing
-  `root.attachedToBar && root.panelVisible ? Easing.InCubic :
-  Easing.OutCubic`, so floating panels always use OutCubic); do not "fix"
-  any of them back.
+  (`panelVisible ? centerCloseMs : centerOpenMs` and the dashboard pair
+  `panelVisible ? dashboardCloseMs : dashboardOpenMs`) and `PressScale`
+  (`pressed ? pressReleaseMs : pressMs`), plus `instantReveal &&
+  !panelVisible` (true only on open) and PowerCenter's glyph
+  (`isPressed ? pressReleaseMs : pressMs`); do not "fix" any of them back.
 - **Nothing outside the panel layout takes input by default**: `PanelShell`
   masks the window's input to the layout rect, so an overlay drawn past it,
   still inside the window canvas, shows but is dead to clicks. Grow the layout
