@@ -152,10 +152,6 @@ Item {
 
                 onTextChanged: root.query = text
                 Keys.onPressed: event => root.handleKey(event)
-                Keys.onShortcutOverride: event => {
-                    if (event.key === Qt.Key_Escape && root.query !== "")
-                        event.accepted = true;
-                }
 
                 Text {
                     id: idAppsSearchPlaceholder
@@ -961,11 +957,6 @@ Item {
             }
         } else if (event.key === Qt.Key_Menu) {
             root.openMenuForSelection();
-            event.accepted = true;
-        } else if (event.key === Qt.Key_Escape && root.query !== "") {
-            // An empty query leaves Escape to PanelShell, which closes on the
-            // release so a fullscreen game never gets the held key.
-            idAppsSearch.clear();
             event.accepted = true;
         }
     }

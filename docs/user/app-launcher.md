@@ -71,7 +71,7 @@ from anywhere in the card.
 | Ctrl+0 | open the selected app on absolute workspace 10 |
 | → | open the context menu on the selected row (cursor at the end of the query) |
 | Menu | open the context menu on the selected row |
-| Esc | clear the query; when it is already empty, close the dashboard |
+| Esc | close the dashboard |
 
 Ctrl+N opens on workspace N, and Ctrl+0 is workspace 10. A key past the
 available workspace count is consumed and does nothing.
