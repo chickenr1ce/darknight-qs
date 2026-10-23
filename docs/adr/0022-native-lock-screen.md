@@ -5,7 +5,7 @@ Date: 2026-10-23. Feature: lock-screen.
 ## Context
 
 The chosen lock design is the "Ambient" card in
-`docs/plans/15-lock-screen-ambient.html`: the active theme's wallpaper blurred
+`docs/plans/archive/15-lock-screen-ambient.html`: the active theme's wallpaper blurred
 behind a scrim, a chip with the clock at the top, a big clock in the centre, an
 unlock card that only appears once the user starts typing, a now-playing card at
 the bottom, and a power card under the power button. Unlock is a PAM password

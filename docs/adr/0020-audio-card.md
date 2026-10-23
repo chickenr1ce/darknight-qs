@@ -9,7 +9,7 @@ Right-clicking the bar's audio module launched `pavucontrol`
 picking the output, picking the microphone, and setting per-app volume. The
 shell had no input (source) handling and no per-app volume.
 
-Design plan 14 (`docs/plans/14-audio-window-designs.html`) explored four themed
+Design plan 14 (`docs/plans/archive/14-audio-window-designs.html`) explored four themed
 replacements: the stacked sheet, a mixer board with one channel strip per node,
 a tabbed popover, and routing lanes that drew the stream graph.
 

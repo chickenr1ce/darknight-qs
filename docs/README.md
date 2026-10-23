@@ -20,6 +20,7 @@ from its Documentation section.
 - [`user/qs-theme.md`](user/qs-theme.md) — the `qs-theme` CLI: install, switch, and manage themes and backgrounds.
 - [`user/polkit.md`](user/polkit.md): keep the shell the only polkit authentication agent, and troubleshoot prompts, lockouts, and stuck helpers.
 - [`user/ipc.md`](user/ipc.md) — the shell's IPC targets (`power`, `calendar`, `notifications`, `cava`, `audio`, `dashboard`, `dnd`, `volume`, `bar`, `lock`): functions, placement, and Lua keybind examples.
+- [`user/power-menu.md`](user/power-menu.md) — the power menu keybind, anchored under the bar's power icon.
 - [`user/app-launcher.md`](user/app-launcher.md) — the dashboard Apps tab: keys, mouse, context menu, pin/hide/unhide, and the Super keybind.
 - [`user/audio.md`](user/audio.md) — the audio card: output, input with a level meter, per-app volume, and the mouse map.
 - [`user/workspaces-tab.md`](user/workspaces-tab.md) — the dashboard Workspaces tab: the workspace maps, the mouse actions, and the window menu.

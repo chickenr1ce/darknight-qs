@@ -11,13 +11,7 @@ Active work lives in [`docs/dev/roadmap.md`](../dev/roadmap.md). The domain glos
 
 | # | Document | Status | Description |
 |---|---|---|---|
-| **09** | [`09-app-launcher-designs.html`](09-app-launcher-designs.html) | 🟢 Implemented | App launcher as the dashboard Apps tab: five variants (`?variant=1..5`). Variant 3 "Inline actions" shipped, with Focus and Kill replacing the inline workspace buttons. ADR 0018. |
-| **10** | [`10-deepen-seams-plan.md`](10-deepen-seams-plan.md) | 🟢 Implemented | Four seams from the 2026-10-11 architecture review: bar-trigger `PanelTrigger`, `SettingsLogic.js`, `CalendarLogic.js`, one volume glyph rule. |
-| **11** | [`11-dynamic-distro-logo.md`](11-dynamic-distro-logo.md) | 🟢 Implemented | Distro logo from `/etc/os-release` (ID, ID_LIKE) for the power-menu icon and dashboard system block, covering Arch, Debian, Red Hat, SUSE and independent families. |
 | **12** | [`12-architecture-review.html`](12-architecture-review.html) | 🟡 In progress (4 of 11 done) | 2026-10-12 architecture review at `42c4710`: eleven deepening cards (coalesced runs, launcher menu, interface gates, Background module, and seven pending). The status block records the per-card state; gaps the done cards left are in `docs/dev/roadmap.md`. |
-| **13** | [`13-workspaces-tab-designs.html`](13-workspaces-tab-designs.html) | 🟢 Implemented | Dashboard Workspaces tab: round 1 narrowed to Overview grid and Monitor lanes, six options (`?variant=1a..2c`); option 1a "one row per monitor" shipped, ADR 0019. |
-| **14** | [`14-audio-window-designs.html`](14-audio-window-designs.html) | 🟢 Implemented | Audio card on right-click of the bar's audio module: output, input, and an app mixer. Variant 1 shipped as a floating card. ADR 0020. |
-| **15** | [`15-lock-screen-designs.html`](15-lock-screen-designs.html), [`15-lock-screen-ambient.html`](15-lock-screen-ambient.html) | 🟢 Implemented | Native lock screen. Five design variants, then the chosen "Ambient" card without cava plus a power menu: blurred theme wallpaper, type-to-reveal unlock card, media card, and the power subset. ADR 0022. |
 
 ---
 
@@ -36,6 +30,12 @@ inside these files still name their original `docs/plans/` locations.
 | **06** | [`archive/06-architecture-review.html`](archive/06-architecture-review.html) | 🟢 Closed (2026-09-29) | Full codebase review plus eight deepening candidates. All items resolved or deferred; the status block records the per-item state. |
 | **07** | [`archive/07-deepening-plan.md`](archive/07-deepening-plan.md) | 🟢 Implemented | The four Strong deepening candidates: dead notification card, one notification collection, state-file module, panel registry as a list. Shipped in `8eac72f`. |
 | **08** | [`archive/08-polkit-agent-designs.html`](archive/08-polkit-agent-designs.html) | 🟢 Implemented | Polkit auth dialog exploration and the six-design refinement; the B2 "Context Runner" shipped as the native agent. ADR 0015. |
+| **09** | [`archive/09-app-launcher-designs.html`](archive/09-app-launcher-designs.html) | 🟢 Implemented (archived 2026-10-24) | App launcher as the dashboard Apps tab: five variants (`?variant=1..5`). Variant 3 "Inline actions" shipped, with Focus and Kill replacing the inline workspace buttons. ADR 0018. |
+| **10** | [`archive/10-deepen-seams-plan.md`](archive/10-deepen-seams-plan.md) | 🟢 Implemented (archived 2026-10-24) | Four seams from the 2026-10-11 architecture review: bar-trigger `PanelTrigger`, `SettingsLogic.js`, `CalendarLogic.js`, one volume glyph rule. |
+| **11** | [`archive/11-dynamic-distro-logo.md`](archive/11-dynamic-distro-logo.md) | 🟢 Implemented (archived 2026-10-24) | Distro logo from `/etc/os-release` (ID, ID_LIKE) for the power-menu icon and dashboard system block, covering Arch, Debian, Red Hat, SUSE and independent families. |
+| **13** | [`archive/13-workspaces-tab-designs.html`](archive/13-workspaces-tab-designs.html) | 🟢 Implemented (archived 2026-10-24) | Dashboard Workspaces tab: round 1 narrowed to Overview grid and Monitor lanes, six options (`?variant=1a..2c`); option 1a "one row per monitor" shipped, ADR 0019. |
+| **14** | [`archive/14-audio-window-designs.html`](archive/14-audio-window-designs.html) | 🟢 Implemented (archived 2026-10-24) | Audio card on right-click of the bar's audio module: output, input, and an app mixer. Variant 1 shipped as a floating card. ADR 0020. |
+| **15** | [`archive/15-lock-screen-designs.html`](archive/15-lock-screen-designs.html), [`archive/15-lock-screen-ambient.html`](archive/15-lock-screen-ambient.html) | 🟢 Implemented (archived 2026-10-24) | Native lock screen. Five design variants, then the chosen "Ambient" card without cava plus a power menu: blurred theme wallpaper, type-to-reveal unlock card, media card, and the power subset. ADR 0022. |
 
 ---
 
