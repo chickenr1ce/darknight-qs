@@ -17,6 +17,7 @@ Active work lives in [`docs/dev/roadmap.md`](../dev/roadmap.md). The domain glos
 | **12** | [`12-architecture-review.html`](12-architecture-review.html) | 🟡 In progress (4 of 11 done) | 2026-10-12 architecture review at `42c4710`: eleven deepening cards (coalesced runs, launcher menu, interface gates, Background module, and seven pending). The status block records the per-card state; gaps the done cards left are in `docs/dev/roadmap.md`. |
 | **13** | [`13-workspaces-tab-designs.html`](13-workspaces-tab-designs.html) | 🟢 Implemented | Dashboard Workspaces tab: round 1 narrowed to Overview grid and Monitor lanes, six options (`?variant=1a..2c`); option 1a "one row per monitor" shipped, ADR 0019. |
 | **14** | [`14-audio-window-designs.html`](14-audio-window-designs.html) | 🟢 Implemented | Audio card on right-click of the bar's audio module: output, input, and an app mixer. Variant 1 shipped as a floating card. ADR 0020. |
+| **15** | [`15-lock-screen-designs.html`](15-lock-screen-designs.html), [`15-lock-screen-ambient.html`](15-lock-screen-ambient.html) | 🟢 Implemented | Native lock screen. Five design variants, then the chosen "Ambient" card without cava plus a power menu: blurred theme wallpaper, type-to-reveal unlock card, media card, and the power subset. ADR 0022. |
 
 ---
 

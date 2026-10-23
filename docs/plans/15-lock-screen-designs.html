@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE · Lock screen (5 variants)</title>
+<!--
+  PROTOTYPE, throwaway. Question: what should the lock screen look like so it reads as part of the shell
+  (unified slab, 1px surface hairline, Geist UI + Iosevka mono, accent pills, workspace dots)?
+  Switch with ?variant=1..5, the bottom strip, or Ctrl+← →. Ctrl+T cycles the theme.
+  Type to fill the password; Enter checks it. "hunter2" unlocks, anything else fails. Esc clears.
+  Caps Lock shows a warning. The backdrop is each theme's own selected wallpaper, downscaled into
+  15-lock-screen-assets/ (personal images: keep them out of commits). Palettes are copied from ~/.local/share/quickshell/themes/*/colors.toml and
+  mapped onto config/Colors.qml tokens.
+  Each variant carries a hyprlock-feasibility note: the target is a native Quickshell lock
+  (WlSessionLock + Quickshell.Services.Pam, both in 0.3.2), with hyprlock kept as the fallback locker.
+-->
+<style>
+:root{
+  --ui:"Geist","Inter",system-ui,sans-serif;--mono:"Iosevka","GeistMono Nerd Font","JetBrains Mono",ui-monospace,monospace;
+  --rp:9px;--rc:6px;--jr:16px;--barH:28px;--ease:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--ui);font-size:14px;color:var(--text);-webkit-font-smoothing:antialiased;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+svg{display:block}
+.sp{flex:1}
+.mono{font-family:var(--mono)}
+
+/* the "monitor": a fixed 1600x900 canvas scaled to the available width */
+#frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:8px;background:#000;outline:none}
+#frame:focus-visible{box-shadow:0 0 0 2px #555}
+#screen{position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;overflow:hidden;background:var(--bg)}
+#wall{position:absolute;inset:0;background:var(--bg) var(--wallpaper) center/cover no-repeat;transition:filter .4s var(--ease),transform .4s var(--ease)}
+#wall::after{content:"";position:absolute;inset:0;background:var(--bg0);opacity:.2;transition:opacity .4s var(--ease)}
+#wall.blur{filter:blur(28px) saturate(1.15);transform:scale(1.08)}
+#wall.dim::after{opacity:.55}
+#stage{position:absolute;inset:0;animation:enter .22s var(--ease)}
+#stage.unlocking{animation:unlock .32s var(--ease) forwards}
+@keyframes enter{from{opacity:0;transform:scale(.99)}to{opacity:1;transform:none}}
+@keyframes unlock{to{opacity:0;transform:scale(1.03);filter:blur(6px)}}
+#welcome{position:absolute;inset:0;display:grid;place-items:center;font-size:15px;font-weight:600;color:var(--subtle);opacity:0;pointer-events:none;transition:opacity .2s}
+#welcome.on{opacity:1}
+
+/* shared atoms */
+.cap{font-size:12px;color:var(--subtle);letter-spacing:.02em}
+.lbl{font-size:11px;font-weight:600;color:var(--subtle);letter-spacing:.12em;text-transform:uppercase}
+.h{font-size:15px;font-weight:600}
+.slabbox{background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp)}
+.float{box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.card{background:var(--bg);border:1px solid var(--surface);border-radius:var(--rc);padding:10px 12px}
+.card2{background:var(--bg2);border-radius:var(--rc);padding:10px 12px}
+.hair{height:1px;background:var(--surface)}
+.kh{display:flex;gap:14px;align-items:center;justify-content:center;font-size:12px;color:var(--subtle)}
+.kh span{display:flex;gap:6px;align-items:center}
+kbd{font-family:var(--mono);font-size:11px;padding:1px 6px;border:1px solid var(--surface);border-bottom-width:2px;border-radius:4px;background:var(--bg2);color:var(--text)}
+.avatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:var(--bg);background:var(--accent);font-size:16px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:5px;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent)}
+.pill.dim{color:var(--subtle)}
+.ico{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* password field (field style) */
+.field{position:relative;display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;border-radius:var(--rc);background:var(--bg2);border:1px solid var(--surface);transition:border-color .14s,background .14s}
+.field.focus{border-color:color-mix(in srgb,var(--accent) 55%,var(--surface))}
+.field .lk{color:var(--subtle);flex:none}
+.field.focus .lk{color:var(--accent)}
+.field .dots{display:flex;gap:6px;align-items:center;overflow:hidden;flex:1;min-width:0}
+.field .dots i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--text);animation:pop .14s var(--ease)}
+.field .ph{position:absolute;left:38px;color:var(--faint);font-size:14px;pointer-events:none}
+.field .caps{flex:none;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--yellow);padding:1px 6px;border-radius:4px;background:color-mix(in srgb,var(--yellow) 14%,transparent);display:none}
+.caps-on .caps{display:inline-block!important}
+.field .spin{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--surface);border-top-color:var(--accent);animation:spin .6s linear infinite;display:none}
+.checking .field .spin{display:block}
+.checking .field .dots i{background:var(--accent)}
+.fail .field{border-color:color-mix(in srgb,var(--red) 45%,var(--bg));background:color-mix(in srgb,var(--red) 10%,var(--bg))}
+.fail .field .lk{color:var(--red)}
+.fail .shake{animation:shake .36s var(--ease)}
+@keyframes pop{from{transform:scale(0)}to{transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{0%,100%{transform:none}20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+.msg{min-height:18px;font-size:12px;color:var(--subtle);text-align:center;transition:color .14s}
+.fail .msg{color:var(--red)}
+
+/* bottom strip (prototype chrome, not part of the design) */
+#ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 0 4px;color:#999;font-size:12px;font-family:var(--ui)}
+#ctl button{height:26px;padding:0 10px;border-radius:5px;color:#888}
+#ctl button.on{background:#2a2a30;color:#fff}
+#ctl .sw{width:16px;height:16px;padding:0;border-radius:50%;border:2px solid transparent}
+#ctl .sw.on{border-color:#fff}
+#ctl .sep{width:1px;height:18px;background:#2a2a2e;margin:0 6px}
+#feas{color:#888;width:100%;padding-top:4px}
+#feas b{color:#bbb;font-weight:600}
+
+/* ===== V1 · Slab: the bar stays, the unlock card hangs from it ===== */
+.v1 .bar{position:absolute;top:4px;left:10px;right:10px;height:var(--barH);background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp);display:flex;align-items:center;padding:0 6px;gap:2px;z-index:2}
+.v1 .ws{display:flex;gap:6px;padding:0 9px;align-items:center}
+.v1 .ws i{width:8px;height:8px;border-radius:4px;background:var(--faint)}
+.v1 .ws i.on{width:20px;background:var(--accent)}
+.v1 .center{position:absolute;left:50%;transform:translateX(-50%);color:var(--text)}
+.v1 .hang{position:absolute;z-index:3;top:calc(4px + var(--barH) - 1px);left:50%;transform:translateX(-50%);width:380px;background:var(--bg);border:1px solid var(--surface);border-top:0;border-radius:0 0 var(--rp) var(--rp);padding:18px 18px 14px;display:flex;flex-direction:column;gap:12px;animation:drop .2s var(--ease)}
+.v1 .hang::before,.v1 .hang::after{content:"";position:absolute;top:0;width:var(--jr);height:var(--jr)}
+.v1 .hang::before{left:calc(-1 * var(--jr));background:radial-gradient(circle at 0 100%,transparent calc(var(--jr) - 1px),var(--surface) calc(var(--jr) - 1px),var(--surface) var(--jr),var(--bg) var(--jr))}
+.v1 .hang::after{right:calc(-1 * var(--jr));background:radial-gradient(circle at 100% 100%,transparent calc(var(--jr) - 1px),var(--surface) calc(var(--jr) - 1px),var(--surface) var(--jr),var(--bg) var(--jr))}
+@keyframes drop{from{opacity:0;translate:0 -8px}to{opacity:1;translate:0 0}}
+.v1 .who{display:flex;gap:12px;align-items:center}
+.v1 .big{position:absolute;left:56px;bottom:48px}
+.v1 .big .t{font-family:var(--mono);font-size:132px;line-height:.9;font-weight:600;letter-spacing:-.02em;color:var(--text)}
+.v1 .big .t b{color:var(--accent);font-weight:600}
+.v1 .big .d{display:inline-block;margin-top:16px;padding:6px 12px;font-size:15px;color:var(--text);background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp)}
+.v1 .np{position:absolute;right:28px;bottom:36px;width:300px;display:flex;gap:12px;align-items:center;padding:10px;z-index:2}
+.cover{flex:none;border-radius:5px;background:var(--bg2);border:1px solid var(--surface);display:grid;place-items:center;color:var(--faint)}
+.cover .ico{width:40%;height:40%}
+.meter{height:3px;border-radius:2px;background:var(--surface);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:2px}
+
+/* ===== V2 · Dashboard card ===== */
+.v2 .wrap{position:absolute;inset:0;display:grid;place-items:center}
+.v2 .dash{width:720px;display:grid;grid-template-columns:320px 1fr;gap:0;overflow:hidden}
+.v2 .left{padding:22px;display:flex;flex-direction:column;gap:12px;border-right:1px solid var(--surface)}
+.v2 .right{padding:12px;display:flex;flex-direction:column;gap:8px;background:color-mix(in srgb,var(--bg2) 35%,var(--bg))}
+.v2 .t{font-family:var(--mono);font-size:72px;font-weight:600;line-height:1;letter-spacing:-.02em}
+.v2 .t small{font-size:22px;color:var(--faint);margin-left:4px}
+.v2 .hdr{display:flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-bottom:1px solid var(--surface);grid-column:1/-1}
+.v2 .ev{display:flex;gap:10px;align-items:stretch;padding:5px 0}
+.v2 .ev .rail{width:3px;border-radius:2px;flex:none}
+.v2 .ev .tm{width:44px;flex:none;font-family:var(--mono);font-size:13px;color:var(--subtle);padding-top:1px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.v2 .ctrls{display:flex;gap:4px;margin-top:6px}
+.v2 .ctrls button{width:28px;height:24px;border-radius:5px;display:grid;place-items:center;color:var(--text)}
+.v2 .ctrls button.pp{background:var(--accent);color:var(--bg)}
+
+/* ===== V3 · Monolith ===== */
+.v3 .wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+.v3 .t{font-family:var(--mono);font-size:220px;font-weight:300;line-height:.85;letter-spacing:-.04em;color:var(--text);display:flex;align-items:baseline}
+.v3 .t .col{color:var(--accent);animation:blink 1s steps(1) infinite;margin:0 -.04em}
+@keyframes blink{50%{opacity:.25}}
+.v3 .sec{width:520px;height:2px;border-radius:1px;background:var(--surface);margin-top:34px;overflow:hidden}
+.v3 .sec i{display:block;height:100%;background:var(--accent);transition:width 1s linear}
+.v3 .d{margin-top:16px}
+.v3 .pills{margin-top:64px;height:20px;display:flex;align-items:center;gap:6px}
+.v3 .pills i{height:8px;width:8px;border-radius:4px;background:var(--faint);transition:width .16s var(--ease),background .16s}
+.v3 .pills i.f{background:var(--text)}
+.v3 .pills i.last{width:20px;background:var(--accent)}
+.checking.v3 .pills i.f{background:var(--accent)}
+.fail.v3 .pills i{background:var(--red)!important}
+.v3 .hint{margin-top:18px}
+.v3 .corner{position:absolute;bottom:22px;display:flex;gap:4px}
+.v3 .caps3{display:none;color:var(--yellow);font-family:var(--mono);font-size:11px;font-weight:700;margin-top:10px}
+.caps-on .v3 .caps3,.caps-on.v3 .caps3{display:block}
+
+/* ===== V4 · Ambient (cava) ===== */
+.v4 canvas{position:absolute;left:0;right:0;bottom:0;width:100%;height:240px}
+.v4 .chip{position:absolute;top:14px;height:34px;display:flex;align-items:center;gap:4px;padding:0 6px}
+.v4 .clockchip{left:14px;padding:0 14px;gap:12px}
+.v4 .clockchip .t{font-family:var(--mono);font-size:17px;font-weight:600}
+.v4 .hero{position:absolute;left:0;right:0;top:30%;text-align:center}
+.v4 .hero .t{font-family:var(--mono);font-size:96px;font-weight:600;letter-spacing:-.02em;line-height:1}
+.v4 .np4{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:8px 14px 8px 8px;z-index:2}
+.v4 .reveal{position:absolute;left:50%;top:52%;transform:translate(-50%,8px);width:340px;opacity:0;transition:opacity .2s var(--ease),transform .2s var(--ease);pointer-events:none;display:flex;flex-direction:column;gap:8px}
+.v4 .reveal.shown{opacity:1;transform:translate(-50%,0)}
+.v4 .idlehint{position:absolute;left:0;right:0;top:calc(52% + 10px);text-align:center;transition:opacity .2s}
+.v4 .idlehint.hide{opacity:0}
+
+/* ===== V5 · Sidebar ===== */
+.v5 .side{position:absolute;top:10px;bottom:10px;left:10px;width:360px;display:flex;flex-direction:column;padding:20px;gap:14px;animation:slide .24s var(--ease)}
+@keyframes slide{from{opacity:0;translate:-16px 0}to{opacity:1;translate:0 0}}
+.v5 .t{font-family:var(--mono);font-size:84px;font-weight:600;line-height:.95;letter-spacing:-.02em}
+.v5 .row{display:flex;align-items:center;gap:10px;height:30px;padding:0 8px;border-radius:5px}
+.v5 .row .ico{color:var(--accent)}
+.v5 .row .v{margin-left:auto;font-family:var(--mono);font-size:13px;color:var(--subtle)}
+.v5 .stamp{position:absolute;right:24px;bottom:20px}
+.v5 .quote{position:absolute;right:24px;bottom:56px;display:flex;gap:12px;align-items:center;padding:10px 16px 10px 10px}
+</style>
+</head>
+<body>
+<div id="frame" tabindex="0"><div id="screen">
+  <div id="wall"></div>
+  <div id="stage"></div>
+  <div id="welcome">Welcome back</div>
+</div></div>
+<div id="ctl">
+  <span style="color:#666;margin-right:4px">Variant</span>
+  <span id="vbtns"></span>
+  <span class="sep"></span>
+  <span style="color:#666;margin-right:4px">Theme</span>
+  <span id="tbtns" style="display:flex;gap:6px"></span>
+  <span class="sp"></span>
+  <span style="color:#666">click the screen, type · Enter · Esc · <span class="mono" style="color:#999">hunter2</span> unlocks</span>
+  <span id="feas"></span>
+</div>
+
+<script>
+// Each theme's selected wallpaper (~/.local/state/quickshell/theme), downscaled to 1600x900.
+const WALLS = Object.fromEntries(["darknight","nightshade","gruvbox","haven","vantablack"].map(t=>[t,`15-lock-screen-assets/${t}.jpg`]));
+const THEMES = {
+  darknight:{bg:"#141118",bg2:"#27222f",bg0:"#0e0c11",surface:"#282936",text:"#cac4d4",faint:"#4f455f",subtle:"#9d93ad",accent:"#b4befe",purple:"#a980db",red:"#ff5252",green:"#a6e3a1",yellow:"#d7d370",cyan:"#94e2d5",blue:"#89b4fa"},
+  nightshade:{bg:"#141118",bg2:"#1d1d1d",bg0:"#0c0a0f",surface:"#262429",text:"#cac4d4",faint:"#484848",subtle:"#6c7086",accent:"#a980db",purple:"#a980db",red:"#df7a9b",green:"#3bb693",yellow:"#cbaa4b",cyan:"#30b4ad",blue:"#35afc9"},
+  gruvbox:{bg:"#282828",bg2:"#1e1e1e",bg0:"#161616",surface:"#3c3836",text:"#d4be98",faint:"#7c6f64",subtle:"#a89984",accent:"#7daea3",purple:"#d3869b",red:"#ea6962",green:"#a9b665",yellow:"#d8a657",cyan:"#89b482",blue:"#7daea3"},
+  haven:{bg:"#EEE8DA",bg2:"#E7DFD0",bg0:"#E2DAC9",surface:"#D8CFBD",text:"#263D40",faint:"#8a8f86",subtle:"#526056",accent:"#795334",purple:"#6C4D6C",red:"#8C4036",green:"#4C6045",yellow:"#73591C",cyan:"#2E605D",blue:"#315B7B"},
+  vantablack:{bg:"#000000",bg2:"#090909",bg0:"#070707",surface:"#1a1a1a",text:"#ffffff",faint:"#505050",subtle:"#7a7a7a",accent:"#8d8d8d",purple:"#5a5a5a",red:"#a4a4a4",green:"#b6b6b6",yellow:"#cecece",cyan:"#9a9a9a",blue:"#7d7d7d"},
+};
+const FEAS = {
+  1:["Slab","<b>hyprlock: partial.</b> Bar, card and clock are shapes + labels; the junction curves and live bar modules need the native lock."],
+  2:["Dashboard card","<b>hyprlock: no.</b> Live MPRIS, agenda and notification counts want the shell's services."],
+  3:["Monolith","<b>hyprlock: mostly.</b> Clock, date and a dot input field port well; the seconds hairline and pill dots don't."],
+  4:["Ambient","<b>hyprlock: no.</b> Needs CavaService frames and the type-to-reveal field."],
+  5:["Sidebar","<b>hyprlock: partial.</b> Static column ports as shapes + cmd[] labels; rows go stale between polls."],
+};
+const I = {
+  lock:'<svg class="ico" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  wifi:'<svg class="ico" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>',
+  vol:'<svg class="ico" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>',
+  bat:'<svg class="ico" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/><rect x="4" y="9" width="11" height="6" rx="1" fill="currentColor" stroke="none"/></svg>',
+  music:'<svg class="ico" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
+  prev:'<svg class="ico" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8z" fill="currentColor"/><path d="M5 19V5"/></svg>',
+  next:'<svg class="ico" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8z" fill="currentColor"/><path d="M19 5v14"/></svg>',
+  pause:'<svg class="ico" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="3"/></svg>',
+  bell:'<svg class="ico" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+  cloud:'<svg class="ico" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9Z"/></svg>',
+  cal:'<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  power:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>',
+  moon:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+  user:'<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+};
+const field = (ph="Password") => `<div class="field pw shake" data-style="field"><span class="lk">${I.lock}</span><div class="dots"></div><span class="ph">${ph}</span><span class="caps">⇪ CAPS</span><span class="spin"></span></div>`;
+const keys = `<div class="kh"><span><kbd>Enter</kbd>unlock</span><span><kbd>Esc</kbd>clear</span><span><kbd>⇧</kbd><kbd>Tab</kbd>user</span></div>`;
+
+const V = {
+1:()=>({wall:"",html:`<div class="v1">
+  <div class="bar">
+    <div class="ws"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+    <span class="pill dim">${I.music}<span>Midnight City</span></span>
+    <div class="center pill" style="color:var(--text)">${I.lock}<span>Locked</span><span style="color:var(--faint)">·</span><span data-k="time"></span></div>
+    <span class="sp"></span>
+    <span class="pill">${I.wifi}</span><span class="pill">${I.vol}<span>42%</span></span><span class="pill">${I.bat}<span>87%</span></span>
+  </div>
+  <div class="hang">
+    <div class="who"><div class="avatar">A</div><div><div class="h">alexiz</div><div class="cap">omarchy · locked since <span data-k="since"></span></div></div></div>
+    ${field()}
+    <div class="msg"></div>
+    <div class="hair"></div>
+    ${keys}
+  </div>
+  <div class="big"><div class="t"><span data-k="hh"></span><b>:</b><span data-k="mm"></span></div><div class="d" data-k="date"></div></div>
+  <div class="np slabbox float"><div class="cover" style="width:52px;height:52px">${I.music}</div><div style="flex:1;min-width:0"><div class="h" style="font-size:14px">Midnight City</div><div class="cap">M83 · Hurry Up, We're Dreaming</div><div class="meter" style="margin-top:8px"><i style="width:38%"></i></div></div></div>
+</div>`}),
+2:()=>({wall:"blur dim",html:`<div class="v2"><div class="wrap">
+  <div class="dash slabbox float">
+    <div class="hdr"><span style="color:var(--accent)">${I.lock}</span><span class="h" style="font-size:14px">Locked</span><span class="sp"></span><span class="cap mono" data-k="dateShort"></span></div>
+    <div class="left">
+      <div class="t"><span data-k="time"></span><small data-k="ss"></small></div>
+      <div class="cap" data-k="date" style="font-size:14px"></div>
+      <div style="height:10px"></div>
+      <div style="display:flex;gap:10px;align-items:center"><div class="avatar" style="width:32px;height:32px;font-size:13px">A</div><div><div style="font-weight:600">alexiz</div><div class="cap">omarchy</div></div></div>
+      ${field()}
+      <div class="msg" style="text-align:left"></div>
+      <div class="sp"></div>
+      <div style="display:flex;gap:4px">
+        <button class="pill dim" title="Suspend">${I.moon}</button><button class="pill dim" title="Power">${I.power}</button><span class="sp"></span>
+        <span class="pill dim">${I.wifi}</span><span class="pill dim">${I.bat}87%</span>
+      </div>
+    </div>
+    <div class="right">
+      <div class="card" style="display:flex;gap:12px">
+        <div class="cover" style="width:86px;height:86px">${I.music}</div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <div class="lbl">Now playing · Spotify</div>
+          <div class="h" style="margin-top:6px">Midnight City</div><div class="cap">M83</div>
+          <div class="sp"></div>
+          <div class="meter"><i style="width:38%"></i></div>
+          <div style="display:flex;justify-content:space-between" class="cap mono"><span>1:32</span><span>4:03</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="lbl" style="margin-bottom:6px">Today</div>
+        <div class="ev"><span class="rail" style="background:var(--accent)"></span><span class="tm">15:00</span><div><div style="font-weight:600">Design review</div><div class="cap">Meet · 45 min</div></div></div>
+        <div class="ev"><span class="rail" style="background:var(--purple)"></span><span class="tm">18:30</span><div><div style="font-weight:600">Climbing</div><div class="cap">Boulder Lab</div></div></div>
+      </div>
+      <div class="card2" style="display:flex;align-items:center;gap:10px">
+        <span style="color:var(--subtle)">${I.bell}</span><span>4 notifications</span><span class="sp"></span>
+        <span class="dot" style="background:hsl(120 65% 72%)"></span><span class="dot" style="background:hsl(210 65% 72%)"></span><span class="dot" style="background:hsl(330 65% 72%)"></span>
+      </div>
+    </div>
+  </div>
+</div></div>`}),
+3:()=>({wall:"blur dim",html:`<div class="v3"><div class="wrap">
+  <div class="lbl" style="margin-bottom:22px" data-k="day"></div>
+  <div class="t"><span data-k="hh"></span><span class="col">:</span><span data-k="mm"></span></div>
+  <div class="sec"><i data-k="secbar"></i></div>
+  <div class="d cap" style="font-size:15px" data-k="dateNoDay"></div>
+  <div class="pills pw shake" data-style="pills"></div>
+  <div class="caps3">⇪ CAPS LOCK</div>
+  <div class="msg hint">Type to unlock</div>
+  <div class="corner"><span class="pill dim">${I.wifi}</span><span class="pill dim">${I.bat}87%</span><span class="pill dim">${I.music}Midnight City</span></div>
+</div></div>`}),
+4:()=>({wall:"blur",html:`<div class="v4">
+  <canvas id="cava"></canvas>
+  <div class="chip clockchip slabbox"><span style="color:var(--accent)">${I.lock}</span><span class="t" data-k="time"></span><span class="cap" data-k="dateShort"></span></div>
+  <div class="chip slabbox" style="right:14px"><span class="pill">${I.wifi}</span><span class="pill">${I.vol}42%</span><span class="pill">${I.bat}87%</span></div>
+  <div class="hero"><div class="t" data-k="time"></div></div>
+  <div class="idlehint cap">Start typing to unlock</div>
+  <div class="reveal">${field()}<div class="msg"></div></div>
+  <div class="np4 slabbox float">
+    <div class="cover" style="width:44px;height:44px">${I.music}</div>
+    <div style="min-width:180px"><div style="font-weight:600">Midnight City</div><div class="cap">M83</div></div>
+    <div style="display:flex;gap:2px"><button class="pill dim">${I.prev}</button><button class="pill">${I.pause}</button><button class="pill dim">${I.next}</button></div>
+  </div>
+</div>`}),
+5:()=>({wall:"",html:`<div class="v5">
+  <div class="side slabbox float">
+    <div style="display:flex;gap:12px;align-items:center"><div class="avatar">A</div><div><div class="h">alexiz</div><div class="cap">omarchy · locked</div></div><span class="sp"></span><span style="color:var(--accent)">${I.lock}</span></div>
+    <div style="margin-top:18px"><div class="t" data-k="time"></div><div class="cap" style="font-size:15px;margin-top:8px" data-k="date"></div></div>
+    <div class="hair" style="margin:6px 0"></div>
+    <div class="lbl">Status</div>
+    <div>
+      <div class="row">${I.cloud}<span>Light rain</span><span class="v">14°</span></div>
+      <div class="row">${I.bat}<span>Battery</span><span class="v">87% · 4h 12m</span></div>
+      <div class="row">${I.wifi}<span>Network</span><span class="v">home-5g</span></div>
+      <div class="row">${I.bell}<span>Notifications</span><span class="v">4</span></div>
+    </div>
+    <div class="lbl" style="margin-top:4px">Up next</div>
+    <div class="card2" style="display:flex;gap:10px;align-items:center"><span class="dot" style="background:var(--accent)"></span><div><div style="font-weight:600">Design review</div><div class="cap">15:00 · Meet</div></div></div>
+    <div class="sp"></div>
+    ${field()}
+    <div class="msg"></div>
+    ${keys}
+  </div>
+  <div class="quote slabbox float"><div class="cover" style="width:44px;height:44px">${I.music}</div><div><div class="lbl">Now playing</div><div style="font-weight:600;margin-top:2px">Midnight City <span class="cap">· M83</span></div></div></div>
+  <div class="stamp slabbox cap mono" style="padding:4px 10px">locked since <span data-k="since"></span></div>
+</div>`}),
+};
+
+/* state */
+const params = new URLSearchParams(location.search);
+let variant = +params.get("variant") || 1;
+let theme = params.get("theme") || "darknight";
+const S = {pw:"",status:"idle",fails:0,caps:false,lastKey:0};
+const lockedAt = new Date(Date.now()-17*60000);
+const stage = document.getElementById("stage"), wall = document.getElementById("wall"), screen = document.getElementById("screen");
+
+function applyTheme(){
+  const t = THEMES[theme], r = document.documentElement.style;
+  for (const k in t) r.setProperty("--"+k, t[k]);
+  r.setProperty("--wallpaper", `url("${WALLS[theme]}")`);
+  document.querySelectorAll("#tbtns .sw").forEach(b=>b.classList.toggle("on", b.dataset.t===theme));
+}
+function setVariant(v){
+  variant = ((v-1+5)%5)+1;
+  const {wall:w, html} = V[variant]();
+  wall.className = w; stage.className = ""; void stage.offsetWidth;
+  stage.innerHTML = html;
+  document.querySelectorAll("#vbtns button").forEach(b=>b.classList.toggle("on", +b.dataset.v===variant));
+  document.getElementById("feas").innerHTML = FEAS[variant][1];
+  try { history.replaceState(null,"",`?variant=${variant}&theme=${theme}`); } catch {}
+  tick(); render(); if (variant===4) startCava();
+}
+
+/* clock */
+const p2 = n=>String(n).padStart(2,"0");
+function tick(){
+  const d = new Date();
+  const map = {
+    time:`${p2(d.getHours())}:${p2(d.getMinutes())}`, hh:p2(d.getHours()), mm:p2(d.getMinutes()), ss:p2(d.getSeconds()),
+    date:d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}),
+    dateNoDay:d.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),
+    day:d.toLocaleDateString("en-GB",{weekday:"long"}),
+    dateShort:d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}),
+    since:`${p2(lockedAt.getHours())}:${p2(lockedAt.getMinutes())}`,
+  };
+  stage.querySelectorAll("[data-k]").forEach(el=>{
+    const k = el.dataset.k;
+    if (k==="secbar") el.style.width = (d.getSeconds()/59*100)+"%";
+    else if (map[k]!==undefined && el.textContent!==map[k]) el.textContent = map[k];
+  });
+}
+setInterval(tick,1000);
+
+/* password */
+function render(){
+  const st = stage.firstElementChild; if (!st) return;
+  st.classList.toggle("fail", S.status==="fail");
+  st.classList.toggle("checking", S.status==="checking");
+  screen.classList.toggle("caps-on", S.caps);
+  st.querySelectorAll(".pw").forEach(el=>{
+    const n = S.pw.length;
+    if (el.dataset.style==="field"){
+      const dots = el.querySelector(".dots");
+      while (dots.children.length>Math.min(n,28)) dots.lastChild.remove();
+      while (dots.children.length<Math.min(n,28)) dots.appendChild(document.createElement("i"));
+      el.querySelector(".ph").style.display = n||S.status==="fail" ? "none" : "";
+      el.classList.toggle("focus", n>0);
+    } else {
+      const total = Math.max(8, n);
+      el.innerHTML = Array.from({length:total},(_,i)=>`<i class="${i<n?"f":""} ${i===n-1&&S.status==="idle"?"last":""}"></i>`).join("");
+    }
+  });
+  const msg = S.status==="fail" ? `Wrong password${S.fails>1?` · ${S.fails} attempts`:""}`
+            : S.status==="checking" ? "Checking…"
+            : (variant===3 ? (S.pw.length ? "Enter to unlock" : "Type to unlock") : "");
+  st.querySelectorAll(".msg").forEach(m=>m.textContent=msg);
+  if (variant===4){
+    const shown = S.pw.length>0 || S.status!=="idle" || Date.now()-S.lastKey<6000;
+    st.querySelector(".reveal").classList.toggle("shown", shown);
+    st.querySelector(".idlehint").classList.toggle("hide", shown);
+  }
+}
+setInterval(()=>{ if (variant===4) render(); },500);
+
+function submit(){
+  if (!S.pw || S.status==="checking") return;
+  S.status="checking"; render();
+  setTimeout(()=>{
+    if (S.pw==="hunter2"){
+      S.pw=""; S.fails=0; S.status="idle";
+      stage.classList.add("unlocking"); document.getElementById("welcome").classList.add("on");
+      setTimeout(()=>{ document.getElementById("welcome").classList.remove("on"); setVariant(variant); }, 1400);
+    } else {
+      S.fails++; S.pw=""; S.status="fail"; render();
+      stage.querySelectorAll(".shake").forEach(e=>{e.style.animation="none";void e.offsetWidth;e.style.animation="";});
+      setTimeout(()=>{ if (S.status==="fail"){ S.status="idle"; render(); } }, 1800);
+    }
+  }, 520);
+}
+addEventListener("keydown", e=>{
+  S.caps = e.getModifierState && e.getModifierState("CapsLock");
+  if (e.ctrlKey){
+    if (e.key==="ArrowRight"){ setVariant(variant+1); e.preventDefault(); }
+    else if (e.key==="ArrowLeft"){ setVariant(variant-1); e.preventDefault(); }
+    else if (e.key.toLowerCase()==="t"){ const ks=Object.keys(THEMES); theme=ks[(ks.indexOf(theme)+1)%ks.length]; applyTheme(); setVariant(variant); e.preventDefault(); }
+    return;
+  }
+  S.lastKey = Date.now();
+  if (S.status==="checking") return;
+  if (e.key==="Enter") return submit();
+  if (S.status==="fail") S.status="idle";
+  if (e.key==="Escape") S.pw="";
+  else if (e.key==="Backspace") S.pw=S.pw.slice(0,-1);
+  else if (e.key.length===1 && !e.metaKey && !e.altKey) S.pw+=e.key;
+  else { render(); return; }
+  e.preventDefault(); render();
+});
+addEventListener("keyup", e=>{ S.caps = e.getModifierState && e.getModifierState("CapsLock"); render(); });
+
+/* cava (variant 4): smoothed fake spectrum, bars style */
+let cavaRaf = 0;
+function startCava(){
+  cancelAnimationFrame(cavaRaf);
+  const c = document.getElementById("cava"); if (!c) return;
+  const ctx = c.getContext("2d"); const N = 64; const v = new Float32Array(N);
+  const frame = t=>{
+    if (!document.getElementById("cava")) return;
+    const w = c.width = c.clientWidth*devicePixelRatio, h = c.height = c.clientHeight*devicePixelRatio;
+    const cs = getComputedStyle(document.documentElement);
+    ctx.clearRect(0,0,w,h); ctx.fillStyle = cs.getPropertyValue("--accent").trim(); ctx.globalAlpha = .7;
+    const gap = 6*devicePixelRatio, bw = (w - gap*(N+1))/N;
+    for (let i=0;i<N;i++){
+      const x = i/N, beat = Math.pow(Math.max(0,Math.sin(t/230)),8);
+      const target = (.35+.35*Math.sin(t/700+i*.45)*Math.sin(t/1300+i*.13) + beat*.5*Math.exp(-x*3)) * (1-x*.55) * (.6+.4*Math.random());
+      v[i] += (Math.max(.03,target)-v[i])*.18;
+      const bh = v[i]*h*.9, bx = gap + i*(bw+gap), r = Math.min(bw/2, 4*devicePixelRatio);
+      ctx.beginPath(); ctx.roundRect(bx, h-bh, bw, bh, [r,r,0,0]); ctx.fill();
+    }
+    cavaRaf = requestAnimationFrame(frame);
+  };
+  cavaRaf = requestAnimationFrame(frame);
+}
+
+/* chrome */
+document.getElementById("vbtns").innerHTML = Object.entries(FEAS).map(([k,[n]])=>`<button data-v="${k}">${k} ${n}</button>`).join("");
+document.getElementById("vbtns").onclick = e=>{ const b=e.target.closest("button"); if (b){ setVariant(+b.dataset.v); b.blur(); } };
+document.getElementById("tbtns").innerHTML = Object.entries(THEMES).map(([k,t])=>`<button class="sw" title="${k}" data-t="${k}" style="background:linear-gradient(135deg,${t.bg} 50%,${t.accent} 50%)"></button>`).join("");
+document.getElementById("tbtns").onclick = e=>{ const b=e.target.closest("button"); if (b){ theme=b.dataset.t; applyTheme(); setVariant(variant); b.blur(); } };
+const frame = document.getElementById("frame");
+const fit = ()=>{ screen.style.transform = `scale(${frame.clientWidth/1600})`; };
+new ResizeObserver(fit).observe(frame); fit();
+frame.addEventListener("pointerdown", ()=>frame.focus());
+applyTheme(); setVariant(variant);
+</script>
+</body>
+</html>

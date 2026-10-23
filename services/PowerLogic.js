@@ -11,7 +11,7 @@
 // qsTr, which a .pragma library resolves at call time rather than at load.
 function table() {
     return [
-        { id: "lock", label: qsTr("Lock"), dangerous: false, argv: ["sh", "-c", "command -v hyprlock >/dev/null 2>&1 && exec hyprlock || { command -v betterlockscreen >/dev/null 2>&1 && exec betterlockscreen -l || exec i3lock; }"] },
+        { id: "lock", label: qsTr("Lock"), dangerous: false, lock: true, argv: null },
         { id: "suspend", label: qsTr("Suspend"), dangerous: false, argv: ["sh", "-c", "playerctl pause -a 2>/dev/null; mpc -q pause 2>/dev/null; systemctl suspend"] },
         { id: "logout", label: qsTr("Logout"), dangerous: false, argv: ["hyprctl", "dispatch", "exit"] },
         { id: "reboot", label: qsTr("Reboot"), dangerous: true, argv: ["systemctl", "reboot"] },
@@ -53,13 +53,14 @@ function isArmed(state, id) {
     return state.armed === id;
 }
 
-// Lock runs at once and never arms, clearing any other armed action. Every
-// other id arms; pressing the armed id again leaves it armed (confirmation is
-// a distinct gesture through confirm()), and pressing a different id re-arms.
-// run is the argv to start now, or null.
+// Lock asks the shell's lock service to lock and never arms, clearing any other
+// armed action. Every other id arms; pressing the armed id again leaves it
+// armed (confirmation is a distinct gesture through confirm()), and pressing a
+// different id re-arms. run is the argv to start now, or null; lock is true
+// when the caller should lock the session instead.
 function press(state, id) {
     if (id === "lock")
-        return { state: { armed: "" }, run: argv("lock") };
+        return { state: { armed: "" }, run: null, lock: true };
     return { state: { armed: id }, run: null };
 }
 

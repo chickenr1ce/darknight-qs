@@ -76,6 +76,59 @@ QtObject {
     readonly property int playerDeviceLabelWidth: 120
     readonly property int backgroundTileHeight: 48
 
+    readonly property int lockBaseHeight: 900
+    readonly property int lockClockSize: 112
+    readonly property real lockClockLetterSpacing: -2
+    readonly property int lockDateSize: 16
+    readonly property real lockHeroTopFraction: 0.27
+    readonly property int lockHeroDateGap: 10
+    readonly property int lockChipTop: 14
+    readonly property int lockChipHeight: 36
+    readonly property int lockChipSide: 14
+    readonly property int lockChipPadding: 6
+    readonly property int lockChipClockPadding: 14
+    readonly property int lockChipGap: 12
+    readonly property int lockChipSeparatorHeight: 14
+    readonly property int lockTimeSize: 17
+    readonly property real lockCardTopFraction: 0.52
+    readonly property int lockHintOffset: 22
+    readonly property int lockCardWidth: 360
+    readonly property int lockCardPadding: 14
+    readonly property int lockCardSlide: 8
+    readonly property int lockRevealMs: 200
+    readonly property int lockIdleHideMs: 6000
+    readonly property int lockFailureResetMs: 1800
+    readonly property int lockClockTickMs: 1000
+    readonly property int lockRevealTickMs: 500
+    readonly property int lockFieldHeight: 38
+    readonly property int lockFieldPadding: 12
+    readonly property int lockFieldGap: 10
+    readonly property real lockFieldFocusMix: 0.55
+    readonly property int lockAvatarSize: 28
+    readonly property int lockCapsSize: 11
+    readonly property real lockCapsTint: 0.14
+    readonly property int lockSpinnerSize: 14
+    readonly property int lockSpinnerWidth: 2
+    readonly property int lockSpinnerTurnMs: 600
+    readonly property int lockMessageHeight: 16
+    readonly property int lockShakeAmplitude: 8
+    readonly property int lockShakeStepMs: 40
+    readonly property int lockMediaBottomMargin: 40
+    readonly property int lockMediaCardWidth: 360
+    readonly property int lockMediaMetaWidth: 180
+    readonly property int lockMediaButtonGap: 2
+    readonly property int lockCoverSize: 44
+    readonly property int lockPowerCardWidth: 320
+    readonly property int lockPowerCardGap: 8
+    readonly property int lockPowerCardSlide: 6
+    readonly property int lockPowerButtonSize: 24
+    readonly property int lockPowerActionHeight: 26
+    readonly property real lockScrimOpacity: 0.3
+    readonly property int lockWallpaperBlurMax: 32
+    readonly property real lockWallpaperBlur: 0.9
+    readonly property real lockWallpaperSaturation: 0.1
+    readonly property int lockDotLetterSpacing: 2
+
     readonly property int settingsSidebarWidth: 148
     readonly property int settingsBodyMaxHeight: 320
 

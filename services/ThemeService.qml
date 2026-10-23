@@ -50,6 +50,7 @@ Singleton {
     readonly property var catalog: ThemeParsers.parseCatalog(root.catalogText, root.themeRoot)
     readonly property var backgroundList: idBackground.list
     readonly property string currentBackgroundName: idBackground.currentName
+    readonly property string backgroundPath: idBackground.currentPath !== "" ? idBackground.currentPath : idBackground.appliedPath
 
     property bool colorsTrusted: false
     property string statPath: ""

@@ -15,6 +15,7 @@ components/NotificationGroup.qml PRF-3 clip: true disables scene graph batching 
 components/NotificationGroup.qml STY-3 4 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationGroup.qml STY-3 4 anchors.* properties using dot notation -- use group notation: anchors { ... }
 components/NotificationRow.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+components/PowerActionRow.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 components/SettingsTextRow.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 components/SmoothWheel.qml BND-2 Imperative '=' on 'root.target' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 dev/DevGeometry.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
@@ -42,6 +43,28 @@ services/CoalescedRun.qml BND-1 property var -- use a typed property (int, strin
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
+services/LockService.qml BND-2 Imperative '=' on 'root.attempts' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.attempts' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.attempts' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.locked' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.locked' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.previewOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.previewOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.previewOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.previewPhase' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.previewPhase' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-2 Imperative '=' on 'root.previewPhase' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/MonitorService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/MonitorService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/MprisPlayers.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
@@ -55,9 +78,9 @@ services/SpotifyService.qml BND-2 Imperative '=' on 'idDevicesProcess.running' d
 services/SpotifyService.qml BND-2 Imperative '=' on 'idTransferProcess.running' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/ThemeService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/WeatherService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
-windows/AudioCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 services/WorkspaceService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/WorkspaceService.qml BND-2 Imperative '=' on 'root.model' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+windows/AudioCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/CalendarCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/CalendarCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/DashboardAppsView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
@@ -68,15 +91,19 @@ windows/DashboardWorkspacesView.qml BND-1 property var -- use a typed property (
 windows/DashboardWorkspacesView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/DashboardWorkspacesView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/DashboardWorkspacesView.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
-windows/DashboardWorkspacesView.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/DashboardWorkspacesView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
+windows/LockSurface.qml BND-2 Imperative '=' on 'idLockField.text' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+windows/LockSurface.qml BND-2 Imperative '=' on 'idLockField.text' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+windows/LockSurface.qml BND-2 Imperative '=' on 'idLockField.text' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+windows/LockSurface.qml BND-2 Imperative '=' on 'idLockField.text' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+windows/LockSurface.qml BND-2 Imperative '=' on 'idLockField.text' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+windows/LockSurface.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationCenter.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 windows/NotificationCenter.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationPopups.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/NotificationPopups.qml STA-2 Transition without from/to -- catch-all fires on every state change; specify explicit from/to pairs
 windows/PolkitDialog.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/PolkitDialog.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
-windows/PowerCenter.qml PRF-1 Rectangle with 'transparent' color -- use Item instead, or toggle visible on the Rectangle (creates geometry node even when transparent)
 windows/SettingsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/SettingsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)
 windows/WeatherSettingsView.qml PRF-3 clip: true disables scene graph batching -- verify this is needed (acceptable on ListView)

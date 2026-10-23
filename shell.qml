@@ -296,6 +296,24 @@ ShellRoot {
 
     PolkitDialog {}
 
+    WlSessionLock {
+        id: idSessionLock
+
+        locked: LockService.locked
+
+        WlSessionLockSurface {
+            id: idSessionLockSurface
+
+            color: Colors.background
+
+            LockSurface {
+                anchors.fill: parent
+            }
+        }
+    }
+
+    LockPreview {}
+
     DevProbe {}
 }
 

@@ -1,10 +1,10 @@
 # IPC targets
 
 The shell answers a set of IPC targets, so a Hyprland keybind, a script, or the
-`qs-theme` CLI can open a panel, toggle Do Not Disturb, or change the volume
-without touching the bar. Each target is an `IpcHandler` on the service that owns
-its state; the running instance registers them, and `quickshell ipc show` lists
-what an instance exposes.
+`qs-theme` CLI can open a panel, toggle Do Not Disturb, change the volume, or
+lock the session without touching the bar. Each target is an `IpcHandler` on the
+service that owns its state; the running instance registers them, and
+`quickshell ipc show` lists what an instance exposes.
 
 ## How to call
 
@@ -28,6 +28,18 @@ nothing, and is a no-op when its module is hidden.
 | --- | --- | --- | --- |
 | `toggle` | — | — | Toggles the power panel under the bar's power glyph. A no-op when the power module is hidden. |
 | `close` | — | — | Closes the panel. |
+
+### `lock`
+
+| Function | Args | Returns | Notes |
+| --- | --- | --- | --- |
+| `lock` | — | — | Locks the session with the shell's lock screen. The only call that sets `WlSessionLock.locked`. |
+| `status` | — | JSON | `locked`, `authState`, `attempts`, `powerOpen`, `previewOpen`, `previewPhase`. |
+
+The preview calls (`preview`, `previewState <idle|typing|checking|failed|power>`)
+exist only in an instance booted with `QUICKSHELL_DEV_PROBE=1`; `scripts/capture.sh`
+sets it for its throwaway instance. They never lock. See
+[lock screen](lock.md).
 
 ### `calendar`
 

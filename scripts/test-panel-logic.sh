@@ -340,7 +340,7 @@ const LABELS = {
     reboot: 'Reboot', shutdown: 'Shutdown', winboot: 'Reboot to Windows'
 };
 const ARGV = {
-    lock: ['sh', '-c', 'command -v hyprlock >/dev/null 2>&1 && exec hyprlock || { command -v betterlockscreen >/dev/null 2>&1 && exec betterlockscreen -l || exec i3lock; }'],
+    lock: null,
     suspend: ['sh', '-c', 'playerctl pause -a 2>/dev/null; mpc -q pause 2>/dev/null; systemctl suspend'],
     logout: ['hyprctl', 'dispatch', 'exit'],
     reboot: ['systemctl', 'reboot'],
@@ -349,13 +349,16 @@ const ARGV = {
 };
 const idle = { armed: '' };
 
-// Lock fires at once and disarms, even over an armed action.
+// Lock flags the lock service and disarms, even over an armed action.
 const lock = pl.press(idle, 'lock');
 check('power/lock-runs', lock.run, ARGV.lock);
+check('power/lock-flag', lock.lock, true);
 check('power/lock-disarms', lock.state.armed, '');
 const lockOver = pl.press({ armed: 'reboot' }, 'lock');
 check('power/lock-overrides', lockOver.run, ARGV.lock);
+check('power/lock-overrides-flag', lockOver.lock, true);
 check('power/lock-overrides-disarms', lockOver.state.armed, '');
+check('power/lock-argv', pl.argv('lock'), null);
 
 // Every other action arms first, and only confirm yields its exact argv.
 for (let i = 0; i < IDS.length; i++) {

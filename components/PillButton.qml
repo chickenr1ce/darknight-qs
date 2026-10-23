@@ -28,6 +28,7 @@ Item {
     // Optional leading icon-font glyph (qs.config Icons).
     property string icon: ""
     property int iconSize: Globals.uiPillSize
+    property int labelSize: Globals.uiPillSize
     // Measured optical nudge for a glyph whose ink sits off its advance centre.
     property int iconNudge: 0
     // Optional cap on the label width; 0 keeps the label at its natural width.
@@ -88,7 +89,7 @@ Item {
 
             font {
                 family: Globals.uiFontFamily
-                pixelSize: Globals.uiPillSize
+                pixelSize: root.labelSize
                 weight: Font.Medium
             }
         }

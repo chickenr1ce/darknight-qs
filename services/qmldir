@@ -24,6 +24,7 @@ singleton WeatherService 1.0 WeatherService.qml
 singleton ThemeService 1.0 ThemeService.qml
 singleton FontService 1.0 FontService.qml
 singleton PolkitService 1.0 PolkitService.qml
+singleton LockService 1.0 LockService.qml
 PanelState 1.0 PanelState.qml
 BarAnchor 1.0 BarAnchor.qml
 PanelTrigger 1.0 PanelTrigger.qml

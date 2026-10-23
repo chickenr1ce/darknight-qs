@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE · Lock screen: Ambient (chosen)</title>
+<!--
+  PROTOTYPE, throwaway. The user picked variant 4 "Ambient" from 15-lock-screen-designs.html, without cava
+  and with a power menu. This page is that one design.
+  Type to reveal the field; Enter checks it ("hunter2" unlocks), Esc clears. Click the power button (top
+  right) or press Ctrl+P for the power card: 1-4 arm, Enter confirms, Esc cancels then closes. Nothing runs;
+  confirm shows the argv the shell would start. ?theme= picks a palette, ?power=<id> opens the card armed.
+  The power card copies windows/PowerCenter.qml: glyph tiles, key hints, accent edge on the armed row, and the
+  "Pick an action." / "X? Confirm to run." footer. It opens under its trigger (ADR 0001).
+  Lock and Logout are left out: Lock is the current state and Logout would end the session unauthenticated.
+-->
+<style>
+:root{
+  --ui:"Geist","Inter",system-ui,sans-serif;--mono:"Iosevka","GeistMono Nerd Font","JetBrains Mono",ui-monospace,monospace;
+  --rp:9px;--rc:6px;--ease:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--ui);font-size:14px;color:var(--text);-webkit-font-smoothing:antialiased;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+svg{display:block}
+.sp{flex:1}
+.mono{font-family:var(--mono)}
+
+#frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:8px;background:#000;outline:none}
+#screen{position:absolute;left:0;top:0;width:1600px;height:900px;transform-origin:0 0;overflow:hidden;background:var(--bg)}
+#wall{position:absolute;inset:0;background:var(--bg) var(--wallpaper) center/cover no-repeat;filter:blur(28px) saturate(1.1);transform:scale(1.08)}
+#scrim{position:absolute;inset:0;background:var(--bg0);opacity:.3}
+#stage{position:absolute;inset:0;animation:enter .22s var(--ease)}
+#stage.unlocking{animation:unlock .32s var(--ease) forwards}
+@keyframes enter{from{opacity:0;transform:scale(.99)}to{opacity:1;transform:none}}
+@keyframes unlock{to{opacity:0;transform:scale(1.03);filter:blur(6px)}}
+@keyframes drop{from{opacity:0;translate:0 -6px}to{opacity:1;translate:0 0}}
+#welcome{position:absolute;inset:0;display:grid;place-items:center;font-size:15px;font-weight:600;color:var(--subtle);opacity:0;pointer-events:none;transition:opacity .2s}
+#welcome.on{opacity:1}
+
+.cap{font-size:12px;color:var(--subtle);letter-spacing:.02em}
+.lbl{font-size:11px;font-weight:600;color:var(--subtle);letter-spacing:.12em;text-transform:uppercase}
+.slabbox{background:var(--bg);border:1px solid var(--surface);border-radius:var(--rp)}
+.float{box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:5px;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);transition:background .14s}
+.pill.dim{color:var(--subtle)}
+button.pill:hover{background:var(--bg2)}
+.ico{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vsep{width:1px;height:14px;background:var(--surface);margin:0 2px}
+
+/* chips */
+.chip{position:absolute;top:14px;height:36px;display:flex;align-items:center;gap:2px;padding:0 6px;z-index:3}
+.clockchip{left:14px;padding:0 14px;gap:12px}
+.clockchip .t{font-family:var(--mono);font-size:17px;font-weight:600}
+.statchip{right:14px}
+#pwrBtn{color:var(--text)}
+#pwrBtn.open{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+
+/* hero */
+.hero{position:absolute;left:0;right:0;top:27%;text-align:center}
+.hero .t{font-family:var(--mono);font-size:112px;font-weight:600;letter-spacing:-.02em;line-height:1}
+.hero .d{margin-top:10px;font-size:16px;color:var(--subtle)}
+.idlehint{position:absolute;left:0;right:0;top:calc(52% + 22px);text-align:center;transition:opacity .2s}
+.idlehint.hide{opacity:0}
+
+/* unlock card, revealed on typing */
+.reveal{position:absolute;left:50%;top:52%;transform:translate(-50%,8px);width:360px;padding:14px;opacity:0;transition:opacity .2s var(--ease),transform .2s var(--ease);pointer-events:none;display:flex;flex-direction:column;gap:10px;z-index:2}
+.reveal.shown{opacity:1;transform:translate(-50%,0)}
+.who{display:flex;align-items:center;gap:10px}
+.avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px;color:var(--bg);background:var(--accent)}
+.field{position:relative;display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;border-radius:var(--rc);background:var(--bg2);border:1px solid var(--surface);transition:border-color .14s,background .14s}
+.field.focus{border-color:color-mix(in srgb,var(--accent) 55%,var(--surface))}
+.field .lk{color:var(--subtle);flex:none}
+.field.focus .lk{color:var(--accent)}
+.field .dots{display:flex;gap:6px;align-items:center;overflow:hidden;flex:1;min-width:0}
+.field .dots i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--text);animation:pop .14s var(--ease)}
+.field .ph{position:absolute;left:38px;color:var(--faint);pointer-events:none}
+.field .caps{flex:none;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--yellow);padding:1px 6px;border-radius:4px;background:color-mix(in srgb,var(--yellow) 14%,transparent);display:none}
+.caps-on .field .caps{display:inline-block}
+.field .spin{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--surface);border-top-color:var(--accent);animation:spin .6s linear infinite;display:none}
+.checking .field .spin{display:block}
+.checking .field .dots i{background:var(--accent)}
+.fail .field{border-color:color-mix(in srgb,var(--red) 45%,var(--bg));background:color-mix(in srgb,var(--red) 10%,var(--bg))}
+.fail .field .lk{color:var(--red)}
+.fail .reveal .field{animation:shake .36s var(--ease)}
+.msg{min-height:16px;font-size:12px;color:var(--subtle)}
+.fail .msg{color:var(--red)}
+@keyframes pop{from{transform:scale(0)}to{transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{0%,100%{transform:none}20%{transform:translateX(-8px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+
+/* media */
+.np{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:8px 10px 8px 8px;z-index:2}
+.cover{flex:none;width:44px;height:44px;border-radius:5px;background:var(--bg2);border:1px solid var(--surface);display:grid;place-items:center;color:var(--faint)}
+.np .meta{min-width:180px}
+.meter{margin-top:6px;height:3px;border-radius:2px;background:var(--surface);overflow:hidden}
+.meter i{display:block;height:100%;width:38%;background:var(--accent)}
+
+/* power card: windows/PowerCenter.qml */
+.pmenu{position:absolute;top:58px;right:14px;width:320px;z-index:4;animation:drop .14s var(--ease);display:none}
+.pmenu.open{display:block}
+.pmenu .head{padding:12px 14px 10px;display:flex;align-items:baseline;gap:8px}
+.pmenu .head b{font-size:15px;font-weight:600}
+.prows{padding:0 6px}
+.prow{position:relative;display:flex;align-items:center;gap:12px;height:48px;padding:0 10px;border-radius:var(--rc);transition:background .14s}
+.prow+.prow::before{content:"";position:absolute;left:10px;right:10px;top:-1px;height:1px;background:var(--surface)}
+.prow:hover,.prow.armed{background:var(--bg2)}
+.prow.armed::after{content:"";position:absolute;left:0;top:10px;bottom:10px;width:2px;border-radius:1px;background:var(--accent)}
+.ptile{width:28px;height:28px;border-radius:var(--rc);background:var(--bg2);display:grid;place-items:center;color:var(--accent);transition:background .14s}
+.prow:hover .ptile,.prow.armed .ptile{background:var(--surface)}
+.prow .lab{flex:1}
+.prow .hint{font-family:var(--mono);font-size:11px;min-width:20px;text-align:center;padding:1px 6px;border-radius:4px;border:1px solid var(--surface);color:var(--subtle)}
+.prow.armed .hint{border-color:var(--accent);color:var(--text)}
+.pfoot{display:flex;align-items:center;gap:6px;padding:10px 12px 12px 14px;border-top:1px solid var(--surface);margin-top:6px}
+.pfoot .q{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--subtle)}
+.pbtn{height:26px;padding:0 12px;border-radius:5px;font-size:13px;font-weight:600;border:1px solid var(--surface);color:var(--text)}
+.pbtn:disabled{opacity:.4;cursor:default}
+.pbtn.hi:not(:disabled){background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.pnote{padding:0 14px 12px;font-family:var(--mono);font-size:11px;color:var(--faint);display:none}
+.pnote.on{display:block}
+
+/* prototype chrome */
+#ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 0 4px;color:var(--muted-foreground,#999);font-size:12px}
+#ctl .sw{width:16px;height:16px;padding:0;border-radius:50%;border:2px solid transparent}
+#ctl .sw.on{border-color:var(--foreground,#fff)}
+</style>
+</head>
+<body>
+<div id="frame" tabindex="0"><div id="screen">
+  <div id="wall"></div><div id="scrim"></div>
+  <div id="stage"></div>
+  <div id="welcome">Welcome back</div>
+</div></div>
+<div id="ctl">
+  <span id="tbtns" style="display:flex;gap:6px"></span>
+  <span class="sp"></span>
+  <span>click the screen and type · <span class="mono">hunter2</span> unlocks · power button or Ctrl+P</span>
+</div>
+
+<script>
+// Each theme's selected wallpaper (~/.local/state/quickshell/theme), downscaled to 1600x900.
+const WALLS = Object.fromEntries(["darknight","nightshade","gruvbox","haven","vantablack"].map(t=>[t,`15-lock-screen-assets/${t}.jpg`]));
+const THEMES = {
+  darknight:{bg:"#141118",bg2:"#27222f",bg0:"#0e0c11",surface:"#282936",text:"#cac4d4",faint:"#4f455f",subtle:"#9d93ad",accent:"#b4befe",red:"#ff5252",yellow:"#d7d370"},
+  nightshade:{bg:"#141118",bg2:"#1d1d1d",bg0:"#0c0a0f",surface:"#262429",text:"#cac4d4",faint:"#484848",subtle:"#6c7086",accent:"#a980db",red:"#df7a9b",yellow:"#cbaa4b"},
+  gruvbox:{bg:"#282828",bg2:"#1e1e1e",bg0:"#161616",surface:"#3c3836",text:"#d4be98",faint:"#7c6f64",subtle:"#a89984",accent:"#7daea3",red:"#ea6962",yellow:"#d8a657"},
+  haven:{bg:"#EEE8DA",bg2:"#E7DFD0",bg0:"#E2DAC9",surface:"#D8CFBD",text:"#263D40",faint:"#8a8f86",subtle:"#526056",accent:"#795334",red:"#8C4036",yellow:"#73591C"},
+  vantablack:{bg:"#000000",bg2:"#090909",bg0:"#070707",surface:"#1a1a1a",text:"#ffffff",faint:"#505050",subtle:"#7a7a7a",accent:"#8d8d8d",red:"#a4a4a4",yellow:"#cecece"},
+};
+const I = {
+  lock:'<svg class="ico" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  wifi:'<svg class="ico" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r=".8" fill="currentColor"/></svg>',
+  vol:'<svg class="ico" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>',
+  bat:'<svg class="ico" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/><rect x="4" y="9" width="11" height="6" rx="1" fill="currentColor" stroke="none"/></svg>',
+  music:'<svg class="ico" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
+  prev:'<svg class="ico" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8z" fill="currentColor"/><path d="M5 19V5"/></svg>',
+  next:'<svg class="ico" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8z" fill="currentColor"/><path d="M19 5v14"/></svg>',
+  pause:'<svg class="ico" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="3"/></svg>',
+  power:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>',
+  sleep:'<svg class="ico" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+  restart:'<svg class="ico" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+  windows:'<svg class="ico" viewBox="0 0 24 24"><path d="M3 5.5 10.5 4.5v7H3zM12.5 4.2 21 3v8.5h-8.5zM3 12.5h7.5v7L3 18.5zM12.5 12.5H21V21l-8.5-1.2z" fill="currentColor" stroke="none"/></svg>',
+};
+// Lock-screen subset of services/PowerLogic.js, keyed 1-4 here (the panel keys them 2, 4, 5, 6).
+const ACTIONS = [
+  {id:"suspend", label:"Suspend", glyph:I.sleep, hint:"1", argv:"playerctl pause -a; systemctl suspend"},
+  {id:"reboot", label:"Reboot", glyph:I.restart, hint:"2", argv:"systemctl reboot"},
+  {id:"shutdown", label:"Shutdown", glyph:I.power, hint:"3", argv:"systemctl poweroff"},
+  {id:"winboot", label:"Reboot to Windows", glyph:I.windows, hint:"4", argv:"pkexec efibootmgr -n 0000 && systemctl reboot"},
+];
+
+const params = new URLSearchParams(location.search);
+let theme = params.get("theme") || "darknight";
+const S = {pw:"",status:"idle",fails:0,caps:false,lastKey:0,menu:false,armed:""};
+const stage = document.getElementById("stage"), screen = document.getElementById("screen");
+
+const p2 = n=>String(n).padStart(2,"0");
+function build(){
+  stage.className = ""; void stage.offsetWidth;
+  stage.innerHTML = `
+  <div class="chip clockchip slabbox"><span style="color:var(--accent)">${I.lock}</span><span class="t" data-k="time"></span><span class="cap" data-k="dateShort"></span></div>
+  <div class="chip statchip slabbox">
+    <span class="pill">${I.wifi}</span><span class="pill">${I.vol}42%</span><span class="pill">${I.bat}87%</span>
+    <span class="vsep"></span>
+    <button class="pill" id="pwrBtn" title="Power">${I.power}</button>
+  </div>
+  <div class="pmenu slabbox float" id="pmenu">
+    <div class="head"><b>Power</b><span class="cap">omarchy · up 3 hours, 12 minutes</span></div>
+    <div class="prows">${ACTIONS.map(a=>`<div class="prow" data-id="${a.id}"><span class="ptile">${a.glyph}</span><span class="lab">${a.label}</span><span class="hint">${a.hint}</span></div>`).join("")}</div>
+    <div class="pfoot"><span class="q"></span><button class="pbtn" id="pCancel">Cancel</button><button class="pbtn hi" id="pConfirm">Confirm</button></div>
+    <div class="pnote"></div>
+  </div>
+  <div class="hero"><div class="t" data-k="time"></div><div class="d" data-k="date"></div></div>
+  <div class="idlehint cap">Start typing to unlock</div>
+  <div class="reveal slabbox float">
+    <div class="who"><div class="avatar">A</div><span style="font-weight:600">alexiz</span><span class="sp"></span><span class="cap">locked since <span data-k="since"></span></span></div>
+    <div class="field"><span class="lk">${I.lock}</span><div class="dots"></div><span class="ph">Password</span><span class="caps">⇪ CAPS</span><span class="spin"></span></div>
+    <div class="msg"></div>
+  </div>
+  <div class="np slabbox float">
+    <div class="cover">${I.music}</div>
+    <div class="meta"><div style="font-weight:600">Midnight City</div><div class="cap">M83</div><div class="meter"><i></i></div></div>
+    <div style="display:flex;gap:2px"><button class="pill dim">${I.prev}</button><button class="pill">${I.pause}</button><button class="pill dim">${I.next}</button></div>
+  </div>`;
+  document.getElementById("pwrBtn").onclick = e=>{ e.stopPropagation(); S.menu = !S.menu; S.armed = ""; note(""); render(); };
+  document.querySelectorAll(".prow").forEach(r=>r.onclick = e=>{ e.stopPropagation(); S.armed = r.dataset.id; note(""); render(); });
+  document.getElementById("pCancel").onclick = e=>{ e.stopPropagation(); S.armed = ""; render(); };
+  document.getElementById("pConfirm").onclick = e=>{ e.stopPropagation(); confirmPower(); };
+  document.getElementById("pmenu").onclick = e=>e.stopPropagation();
+  tick(); render();
+}
+
+const lockedAt = new Date(Date.now()-17*60000);
+function tick(){
+  const d = new Date();
+  const map = {
+    time:`${p2(d.getHours())}:${p2(d.getMinutes())}`,
+    date:d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}),
+    dateShort:d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}),
+    since:`${p2(lockedAt.getHours())}:${p2(lockedAt.getMinutes())}`,
+  };
+  stage.querySelectorAll("[data-k]").forEach(el=>{ const v = map[el.dataset.k]; if (v!==undefined && el.textContent!==v) el.textContent = v; });
+}
+setInterval(tick,1000);
+
+function note(t){ const n = stage.querySelector(".pnote"); if (n){ n.textContent = t; n.classList.toggle("on", !!t); } }
+function confirmPower(){
+  const a = ACTIONS.find(x=>x.id===S.armed); if (!a) return;
+  S.armed = ""; render(); note(`would run: ${a.argv}`);
+}
+
+function render(){
+  stage.classList.toggle("fail", S.status==="fail");
+  stage.classList.toggle("checking", S.status==="checking");
+  screen.classList.toggle("caps-on", S.caps);
+  const n = S.pw.length, f = stage.querySelector(".field"); if (!f) return;
+  const dots = f.querySelector(".dots");
+  while (dots.children.length>Math.min(n,28)) dots.lastChild.remove();
+  while (dots.children.length<Math.min(n,28)) dots.appendChild(document.createElement("i"));
+  f.querySelector(".ph").style.display = n||S.status==="fail" ? "none" : "";
+  f.classList.toggle("focus", n>0);
+  stage.querySelector(".msg").textContent = S.status==="fail" ? `Wrong password${S.fails>1?` · ${S.fails} attempts`:""}` : S.status==="checking" ? "Checking…" : "";
+  const shown = !S.menu && (n>0 || S.status!=="idle" || Date.now()-S.lastKey<6000);
+  stage.querySelector(".reveal").classList.toggle("shown", shown);
+  stage.querySelector(".idlehint").classList.toggle("hide", shown || S.menu);
+  // power card
+  document.getElementById("pmenu").classList.toggle("open", S.menu);
+  document.getElementById("pwrBtn").classList.toggle("open", S.menu);
+  stage.querySelectorAll(".prow").forEach(r=>r.classList.toggle("armed", r.dataset.id===S.armed));
+  const armed = ACTIONS.find(a=>a.id===S.armed);
+  stage.querySelector(".pfoot .q").textContent = armed ? `${armed.label}? Confirm to run.` : "Pick an action.";
+  document.getElementById("pCancel").disabled = !armed;
+  document.getElementById("pConfirm").disabled = !armed;
+}
+setInterval(render,500);
+
+function submit(){
+  if (!S.pw || S.status==="checking") return;
+  S.status="checking"; render();
+  setTimeout(()=>{
+    if (S.pw==="hunter2"){
+      S.pw=""; S.fails=0; S.status="idle";
+      stage.classList.add("unlocking"); document.getElementById("welcome").classList.add("on");
+      setTimeout(()=>{ document.getElementById("welcome").classList.remove("on"); S.lastKey=0; build(); }, 1400);
+    } else {
+      S.fails++; S.pw=""; S.status="fail"; render();
+      const fe = stage.querySelector(".field"); fe.style.animation="none"; void fe.offsetWidth; fe.style.animation="";
+      setTimeout(()=>{ if (S.status==="fail"){ S.status="idle"; render(); } }, 1800);
+    }
+  }, 520);
+}
+
+addEventListener("keydown", e=>{
+  S.caps = e.getModifierState && e.getModifierState("CapsLock");
+  if (e.ctrlKey && e.key.toLowerCase()==="p"){ S.menu=!S.menu; S.armed=""; note(""); render(); e.preventDefault(); return; }
+  if (e.ctrlKey) return;
+  if (S.menu){
+    // The open power card owns the keyboard, as PowerCenter's Shortcuts do.
+    const a = ACTIONS.find(x=>x.hint===e.key);
+    if (a){ S.armed=a.id; note(""); }
+    else if (e.key==="Enter") confirmPower();
+    else if (e.key==="Escape"){ if (S.armed) S.armed=""; else S.menu=false; }
+    e.preventDefault(); render(); return;
+  }
+  S.lastKey = Date.now();
+  if (S.status==="checking") return;
+  if (e.key==="Enter") return submit();
+  if (S.status==="fail") S.status="idle";
+  if (e.key==="Escape") S.pw="";
+  else if (e.key==="Backspace") S.pw=S.pw.slice(0,-1);
+  else if (e.key.length===1 && !e.metaKey && !e.altKey) S.pw+=e.key;
+  else { render(); return; }
+  e.preventDefault(); render();
+});
+addEventListener("keyup", e=>{ S.caps = e.getModifierState && e.getModifierState("CapsLock"); render(); });
+
+function applyTheme(){
+  const t = THEMES[theme], r = document.documentElement.style;
+  for (const k in t) r.setProperty("--"+k, t[k]);
+  r.setProperty("--wallpaper", `url("${WALLS[theme]}")`);
+  document.querySelectorAll("#tbtns .sw").forEach(b=>b.classList.toggle("on", b.dataset.t===theme));
+}
+document.getElementById("tbtns").innerHTML = Object.entries(THEMES).map(([k,t])=>`<button class="sw" title="${k}" data-t="${k}" style="background:linear-gradient(135deg,${t.bg} 50%,${t.accent} 50%)"></button>`).join("");
+document.getElementById("tbtns").onclick = e=>{ const b=e.target.closest("button"); if (b){ theme=b.dataset.t; applyTheme(); frame.focus(); } };
+const frame = document.getElementById("frame");
+frame.addEventListener("pointerdown", e=>{ frame.focus(); if (S.menu && !e.target.closest("#pmenu,#pwrBtn")){ S.menu=false; S.armed=""; render(); } });
+const fit = ()=>{ screen.style.transform = `scale(${frame.clientWidth/1600})`; };
+new ResizeObserver(fit).observe(frame); fit();
+applyTheme(); build();
+if (params.get("power")){ S.menu = true; S.armed = params.get("power")==="open" ? "" : params.get("power"); render(); }
+</script>
+</body>
+</html>

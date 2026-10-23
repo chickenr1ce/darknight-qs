@@ -122,6 +122,11 @@ Singleton {
 
     function applyResult(result: var) {
         root.armedAction = result.state.armed;
+        if (result.lock === true) {
+            idPanelState.visible = false;
+            LockService.lock();
+            return;
+        }
         if (result.run !== null) {
             idRunProcess.command = result.run;
             idRunProcess.running = true;

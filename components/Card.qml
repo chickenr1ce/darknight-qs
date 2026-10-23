@@ -11,6 +11,9 @@ Rectangle {
     property bool critical: false
     property bool clickable: false
     property string accessibleName: ""
+    property int horizontalPadding: Globals.cardHPadding
+    property int verticalPadding: Globals.cardPadding
+    property int contentSpacing: Globals.listSpacing
 
     default property alias content: idCardLayout.data
 
@@ -44,11 +47,12 @@ Rectangle {
 
         anchors {
             fill: parent
-            margins: Globals.cardPadding
-            leftMargin: Globals.cardHPadding
-            rightMargin: Globals.cardHPadding
+            topMargin: root.verticalPadding
+            bottomMargin: root.verticalPadding
+            leftMargin: root.horizontalPadding
+            rightMargin: root.horizontalPadding
         }
 
-        spacing: 6
+        spacing: root.contentSpacing
     }
 }
