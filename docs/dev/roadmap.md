@@ -44,8 +44,8 @@ per-view opacity) and those surfaces are captured.
 
 ### Architecture review follow-ups
 
-Cards 05 to 11 of `docs/plans/12-architecture-review.html` are pending; its
-status block tracks them. The done cards left five gaps:
+Architecture review 12 is closed (`docs/plans/archive/12-architecture-review.html`).
+Its done cards left five gaps:
 
 - **MPRIS shuffle guard untested.** The card 03 review ruled the grep on the
   `shuffleSupported` guard in `MprisPlayers.toggleShuffle()` out, and no
@@ -79,11 +79,14 @@ Build only if it earns daily use.
 
 ## Done
 
-- Architecture review 12, cards 01 to 04: one `CoalescedRun` module for
-  every Process lifecycle, the launcher menu-item set behind `AppService`, gates
-  that test behaviour at the interface (`CODING_STANDARDS.md` §7), and the
-  Background lifecycle in `services/ThemeBackground.qml`
-  (`docs/plans/12-architecture-review.html`).
+- Architecture review 12, closed: one `CoalescedRun` module for every Process
+  lifecycle, the launcher menu-item set behind `AppService`, gates that test
+  behaviour at the interface (`CODING_STANDARDS.md` §7), the Background
+  lifecycle in `services/ThemeBackground.qml`, one guarded playback progress
+  rule in `MprisLogic.js`, the workspace submenu built from a plain snapshot,
+  one Firefox profile discovery in `scripts/firefox_profile.py`, and the power
+  arm/confirm rules in `PowerLogic.js`. Cards 08, 10 and 11 were declined; the
+  status block records why (`docs/plans/archive/12-architecture-review.html`).
 - Persisted-settings schema: decided against a schema. `StateFile` owns the
   load guard and a `saveJson(payload)` helper, so every JSON writer goes through
   it; parsing stays per service.

@@ -133,9 +133,10 @@
       <a href="#top" class="text-g-900">→ Top recommendation</a>
     </nav>
     <div id="status" class="card p-4 space-y-2 text-sm text-g-800" role="region" aria-label="Implementation status">
-      <div class="label">Status · 2026-10-12 · verified against main</div>
+      <div class="label">Status · 2026-10-24 · closed, verified against main</div>
       <p><strong class="text-g-900">Done:</strong> 01 coalesced-run module (<code>d88afb8</code>, <code>services/CoalescedRun.qml</code>); 02 launcher menu-item set behind <code>AppService</code> (<code>8d1f558</code>); 03 gates test behaviour at the interface, greps for structure only (<code>b030b02</code>, <code>docs/dev/CODING_STANDARDS.md</code> §7); 04 Background lifecycle in <code>services/ThemeBackground.qml</code> (<code>4434344</code>).</p>
-      <p><strong class="text-g-900">Pending:</strong> 05 playback interface, 06 workspace submenu snapshot, 07 one Firefox profile discovery, 08 context-menu item contract, 09 power arm/confirm logic, 10 SystemMonitor readership gate, 11 polkit derived state.</p>
+      <p><strong class="text-g-900">Done 2026-10-24:</strong> 05 scoped to one guarded progress rule, <code>MprisLogic.progress</code> / <code>hasProgress</code> / <code>seekOffset</code> behind <code>MprisPlayers</code>, read by the dashboard player and the lock screen (no full playback facade); 06 launcher workspace submenu built by <code>AppLogic.workspaceMenu(snapshot)</code> from plain data; 07 one Firefox profile discovery in <code>scripts/firefox_profile.py</code>, imported by the renderer and called by the wire script; 09 already shipped as <code>services/PowerLogic.js</code> (<code>b030b02</code>).</p>
+      <p><strong class="text-g-900">Declined:</strong> 08 context-menu contract (speculative, no friction since card 02); 10 SystemMonitor readership gate (six procfs reads per 2 s is negligible, and gating leaves the CPU delta blank for a poll on every open); 11 polkit derived state (both real polkit bugs were focus timing, which it would not move).</p>
       <p><strong class="text-g-900">Gaps left by done cards:</strong> recorded under "Architecture review follow-ups" in <code>docs/dev/roadmap.md</code>.</p>
     </div>
   </header>

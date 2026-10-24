@@ -189,50 +189,51 @@ Singleton {
         return AppLogic.workspaceKeys(root.totalWorkspaces());
     }
 
-    function activeWorkspaceFor(hyprMonitors, monitorName): int {
-        for (let i = 0; i < hyprMonitors.length; i++) {
-            if (hyprMonitors[i].name === monitorName && hyprMonitors[i].activeWorkspace)
-                return hyprMonitors[i].activeWorkspace.id;
-        }
-        return -1;
-    }
-
-    function workspaceMenuItems(): var {
-        const name = root.anchorMonitorName();
-        const hyprMonitors = Hyprland.monitors?.values ?? [];
+    function workspaceSnapshot(): var {
+        const names = MonitorService.orderedMonitors;
+        const anchorName = root.anchorMonitorName();
+        const firstWorkspaces = [];
+        for (let i = 0; i < names.length; i++)
+            firstWorkspaces.push({ name: names[i], first: MonitorService.firstWorkspaceFor(names[i]) });
+        if (anchorName !== "" && names.indexOf(anchorName) === -1)
+            firstWorkspaces.push({ name: anchorName, first: MonitorService.firstWorkspaceFor(anchorName) });
         const enabled = MonitorService.enabledMonitors;
         const enabledNames = [];
         for (let i = 0; i < enabled.length; i++) {
             if (enabled[i] && enabled[i].name)
                 enabledNames.push(enabled[i].name);
         }
-        const monitors = [];
-        const orderedNames = MonitorService.orderedMonitors;
-        for (let i = 0; i < orderedNames.length; i++) {
-            const monitorName = orderedNames[i];
-            monitors.push({
-                name: monitorName,
-                first: MonitorService.firstWorkspaceFor(monitorName),
-                active: root.activeWorkspaceFor(hyprMonitors, monitorName),
-                disabled: enabledNames.indexOf(monitorName) === -1
+        const hypr = Hyprland.monitors?.values ?? [];
+        const hyprMonitors = [];
+        for (let i = 0; i < hypr.length; i++) {
+            const monitor = hypr[i];
+            if (!monitor || !monitor.name)
+                continue;
+            const workspace = monitor.activeWorkspace;
+            hyprMonitors.push({
+                name: monitor.name,
+                activeWorkspaceId: workspace ? workspace.id : -1
             });
         }
-        const occupied = [];
         const tops = root.toplevels;
+        const toplevelWorkspaceIds = [];
         for (let i = 0; i < tops.length; i++) {
             const workspace = tops[i].workspace;
-            if (workspace && occupied.indexOf(workspace.id) === -1)
-                occupied.push(workspace.id);
+            toplevelWorkspaceIds.push(workspace ? workspace.id : null);
         }
-        const fallbackName = name !== ""
-            ? name
-            : (orderedNames.length > 0 ? orderedNames[0] : "");
-        const fallback = {
-            name: fallbackName,
-            first: MonitorService.firstWorkspaceFor(fallbackName),
-            active: root.activeWorkspaceFor(hyprMonitors, fallbackName)
+        return {
+            orderedNames: names,
+            enabledNames: enabledNames,
+            firstWorkspaces: firstWorkspaces,
+            hyprMonitors: hyprMonitors,
+            toplevelWorkspaceIds: toplevelWorkspaceIds,
+            perMonitor: MonitorService.workspacesPerMonitor,
+            anchorName: anchorName
         };
-        return AppLogic.workspaceMenu(monitors, MonitorService.workspacesPerMonitor, name, occupied, fallback);
+    }
+
+    function workspaceMenuItems(): var {
+        return AppLogic.workspaceMenu(root.workspaceSnapshot());
     }
 
     function launchOnWorkspace(record, workspace, keepOpen): void {

@@ -43,6 +43,18 @@ Singleton {
     }
     readonly property MprisPlayer activePlayer: playerList.length > 0 ? playerList[Math.min(activeIndex, playerList.length - 1)] : null
     readonly property string playerName: activePlayer?.identity ?? ""
+    readonly property real progress: {
+        const player = root.activePlayer;
+        if (!player)
+            return 0;
+        return MprisLogic.progress(player.position, player.length, player.lengthSupported);
+    }
+    readonly property bool hasProgress: {
+        const player = root.activePlayer;
+        if (!player)
+            return false;
+        return MprisLogic.hasProgress(player.length, player.lengthSupported);
+    }
 
     onAppsChanged: root.saveApps()
 
@@ -63,11 +75,6 @@ Singleton {
         if (activePlayer) {
             activePlayer.positionChanged();
         }
-    }
-    readonly property real percentageProgress: {
-        if (!activePlayer || !activePlayer.lengthSupported || activePlayer.length <= 0)
-            return 0;
-        return activePlayer.position / activePlayer.length;
     }
 
     Component.onCompleted: root.rememberPlayers()
@@ -207,6 +214,13 @@ Singleton {
 
     function formatTime(seconds: real): string {
         return MprisLogic.formatTime(seconds);
+    }
+
+    function seekTo(ratio: real): void {
+        const player = root.activePlayer;
+        if (!player || !player.canSeek || !root.hasProgress)
+            return;
+        player.seek(MprisLogic.seekOffset(ratio, player.length, player.position));
     }
 
     StateFile {

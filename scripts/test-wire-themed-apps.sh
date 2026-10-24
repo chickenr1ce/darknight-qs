@@ -12,10 +12,12 @@
 # nothing, skip when a config is absent, the hyprland nested/commented/
 # block-commented/symlinked/conf-only cases, kitty with and without markers and
 # with only one, the Firefox import moved to line 1 (LF and CRLF) and a spaced
-# Default=, Firefox sheet file modes, a backup collision, control-character
-# sanitizing, a refused wire while the app runs, a symlinked config kept a
-# symlink, a single failing target among several, and an unknown target. The
-# install.sh wiring hand-off is checked too.
+# Default=, Firefox sheet file modes, the shared Firefox profile CLI against the
+# same fixtures (relative, absolute, CRLF, missing installs.ini, unresolved, and
+# a renderer run that lands in the CLI's profile), a backup collision,
+# control-character sanitizing, a refused wire while the app runs, a symlinked
+# config kept a symlink, a single failing target among several, and an unknown
+# target. The install.sh wiring hand-off is checked too.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -578,5 +580,81 @@ set -e
 [ "$rc" -eq 2 ] || fail "install.sh unknown arg exited $rc, want 2"
 grep -q 'unknown arg --badopt' "$WORK/err" \
     || fail "install.sh did not sanitize the unknown arg: $(cat "$WORK/err")"
+
+# --- 33. Firefox discovery is one implementation, not two mirrors -----------
+# wire-themed-apps.sh runs scripts/firefox_profile.py; render-theme.sh imports
+# it. The awk resolver and its keep-in-step comment must stay gone.
+FFCLI="$ROOT/scripts/firefox_profile.py"
+test -f "$FFCLI" || fail "scripts/firefox_profile.py is missing"
+grep -q 'firefox_profile.py' "$WIRE" \
+    || fail "wire-themed-apps.sh does not call the shared profile query"
+if grep -qE 'ini_flatten|firefox_profiles_path|keep the two in step by hand' "$WIRE"; then
+    fail "wire-themed-apps.sh still carries its own Firefox ini resolver"
+fi
+if grep -qE 'def parse_ini|def firefox_root' "$ROOT/scripts/render-theme.sh"; then
+    fail "render-theme.sh still carries its own Firefox profile discovery"
+fi
+
+# --- 34. the CLI resolves a relative Path -----------------------------------
+new_env ff-cli-relative
+make_firefox
+out=$(HOME="$EH" XDG_CONFIG_HOME="$EC" python3 "$FFCLI")
+[ "$out" = "$EC/mozilla/firefox/prof.default" ] \
+    || fail "the CLI did not resolve the relative profile: $out"
+[ -d "$out" ] || fail "the CLI printed a path that is not a directory: $out"
+
+# --- 35. the CLI resolves an IsRelative=0 absolute Path ---------------------
+new_env ff-cli-absolute
+mkdir -p "$EC/mozilla/firefox" "$WORK/abs-profile"
+printf '[4F96D1932A9F858E]\nDefault=abs-profile\n' \
+    >"$EC/mozilla/firefox/installs.ini"
+printf '[Profile0]\nName=abs\nIsRelative=0\nPath=%s\n' "$WORK/abs-profile" \
+    >"$EC/mozilla/firefox/profiles.ini"
+out=$(HOME="$EH" XDG_CONFIG_HOME="$EC" python3 "$FFCLI")
+[ "$out" = "$WORK/abs-profile" ] \
+    || fail "the CLI did not resolve the absolute profile Path: $out"
+
+# --- 36. the CLI reads a CRLF installs.ini and profiles.ini -----------------
+new_env ff-cli-crlf
+mkdir -p "$EC/mozilla/firefox/prof.crlf"
+printf '[Install4F96D1932A9F858E]\r\nDefault=prof.crlf\r\nLocked=1\r\n' \
+    >"$EC/mozilla/firefox/installs.ini"
+printf '[Profile0]\r\nName=default\r\nIsRelative=1\r\nPath=prof.crlf\r\n' \
+    >"$EC/mozilla/firefox/profiles.ini"
+out=$(HOME="$EH" XDG_CONFIG_HOME="$EC" python3 "$FFCLI")
+[ "$out" = "$EC/mozilla/firefox/prof.crlf" ] \
+    || fail "the CLI did not resolve a CRLF profile: $out"
+
+# --- 37. no installs.ini, or a named profile that is absent, is unresolved --
+new_env ff-cli-no-installs
+mkdir -p "$EC/mozilla/firefox/prof.default"
+set +e
+out=$(HOME="$EH" XDG_CONFIG_HOME="$EC" python3 "$FFCLI" 2>"$WORK/err")
+rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "a missing installs.ini exited 0"
+[ -z "$out" ] || fail "a missing installs.ini printed a profile: $out"
+
+new_env ff-cli-missing-dir
+mkdir -p "$EC/mozilla/firefox"
+printf '[4F96D1932A9F858E]\nDefault=gone.default\n' \
+    >"$EC/mozilla/firefox/installs.ini"
+set +e
+out=$(HOME="$EH" XDG_CONFIG_HOME="$EC" python3 "$FFCLI" 2>"$WORK/err")
+rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "a named profile with no directory exited 0"
+[ -z "$out" ] || fail "a named profile with no directory printed: $out"
+
+# --- 38. the renderer writes into the profile the CLI resolves --------------
+new_env ff-shared
+make_firefox
+resolved=$(HOME="$EH" XDG_CONFIG_HOME="$EC" python3 "$FFCLI")
+HOME="$EH" XDG_CONFIG_HOME="$EC" sh "$ROOT/scripts/render-theme.sh" '' firefox \
+    || fail "a render with an empty palette failed"
+test -f "$resolved/chrome/shell-palette.css" \
+    || fail "the renderer did not write into the CLI's resolved profile"
+test -f "$resolved/user.js" \
+    || fail "the renderer wrote no user.js into the CLI's resolved profile"
 
 echo "wire-themed-apps: all ok"

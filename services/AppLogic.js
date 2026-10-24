@@ -563,29 +563,68 @@ function firstEmptyWorkspace(firstWorkspace, perMonitor, occupiedIds) {
     return -1;
 }
 
-function workspaceMenu(monitors, perMonitor, anchorName, occupiedIds, anchorFallback) {
-    const items = [];
-    const count = Math.round(Number(perMonitor));
-    if (isNaN(count) || count < 1)
-        return items;
-    const occupied = occupiedIds || [];
-    const list = monitors || [];
-    const enabled = [];
+function snapshotFirstWorkspace(snapshot, name) {
+    const list = snapshot.firstWorkspaces || [];
+    for (let i = 0; i < list.length; i++) {
+        if (list[i] && list[i].name === name)
+            return list[i].first;
+    }
+    return undefined;
+}
+
+function snapshotActiveWorkspace(snapshot, name) {
+    const list = snapshot.hyprMonitors || [];
     for (let i = 0; i < list.length; i++) {
         const monitor = list[i];
-        if (monitor && monitor.disabled !== true)
-            enabled.push(monitor);
+        if (monitor && monitor.name === name && typeof monitor.activeWorkspaceId === "number"
+            && monitor.activeWorkspaceId !== -1)
+            return monitor.activeWorkspaceId;
+    }
+    return -1;
+}
+
+function snapshotOccupied(snapshot) {
+    const occupied = [];
+    const ids = snapshot.toplevelWorkspaceIds || [];
+    for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        if (id === null || id === undefined)
+            continue;
+        if (occupied.indexOf(id) === -1)
+            occupied.push(id);
+    }
+    return occupied;
+}
+
+function workspaceMenu(snapshot) {
+    const items = [];
+    const source = snapshot || {};
+    const count = Math.round(Number(source.perMonitor));
+    if (isNaN(count) || count < 1)
+        return items;
+    const occupied = snapshotOccupied(source);
+    const anchorName = typeof source.anchorName === "string" ? source.anchorName : "";
+    const names = source.orderedNames || [];
+    const enabledNames = source.enabledNames || [];
+    const enabled = [];
+    for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        if (enabledNames.indexOf(name) === -1)
+            continue;
+        enabled.push({
+            name: name,
+            first: snapshotFirstWorkspace(source, name),
+            active: snapshotActiveWorkspace(source, name)
+        });
     }
     if (enabled.length === 0) {
-        const fallback = anchorFallback || {};
-        const fallbackName = typeof fallback.name === "string" ? fallback.name : "";
-        const name = anchorName !== "" ? anchorName : fallbackName;
+        const name = anchorName !== "" ? anchorName : (names.length > 0 ? names[0] : "");
         if (name === "")
             return items;
         enabled.push({
             name: name,
-            first: fallback.first,
-            active: typeof fallback.active === "number" ? fallback.active : -1
+            first: snapshotFirstWorkspace(source, name),
+            active: snapshotActiveWorkspace(source, name)
         });
     }
     let anchor = enabled[0].name;

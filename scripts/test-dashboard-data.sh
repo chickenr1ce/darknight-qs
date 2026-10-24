@@ -10,8 +10,9 @@
 #      the palette boundary;
 #   2. node runs of the shipped pure parsing plus mapping helpers
 #      (fastfetch JSON, uptime format, /proc samples, MPRIS repeat cycle,
-#      MPRIS volume sync, sink volume percent, Open-Meteo JSON, temperature
-#      plus rain format, WMO code mapping, weather staleness). These load the
+#      MPRIS progress and seek, MPRIS volume sync, sink volume percent,
+#      Open-Meteo JSON, temperature plus rain format, WMO code mapping,
+#      weather staleness). These load the
 #      real *Logic.js / *Parsers.js modules through tests/qmljs.js, so a change
 #      to the source is exercised directly; no mirror to keep in step.
 set -euo pipefail
@@ -97,6 +98,8 @@ node - "$ROOT/tests/qmljs.js" "$ROOT/services/MprisLogic.js" <<'NODEEOF'
 // parseApps reads the persisted app map; sameApps compares label plus allowed;
 // mergeApps keeps in-memory entries the file does not know; formatTime renders
 // m:ss clamped at zero; nextLoopState cycles None -> Playlist -> Track -> None;
+// progress/hasProgress/seekOffset are the single playback derivation the
+// dashboard and lock screen share;
 // syncedPlayerFor matches a playback stream to an allowlisted player.
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('dashboard-data');
@@ -148,6 +151,41 @@ check('time/seconds', mpris.formatTime(74), '1:14');
 check('time/pad', mpris.formatTime(65), '1:05');
 check('time/negative', mpris.formatTime(-5), '0:00');
 check('time/long', mpris.formatTime(3725), '62:05');
+
+// progress is the single playback rule: a player without length support, a
+// zero or negative length, or a non-finite sample reads empty, and an
+// overshoot pins to full. hasProgress is the same guard on its own, so a view
+// can hide a track it cannot fill.
+check('progress/mid', mpris.progress(30, 120, true), 0.25);
+check('progress/start', mpris.progress(0, 120, true), 0);
+check('progress/full', mpris.progress(120, 120, true), 1);
+check('progress/past-end', mpris.progress(150, 120, true), 1);
+check('progress/negative', mpris.progress(-5, 120, true), 0);
+check('progress/no-length-support', mpris.progress(30, 120, false), 0);
+check('progress/zero-length', mpris.progress(30, 0, true), 0);
+check('progress/nan-position', mpris.progress(NaN, 120, true), 0);
+check('progress/nan-length', mpris.progress(30, NaN, true), 0);
+check('progress/inf-length', mpris.progress(30, Infinity, true), 0);
+
+check('has-progress/yes', mpris.hasProgress(120, true), true);
+check('has-progress/no-length-support', mpris.hasProgress(120, false), false);
+check('has-progress/zero', mpris.hasProgress(0, true), false);
+check('has-progress/negative', mpris.hasProgress(-1, true), false);
+check('has-progress/nan', mpris.hasProgress(NaN, true), false);
+check('has-progress/inf', mpris.hasProgress(Infinity, true), false);
+
+// seekOffset is the relative offset MprisPlayer.seek() takes: the target
+// position minus the current one, with the ratio clamped to the track.
+check('seek/mid', mpris.seekOffset(0.5, 120, 30), 30);
+check('seek/back', mpris.seekOffset(0.25, 120, 60), -30);
+check('seek/clamp-high', mpris.seekOffset(1.4, 120, 30), 90);
+check('seek/clamp-low', mpris.seekOffset(-0.5, 120, 30), -30);
+check('seek/zero-length', mpris.seekOffset(0.5, 0, 0), 0);
+check('seek/negative-length', mpris.seekOffset(0.5, -120, 30), 0);
+check('seek/inf-length', mpris.seekOffset(0.5, Infinity, 30), 0);
+check('seek/nan-ratio', mpris.seekOffset(NaN, 120, 30), 0);
+check('seek/nan-length', mpris.seekOffset(0.5, NaN, 30), 0);
+check('seek/nan-position', mpris.seekOffset(0.5, 120, NaN), 0);
 
 // syncedPlayerFor is the app-stream slider's second write: a stream matches a
 // player only when both resolve to the same allowlisted key, so Spotify (whose

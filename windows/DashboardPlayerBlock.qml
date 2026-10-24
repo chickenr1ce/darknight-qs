@@ -17,7 +17,6 @@ Card {
     readonly property bool shuffling: root.hasPlayer ? root.player.shuffle : false
     readonly property real position: root.hasPlayer ? root.player.position : 0
     readonly property real length: root.hasPlayer ? root.player.length : 0
-    readonly property real progress: root.length > 0 ? Math.max(0, Math.min(1, root.position / root.length)) : 0
     readonly property real timeLabelWidth: idPlayerTimeMetrics.advanceWidth
     readonly property string artUrl: root.hasPlayer ? (root.player.trackArtUrl || "") : ""
 
@@ -178,7 +177,7 @@ Card {
                             verticalCenter: parent.verticalCenter
                         }
 
-                        width: parent.width * root.progress
+                        width: parent.width * MprisPlayers.progress
                         height: parent.height
 
                         radius: parent.radius
@@ -189,14 +188,9 @@ Card {
                         id: idPlayerScrubMouse
 
                         anchors.fill: parent
-                        enabled: root.hasPlayer && root.player.canSeek
+                        enabled: root.hasPlayer && root.player.canSeek && MprisPlayers.hasProgress
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                        onClicked: {
-                            if (!enabled || root.length <= 0)
-                                return;
-                            const ratio = Math.max(0, Math.min(1, mouse.x / width));
-                            root.player.seek(ratio * root.length - root.position);
-                        }
+                        onClicked: MprisPlayers.seekTo(mouse.x / width)
                     }
                 }
 

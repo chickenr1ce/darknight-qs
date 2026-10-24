@@ -112,6 +112,24 @@ function formatTime(seconds) {
     return minutes + ":" + (secs < 10 ? "0" : "") + secs;
 }
 
+function hasProgress(length, lengthSupported) {
+    if (!lengthSupported)
+        return false;
+    return Number.isFinite(length) && length > 0;
+}
+
+function progress(position, length, lengthSupported) {
+    if (!hasProgress(length, lengthSupported) || !Number.isFinite(position))
+        return 0;
+    return Math.max(0, Math.min(1, position / length));
+}
+
+function seekOffset(ratio, length, position) {
+    if (!Number.isFinite(ratio) || !Number.isFinite(length) || !Number.isFinite(position) || length <= 0)
+        return 0;
+    return Math.max(0, Math.min(1, ratio)) * length - position;
+}
+
 function nextLoopState(current, states) {
     if (current === states.Playlist)
         return states.Track;

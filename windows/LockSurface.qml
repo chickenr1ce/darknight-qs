@@ -581,7 +581,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: root.px(Globals.meterHeight)
 
-                    visible: root.player !== null && root.player.lengthSupported && root.player.length > 0
+                    visible: MprisPlayers.hasProgress
 
                     Rectangle {
                         id: idMediaTrackBackground
@@ -595,7 +595,7 @@ Item {
                     Rectangle {
                         id: idMediaTrackFill
 
-                        width: idMediaTrack.width * MprisPlayers.percentageProgress
+                        width: idMediaTrack.width * MprisPlayers.progress
                         height: parent.height
                         radius: height / 2
                         color: Colors.accent

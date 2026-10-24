@@ -2011,11 +2011,13 @@ test "$(cat "$RENDER_FUTURE/hypr/theme.lua")" = "-- quickshell theme target disa
     || fail "an unimplemented target key changed a real target's output"
 
 # A temp copy mirrors the repo layout ($TMP/scripts/render-theme.sh beside
-# $TMP/assets/templates/) because the script resolves its templates relative to
-# its own directory, so a broken template never edits the shipped files.
+# $TMP/assets/templates/ and scripts/firefox_profile.py) because the script
+# resolves its templates and its profile helper relative to its own directory,
+# so a broken template never edits the shipped files.
 RENDER_TMP="$(mktemp -d "${TMPDIR:-/tmp}/qs-theme-render-src-XXXXXX")"
 mkdir -p "$RENDER_TMP/scripts" "$RENDER_TMP/assets"
 cp "$RENDER" "$RENDER_TMP/scripts/render-theme.sh"
+cp "$ROOT/scripts/firefox_profile.py" "$RENDER_TMP/scripts/firefox_profile.py"
 cp -r "$ROOT/assets/templates" "$RENDER_TMP/assets/templates"
 
 # Isolation: a template with an unresolved token skips only its target, the

@@ -53,7 +53,7 @@ if [ -z "$config_home" ]; then
     config_home=$HOME/.config
 fi
 
-exec python3 - "$palette" "$template_dir" "$config_home" "$enabled_keys" <<'PY'
+exec python3 - "$palette" "$template_dir" "$config_home" "$enabled_keys" "$script_dir" <<'PY'
 import json
 import os
 import re
@@ -61,7 +61,11 @@ import shutil
 import subprocess
 import sys
 
-palette_raw, template_dir, config_home, enabled_raw = sys.argv[1:5]
+palette_raw, template_dir, config_home, enabled_raw, script_dir = sys.argv[1:6]
+sys.dont_write_bytecode = True
+sys.path.insert(0, script_dir)
+
+from firefox_profile import firefox_profile
 
 # No palette means no active theme. The bar falls back to its hardcoded Colors
 # values, so the desktop files must fall back to the same look rather than keep
@@ -385,94 +389,13 @@ def render_vencord(enabled):
 # that turns on legacy stylesheet support. The user imports the chrome sheet
 # from userChrome.css and the content sheet from userContent.css. The renderer
 # never creates or edits either user sheet; it only writes the shell-* targets.
-# The profile is discovered from installs.ini because profiles.ini's Default=1
-# names an empty stub here. The root is read from os.environ, not the
-# config_home the wrapper passes; a Snap or Flatpak Firefox root is out of scope.
-INSTALL_SECTION = re.compile(r"^(?:Install)?[0-9A-Fa-f]+$")
+# The profile comes from firefox_profile.py, which reads the environment rather
+# than the config_home the wrapper passes; a Snap or Flatpak root is out of
+# scope.
 USERJS_BEGIN = "// BEGIN quickshell"
 USERJS_END = "// END quickshell"
 USERJS_PREF = re.compile(
     r"""user_pref\s*\(\s*["']toolkit\.legacyUserProfileCustomizations\.stylesheets["']""")
-
-
-def parse_ini_text(text):
-    """Ordered (section, key/value dict) pairs from INI text."""
-    entries = []
-    section = None
-    values = {}
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped[0] in "#;":
-            continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            if section is not None:
-                entries.append((section, values))
-            section = stripped[1:-1].strip()
-            values = {}
-            continue
-        if section is None or "=" not in stripped:
-            continue
-        key, _, value = stripped.partition("=")
-        values[key.strip()] = value.strip()
-    if section is not None:
-        entries.append((section, values))
-    return entries
-
-
-def parse_ini(path):
-    """Ordered (section, key/value dict) pairs; a missing file yields none."""
-    try:
-        with open(path, encoding="utf-8") as handle:
-            text = handle.read()
-    except OSError:
-        return []
-    return parse_ini_text(text)
-
-
-def firefox_root():
-    config_home = os.environ.get("XDG_CONFIG_HOME", "")
-    if not config_home:
-        config_home = os.path.join(os.environ.get("HOME", ""), ".config")
-    candidate = os.path.join(config_home, "mozilla", "firefox")
-    if os.path.isdir(candidate):
-        return candidate
-    return os.path.join(os.environ.get("HOME", ""), ".mozilla", "firefox")
-
-
-def firefox_profile():
-    """The default profile directory, or None. installs.ini names it; a
-    profiles.ini entry, matched by the exact Path name, supplies IsRelative or
-    an absolute Path. The symlinked profile path is never resolved, so a psd
-    target under /run stays writable."""
-    root = firefox_root()
-    default_name = None
-    install_sections = [
-        (section, values)
-        for section, values in parse_ini(os.path.join(root, "installs.ini"))
-        if INSTALL_SECTION.match(section)]
-    winner = None
-    for section, values in install_sections:
-        if values.get("Default"):
-            winner = (section, values)
-            break
-    if len(install_sections) > 1 and winner is not None:
-        sys.stderr.write(
-            "firefox: multiple install sections; using %s\n" % winner[0])
-    if winner is None:
-        return None
-    default_name = winner[1]["Default"]
-    profile = os.path.join(root, default_name)
-    for section, values in parse_ini(os.path.join(root, "profiles.ini")):
-        if not section.startswith("Profile"):
-            continue
-        path = values.get("Path", "")
-        if path != default_name and os.path.basename(path) != default_name:
-            continue
-        profile = path if values.get("IsRelative") == "0" else os.path.join(root, path)
-        break
-    if not os.path.isdir(profile):
-        return None
-    return profile
 
 
 def merge_userjs(existing, block):

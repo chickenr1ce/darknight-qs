@@ -26,14 +26,18 @@
 # mv), never the link. A second --apply changes no bytes and makes no new
 # backup.
 #
-# Firefox profile resolution mirrors firefox_profile() in scripts/render-theme.sh
-# (the renderer is Python and exposes no profile query, so the logic is mirrored
-# faithfully here rather than shared); keep the two in step by hand.
+# Firefox profile discovery lives once, in scripts/firefox_profile.py: the
+# renderer imports it and this script runs it, so the ini rules are not
+# mirrored. python3 is already required by the renderer, so this adds no
+# dependency.
 #
 # See docs/user/theme-desktop-setup.md for the manual steps behind each target.
 set -euo pipefail
 
 C=${XDG_CONFIG_HOME:-${HOME:-}/.config}
+# CDPATH= is cleared for cd; shellcheck 0.11 misreads it as SC1007.
+# shellcheck disable=SC1007
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 MODE=check
 TARGETS=()
 HAD_FAILURE=0
@@ -396,110 +400,8 @@ wire_btop() {
 
 # --- firefox ----------------------------------------------------------------
 
-# Mirror of parse_ini_text() in scripts/render-theme.sh: emit one
-# 'section<TAB>key<TAB>value' line per assignment. The whole line, the section
-# name, the key, and the value are stripped of surrounding whitespace (a CRLF
-# line's \r included), blank and comment lines are skipped, and a section runs
-# until the next header.
-ini_flatten() {
-    awk '
-        function trim(s) {
-            sub(/^[ \t\r\n\v\f]+/, "", s)
-            sub(/[ \t\r\n\v\f]+$/, "", s)
-            return s
-        }
-        {
-            line = trim($0)
-            if (line == "") next
-            c = substr(line, 1, 1)
-            if (c == "#" || c == ";") next
-            if (c == "[" && substr(line, length(line), 1) == "]") {
-                section = trim(substr(line, 2, length(line) - 2))
-                have = 1
-                next
-            }
-            if (!have) next
-            p = index(line, "=")
-            if (p == 0) next
-            print section "\t" trim(substr(line, 1, p - 1)) "\t" trim(substr(line, p + 1))
-        }
-    ' "$1" 2>/dev/null
-}
-
-# Mirror of firefox_profile()'s profiles.ini loop: the first Profile section
-# whose Path (or its basename) matches the default name wins; IsRelative 0 means
-# an absolute Path, anything else joins it to the root. Prints nothing when no
-# section matches, so the caller keeps the root/default fallback.
-firefox_profiles_path() {
-    awk -v root="$1" -v def="$2" '
-        function trim(s) {
-            sub(/^[ \t\r\n\v\f]+/, "", s)
-            sub(/[ \t\r\n\v\f]+$/, "", s)
-            return s
-        }
-        function emit() {
-            if (found || ! have || sect !~ /^Profile/) return
-            if (p == "") return
-            base = p
-            sub(/.*\//, "", base)
-            if (p != def && base != def) return
-            if (isrel == "0") print p
-            else print root "/" p
-            found = 1
-        }
-        {
-            line = trim($0)
-            if (line == "") next
-            c = substr(line, 1, 1)
-            if (c == "#" || c == ";") next
-            if (c == "[" && substr(line, length(line), 1) == "]") {
-                emit()
-                sect = trim(substr(line, 2, length(line) - 2))
-                have = 1; p = ""; isrel = ""
-                next
-            }
-            if (found || ! have) next
-            i = index(line, "=")
-            if (i == 0) next
-            key = trim(substr(line, 1, i - 1))
-            val = trim(substr(line, i + 1))
-            if (key == "Path") p = val
-            else if (key == "IsRelative") isrel = val
-        }
-        END { emit() }
-    ' "$3" 2>/dev/null
-}
-
-# Mirror of firefox_root()/firefox_profile() in scripts/render-theme.sh: the
-# root is $C/mozilla/firefox when it is a directory, else $HOME/.mozilla/firefox;
-# installs.ini names the default profile, profiles.ini supplies IsRelative or an
-# absolute Path, and the profile directory must exist. The profile path is never
-# resolved, so a psd target stays writable.
 firefox_profile() {
-    local root default_name profile resolved
-    local config_home candidate
-    config_home=${XDG_CONFIG_HOME:-${HOME:-}/.config}
-    candidate=$config_home/mozilla/firefox
-    if [ -d "$candidate" ]; then
-        root=$candidate
-    else
-        root=${HOME:-}/.mozilla/firefox
-    fi
-
-    default_name=$(ini_flatten "$root/installs.ini" | awk -F'\t' '
-        $1 ~ /^(Install)?[0-9A-Fa-f]+$/ && $2 == "Default" && $3 != "" { print $3; exit }
-    ')
-    [ -n "$default_name" ] || return 1
-
-    profile=$root/$default_name
-    resolved=$(firefox_profiles_path "$root" "$default_name" "$root/profiles.ini")
-    [ -z "$resolved" ] || profile=$resolved
-
-    if [ -d "$profile" ]; then
-        printf '%s\n' "$profile"
-        return 0
-    fi
-    return 1
+    python3 "$SCRIPT_DIR/firefox_profile.py"
 }
 
 # True when the sheet's line 1 is exactly the import (a trailing \r from a CRLF

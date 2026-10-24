@@ -580,6 +580,39 @@ check('run/proto-key',
       Object.prototype.hasOwnProperty.call(protoCounts, '__proto__') && protoCounts['__proto__'],
       1);
 
+// wsSnapshot mirrors the plain data AppService hands over: ordered monitor
+// names, the enabled subset, each monitor's first workspace, Hyprland's active
+// id per monitor, and one workspace id per open window (null for a window with
+// no workspace). Every decision below is the pure builder's.
+function wsSnapshot(monitors, perMonitor, anchorName, toplevelWorkspaceIds) {
+  const orderedNames = [];
+  const enabledNames = [];
+  const firstWorkspaces = [];
+  const hyprMonitors = [];
+  for (let i = 0; i < monitors.length; i++) {
+    const monitor = monitors[i];
+    orderedNames.push(monitor.name);
+    if (monitor.disabled !== true)
+      enabledNames.push(monitor.name);
+    firstWorkspaces.push({ name: monitor.name, first: monitor.first });
+    hyprMonitors.push({
+      name: monitor.name,
+      activeWorkspaceId: monitor.active === undefined ? -1 : monitor.active
+    });
+  }
+  if (anchorName !== '' && orderedNames.indexOf(anchorName) === -1)
+    firstWorkspaces.push({ name: anchorName, first: 1 });
+  return {
+    orderedNames: orderedNames,
+    enabledNames: enabledNames,
+    firstWorkspaces: firstWorkspaces,
+    hyprMonitors: hyprMonitors,
+    toplevelWorkspaceIds: toplevelWorkspaceIds || [],
+    perMonitor: perMonitor,
+    anchorName: anchorName
+  };
+}
+
 // menuItems with a running count keeps the spec order — Open, Open on
 // workspace (only when workspace items exist), Open, keep dashboard, Focus
 // window — and Kill last in danger; a zero count adds neither Focus nor Kill.
@@ -592,7 +625,7 @@ check('menu/focus-after-open',
       ['open', 'open-keep', 'focus-window', 'pin', 'hide', 'copy-command', 'kill']);
 check('menu/workspace-order',
       al.menuItems(noActions, false, false, 2,
-        al.workspaceMenu([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1', []))
+        al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1')))
         .filter(i => i.kind === 'item').map(i => i.id),
       ['open', 'open-workspace', 'open-keep', 'focus-window', 'pin', 'hide', 'copy-command', 'kill']);
 check('menu/kill-text', runningMenu.find(i => i.id === 'kill').text, 'Kill Firefox');
@@ -645,7 +678,7 @@ const WS = [
   { name: 'DP-1', first: 1, active: 3 },
   { name: 'DP-2', first: 6, active: 8 },
 ];
-const wsMenu = al.workspaceMenu(WS, 5, 'DP-1', [1, 2, 3, 6]);
+const wsMenu = al.workspaceMenu(wsSnapshot(WS, 5, 'DP-1', [1, 2, 3, 6]));
 check('wsmenu/labels',
       wsMenu.filter(i => i.kind === 'label').map(i => i.text),
       ['DP-1', 'DP-2']);
@@ -666,7 +699,7 @@ check('wsmenu/current',
 check('wsmenu/occupied',
       wsMenu.filter(i => i.id === 'workspace').map(i => i.occupied),
       [true, true, true, false, false, true, false, false, false, false]);
-const wsAnchorSecond = al.workspaceMenu(WS, 5, 'DP-2', [1, 2, 3, 6]);
+const wsAnchorSecond = al.workspaceMenu(wsSnapshot(WS, 5, 'DP-2', [1, 2, 3, 6]));
 check('wsmenu/anchor-first',
       wsAnchorSecond.filter(i => i.kind === 'label').map(i => i.text),
       ['DP-2', 'DP-1']);
@@ -677,40 +710,77 @@ check('wsmenu/new-id', wsMenu[wsMenu.length - 1].id, 'workspace-new');
 check('wsmenu/new-workspace', wsMenu[wsMenu.length - 1].workspace, 4);
 check('wsmenu/new-separator', wsMenu[wsMenu.length - 2].kind, 'separator');
 check('wsmenu/full-hides-new',
-      al.workspaceMenu(WS, 5, 'DP-1', [1, 2, 3, 4, 5]).some(i => i.id === 'workspace-new'), false);
+      al.workspaceMenu(wsSnapshot(WS, 5, 'DP-1', [1, 2, 3, 4, 5])).some(i => i.id === 'workspace-new'), false);
 check('wsmenu/new-from-anchor',
-      al.workspaceMenu(WS, 5, 'DP-2', [1, 2, 3, 4, 5]).slice(-1)[0].workspace, 6);
+      al.workspaceMenu(wsSnapshot(WS, 5, 'DP-2', [1, 2, 3, 4, 5])).slice(-1)[0].workspace, 6);
 check('wsmenu/other-block-does-not-free-anchor',
-      al.workspaceMenu(WS, 5, 'DP-2', [6, 7, 8, 9, 10]).some(i => i.id === 'workspace-new'), false);
+      al.workspaceMenu(wsSnapshot(WS, 5, 'DP-2', [6, 7, 8, 9, 10])).some(i => i.id === 'workspace-new'), false);
 check('wsmenu/single-labels',
-      al.workspaceMenu([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1', [])
+      al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1'))
         .filter(i => i.kind === 'label').map(i => i.text),
       ['DP-1']);
 check('wsmenu/single-count',
-      al.workspaceMenu([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1', [])
+      al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1'))
         .filter(i => i.id === 'workspace').length,
       5);
 check('wsmenu/disabled-excluded',
-      al.workspaceMenu([
+      al.workspaceMenu(wsSnapshot([
         { name: 'DP-1', first: 1, active: 1 },
         { name: 'DP-2', first: 6, active: 6, disabled: true },
-      ], 5, 'DP-1', []).filter(i => i.kind === 'label').map(i => i.text),
+      ], 5, 'DP-1')).filter(i => i.kind === 'label').map(i => i.text),
       ['DP-1']);
+check('wsmenu/disabled-not-ordered',
+      al.workspaceMenu(wsSnapshot([
+        { name: 'DP-1', first: 1, active: 1 },
+        { name: 'DP-2', first: 6, active: 6, disabled: true },
+      ], 5, 'DP-1')).filter(i => i.id === 'workspace').map(i => i.workspace),
+      [1, 2, 3, 4, 5]);
 check('wsmenu/no-hint-over-9',
-      al.workspaceMenu([{ name: 'DP-1', first: 1, active: 1 }], 12, 'DP-1', [])
+      al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 1 }], 12, 'DP-1'))
         .filter(i => i.id === 'workspace' && i.hint === '').length,
       2);
-check('wsmenu/no-monitors', al.workspaceMenu([], 5, '', []), []);
-check('wsmenu/zero-count', al.workspaceMenu(WS, 0, 'DP-1', []), []);
+check('wsmenu/no-monitors', al.workspaceMenu(wsSnapshot([], 5, '')), []);
+check('wsmenu/zero-count', al.workspaceMenu(wsSnapshot(WS, 0, 'DP-1')), []);
 check('wsmenu/bad-first',
-      al.workspaceMenu([{ name: 'DP-1', first: 0, active: 1 }], 5, 'DP-1', []).length, 0);
+      al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 0, active: 1 }], 5, 'DP-1')).length, 0);
 
-// Empty or stale monitor data still offers the anchor block: the fallback
+// Duplicate toplevel workspace ids collapse into one occupied set, a window
+// with no workspace occupies nothing, and an active id that names no known
+// monitor reads as -1, so no slot is labelled current.
+check('wsmenu/duplicate-toplevels',
+      al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 9 }], 5, 'DP-1', [1, 1, 2, 2]))
+        .filter(i => i.id === 'workspace').map(i => i.occupied),
+      [true, true, false, false, false]);
+check('wsmenu/duplicates-do-not-fill',
+      al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 9 }], 5, 'DP-1', [1, 1, 1, 1, 1]))
+        .slice(-1)[0].workspace,
+      2);
+check('wsmenu/null-workspace',
+      al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 9 }], 5, 'DP-1', [null, 3]))
+        .filter(i => i.id === 'workspace').map(i => i.occupied),
+      [false, false, true, false, false]);
+check('wsmenu/unknown-active',
+      al.workspaceMenu({
+        orderedNames: ['DP-1'],
+        enabledNames: ['DP-1'],
+        firstWorkspaces: [{ name: 'DP-1', first: 1 }],
+        hyprMonitors: [{ name: 'HDMI-A-1', activeWorkspaceId: 4 }],
+        toplevelWorkspaceIds: [],
+        perMonitor: 5,
+        anchorName: 'DP-1'
+      }).filter(i => i.current),
+      []);
+
+// An all-disabled monitor list still offers the anchor block: the fallback
 // carries the anchor's first workspace and known active id, so "Open on
-// workspace" survives a startup poll gap. The first monitor anchors the menu
-// when the anchor name is empty or names no enabled monitor, and a disabled
-// anchor yields to the first enabled monitor.
-const wsFallback = al.workspaceMenu([], 5, 'DP-2', [6], { name: 'DP-2', first: 6, active: 7 });
+// workspace" survives a startup poll gap. The first ordered monitor anchors the
+// menu when the anchor name is empty or names no enabled monitor, and a
+// disabled anchor yields to the first enabled monitor.
+const wsAllDisabled = [
+  { name: 'DP-1', first: 1, active: 1, disabled: true },
+  { name: 'DP-2', first: 6, active: 7, disabled: true },
+];
+const wsFallback = al.workspaceMenu(wsSnapshot(wsAllDisabled, 5, 'DP-2', [6]));
 check('wsmenu/fallback-labels',
       wsFallback.filter(i => i.kind === 'label').map(i => i.text),
       ['DP-2']);
@@ -724,32 +794,39 @@ check('wsmenu/fallback-hints',
       wsFallback.filter(i => i.id === 'workspace').map(i => i.hint),
       ['ctrl 6', 'ctrl 7', 'ctrl 8', 'ctrl 9', 'ctrl 0']);
 check('wsmenu/fallback-new', wsFallback[wsFallback.length - 1].workspace, 7);
-check('wsmenu/fallback-name',
-      al.workspaceMenu([], 5, '', [], { name: 'eDP-1', first: 1, active: -1 })
+check('wsmenu/fallback-first-ordered',
+      al.workspaceMenu(wsSnapshot(wsAllDisabled, 5, ''))
         .filter(i => i.kind === 'label').map(i => i.text),
-      ['eDP-1']);
+      ['DP-1']);
+check('wsmenu/fallback-anchor-only',
+      al.workspaceMenu(wsSnapshot([], 5, 'eDP-1'))
+        .filter(i => i.id === 'workspace').map(i => i.workspace),
+      [1, 2, 3, 4, 5]);
+check('wsmenu/fallback-no-name',
+      al.workspaceMenu(wsSnapshot([], 5, '')).filter(i => i.current),
+      []);
 check('wsmenu/no-anchor-labels',
-      al.workspaceMenu(WS, 5, '', []).filter(i => i.kind === 'label').map(i => i.text),
+      al.workspaceMenu(wsSnapshot(WS, 5, '')).filter(i => i.kind === 'label').map(i => i.text),
       ['DP-1', 'DP-2']);
 check('wsmenu/no-anchor-hints',
-      al.workspaceMenu(WS, 5, '', []).filter(i => i.hint !== '').map(i => i.workspace),
+      al.workspaceMenu(wsSnapshot(WS, 5, '')).filter(i => i.hint !== '').map(i => i.workspace),
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 check('wsmenu/stray-anchor-labels',
-      al.workspaceMenu(WS, 5, 'HDMI-A-1', []).filter(i => i.kind === 'label').map(i => i.text),
+      al.workspaceMenu(wsSnapshot(WS, 5, 'HDMI-A-1')).filter(i => i.kind === 'label').map(i => i.text),
       ['DP-1', 'DP-2']);
 check('wsmenu/stray-anchor-hints',
-      al.workspaceMenu(WS, 5, 'HDMI-A-1', []).filter(i => i.hint !== '').map(i => i.workspace),
+      al.workspaceMenu(wsSnapshot(WS, 5, 'HDMI-A-1')).filter(i => i.hint !== '').map(i => i.workspace),
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 check('wsmenu/disabled-anchor-falls-to-first',
-      al.workspaceMenu([
+      al.workspaceMenu(wsSnapshot([
         { name: 'DP-1', first: 1, active: 1 },
         { name: 'DP-2', first: 6, active: 6, disabled: true },
-      ], 5, 'DP-2', []).filter(i => i.hint !== '').map(i => i.workspace),
+      ], 5, 'DP-2')).filter(i => i.hint !== '').map(i => i.workspace),
       [1, 2, 3, 4, 5]);
 
 // menuItems with workspace items gains Open on workspace right after Open,
 // carrying the submenu; without them the item list is unchanged.
-const wsItems = al.workspaceMenu([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1', []);
+const wsItems = al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1'));
 const wsMenuItems = al.menuItems(noActions, false, false, 0, wsItems);
 check('menu/workspace-after-open',
       wsMenuItems.filter(i => i.kind === 'item').map(i => i.id).indexOf('open-workspace'),
@@ -810,7 +887,7 @@ check('arg/marker-not-prefix', arg.call('%10 %1', 'x'), '%10 x');
 // new, current, occupied, and plain workspace items.
 const iconNames = (iconsSrc.match(/readonly property string (\w+)/g) || [])
     .map(s => s.replace('readonly property string ', ''));
-const glyphWs = al.workspaceMenu([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1', [3]);
+const glyphWs = al.workspaceMenu(wsSnapshot([{ name: 'DP-1', first: 1, active: 2 }], 5, 'DP-1', [3]));
 const glyphSource = al.menuItems(noActions, false, false, 0)
     .concat(al.menuItems(noActions, true, false, 2))
     .concat(al.menuItems(withActions, false, false, 2))
