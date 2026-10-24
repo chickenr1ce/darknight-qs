@@ -11,22 +11,14 @@ function clamp01(value) {
     return Math.max(0, Math.min(1, value));
 }
 
+// Hyprland's toplevel.address carries no 0x, but a window selector needs one.
+// services/HyprlandDispatchLogic.js owns the selector rule that prepends it;
+// this normal form is only the comparison key for a window's own address.
 function normalizeAddress(value) {
     let text = String(value === null || value === undefined ? "" : value).toLowerCase();
     if (text.indexOf("0x") === 0)
         text = text.slice(2);
     return text;
-}
-
-// Hyprland's toplevel.address carries no 0x, but a window selector needs one.
-// Anything that is not a hex address after normalising is rejected, so a stray
-// quote or a bad class name cannot reach the dispatch string.
-function selector(address) {
-    const text = normalizeAddress(address);
-    const candidate = "0x" + text;
-    if (!/^0x[0-9a-f]+$/.test(candidate))
-        return "";
-    return candidate;
 }
 
 function logicalSize(monitor) {
@@ -311,6 +303,113 @@ function monitorSnapshot(source) {
         activeId: active ? Math.round(number(active.id, -1)) : -1,
         focused: monitor.focused === true
     };
+}
+
+// --- the workspace model from one plain snapshot ---
+//
+// WorkspaceService builds the snapshot from the live singletons; every rule
+// that decides what the dashboard draws lives here, so the whole assembly runs
+// under node against literal monitors and toplevels.
+
+function isEnabled(name, enabledNames) {
+    const list = enabledNames || [];
+    for (let i = 0; i < list.length; i++) {
+        if (list[i] === name)
+            return true;
+    }
+    return false;
+}
+
+// Enabled monitors in ordered-monitor order, each paired with the first
+// workspace of its block. A monitor that is disabled, or that Hyprland does
+// not report, is left out.
+function monitorEntries(snapshot) {
+    const data = snapshot || {};
+    const names = data.monitorNames || [];
+    const enabledNames = data.enabledNames || [];
+    const monitors = data.monitors || [];
+    const firstWorkspaces = data.firstWorkspace || {};
+    const byName = {};
+    for (let i = 0; i < monitors.length; i++) {
+        if (monitors[i] && monitors[i].name)
+            byName[monitors[i].name] = monitors[i];
+    }
+    const out = [];
+    for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        if (!isEnabled(name, enabledNames))
+            continue;
+        const monitor = byName[name];
+        if (!monitor)
+            continue;
+        out.push({ monitor: monitor, first: number(firstWorkspaces[name], 1) });
+    }
+    return out;
+}
+
+function blocksFor(entries, perMonitor) {
+    const blocks = [];
+    for (let i = 0; i < entries.length; i++)
+        blocks.push({ first: entries[i].first, count: perMonitor });
+    return blocks;
+}
+
+// The windows that sit in one of the monitor blocks, flattened from the
+// snapshot. A special workspace (negative id) or a named workspace outside the
+// blocks is excluded, and a toplevel with no IPC snapshot yet is skipped.
+function windowEntries(toplevels, blocks) {
+    const tops = toplevels || [];
+    const out = [];
+    for (let i = 0; i < tops.length; i++) {
+        const top = tops[i];
+        if (!top)
+            continue;
+        const ipc = top.ipc ?? {};
+        const workspace = ipc.workspace;
+        if (!inBlocks(workspace ? workspace.id : -1, blocks))
+            continue;
+        const cls = ipc["class"];
+        const name = cls === undefined || cls === null ? "" : String(cls);
+        out.push({
+            address: top.address ?? "",
+            cls: name,
+            title: ipc.title === undefined || ipc.title === null ? (top.title ?? "") : String(ipc.title),
+            app: top.app === undefined || top.app === null ? "" : String(top.app),
+            icon: top.icon === undefined || top.icon === null ? "" : String(top.icon),
+            at: ipc.at,
+            size: ipc.size,
+            floating: ipc.floating === true,
+            // Hyprland reports a mode: 0 none, 1 maximized, 2 fullscreen,
+            // 3 both. Maximized keeps its real (work-area) geometry.
+            fullscreen: ipc.fullscreen === true || Number(ipc.fullscreen) >= 2,
+            urgent: top.urgent === true,
+            workspaceId: workspace ? workspace.id : -1
+        });
+    }
+    return out;
+}
+
+function activeWorkspaceIds(workspaces) {
+    const list = workspaces || [];
+    const ids = [];
+    for (let i = 0; i < list.length; i++) {
+        const workspace = list[i];
+        if (workspace && workspace.active === true)
+            ids.push(workspace.id);
+    }
+    return ids;
+}
+
+// The whole dashboard model: one block per enabled monitor, one tile per
+// workspace in its block, and the windows that belong to each tile.
+function model(snapshot) {
+    const data = snapshot || {};
+    const entries = monitorEntries(data);
+    const blocks = blocksFor(entries, data.perMonitor);
+    const windows = windowEntries(data.toplevels, blocks);
+    const activeIds = activeWorkspaceIds(data.workspaces);
+    return monitorBlocks(entries, data.perMonitor, windows, activeIds,
+        data.focusedName ?? "", data.focusedAddress ?? "");
 }
 
 function monitorBlocks(entries, perMonitor, windows, activeIds, focusedMonitorName, focusedAddress) {

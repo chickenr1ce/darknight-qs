@@ -2,15 +2,24 @@ import QtQuick
 import QtQuick.Shapes
 import qs.config
 import qs.services
+import "../services/BarLayoutLogic.js" as BarLayoutLogic
 
 Item {
     id: root
 
     required property var dragGeometry
     property string key: ""
+    // Overridable so the offscreen test does not have to sleep the shipped
+    // hold; the default reads the one token.
+    property int holdMs: Globals.barDragHoldMs
+    property bool liftOutlineShown: false
+
+    // The press lifecycle: a passive grab starts the hold, the hold arms the
+    // drag, an ungrab ends it. BarLayoutLogic.pressTransition owns every
+    // decision; this item owns the effects and their state.
+    property bool pressHeld: false
     property bool armed: false
     property bool trayMenuOpenAtPress: false
-    property bool liftOutlineShown: false
 
     default property alias content: root.data
 
@@ -23,6 +32,9 @@ Item {
         return null;
     }
     readonly property bool shown: root.module !== null && root.module.visible
+    // The module that owns the tray menu declares this, so no one else has to
+    // spell its key: a press on it must not dismiss its own menu.
+    readonly property bool moduleOwnsTrayMenu: root.module !== null && root.module.ownsTrayMenu === true
     readonly property real dragPointerX: idModuleDragHandler.centroid.scenePosition.x - Globals.slabInset
     readonly property real dragPointerY: idModuleDragHandler.centroid.scenePosition.y
 
@@ -103,42 +115,37 @@ Item {
         acceptedButtons: Qt.LeftButton
         target: null
 
-        onGrabChanged: (transition, point) => {
-            if (transition === PointerDevice.GrabPassive) {
-                root.trayMenuOpenAtPress = TrayMenuService.panelState.visible;
-                idHoldTimer.restart();
-                return;
-            }
-            const released = transition === PointerDevice.UngrabPassive || transition === PointerDevice.CancelGrabPassive || transition === PointerDevice.UngrabExclusive || transition === PointerDevice.CancelGrabExclusive;
-            if (!released)
-                return;
-            idHoldTimer.stop();
-            if (root.armed && !idModuleDragHandler.active)
-                root.releaseDrag();
-            if (!root.armed && root.trayMenuOpenAtPress && !(root.key === "tray"))
-                TrayMenuService.dismiss();
-            root.trayMenuOpenAtPress = false;
-        }
+        onGrabChanged: (transition, point) => root.applyPressEvent(root.grabEvent(transition))
         onCentroidChanged: {
             if (root.armed && BarLayoutService.dragging)
                 BarLayoutService.updateDrag(root.dragPointerX, root.dragPointerY, root.dragGeometry);
         }
-        onActiveChanged: {
-            if (idModuleDragHandler.active && !root.armed)
-                idHoldTimer.stop();
-            if (!idModuleDragHandler.active && root.armed)
-                root.releaseDrag();
-        }
+        onActiveChanged: root.applyPressEvent(idModuleDragHandler.active ? BarLayoutLogic.DRAG_START : BarLayoutLogic.DRAG_END)
     }
 
     Timer {
         id: idHoldTimer
 
-        interval: Globals.barDragHoldMs
-        onTriggered: {
-            root.armed = true;
-            BarLayoutService.beginDrag(root.key, root.dragPointerX, root.dragPointerY);
-        }
+        interval: root.holdMs
+        onTriggered: root.applyPressEvent(BarLayoutLogic.HOLD)
+    }
+
+    // A press that armed the drag must not click the module on release. An
+    // overlay would take the press and starve the module (ADR 0021), so the
+    // slot disables the module for the armed span instead: disabling an item
+    // delivers a cancel to its MouseArea (and its children's), which no module
+    // has to know about. A HoverHandler stays hovered through the disable; a
+    // MouseArea's containsMouse drops until the pointer next moves, so a
+    // MouseArea hover tint clears for the armed span. The override runs only
+    // for that span: when `armed` goes false Qt 6 restores the module's own
+    // enabled binding (or plain value), so a module that binds `enabled` keeps
+    // owning it. restoreMode is spelled out for that guarantee.
+    Binding {
+        target: root.module
+        property: "enabled"
+        value: false
+        when: root.module !== null && root.armed
+        restoreMode: Binding.RestoreBindingOrValue
     }
 
     Binding {
@@ -173,17 +180,54 @@ Item {
     }
 
     function abandonDrag(): void {
-        idHoldTimer.stop();
-        if (!root.armed)
-            return;
-        root.armed = false;
-        BarLayoutService.cancelDrag();
+        root.applyPressEvent(BarLayoutLogic.ABANDON);
     }
 
-    function releaseDrag(): void {
-        if (!root.armed)
-            return;
-        root.armed = false;
-        BarLayoutService.endDrag();
+    // The one place the Qt grab enum is read: a .pragma library cannot see it.
+    // Everything else about the transition lives in BarLayoutLogic.
+    function grabEvent(transition): string {
+        if (transition === PointerDevice.GrabPassive)
+            return BarLayoutLogic.PRESS;
+        if (transition === PointerDevice.UngrabPassive || transition === PointerDevice.CancelGrabPassive || transition === PointerDevice.UngrabExclusive || transition === PointerDevice.CancelGrabExclusive)
+            return BarLayoutLogic.RELEASE;
+        return BarLayoutLogic.OTHER;
+    }
+
+    function applyPressEvent(event): void {
+        const state = { pressed: root.pressHeld, armed: root.armed, trayMenuOpenAtPress: root.trayMenuOpenAtPress };
+        const result = BarLayoutLogic.pressTransition(state, event, {
+            handlerActive: idModuleDragHandler.active,
+            ownsTrayMenu: root.moduleOwnsTrayMenu,
+            // Only a press snapshots the menu; shutdown must not touch services.
+            trayMenuVisible: event === BarLayoutLogic.PRESS && TrayMenuService.panelState.visible
+        });
+        root.pressHeld = result.state.pressed;
+        root.armed = result.state.armed;
+        root.trayMenuOpenAtPress = result.state.trayMenuOpenAtPress;
+        for (let i = 0; i < result.effects.length; i++)
+            root.applyEffect(result.effects[i]);
+    }
+
+    function applyEffect(effect): void {
+        switch (effect) {
+        case BarLayoutLogic.EFFECT_START_HOLD:
+            idHoldTimer.restart();
+            break;
+        case BarLayoutLogic.EFFECT_STOP_HOLD:
+            idHoldTimer.stop();
+            break;
+        case BarLayoutLogic.EFFECT_BEGIN_DRAG:
+            BarLayoutService.beginDrag(root.key, root.dragPointerX, root.dragPointerY);
+            break;
+        case BarLayoutLogic.EFFECT_END_DRAG:
+            BarLayoutService.endDrag();
+            break;
+        case BarLayoutLogic.EFFECT_CANCEL_DRAG:
+            BarLayoutService.cancelDrag();
+            break;
+        case BarLayoutLogic.EFFECT_DISMISS_TRAY:
+            TrayMenuService.dismiss();
+            break;
+        }
     }
 }

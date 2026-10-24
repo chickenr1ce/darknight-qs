@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Headless gate for the bar layout service, its parser, and its positioner.
+# Headless gate for the bar layout service, its parser, its positioner, and the
+# bar slot's press lifecycle.
 #
 # services/BarLayoutLogic.js and StateParsers.parseBarLayout run for real under
-# node through tests/qmljs.js: move, positions, and dropTarget, plus the
-# parser's every-key-once rule. Structural greps pin BarLayoutService to its
-# delegates (parseBarLayout and BarLayoutLogic), the bar-layout state file, the
-# bar IPC target, and the shell's plain-Item positioner.
+# node through tests/qmljs.js: move, positions, dropTarget, and the press
+# transitions (arm, cancel, release, tray-dismiss). Structural greps pin
+# BarLayoutService to its delegates (parseBarLayout and BarLayoutLogic), the
+# bar-layout state file, the bar IPC target, the shell's plain-Item positioner,
+# and that the slot alone knows about drags. tests/bar-slot-handlers.qml runs
+# the real components/BarSlot.qml and components/ModuleBox.qml offscreen.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,9 +30,13 @@ for fn in 'function move(' 'function positions(' 'function dropTarget('; do
     grep -q "$fn" "$LOGIC" \
         || fail "BarLayoutLogic.js does not define $fn"
 done
-for fn in 'function dragX(' 'function shouldCancelRelease('; do
+for fn in 'function dragX(' 'function shouldCancelRelease(' 'function pressTransition(' 'function pressState(' 'function isRelease('; do
     grep -q "$fn" "$LOGIC" \
         || fail "BarLayoutLogic.js does not define $fn"
+done
+for effect in EFFECT_START_HOLD EFFECT_STOP_HOLD EFFECT_BEGIN_DRAG EFFECT_END_DRAG EFFECT_CANCEL_DRAG EFFECT_DISMISS_TRAY; do
+    grep -q "var $effect" "$LOGIC" \
+        || fail "BarLayoutLogic.js does not name the $effect effect"
 done
 
 test -f "$SVC" \
@@ -90,11 +97,25 @@ test -f "$SLOT" \
     || fail "components/BarSlot.qml is missing"
 grep -q 'id: idHoldTimer' "$SLOT" \
     || fail "BarSlot has no hold timer"
-if grep -q 'TapHandler {' "$SLOT"; then
-    fail "BarSlot carries a TapHandler; a handler above the module starves its MouseArea"
+grep -q 'BarLayoutLogic.pressTransition' "$SLOT" \
+    || fail "BarSlot does not delegate the grab-transition decision to BarLayoutLogic"
+if grep -qE 'TapHandler \{|MouseArea \{' "$SLOT"; then
+    fail "BarSlot carries a TapHandler or MouseArea; a handler above the module starves its MouseArea"
 fi
 grep -q 'DragHandler {' "$SLOT" \
     || fail "BarSlot has no drag handler"
+# The slot swallows the click that ends an armed press itself, so no module
+# checks a drag flag and a new module cannot forget one.
+if grep -rq 'suppressClick' "$ROOT/components" "$ROOT/modules" "$SVC"; then
+    fail "a component still checks BarLayoutService.suppressClick; the slot owns click suppression"
+fi
+# The shell defers the bar dismiss through the module's ownsTrayMenu flag; no
+# one spells the tray key.
+grep -q 'moduleOwnsTrayMenu' "$SHELL" \
+    || fail "shell.qml does not defer the bar dismiss through the module's ownsTrayMenu"
+if grep -rn 'key === "tray"' "$ROOT/components" "$ROOT/modules" "$SHELL" >/dev/null; then
+    fail "the tray deferred-dismiss rule still spells the tray key"
+fi
 grep -q 'property int barDragHoldMs: 300' "$ROOT/config/Globals.qml" \
     || fail "config/Globals.qml has no barDragHoldMs token"
 grep -q 'property real barDragLiftScale: 1.05' "$ROOT/config/Globals.qml" \
@@ -258,6 +279,73 @@ check('drag/wider-than-bar', bl.dragX(10, 1200, 1000), 0);
 check('cancel/inside-bar', bl.shouldCancelRelease(16, 28, 4), false);
 check('cancel/at-threshold', bl.shouldCancelRelease(60, 28, 4), false);
 check('cancel/below-bar', bl.shouldCancelRelease(61, 28, 4), true);
+
+// --- press lifecycle: arm / cancel / release / tray-dismiss ---
+// BarSlot passes the mapped event names in; the policy is here.
+const idle = bl.pressState();
+const event = (state, name, ctx) => bl.pressTransition(state, name, ctx || {});
+const pressed = event(idle, bl.PRESS, {}).state;
+const armed = event(pressed, bl.HOLD).state;
+const trayPressed = event(idle, bl.PRESS, { trayMenuVisible: true }).state;
+const trayArmed = event(trayPressed, bl.HOLD).state;
+const ended = { pressed: false, armed: false, trayMenuOpenAtPress: false };
+
+check('press/idle', idle, ended);
+check('press/is-release',
+      [bl.isRelease(bl.RELEASE), bl.isRelease(bl.PRESS), bl.isRelease(bl.HOLD), bl.isRelease(bl.DRAG_START), bl.isRelease(bl.DRAG_END), bl.isRelease(bl.OTHER)],
+      [true, false, false, false, false, false]);
+check('press/starts-hold', event(idle, bl.PRESS, { trayMenuVisible: true }),
+      { state: trayPressed, effects: [bl.EFFECT_START_HOLD] });
+check('press/again-ignored', event(pressed, bl.PRESS, {}), { state: pressed, effects: [] });
+check('press/other-silent', event(armed, bl.OTHER), { state: armed, effects: [] });
+
+check('hold/arms', event(pressed, bl.HOLD), { state: armed, effects: [bl.EFFECT_BEGIN_DRAG] });
+check('hold/needs-a-press', event(idle, bl.HOLD), { state: idle, effects: [] });
+check('hold/once', event(armed, bl.HOLD), { state: armed, effects: [] });
+
+// The drag threshold can be crossed before the hold: that stops the timer and
+// never arms, so a twitchy click keeps its click.
+check('drag-start/cancels-hold', event(pressed, bl.DRAG_START), { state: pressed, effects: [bl.EFFECT_STOP_HOLD] });
+check('drag-start/armed-silent', event(armed, bl.DRAG_START), { state: armed, effects: [] });
+check('drag-end/unarmed-silent', event(pressed, bl.DRAG_END), { state: pressed, effects: [] });
+check('drag-end/commits', event(armed, bl.DRAG_END), { state: pressed, effects: [bl.EFFECT_END_DRAG] });
+
+// An armed release commits and ends the press; an unarmed release is a click.
+check('release/armed-commits', event(armed, bl.RELEASE),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD, bl.EFFECT_END_DRAG] });
+check('release/unarmed-is-a-click', event(pressed, bl.RELEASE),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD] });
+check('release/active-defers-to-drag-end', event(armed, bl.RELEASE, { handlerActive: true }),
+      { state: { pressed: false, armed: true, trayMenuOpenAtPress: false }, effects: [bl.EFFECT_STOP_HOLD] });
+check('release/active-then-drag-end',
+      event(event(armed, bl.RELEASE, { handlerActive: true }).state, bl.DRAG_END),
+      { state: ended, effects: [bl.EFFECT_END_DRAG] });
+
+// A tray menu open at the press is dismissed at the release by any module but
+// the one that owns it; an armed release still dismisses, matching the bar-wide
+// area's deferred dismiss.
+check('tray/dismiss-at-release', event(trayPressed, bl.RELEASE),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD, bl.EFFECT_DISMISS_TRAY] });
+check('tray/owner-keeps-menu', event(trayPressed, bl.RELEASE, { ownsTrayMenu: true }),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD] });
+check('tray/not-open-no-dismiss', event(pressed, bl.RELEASE),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD] });
+check('tray/armed-release-dismisses', event(trayArmed, bl.RELEASE),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD, bl.EFFECT_END_DRAG, bl.EFFECT_DISMISS_TRAY] });
+check('tray/owner-armed-keeps-menu', event(trayArmed, bl.RELEASE, { ownsTrayMenu: true }),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD, bl.EFFECT_END_DRAG] });
+check('tray/quick-drag-dismisses', event(event(trayPressed, bl.DRAG_START).state, bl.RELEASE),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD, bl.EFFECT_DISMISS_TRAY] });
+
+// A module that hides or unloads mid-press cancels the reorder.
+check('abandon/armed-cancels', event(armed, bl.ABANDON),
+      { state: ended, effects: [bl.EFFECT_STOP_HOLD, bl.EFFECT_CANCEL_DRAG] });
+check('abandon/idle', event(idle, bl.ABANDON), { state: ended, effects: [bl.EFFECT_STOP_HOLD] });
+
+// The input state is never mutated in place.
+const snapshot = JSON.stringify(trayPressed);
+bl.pressTransition(trayPressed, bl.HOLD, {});
+check('press/pure', JSON.parse(snapshot), trayPressed);
 NODEEOF
 
 PREVIEW="$ROOT/components/BarDropPreview.qml"
@@ -276,12 +364,22 @@ grep -q '!root.wouldCancel' "$SVC" \
 
 QMLTESTRUNNER="${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}"
 HANDLER_TEST="$ROOT/tests/bar-slot-handlers.qml"
+FIXTURES="$ROOT/tests/fixtures/bar-slot"
+# The handler test loads the shipped slot: a hand mirror of the handler shape
+# drifted from the real hold once already.
+grep -q 'import "../components"' "$HANDLER_TEST" \
+    || fail "tests/bar-slot-handlers.qml does not import the real components/BarSlot.qml"
+grep -q 'BarSlot {' "$HANDLER_TEST" \
+    || fail "tests/bar-slot-handlers.qml does not instantiate BarSlot"
+if grep -qE 'Mirrors|interval: 300' "$HANDLER_TEST"; then
+    fail "tests/bar-slot-handlers.qml mirrors the handler or hard-codes the hold"
+fi
 if [ ! -x "$QMLTESTRUNNER" ]; then
     echo "bar-layout: qmltestrunner not found, skipping the offscreen handler test" >&2
 else
     HANDLER_OUT="$(mktemp)"
     if env -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 \
-        "$QMLTESTRUNNER" -input "$HANDLER_TEST" >"$HANDLER_OUT" 2>&1; then
+        "$QMLTESTRUNNER" -import "$FIXTURES" -input "$HANDLER_TEST" >"$HANDLER_OUT" 2>&1; then
         rm -f "$HANDLER_OUT"
     else
         cat "$HANDLER_OUT" >&2

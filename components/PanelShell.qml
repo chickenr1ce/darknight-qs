@@ -8,6 +8,7 @@ import Quickshell.Wayland
 import qs.config
 import qs.dev
 import qs.services
+import "PanelKeyboardLogic.js" as PanelKeyboardLogic
 
 
 // qmllint disable uncreatable-type
@@ -35,12 +36,10 @@ PanelWindow {
     // so a host can measure positions against the settled layout.
     readonly property real slideOffset: idPanel.y
 
-    // Latched once the panel first holds the keyboard after opening, so a
-    // later focus loss (a modal dialog) can't make it grab Exclusive again.
+    // Focus mode, keyboard latch and Escape rules: PanelKeyboardLogic.js.
     property bool keyboardTaken: false
-    // Set by an Escape press the panel itself takes; the close waits for the
-    // release (see idEscapeShortcut).
     property bool escapeArmed: false
+    readonly property var keyboardState: ({ keyboardTaken: root.keyboardTaken, escapeArmed: root.escapeArmed })
 
     signal outsideClicked()
 
@@ -100,22 +99,7 @@ PanelWindow {
     implicitHeight: root.windowHeight
     visible: root.panelVisible || idPanel.reveal > 0
 
-    // Hyprland won't hand an on-demand layer the keyboard on map while a
-    // pointer constraint is active (a fullscreen game locking the cursor), so
-    // the panel opens Exclusive to take it, then drops to on-demand: an
-    // exclusive layer gets all pointer input, deadening the bar and outside
-    // clicks. The focus grab keeps the keyboard on the panel after the drop.
-    // The closing slide keeps the keyboard too: handed back before the
-    // surface unmaps, it re-arms a game's pointer lock while the pointer
-    // still sits on the panel, and Hyprland, locked, never hit-tests it back
-    // to the game, so mouse look stays dead until a workspace switch.
-    WlrLayershell.keyboardFocus: {
-        if (!root.visible)
-            return WlrKeyboardFocus.None;
-        if (!root.panelVisible || root.keyboardTaken)
-            return WlrKeyboardFocus.OnDemand;
-        return WlrKeyboardFocus.Exclusive;
-    }
+    WlrLayershell.keyboardFocus: root.keyboardFocusFor(PanelKeyboardLogic.focusMode(root.visible, root.panelVisible, root.keyboardTaken))
 
     Component.onCompleted: {
         PanelGrab.register(root);
@@ -128,28 +112,19 @@ PanelWindow {
             DevGeometry.unregister(root.geometryName);
     }
 
-    // A reopen mid-slide may still hold the keyboard, and no active change
-    // would follow to drop the Exclusive grab.
-    onPanelVisibleChanged: {
-        root.keyboardTaken = root.panelVisible && idPanel.Window.active;
-        root.escapeArmed = false;
-    }
+    onPanelVisibleChanged: root.applyKeyboardStep(PanelKeyboardLogic.panelVisibleChanged(root.panelVisible, idPanel.Window.active))
 
     onOutsideClicked: {
         if (root.panel)
             root.panel.closeFromOutside();
     }
 
-    // Closing on the press hands the keyboard back with Escape still held,
-    // and the enter event lists held keys: gamescope replays it as a fresh
-    // press, so CS2 opens its pause menu. The press only arms the close; the
-    // release (caught on idPanel) fires it.
     Shortcut {
         id: idEscapeShortcut
 
         enabled: root.panelVisible
         sequence: "Escape"
-        onActivated: root.escapeArmed = true
+        onActivated: root.applyKeyboardStep(PanelKeyboardLogic.escapePressed(root.keyboardState))
     }
 
     mask: Region {
@@ -229,20 +204,9 @@ PanelWindow {
         // no focused field; a field inside still passes its release up here.
         focus: true
 
-        Window.onActiveChanged: {
-            if (idPanel.Window.active && root.panelVisible)
-                root.keyboardTaken = true;
-            // The release went elsewhere; close rather than strand the panel.
-            if (!idPanel.Window.active && root.escapeArmed)
-                root.outsideClicked();
-        }
+        Window.onActiveChanged: root.applyKeyboardStep(PanelKeyboardLogic.windowActiveChanged(root.keyboardState, idPanel.Window.active, root.panelVisible))
 
-        Keys.onReleased: event => {
-            if (event.key !== Qt.Key_Escape || event.isAutoRepeat || !root.escapeArmed)
-                return;
-            event.accepted = true;
-            root.outsideClicked();
-        }
+        Keys.onReleased: event => root.applyKeyboardStep(PanelKeyboardLogic.keyReleased(root.keyboardState, event.key === Qt.Key_Escape, event.isAutoRepeat), event)
 
         // Inverted ternaries: the Behavior starts before these bindings
         // refresh (CODING_STANDARDS.md), so they read the previous state.
@@ -316,5 +280,22 @@ PanelWindow {
     function clampLeft(raw: real, width: real): real {
         const maxLeft = root.anchorScreenWidth - width - Globals.panelEdgeMargin;
         return Math.min(Math.max(raw, Globals.panelEdgeMargin), Math.max(maxLeft, Globals.panelEdgeMargin));
+    }
+
+    function keyboardFocusFor(mode) {
+        if (mode === "exclusive")
+            return WlrKeyboardFocus.Exclusive;
+        if (mode === "onDemand")
+            return WlrKeyboardFocus.OnDemand;
+        return WlrKeyboardFocus.None;
+    }
+
+    function applyKeyboardStep(step, event) {
+        root.keyboardTaken = step.state.keyboardTaken;
+        root.escapeArmed = step.state.escapeArmed;
+        if (step.accepted === true)
+            event.accepted = true;
+        if (step.close)
+            root.outsideClicked();
     }
 }

@@ -189,12 +189,12 @@ else
 fi
 
 # --- 5. ranking, sections, markup, and state run under node ---
-node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/services/MonitorLogic.js" "$ROOT/config/Icons.qml" "$SVC" <<'NODEEOF'
+node - "$ROOT/tests/qmljs.js" "$LOGIC" "$ROOT/services/HyprlandDispatchLogic.js" "$ROOT/config/Icons.qml" "$SVC" <<'NODEEOF'
 const fs = require('fs');
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('app-launcher');
 const al = qmljs.load(process.argv[3]);
-const ml = qmljs.load(process.argv[4]);
+const hd = qmljs.load(process.argv[4]);
 const iconsSrc = fs.readFileSync(process.argv[5], 'utf8');
 const svcSrc = fs.readFileSync(process.argv[6], 'utf8');
 
@@ -864,13 +864,13 @@ check('terminal/empty', al.terminalArgv(''), []);
 check('terminal/undefined', al.terminalArgv(undefined), []);
 check('terminal/wezterm', al.terminalArgv('wezterm start --').length, 3);
 
-// The composed dispatch string: shell-join then Lua-escape; backslashes double
-// once and the quotes stay single.
-check('quote/composed-lua',
-      ml.escapeLua(al.shellCommand(['wine', 'C:\\a b\\x.lnk'])),
-      "'wine' 'C:\\\\a b\\\\x.lnk'");
-check('lua/newline', ml.escapeLua('a\nb'), 'a\\nb');
-check('lua/cr', ml.escapeLua('a\rb'), 'a\\rb');
+// The composed dispatch string for "open on workspace": shell-join then the one
+// Lua escaper, through the dispatch module's payload builder.
+check('exec/composed',
+      hd.execOnWorkspace(al.shellCommand(['wine', 'C:\\a b\\x.lnk']), 3),
+      String.raw`hl.dsp.exec_cmd("'wine' 'C:\\a b\\x.lnk'", { workspace = 3 })`);
+check('exec/empty-command', hd.execOnWorkspace('', 3), '');
+check('exec/bad-workspace', hd.execOnWorkspace('firefox', 0), '');
 
 // qmljs String.prototype.arg follows Qt's rule: each call replaces the
 // lowest-numbered remaining %N, so chained args fill placeholders by number.

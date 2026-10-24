@@ -1,124 +1,211 @@
 import QtQuick
 import QtTest
+import qs.services
+import "../components"
 
-// Mirrors components/BarSlot.qml's input shape: the DragHandler sits on the
-// slot behind the module, and a hold timer started from its passive grab arms
-// the drag. A handler in an overlay above the module would take the press and
-// starve the module's MouseArea (seen live 2026-10-18: no bar click opened a
-// panel). Wired into scripts/test-bar-layout.sh.
+// Drives the real components/BarSlot.qml with the real components/ModuleBox.qml
+// as its module: the DragHandler sits on the slot behind the module, and the
+// slot's short hold arms the drag from its passive grab. A handler in an overlay
+// above the module would take the press and starve the module's MouseArea (seen
+// live 2026-10-18: no bar click opened a panel), so this exercises the shipped
+// input shape, not a copy of it. The test sets the slot's own holdMs, so the
+// shipped hold token is not mirrored here. Wired into scripts/test-bar-layout.sh.
 TestCase {
     id: root
 
-    property bool armed: false
-    property real armedX: -1
-    property int clicks: 0
-    property int rightClicks: 0
-    property int drags: 0
+    readonly property int holdMs: 60
+
+    // Long enough for the hold to fire plus the event delay qmltestrunner adds.
+    readonly property int heldMs: root.holdMs + 150
+
+    // The module binds its own enabled; the slot's armed-span override must
+    // restore that binding, not replace it with a stale value.
+    property bool moduleEnabled: true
 
     name: "BarSlotHandlers"
     when: windowShown
 
     Window {
         width: 300
-        height: 100
+        height: 120
         visible: true
 
-        Item {
+        BarSlot {
             id: idSlot
 
-            width: 100
-            height: 40
+            key: "clock"
+            holdMs: root.holdMs
+            dragGeometry: ({ widths: ({ clock: 100, tray: 100 }), visible: ({}), spacing: 10, width: 300 })
 
-            DragHandler {
-                id: idDrag
+            ModuleBox {
+                id: idModule
 
-                acceptedButtons: Qt.LeftButton
-                target: null
+                property bool ownsTrayMenu: false
+                property int leftClicks: 0
+                property int rightClicks: 0
 
-                onGrabChanged: (transition, point) => {
-                    if (transition === PointerDevice.GrabPassive) {
-                        idHold.restart();
-                        return;
-                    }
-                    if (transition === PointerDevice.UngrabPassive || transition === PointerDevice.CancelGrabPassive || transition === PointerDevice.UngrabExclusive || transition === PointerDevice.CancelGrabExclusive)
-                        idHold.stop();
-                }
-                onActiveChanged: {
-                    if (idDrag.active && !root.armed)
-                        idHold.stop();
-                    if (idDrag.active && root.armed)
-                        root.drags = root.drags + 1;
-                }
-            }
+                enabled: root.moduleEnabled
+                minWidth: 100
+                enableMouseArea: true
+                enableHover: true
 
-            Timer {
-                id: idHold
-
-                interval: 300
-                onTriggered: {
-                    root.armed = true;
-                    root.armedX = idDrag.centroid.scenePosition.x;
-                }
-            }
-
-            Item {
-                anchors.fill: parent
-
-                MouseArea {
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    hoverEnabled: true
-                    onClicked: mouse => {
-                        if (mouse.button === Qt.RightButton)
-                            root.rightClicks = root.rightClicks + 1;
-                        else if (!root.armed)
-                            root.clicks = root.clicks + 1;
-                    }
+                onClicked: mouse => {
+                    if (mouse.button === Qt.RightButton)
+                        idModule.rightClicks = idModule.rightClicks + 1;
+                    else
+                        idModule.leftClicks = idModule.leftClicks + 1;
                 }
             }
         }
     }
 
-    function init() {
-        root.armed = false;
-        root.armedX = -1;
-        root.clicks = 0;
-        root.rightClicks = 0;
-        root.drags = 0;
+    function init(): void {
+        idSlot.abandonDrag();
+        BarLayoutService.reset();
+        TrayMenuService.reset();
+        idModule.ownsTrayMenu = false;
+        idModule.visible = true;
+        idModule.leftClicks = 0;
+        idModule.rightClicks = 0;
+        root.moduleEnabled = true;
+        wait(20);
     }
 
-    function test_clickReachesModule() {
-        mouseClick(idSlot, 50, 20);
-        wait(400);
-        compare(root.clicks, 1);
-        verify(!root.armed);
+    function test_releaseTransitionsAllEndThePress(): void {
+        compare(idSlot.grabEvent(PointerDevice.GrabPassive), "press");
+        compare(idSlot.grabEvent(PointerDevice.GrabExclusive), "other");
+        compare(idSlot.grabEvent(PointerDevice.UngrabPassive), "release");
+        compare(idSlot.grabEvent(PointerDevice.CancelGrabPassive), "release");
+        compare(idSlot.grabEvent(PointerDevice.UngrabExclusive), "release");
+        compare(idSlot.grabEvent(PointerDevice.CancelGrabExclusive), "release");
     }
 
-    function test_rightClickUntouched() {
-        mouseClick(idSlot, 50, 20, Qt.RightButton);
-        compare(root.rightClicks, 1);
-        verify(!root.armed);
+    function test_clickReachesModule(): void {
+        mouseClick(idSlot, 50, 14);
+        wait(50);
+        compare(idModule.leftClicks, 1, "a press under the hold clicks the module");
+        compare(BarLayoutService.begins, 0, "a click arms nothing");
+        verify(!idSlot.armed);
     }
 
-    function test_holdArmsAtPressPoint() {
-        mousePress(idSlot, 50, 20);
-        wait(450);
-        verify(root.armed);
-        compare(root.armedX, 50);
-        mouseMove(idSlot, 70, 20);
-        mouseMove(idSlot, 90, 20);
-        mouseRelease(idSlot, 90, 20);
-        compare(root.drags, 1);
-        compare(root.clicks, 0);
+    function test_rightClickUntouched(): void {
+        TrayMenuService.panelState.visible = true;
+        mouseClick(idSlot, 50, 14, Qt.RightButton);
+        wait(50);
+        compare(idModule.rightClicks, 1, "the right click still lands");
+        compare(BarLayoutService.begins, 0, "the drag handler ignores the right button");
+        compare(TrayMenuService.dismisses, 0, "the slot defers the dismiss to the bar-wide area");
     }
 
-    function test_quickDragNeverArms() {
-        mousePress(idSlot, 50, 20);
-        mouseMove(idSlot, 70, 20);
-        mouseMove(idSlot, 90, 20);
-        wait(450);
-        mouseRelease(idSlot, 90, 20);
-        verify(!root.armed);
-        compare(root.drags, 0);
+    function test_holdArmsAtPressPoint(): void {
+        mousePress(idSlot, 50, 14);
+        wait(root.heldMs);
+        verify(idSlot.armed, "the hold arms the drag");
+        verify(!idModule.enabled, "the armed slot disables the module so its press cannot click");
+        compare(BarLayoutService.begins, 1, "the hold begins one drag");
+        compare(BarLayoutService.draggedKey, "clock");
+        compare(BarLayoutService.pointerX, 40, "the drag starts at the press point inside the slab");
+
+        mouseMove(idSlot, 70, 14);
+        mouseMove(idSlot, 90, 14);
+        mouseMove(idSlot, 110, 14);
+        verify(BarLayoutService.updates >= 3, "the armed drag reports its pointer");
+        verify(BarLayoutService.lastUpdateX > 40, "the reported pointer follows the drag");
+
+        mouseRelease(idSlot, 110, 14);
+        wait(50);
+        compare(BarLayoutService.ends, 1, "the release commits once");
+        compare(BarLayoutService.cancels, 0);
+        compare(idModule.leftClicks, 0, "the drag fires no click");
+        verify(!idSlot.armed, "the release disarms");
+        verify(idModule.enabled, "the module is input again after the drag");
+    }
+
+    function test_holdReleaseWithoutMoveCommitsWithoutClick(): void {
+        mousePress(idSlot, 50, 14);
+        wait(root.heldMs);
+        verify(idSlot.armed);
+        mouseRelease(idSlot, 50, 14);
+        wait(50);
+        compare(BarLayoutService.begins, 1);
+        compare(BarLayoutService.ends, 1, "a hold released in place still ends its drag");
+        compare(idModule.leftClicks, 0, "the click that ends a hold is swallowed");
+        verify(idModule.enabled, "and the module takes input again");
+    }
+
+    function test_quickDragNeverArms(): void {
+        mousePress(idSlot, 50, 14);
+        mouseMove(idSlot, 70, 14);
+        mouseMove(idSlot, 90, 14);
+        wait(root.heldMs);
+        verify(!idSlot.armed, "a drag threshold crossed before the hold never arms");
+        compare(BarLayoutService.begins, 0);
+        compare(BarLayoutService.ends, 0, "and the release ends nothing");
+        mouseRelease(idSlot, 90, 14);
+        wait(50);
+        compare(BarLayoutService.begins, 0);
+        compare(idModule.leftClicks, 0, "the drag handler took the release from the module");
+    }
+
+    function test_trayMenuOpenAtPressDismissesOnRelease(): void {
+        TrayMenuService.panelState.visible = true;
+        mouseClick(idSlot, 50, 14);
+        wait(50);
+        compare(TrayMenuService.dismisses, 1, "a press on another module defers the tray dismiss to its release");
+        compare(idModule.leftClicks, 1);
+    }
+
+    function test_trayModuleKeepsItsMenu(): void {
+        TrayMenuService.panelState.visible = true;
+        idModule.ownsTrayMenu = true;
+        mouseClick(idSlot, 50, 14);
+        wait(50);
+        compare(TrayMenuService.dismisses, 0, "the module that owns the menu keeps it open");
+        compare(idModule.leftClicks, 1);
+    }
+
+    function test_holdKeepsDeferredDismiss(): void {
+        TrayMenuService.panelState.visible = true;
+        mousePress(idSlot, 50, 14);
+        wait(root.heldMs);
+        verify(idSlot.armed);
+        compare(TrayMenuService.dismisses, 0, "an armed press dismisses nothing yet");
+        mouseRelease(idSlot, 50, 14);
+        wait(50);
+        compare(TrayMenuService.dismisses, 1, "the release dismisses the menu it found open");
+    }
+
+    function test_moduleEnabledBindingSurvivesDrag(): void {
+        verify(idModule.enabled, "the module starts enabled through its own binding");
+
+        mousePress(idSlot, 50, 14);
+        wait(root.heldMs);
+        verify(idSlot.armed);
+        verify(!idModule.enabled, "the armed slot disables the module");
+
+        mouseRelease(idSlot, 50, 14);
+        wait(50);
+        verify(!idSlot.armed);
+        verify(idModule.enabled, "the release restores the module's own enabled binding");
+
+        root.moduleEnabled = false;
+        compare(idModule.enabled, false, "the module's own binding is live again after the drag");
+        root.moduleEnabled = true;
+        verify(idModule.enabled, "and it still follows the module");
+    }
+
+    function test_hiddenModuleCancelsDrag(): void {
+        mousePress(idSlot, 50, 14);
+        wait(root.heldMs);
+        verify(idSlot.armed);
+        idModule.visible = false;
+        wait(50);
+        verify(!idSlot.armed, "a module that hides mid-drag disarms");
+        compare(BarLayoutService.cancels, 1, "and restores the order");
+        compare(BarLayoutService.ends, 0, "without committing");
+        mouseRelease(idSlot, 50, 14);
+        wait(50);
+        compare(BarLayoutService.ends, 0);
+        compare(BarLayoutService.cancels, 1, "the release adds nothing");
     }
 }

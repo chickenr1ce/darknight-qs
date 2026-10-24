@@ -6,7 +6,6 @@ import Quickshell.Hyprland
 import qs.config
 import qs.services
 import "AppLogic.js" as AppLogic
-import "MonitorLogic.js" as MonitorLogic
 
 Singleton {
     id: root
@@ -243,7 +242,8 @@ Singleton {
         const command = AppLogic.shellCommand(parts);
         if (command === "")
             return;
-        Hyprland.dispatch(`hl.dsp.exec_cmd("${MonitorLogic.escapeLua(command)}", { workspace = ${workspace} })`);
+        if (!HyprlandDispatch.execOnWorkspace(command, workspace))
+            return;
         root.recordLaunch(record.id);
         if (!keepOpen)
             DashboardService.close();

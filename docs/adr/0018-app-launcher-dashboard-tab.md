@@ -74,11 +74,13 @@ window.
   `workspacesPerMonitor × enabled monitors`, the anchor block until the monitor
   list loads. The "Open on workspace" submenu lists the same workspaces grouped
   by monitor. The dispatch is a Hyprland Lua call,
-  `hl.dsp.exec_cmd(cmd, { workspace = N })` through `Hyprland.dispatch`, not a
-  legacy `dispatch` string. `AppLogic.shellCommand` quotes each argv element
-  with POSIX single quotes and `MonitorLogic.escapeLua` escapes the result, so
-  Hyprland's `/bin/sh -c` sees one quoted argument per element and a file name
-  with spaces, `$(...)`, backticks, or redirection cannot split or inject.
+  `hl.dsp.exec_cmd(cmd, { workspace = N })`, built and sent by
+  `services/HyprlandDispatchLogic.js` through `services/HyprlandDispatch.qml`,
+  never a legacy `dispatch` string. `AppLogic.shellCommand` quotes each argv
+  element with POSIX single quotes and the module's one Lua escaper escapes the
+  result, so Hyprland's `/bin/sh -c` sees one quoted argument per element and a
+  file name with spaces, `$(...)`, backticks, or redirection cannot split or
+  inject.
   Terminal entries and the `Run` row use the terminal command from
   Settings → Apps → Terminal (default `kitty -e`), parsed into an argv prefix by
   `AppLogic.terminalArgv`.

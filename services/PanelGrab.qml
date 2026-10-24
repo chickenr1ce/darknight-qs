@@ -5,15 +5,23 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import qs.config
+import qs.services
 
 Singleton {
     id: root
 
+    // The member contract, by name, for every window that calls register():
+    //   visible          the surface is mapped, closing slide included
+    //   panelVisible     the panel is open; false through the closing slide
+    //   screen           the ShellScreen to raise the bar over a fullscreen window
+    //   outsideClicked() the dismissal a grab clear routes to
+    // components/PanelShell.qml and windows/TrayMenu.qml conform. Bar windows
+    // register through registerBar and only need to be windows.
     readonly property var visiblePanels: root.members.filter(member => member.panelVisible)
     readonly property bool closing: root.members.some(member => member.visible && !member.panelVisible)
     // Panels still mapped, closing slide included. The grab holds until the
     // last one unmaps, so the compositor hands focus back once, after the
-    // surface is gone (PanelShell's keyboardFocus has the why).
+    // surface is gone (PanelKeyboardLogic.js has the why).
     readonly property var shownPanels: root.members.filter(member => member.visible)
     readonly property var windows: root.shownPanels.length > 0 ? root.barWindows.concat(root.shownPanels) : []
     // Screens with a panel or tray menu on them, closing slide included, so
@@ -64,12 +72,12 @@ Singleton {
             id: idRefocusCollector
 
             onStreamFinished: {
-                const match = idRefocusCollector.text.trim().match(/(-?\d+)\s*,\s*(-?\d+)/);
-                if (!match) {
+                const point = HyprlandDispatch.parseCursorPos(idRefocusCollector.text);
+                if (!point) {
                     console.warn("PanelGrab: cannot parse hyprctl cursorpos, skipping refocus");
                     return;
                 }
-                Hyprland.dispatch(`hl.dsp.cursor.move({ x = ${match[1]}, y = ${match[2]} })`);
+                HyprlandDispatch.moveCursor(point.x, point.y);
             }
         }
     }

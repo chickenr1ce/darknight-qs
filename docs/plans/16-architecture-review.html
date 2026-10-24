@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Architecture review 16 · quickshell</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  fontFamily: { sans: ['Geist','ui-sans-serif','system-ui'], mono: ['Geist Mono','ui-monospace','monospace'] },
+  colors: {
+    bg: '#0a0a0a', g1: '#111111', g2: '#1a1a1a', g3: '#1f1f1f', g4: '#2e2e2e', g5: '#454545',
+    fg: '#ededed', mut: '#a1a1a1', dim: '#707070',
+    blue: '#52a8ff', green: '#62c073', amber: '#ffb224', red: '#ff6369', purple: '#bf7af0'
+  } } } };
+</script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "base",
+  themeVariables: { background: "#0a0a0a", primaryColor: "#111111", primaryTextColor: "#ededed",
+    primaryBorderColor: "#2e2e2e", lineColor: "#707070", secondaryColor: "#1a1a1a", tertiaryColor: "#111111",
+    fontFamily: "Geist Mono, monospace", fontSize: "12px", edgeLabelBackground: "#0a0a0a",
+    clusterBkg: "#0d0d0d", clusterBorder: "#2e2e2e" },
+  flowchart: { curve: "basis", padding: 8 } });
+
+const blocks = [...document.querySelectorAll("pre.mermaid")];
+for (let i = 0; i < blocks.length; i++) {
+  const el = blocks[i];
+  try {
+    const { svg } = await mermaid.render("mmd" + i, el.textContent.trim());
+    el.innerHTML = svg;
+  } catch (e) { console.error("mermaid", i, e); }
+}
+</script>
+<style>
+  body { background:#0a0a0a; color:#ededed; -webkit-font-smoothing: antialiased; }
+  .lbl { font-family: 'Geist Mono', monospace; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+  .card { background:#0a0a0a; border:1px solid #1f1f1f; border-radius:12px; }
+  .panel { background:#111111; border:1px solid #1f1f1f; border-radius:8px; }
+  .mod { border:1px solid #2e2e2e; border-radius:6px; background:#111; }
+  .deep { border:2px solid #ededed; border-radius:8px; background:#161616; }
+  .leak { border-color:#ff6369 !important; color:#ff6369; background:#1f0a0b; }
+  .ok { border-color:#62c073 !important; color:#62c073; background:#0b1d10; }
+  .faded { color:#555; border-color:#262626 !important; background:#0d0d0d; }
+  .seam { border-top:1px dashed #707070; }
+  .dot { width:8px; height:8px; border-radius:999px; display:inline-block; }
+  pre.mermaid { background:transparent; margin:0; display:flex; justify-content:center; }
+  .grid-bg { background-image: radial-gradient(#1c1c1c 1px, transparent 1px); background-size: 14px 14px; }
+  a { color:#52a8ff; }
+  code { font-family:'Geist Mono',monospace; font-size:.85em; color:#ededed; background:#1a1a1a; padding:1px 5px; border-radius:4px; border:1px solid #262626; }
+</style>
+</head>
+<body class="font-sans">
+<main class="max-w-5xl mx-auto px-6 py-12 space-y-14">
+
+<!-- HEADER -->
+<header class="space-y-6">
+  <div class="flex items-center gap-2 text-mut lbl"><span class="dot" style="background:#ededed"></span> quickshell · ~/.config/quickshell @ 440632f · 2026-10-24</div>
+  <h1 class="text-4xl font-semibold tracking-tight">Architecture review 16</h1>
+  <p class="text-mut max-w-3xl text-[15px] leading-relaxed">Hot spots since review 12 closed: native lock screen, panels over fullscreen games, bar drag-reorder, the Workspaces tab, the audio card. Three independent explorers walked the same brief; each claim below was re-checked against source. Review 12 and plan 10 cards are not re-raised.</p>
+  <div class="flex flex-wrap gap-2">
+    <span class="panel px-3 py-1.5 text-xs font-mono flex items-center gap-2"><span class="dot" style="background:#52a8ff"></span>DeepSeek V4.1 Flash · high</span>
+    <span class="panel px-3 py-1.5 text-xs font-mono flex items-center gap-2"><span class="dot" style="background:#bf7af0"></span>Muse Spark 1.3 Contributor · xhigh</span>
+    <span class="panel px-3 py-1.5 text-xs font-mono flex items-center gap-2"><span class="dot" style="background:#ffb224"></span>Opus 5.5 · medium</span>
+  </div>
+  <div class="flex flex-wrap gap-5 text-xs text-mut pt-2">
+    <span class="flex items-center gap-2"><span class="mod inline-block w-6 h-4"></span>module</span>
+    <span class="flex items-center gap-2"><span class="deep inline-block w-6 h-4"></span>deep module</span>
+    <span class="flex items-center gap-2"><span class="inline-block w-8 seam"></span>seam</span>
+    <span class="flex items-center gap-2"><span class="mod leak inline-block w-6 h-4"></span>leakage / duplication</span>
+    <span class="flex items-center gap-2"><span class="mod ok inline-block w-6 h-4"></span>test surface</span>
+    <span class="flex items-center gap-2"><span class="mod faded inline-block w-6 h-4"></span>now internal</span>
+  </div>
+  <div id="status" class="card p-4 space-y-2 text-sm" role="region" aria-label="Implementation status">
+    <div class="lbl text-mut">Status · 2026-10-24 · 6 of 8 done on <code>docs/architecture-review-16</code>, not yet merged or live-booted</div>
+    <p><strong>Done:</strong> 01 + 02 lock session transitions in <code>LockLogic.reduce</code> with PAM and preview adapters; a second PAM prompt now fails the attempt instead of answering <code>""</code>; one power-menu module, <code>PowerLogic.rows/route</code>, with <code>components/PowerKeys.qml</code> under an offscreen key test (<code>ad442ae</code>). 03 Workspaces model from a plain snapshot, <code>WorkspaceLogic.model</code> (<code>d503899</code>). 04 one Hyprland dispatch module, <code>HyprlandDispatchLogic.js</code> + <code>HyprlandDispatch.qml</code>; no raw <code>hl.dsp</code> elsewhere (<code>bc6564f</code>). 05 the bar slot owns the press lifecycle, <code>BarLayoutLogic.pressTransition</code>; <code>suppressClick</code> is gone (<code>c063611</code>). 06 panel keyboard and Escape policy in <code>components/PanelKeyboardLogic.js</code>, plus the ADR 0006 <code>visible</code> wording fix (<code>aa99b32</code>).</p>
+    <p><strong>Declined:</strong> 07 lock tokens with units (one explorer, no observed bug, and it rewrites 121 <code>px()</code> sites in the <code>LockSurface</code> that card 01 just reworked); 08 dashboard menu-host module (one explorer, two hosts; extract it when a third host appears). The uncarded sink-cycle and now-playing transport findings were left as one-line follow-ups.</p>
+    <p><strong>Review:</strong> DeepSeek V4.1 Flash, Muse Spark 1.3 (xhigh) and Sonnet 5.5 (medium) reviewed the whole range: no High. The Medium (no behavioural test that a drawn power hint routes its own key) and the Lows were folded into their card commits.</p>
+    <p><strong>Live check still owed:</strong> <code>scripts/boot-check.sh</code>, then the bar drag lift and hover, power card keys 1–6, lock and preview, and a panel over a fullscreen game.</p>
+  </div>
+</header>
+
+<!-- CONVERGENCE MATRIX -->
+<section class="card p-6 space-y-4">
+  <div class="flex items-baseline justify-between"><h2 class="text-lg font-semibold">Convergence</h2><span class="lbl text-dim">which explorer surfaced each candidate</span></div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead><tr class="text-left text-dim lbl border-b border-g3">
+      <th class="py-2 pr-4 font-normal">#</th><th class="py-2 pr-4 font-normal">Candidate</th>
+      <th class="py-2 px-2 font-normal text-center">DeepSeek</th><th class="py-2 px-2 font-normal text-center">Muse</th><th class="py-2 px-2 font-normal text-center">Opus</th>
+      <th class="py-2 pl-4 font-normal">Strength</th></tr></thead>
+    <tbody class="divide-y divide-g3" id="matrix"></tbody>
+  </table>
+  </div>
+</section>
+
+<section id="candidates" class="space-y-10">
+
+<!-- 01 LOCK TRANSITIONS -->
+<article id="c1" class="card p-7 space-y-6">
+  <div class="space-y-3">
+    <div class="lbl text-dim">01 · lock screen · newest code</div>
+    <h2 class="text-2xl font-semibold tracking-tight">Lock session transitions move into LockLogic, with PAM and the preview as two adapters</h2>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full border border-green/40 text-green bg-green/10">Strong</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut font-mono">ports &amp; adapters</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut">3 / 3 explorers</span>
+    </div>
+  </div>
+  <ul class="font-mono text-[13px] text-mut space-y-0.5">
+    <li>services/LockService.qml:38-75 <span class="text-dim">// 11 writable props; lock() / unlocked() hand-reset</span></li>
+    <li>services/LockService.qml:177-223 <span class="text-dim">// preview phases, PamContext</span></li>
+    <li>windows/LockSurface.qml:24-32, 93-183, 1155-1177 <span class="text-dim">// 13 preview branches, submit guard</span></li>
+    <li>services/LockLogic.js <span class="text-dim">// selectors only</span></li>
+    <li>scripts/test-lock.sh:29-79 <span class="text-dim">// 27 greps, binding-text asserts</span></li>
+  </ul>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="panel p-4 grid-bg">
+      <div class="lbl text-dim mb-3">Before · rules live in setters</div>
+      <pre class="mermaid">
+flowchart TB
+  m1S["LockSurface&lt;br/&gt;13 preview branches"] -- "submit guard #1" --> m1L["LockService&lt;br/&gt;lock() resets 9&lt;br/&gt;unlocked() resets 8&lt;br/&gt;preview resets 5"]
+  m1S -. "reads previewPhase&lt;br/&gt;not authState" .-> m1P["preview fake"]
+  m1L -- "pendingPassword&lt;br/&gt;(public)" --> m1M["PamContext"]
+  m1M -- "2nd prompt → ''" --> m1L
+  m1T["test-lock.sh greps"] -.-> m1L
+  classDef leak fill:#1f0a0b,stroke:#ff6369,color:#ff6369;
+  class m1P,m1T leak
+      </pre>
+    </div>
+    <div class="panel p-4 grid-bg">
+      <div class="lbl text-dim mb-3">After · (state, event) → state + effects</div>
+      <pre class="mermaid">
+flowchart TB
+  m2S["LockSurface&lt;br/&gt;asks questions"] -- "event" --> m2D["LockLogic transitions&lt;br/&gt;submit · fail · key · unlock&lt;br/&gt;attempts · preview"]
+  m2D -- "effect" --> m2A1["PAM adapter"]
+  m2D -- "effect" --> m2A2["Preview stub adapter"]
+  m2N["node tests"] --> m2D
+  classDef deep fill:#161616,stroke:#ededed,stroke-width:2px,color:#ededed;
+  classDef ok fill:#0b1d10,stroke:#62c073,color:#62c073;
+  class m2D deep
+  class m2N ok
+      </pre>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6 text-[14px] leading-relaxed">
+    <div><div class="lbl text-dim mb-1">Problem</div>The riskiest rules in the newest code (resets, attempt counting, late PAM completion, a second PAM prompt) sit in untested setter blocks; the preview replaces them rather than running them.</div>
+    <div><div class="lbl text-dim mb-1">Solution</div>Auth, power-open and preview become one value with pure transitions, the <code>PowerLogic.press/confirm</code> shape; LockService only applies effects.</div>
+    <div><div class="lbl text-dim mb-1">Wins</div>
+      <ul class="space-y-1 text-mut">
+        <li>Locality: one file owns every transition</li>
+        <li>Real seam: PAM + preview adapters</li>
+        <li>Node drives submit, fail, unlock</li>
+        <li>Password leaves the interface</li>
+        <li>Binding-text greps retire (§7)</li>
+      </ul></div>
+  </div>
+  <div class="panel p-4 text-[13px] text-mut space-y-1.5">
+    <div class="lbl text-dim mb-1">Verified evidence</div>
+    <div><code>onPamMessage</code> (LockService.qml:204-209) answers any <code>responseRequired</code> with <code>pendingPassword</code> then clears it: a second prompt silently receives <code>""</code>.</div>
+    <div>Submit is guarded twice with different conditions: LockSurface.qml:135 (<code>powerOpen || checking || text === ""</code>) vs LockService.qml:78 (<code>!locked || checking || password === ""</code>).</div>
+    <div>test-lock.sh:36-38 greps <code>config: "login"</code> and <code>property bool locked: false</code>; nothing drives <code>submit</code> or <code>applyCompleted</code>.</div>
+  </div>
+  <div class="rounded-lg border border-g4 bg-g1 px-4 py-2.5 text-[13px] text-mut">ADR 0022 holds: the gate still never takes the session lock, and the preview still stubs auth. This extends its "rules live in LockLogic.js" to the transitions it stopped short of.</div>
+</article>
+
+<!-- 02 POWER MENU -->
+<article id="c2" class="card p-7 space-y-6">
+  <div class="space-y-3">
+    <div class="lbl text-dim">02 · power · bar panel + lock card</div>
+    <h2 class="text-2xl font-semibold tracking-tight">One power-menu module for both power cards</h2>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full border border-green/40 text-green bg-green/10">Strong</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut font-mono">in-process</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut">3 / 3 explorers</span>
+    </div>
+  </div>
+  <ul class="font-mono text-[13px] text-mut space-y-0.5">
+    <li>services/PowerLogic.js:12-21 <span class="text-dim">// id · label · dangerous · argv</span></li>
+    <li>services/PowerService.qml:21-43 <span class="text-dim">// chrome map #1: glyph + hint 1–6</span></li>
+    <li>windows/PowerCenter.qml:12-21, 26-88 <span class="text-dim">// question, headerSub, 8 Shortcut literals</span></li>
+    <li>services/LockService.qml:16-36 <span class="text-dim">// chrome map #2: glyphs</span></li>
+    <li>services/LockLogic.js:33-60 <span class="text-dim">// POWER_HINTS 1–3, powerRoute</span></li>
+    <li>windows/LockSurface.qml:40-56, 1101 <span class="text-dim">// headerSub + question, copied</span></li>
+  </ul>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="panel p-4" style="min-height:300px">
+      <div class="lbl text-dim mb-3">Before · one action, five tables</div>
+      <div class="space-y-2 text-xs font-mono">
+        <div class="mod px-3 py-2 flex justify-between"><span>PowerLogic.table</span><span class="text-dim">id · argv</span></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="mod leak px-3 py-2">PowerService chrome<br/><span class="opacity-70">suspend → "2"</span></div>
+          <div class="mod leak px-3 py-2">LockLogic POWER_HINTS<br/><span class="opacity-70">suspend → "1"</span></div>
+          <div class="mod leak px-3 py-2">PowerCenter ×8 Shortcut<br/><span class="opacity-70">"2" → arm("suspend")</span></div>
+          <div class="mod leak px-3 py-2">LockService chrome<br/><span class="opacity-70">glyphs again</span></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="mod leak px-3 py-2">headerSub ×2</div>
+          <div class="mod leak px-3 py-2">"%1? Confirm" ×2</div>
+        </div>
+        <div class="mod faded px-3 py-2">gate: grep sequence: "1".."6"</div>
+      </div>
+    </div>
+    <div class="panel p-4 flex flex-col" style="min-height:300px">
+      <div class="lbl text-dim mb-3">After · a row for a surface, a route for a key</div>
+      <div class="flex-1 flex flex-col justify-center gap-3">
+        <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+          <div class="mod px-3 py-2 text-center">PowerCenter</div>
+          <div class="mod px-3 py-2 text-center">LockSurface</div>
+        </div>
+        <div class="seam"></div>
+        <div class="deep p-4 space-y-2">
+          <div class="text-sm font-semibold">Power menu</div>
+          <div class="text-xs text-mut font-mono">rows(context) · route(context, key) · header · question</div>
+          <div class="grid grid-cols-3 gap-1.5 pt-1 text-[10.5px] font-mono">
+            <div class="mod faded px-2 py-1">table</div><div class="mod faded px-2 py-1">glyphs</div><div class="mod faded px-2 py-1">hints</div>
+            <div class="mod faded px-2 py-1">subsets</div><div class="mod faded px-2 py-1">arm/confirm</div><div class="mod faded px-2 py-1">strings</div>
+          </div>
+        </div>
+        <div class="mod ok px-3 py-2 text-xs font-mono text-center">node: hint drawn = key routed, both contexts</div>
+      </div>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6 text-[14px] leading-relaxed">
+    <div><div class="lbl text-dim mb-1">Problem</div>A power change touches five tables in four files; the bar's eight keys are literals nothing ties to its drawn hints, and a seventh <code>PowerLogic</code> action throws at <code>chrome[entry.id].glyph</code>.</div>
+    <div><div class="lbl text-dim mb-1">Solution</div>Deepen <code>PowerLogic</code> into the power-menu module: rows, hints, glyphs and key routing per context; each service keeps one Process adapter.</div>
+    <div><div class="lbl text-dim mb-1">Wins</div>
+      <ul class="space-y-1 text-mut">
+        <li>Locality: five tables → one</li>
+        <li>Leverage: two cards, one interface</li>
+        <li>Bar key routing gets a test</li>
+        <li>Six literal greps retire</li>
+      </ul></div>
+  </div>
+  <div class="rounded-lg border border-g4 bg-g1 px-4 py-2.5 text-[13px] text-mut">Extends ADR 0022's "no command is duplicated" to hints, keys and strings. The lock's 1–3 renumbering is a design choice; keep it, but derive it.</div>
+</article>
+
+<!-- 03 WORKSPACE SNAPSHOT -->
+<article id="c3" class="card p-7 space-y-6">
+  <div class="space-y-3">
+    <div class="lbl text-dim">03 · dashboard Workspaces tab</div>
+    <h2 class="text-2xl font-semibold tracking-tight">Workspace model assembly from a plain snapshot</h2>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full border border-green/40 text-green bg-green/10">Strong</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut font-mono">local-substitutable</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut">1 / 3 explorers</span>
+    </div>
+  </div>
+  <ul class="font-mono text-[13px] text-mut space-y-0.5">
+    <li>services/WorkspaceService.qml:232-320 <span class="text-dim">// buildModel, enabledMonitorInfo, windowEntries, activeWorkspaceIds</span></li>
+    <li>services/WorkspaceLogic.js:316-389 <span class="text-dim">// monitorBlocks, monitorTiles: already pure</span></li>
+    <li>scripts/test-workspaces.sh</li>
+  </ul>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="panel p-4" style="min-height:280px">
+      <div class="lbl text-dim mb-3">Before · live reads interleaved with rules</div>
+      <div class="space-y-1.5 text-xs font-mono">
+        <div class="mod leak px-3 py-2 border-l-4">enabledMonitorInfo · MonitorService ⨝ Hyprland.monitors</div>
+        <div class="mod leak px-3 py-2 border-l-4">windowEntries · top.lastIpcObject · AppService.appNameForClass</div>
+        <div class="mod leak px-3 py-2 border-l-4">activeWorkspaceIds · Hyprland.workspaces</div>
+        <div class="mod leak px-3 py-2 border-l-4">buildModel · Hyprland.activeToplevel</div>
+        <div class="seam my-2"></div>
+        <div class="mod ok px-3 py-2 border-l-4">monitorBlocks / monitorTiles · node-tested</div>
+      </div>
+      <div class="text-[11px] text-dim mt-3">membership · fullscreen mode · urgency: live session only</div>
+    </div>
+    <div class="panel p-4" style="min-height:280px">
+      <div class="lbl text-dim mb-3">After · snapshot in, model out</div>
+      <div class="space-y-1.5 text-xs font-mono">
+        <div class="mod px-3 py-2 border-l-4">WorkspaceService · build snapshot from singletons</div>
+        <div class="seam my-2"></div>
+        <div class="deep px-3 py-5 border-l-4">
+          <div class="text-sm font-sans font-semibold text-fg">Workspace model(snapshot)</div>
+          <div class="text-mut mt-1">monitors · blocks · windows · urgency · captions · geometry</div>
+        </div>
+        <div class="mod ok px-3 py-2 border-l-4">node: literal monitors + toplevels</div>
+      </div>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6 text-[14px] leading-relaxed">
+    <div><div class="lbl text-dim mb-1">Problem</div>Which window lands on which map needs live Hyprland to check; ADR 0019 records a live run catching an <code>at</code>/<code>size</code> shape bug that the headless gate passed.</div>
+    <div><div class="lbl text-dim mb-1">Solution</div>Assemble the model as a function over plain data; the service only builds that snapshot. Same shape as review 12's <code>AppLogic.workspaceMenu(snapshot)</code>.</div>
+    <div><div class="lbl text-dim mb-1">Wins</div>
+      <ul class="space-y-1 text-mut">
+        <li>Locality: live reads in one constructor</li>
+        <li>Leverage: one call, whole model</li>
+        <li>Membership rules run under node</li>
+      </ul></div>
+  </div>
+</article>
+
+<!-- 04 HYPRLAND DISPATCH -->
+<article id="c4" class="card p-7 space-y-6">
+  <div class="space-y-3">
+    <div class="lbl text-dim">04 · cross-cutting · Hyprland IPC</div>
+    <h2 class="text-2xl font-semibold tracking-tight">One Hyprland dispatch module owns the Lua strings, escaping, and the cursor round trip</h2>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full border border-amber/40 text-amber bg-amber/10">Worth exploring</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut font-mono">ports &amp; adapters</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut">3 / 3 explorers</span>
+    </div>
+  </div>
+  <ul class="font-mono text-[13px] text-mut space-y-0.5">
+    <li>services/WorkspaceService.qml:367-445 <span class="text-dim">// switchTo, moveWindow, toggleFloating, toggleFullscreen, closeWindow</span></li>
+    <li>services/HyprlandFocus.qml:19, 45-52, 128-134, 153-164, 210-224</li>
+    <li>services/PanelGrab.qml:59-75 · modules/Workspaces.qml:109-114</li>
+    <li>services/AppService.qml:246 → services/MonitorLogic.js:51-54 <span class="text-dim">// escapeLua borrowed</span></li>
+    <li>services/WorkspaceLogic.js:24-31 <span class="text-dim">// selector(): a third 0x rule</span></li>
+  </ul>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="panel p-4 grid-bg">
+      <div class="lbl text-dim mb-3">Before · 14 hl.dsp lines in 5 files</div>
+      <pre class="mermaid">
+flowchart LR
+  m3W["Workspaces.qml"] --> m3H(("Hyprland&lt;br/&gt;dispatch"))
+  m3WS["WorkspaceService ×5"] --> m3H
+  m3F["HyprlandFocus"] --> m3H
+  m3G["PanelGrab"] --> m3H
+  m3AP["AppService"] --> m3H
+  m3AP -. "escapeLua" .-> m3ML["MonitorLogic"]
+  m3F -. "cursorpos regex" .- m3G
+  classDef leak fill:#1f0a0b,stroke:#ff6369,color:#ff6369;
+  class m3ML leak
+      </pre>
+    </div>
+    <div class="panel p-4 grid-bg">
+      <div class="lbl text-dim mb-3">After · intents in, payloads out</div>
+      <pre class="mermaid">
+flowchart LR
+  m4C["5 callers&lt;br/&gt;state intent"] --> m4D["Hyprland dispatch&lt;br/&gt;payloads · escaping&lt;br/&gt;0x rule · cursor snapshot"]
+  m4D --> m4R["live dispatch"]
+  m4D --> m4K["recording stub"]
+  m4N["node: exact strings"] --> m4D
+  classDef deep fill:#161616,stroke:#ededed,stroke-width:2px,color:#ededed;
+  classDef ok fill:#0b1d10,stroke:#62c073,color:#62c073;
+  class m4D deep
+  class m4N,m4K ok
+      </pre>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6 text-[14px] leading-relaxed">
+    <div><div class="lbl text-dim mb-1">Problem</div>Every caller writes Lua IPC by template string; the address-prefix rule exists three times, the only escaper lives in the monitor module, and the cursorpos round trip is written twice.</div>
+    <div><div class="lbl text-dim mb-1">Solution</div>One module turns intents (focus, move, exec on workspace, move cursor) into validated payloads; <code>dispatchImpl</code> becomes its seam with a second, recording adapter.</div>
+    <div><div class="lbl text-dim mb-1">Wins</div>
+      <ul class="space-y-1 text-mut">
+        <li>Locality: one file for IPC syntax</li>
+        <li>Hypothetical seam becomes real</li>
+        <li>Quoting tested outside monitors</li>
+      </ul></div>
+  </div>
+  <div class="panel p-4 text-[13px] text-mut">Verified: <code>dispatchImpl: null</code> (HyprlandFocus.qml:19) is set by no test, so today the seam has one adapter.</div>
+</article>
+
+<!-- 05 BAR DRAG -->
+<article id="c5" class="card p-7 space-y-6">
+  <div class="space-y-3">
+    <div class="lbl text-dim">05 · bar · drag reorder</div>
+    <h2 class="text-2xl font-semibold tracking-tight">The bar slot owns the whole press lifecycle; the hold policy joins BarLayoutLogic</h2>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full border border-amber/40 text-amber bg-amber/10">Worth exploring</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut font-mono">in-process</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut">2 / 3 explorers</span>
+    </div>
+  </div>
+  <ul class="font-mono text-[13px] text-mut space-y-0.5">
+    <li>components/BarSlot.qml:99-142, 175-188 <span class="text-dim">// grab transitions → hold timer → armed</span></li>
+    <li>components/ModuleBox.qml:107 · modules/Tray.qml:98 · modules/Workspaces.qml:111 <span class="text-dim">// suppressClick ×3</span></li>
+    <li>shell.qml:263-275 · services/BarLayoutService.qml:166-167 <span class="text-dim">// "tray" dismiss literals</span></li>
+    <li>tests/bar-slot-handlers.qml:4-8, 57 <span class="text-dim">// "Mirrors BarSlot.qml", interval: 300</span></li>
+  </ul>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="panel p-4" style="min-height:260px">
+      <div class="lbl text-dim mb-3">Before · the gesture leaks into modules</div>
+      <div class="relative">
+        <div class="mod px-3 py-2 text-xs font-mono mb-3 text-center">BarSlot · DragHandler + hold timer</div>
+        <div class="grid grid-cols-3 gap-2 text-xs font-mono">
+          <div class="mod leak px-2 py-2 text-center">ModuleBox<br/><span class="opacity-70">suppressClick?</span></div>
+          <div class="mod leak px-2 py-2 text-center">Tray<br/><span class="opacity-70">suppressClick?</span></div>
+          <div class="mod leak px-2 py-2 text-center">Workspaces<br/><span class="opacity-70">suppressClick?</span></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs font-mono mt-3">
+          <div class="mod leak px-2 py-2">"tray" dismiss ×3 files</div>
+          <div class="mod faded px-2 py-2">test: hand copy, 300ms literal</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel p-4" style="min-height:260px">
+      <div class="lbl text-dim mb-3">After · modules know nothing of drags</div>
+      <div class="deep p-4 space-y-2">
+        <div class="text-sm font-semibold">BarSlot</div>
+        <div class="text-xs text-mut font-mono">hold · drag · click suppression · deferred dismiss</div>
+        <div class="seam my-2"></div>
+        <div class="grid grid-cols-3 gap-2 text-xs font-mono">
+          <div class="mod px-2 py-2 text-center">ModuleBox</div><div class="mod px-2 py-2 text-center">Tray</div><div class="mod px-2 py-2 text-center">Workspaces</div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs font-mono mt-3">
+        <div class="mod ok px-2 py-2">node: arm / cancel / release</div>
+        <div class="mod ok px-2 py-2">qmltest: real slot, stub module</div>
+      </div>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6 text-[14px] leading-relaxed">
+    <div><div class="lbl text-dim mb-1">Problem</div>A new module that forgets <code>suppressClick</code> fires a click after every drag; the hold rule is the only drag rule outside the pure module, and its gate tests a copy that already drifted (300 vs <code>Globals.barDragHoldMs</code>).</div>
+    <div><div class="lbl text-dim mb-1">Solution</div>The slot owns hold, drag, suppression and dismiss; the grab-transition decision moves beside <code>move</code> and <code>dropTarget</code>.</div>
+    <div><div class="lbl text-dim mb-1">Wins</div>
+      <ul class="space-y-1 text-mut">
+        <li>Locality: one drag vocabulary</li>
+        <li>Leverage: modules drop drag knowledge</li>
+        <li>Gate tests shipped code, not a mirror</li>
+      </ul></div>
+  </div>
+  <div class="rounded-lg border border-amber/30 bg-amber/5 px-4 py-2.5 text-[13px] text-amber">ADR 0021 pins the handler shape (passive DragHandler behind the module, no overlay). Keep it: an overlay that takes the press starved every bar click on 2026-10-18.</div>
+</article>
+
+<!-- 06 PANEL KEYBOARD -->
+<article id="c6" class="card p-7 space-y-6">
+  <div class="space-y-3">
+    <div class="lbl text-dim">06 · panels · fullscreen games</div>
+    <h2 class="text-2xl font-semibold tracking-tight">The panel keyboard handback and Escape policy becomes a tested logic module</h2>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full border border-amber/40 text-amber bg-amber/10">Worth exploring</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut font-mono">in-process</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut">2 / 3 explorers</span>
+    </div>
+  </div>
+  <ul class="font-mono text-[13px] text-mut space-y-0.5">
+    <li>components/PanelShell.qml:38-43, 103-153, 232-245 <span class="text-dim">// keyboardFocus ternary, keyboardTaken, escapeArmed</span></li>
+    <li>services/PanelGrab.qml:12-33, 77-101 <span class="text-dim">// duck-typed member contract</span></li>
+    <li>windows/TrayMenu.qml:14, 28 <span class="text-dim">// re-declares panelVisible, outsideClicked</span></li>
+    <li>services/HyprlandFocus.qml:136-147 · shell.qml:35-38</li>
+  </ul>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="panel p-4" style="min-height:260px">
+      <div class="lbl text-dim mb-3">Before · policy spread over handlers</div>
+      <div class="space-y-1.5 text-xs font-mono">
+        <div class="mod px-3 py-2 border-l-4">onVisibleChanged · Exclusive on map</div>
+        <div class="mod px-3 py-2 border-l-4">slide progress · hand back mid-slide?</div>
+        <div class="mod px-3 py-2 border-l-4">Keys.onPressed · arm Escape</div>
+        <div class="mod px-3 py-2 border-l-4">Keys.onReleased · fire / ignore autorepeat</div>
+        <div class="mod px-3 py-2 border-l-4">focus lost · close while armed</div>
+        <div class="mod leak px-3 py-2">test-panel-logic.sh: 0 hits for keyboardTaken / escapeArmed</div>
+      </div>
+    </div>
+    <div class="panel p-4" style="min-height:260px">
+      <div class="lbl text-dim mb-3">After · one policy, six shells</div>
+      <div class="grid grid-cols-3 gap-1.5 text-[10.5px] font-mono mb-2">
+        <div class="mod px-2 py-1 text-center">Dashboard</div><div class="mod px-2 py-1 text-center">Settings</div><div class="mod px-2 py-1 text-center">Calendar</div>
+        <div class="mod px-2 py-1 text-center">Notif</div><div class="mod px-2 py-1 text-center">Power</div><div class="mod px-2 py-1 text-center">Audio…</div>
+      </div>
+      <div class="text-center text-dim text-xs">↓ one-line delegates</div>
+      <div class="seam my-2"></div>
+      <div class="deep p-4">
+        <div class="text-sm font-semibold">Panel keyboard policy</div>
+        <div class="text-xs text-mut font-mono mt-1">focus mode(phase) · escape arm / fire / abandon</div>
+      </div>
+      <div class="mod ok px-3 py-2 text-xs font-mono mt-3">node: reopen mid-slide · autorepeat · closing slide stays OnDemand</div>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6 text-[14px] leading-relaxed">
+    <div><div class="lbl text-dim mb-1">Problem</div>The fix for panels over games is a state machine across five handlers with three live bugs in its comments (pointer-lock rearm, dead mouse-look, CS2 replaying Escape) and no test.</div>
+    <div><div class="lbl text-dim mb-1">Solution</div>The focus-mode decision and Escape transitions become pure; PanelShell delegates, and the member contract PanelGrab already enforces gets named.</div>
+    <div><div class="lbl text-dim mb-1">Wins</div>
+      <ul class="space-y-1 text-mut">
+        <li>One regression no longer hits six panels</li>
+        <li>Why-comments sit beside their rules</li>
+        <li>Third host is a registration</li>
+      </ul></div>
+  </div>
+  <div class="rounded-lg border border-g4 bg-g1 px-4 py-2.5 text-[13px] text-mut">ADR 0006 holds, since the shared grab stays in PanelGrab. Its amendment text still says "whose <code>panelVisible</code> is true", while the code holds the grab through <code>visible</code>. That needs a one-line docs fix either way.</div>
+</article>
+
+<!-- 07 LOCK UNITS -->
+<article id="c7" class="card p-7 space-y-6">
+  <div class="space-y-3">
+    <div class="lbl text-dim">07 · lock screen · tokens</div>
+    <h2 class="text-2xl font-semibold tracking-tight">Lock tokens carry their unit; scaling happens once</h2>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full border border-g5 text-mut bg-g2">Speculative</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut font-mono">in-process</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut">1 / 3 explorers</span>
+    </div>
+  </div>
+  <ul class="font-mono text-[13px] text-mut space-y-0.5">
+    <li>windows/LockSurface.qml:23, 89-91 <span class="text-dim">// uiScale, px(): 121 call sites</span></li>
+    <li>windows/LockSurface.qml:425, 824 <span class="text-dim">// letterSpacing * root.uiScale by hand</span></li>
+    <li>config/Globals.qml:79-130 <span class="text-dim">// 52 lock tokens, five unit kinds</span></li>
+  </ul>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="panel p-4" style="min-height:220px">
+      <div class="lbl text-dim mb-3">Before · interface ≈ implementation</div>
+      <div class="flex items-end gap-6 h-48 mt-6">
+        <div class="flex flex-col items-center gap-1"><div class="mod leak w-16" style="height:140px"></div><span class="lbl text-dim">interface</span><span class="text-[10px] text-dim font-mono">121 px() choices</span></div>
+        <div class="flex flex-col items-center gap-1"><div class="mod w-16" style="height:24px"></div><span class="lbl text-dim">impl</span><span class="text-[10px] text-dim font-mono">round(v × scale)</span></div>
+      </div>
+    </div>
+    <div class="panel p-4" style="min-height:220px">
+      <div class="lbl text-dim mb-3">After · ask by role</div>
+      <div class="flex items-end gap-6 h-48 mt-6">
+        <div class="flex flex-col items-center gap-1"><div class="mod w-16" style="height:28px"></div><span class="lbl text-dim">interface</span><span class="text-[10px] text-dim font-mono">token by role</span></div>
+        <div class="flex flex-col items-center gap-1"><div class="deep w-16" style="height:120px"></div><span class="lbl text-dim">impl</span><span class="text-[10px] text-dim font-mono">length · ms · ratio</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6 text-[14px] leading-relaxed">
+    <div><div class="lbl text-dim mb-1">Problem</div>Scaled lengths, fractions, opacities, durations and spacings share one namespace; a missed <code>px()</code> only shows on a screen that isn't 900px tall.</div>
+    <div><div class="lbl text-dim mb-1">Solution</div>Tokens declare their unit and come back already scaled, so the multiply lives in one place.</div>
+    <div><div class="lbl text-dim mb-1">Wins</div>
+      <ul class="space-y-1 text-mut"><li>New token needs no unit guess</li><li>Scale rounding tested under node</li></ul></div>
+  </div>
+</article>
+
+<!-- 08 MENU HOST -->
+<article id="c8" class="card p-7 space-y-6">
+  <div class="space-y-3">
+    <div class="lbl text-dim">08 · dashboard · context-menu hosts</div>
+    <h2 class="text-2xl font-semibold tracking-tight">One menu-host module for the dashboard overlays</h2>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="px-2 py-0.5 rounded-full border border-g5 text-mut bg-g2">Speculative</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut font-mono">in-process</span>
+      <span class="px-2 py-0.5 rounded-full border border-g4 text-mut">1 / 3 explorers</span>
+    </div>
+  </div>
+  <ul class="font-mono text-[13px] text-mut space-y-0.5">
+    <li>windows/DashboardAppsView.qml:22-26, 883-912</li>
+    <li>windows/DashboardWorkspacesView.qml:49-55, 730-769 <span class="text-dim">// byte-identical menuBoundsHeight</span></li>
+    <li>windows/DashboardCenter.qml:184-205 <span class="text-dim">// input mask switched per tab</span></li>
+  </ul>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="panel p-4 grid-bg">
+      <div class="lbl text-dim mb-3">Before · contract copied per host</div>
+      <pre class="mermaid">
+flowchart LR
+  m5A["AppsView&lt;br/&gt;4 host props&lt;br/&gt;menuBoundsHeight&lt;br/&gt;callLater guard"] --> m5C["DashboardCenter&lt;br/&gt;mask per tab"]
+  m5B["WorkspacesView&lt;br/&gt;4 host props&lt;br/&gt;menuBoundsHeight&lt;br/&gt;callLater guard"] --> m5C
+  classDef leak fill:#1f0a0b,stroke:#ff6369,color:#ff6369;
+  class m5A,m5B leak
+      </pre>
+    </div>
+    <div class="panel p-4 grid-bg">
+      <div class="lbl text-dim mb-3">After · hosts feed one module</div>
+      <pre class="mermaid">
+flowchart LR
+  m6A["AppsView"] --> m6H["Menu host&lt;br/&gt;bounds · close guard"]
+  m6B["WorkspacesView"] --> m6H
+  m6H --> m6C["DashboardCenter&lt;br/&gt;one mask binding"]
+  classDef deep fill:#161616,stroke:#ededed,stroke-width:2px,color:#ededed;
+  class m6H deep
+      </pre>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-6 text-[14px] leading-relaxed">
+    <div><div class="lbl text-dim mb-1">Problem</div>Each view that hosts a <code>ContextMenu</code> re-implements the same overlay contract; a third host copies it again.</div>
+    <div><div class="lbl text-dim mb-1">Solution</div>The host-side math lives once; the dashboard binds its mask to it.</div>
+    <div><div class="lbl text-dim mb-1">Wins</div><ul class="space-y-1 text-mut"><li>Two adapters: the seam is real</li><li>Third host is free</li></ul></div>
+  </div>
+  <div class="rounded-lg border border-g4 bg-g1 px-4 py-2.5 text-[13px] text-mut">Not review 12's declined card 08 (that was the item contract inside <code>ContextMenu</code>) and not plan 10's "dashboard page adapters". This is host-side only.</div>
+</article>
+
+</section>
+
+<!-- SMALLER + REJECTED -->
+<section class="grid md:grid-cols-2 gap-4">
+  <div class="card p-6 space-y-3">
+    <h3 class="font-semibold">Smaller findings, not carded</h3>
+    <ul class="text-[13.5px] text-mut space-y-2.5">
+      <li><span class="text-fg">Sink-cycle rule</span> · <code>modules/Audio.qml:50-69</code> modulo-advance stays inline while the wheel math moved to <code>stepVolume</code>; a pure next-key beside <code>indexOfKey</code>. <span class="text-dim">Muse</span></li>
+      <li><span class="text-fg">Now-playing transport diverges</span> · the dashboard requires <code>canTogglePlaying</code>, while the bar and lock fall back to <code>playPause</code>. This is the unfinished half of review 12 card 05, now with a third reader. <span class="text-dim">DeepSeek</span></li>
+      <li><span class="text-fg">ADR 0006 amendment drift</span> · <code>panelVisible</code> vs <code>visible</code> (see 06). <span class="text-dim">DeepSeek</span></li>
+    </ul>
+  </div>
+  <div class="card p-6 space-y-3">
+    <h3 class="font-semibold">Looked at and rejected</h3>
+    <ul class="text-[13.5px] text-mut space-y-2.5">
+      <li>Merging AudioService's two CoalescedRuns: ADR 0020 requires per-kind runs.</li>
+      <li>AudioService one-line delegates and five list shapes: §7 keeps delegates as the interface, and <code>appStreams</code> has one consumer.</li>
+      <li>Launcher keyboard/selection, ContextMenu fit math: review 12 / plan 10 scope, no new friction.</li>
+      <li>Inline IPC text parsers sweep: the proving duplication is the cursor round trip, which 04 already carries.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- TOP RECOMMENDATION -->
+<section id="top-recommendation" class="rounded-xl p-8 space-y-4" style="background:linear-gradient(180deg,#111 0%,#0a0a0a 100%); border:1px solid #2e2e2e;">
+  <div class="lbl text-dim">Top recommendation</div>
+  <h2 class="text-3xl font-semibold tracking-tight"><a href="#c1" class="text-fg hover:text-blue">01 · Lock session transitions into LockLogic</a></h2>
+  <p class="text-mut text-[15px] leading-relaxed max-w-3xl">It is the highest-stakes untested logic added since review 12: a wrong transition strands you at the lock. It carries a concrete hidden error mode (the empty reply to a second PAM prompt), and its two adapters, PAM and the preview, make the seam real on day one. Card <a href="#c2">02</a> shares the same files and the same <code>PowerLogic</code> precedent, so it fits in the same pass.</p>
+  <div class="flex flex-wrap gap-2 text-xs pt-1">
+    <span class="panel px-3 py-1.5 font-mono flex items-center gap-2"><span class="dot" style="background:#ffb224"></span>Opus → 01</span>
+    <span class="panel px-3 py-1.5 font-mono flex items-center gap-2"><span class="dot" style="background:#52a8ff"></span>DeepSeek → 02</span>
+    <span class="panel px-3 py-1.5 font-mono flex items-center gap-2"><span class="dot" style="background:#bf7af0"></span>Muse → 03</span>
+  </div>
+</section>
+
+<footer class="text-xs text-dim font-mono pb-6">Explorer notes and brief were working files in /tmp; this page is the merged, verified record.</footer>
+</main>
+
+<script>
+const rows = [
+  ["01","Lock session transitions into LockLogic",[1,1,1],"Strong"],
+  ["02","One power-menu module for both cards",[1,1,1],"Strong"],
+  ["03","Workspace model from a snapshot",[0,1,0],"Strong"],
+  ["04","Hyprland dispatch module",[1,1,1],"Worth exploring"],
+  ["05","Bar slot owns the press lifecycle",[1,0,1],"Worth exploring"],
+  ["06","Panel keyboard + Escape policy",[1,0,1],"Worth exploring"],
+  ["07","Lock tokens carry their unit",[1,0,0],"Speculative"],
+  ["08","One dashboard menu-host module",[0,1,0],"Speculative"]];
+const colors = ["#52a8ff","#bf7af0","#ffb224"];
+const badge = { "Strong":"text-green", "Worth exploring":"text-amber", "Speculative":"text-mut" };
+document.getElementById("matrix").innerHTML = rows.map(([n,t,hits,s]) =>
+  `<tr><td class="py-2.5 pr-4 font-mono text-dim">${n}</td><td class="py-2.5 pr-4"><a class="text-fg hover:text-blue" href="#c${+n}">${t}</a></td>` +
+  hits.map((h,i)=>`<td class="py-2.5 px-2 text-center">${h?`<span class="dot" style="background:${colors[i]}"></span>`:`<span class="dot" style="background:#262626"></span>`}</td>`).join("") +
+  `<td class="py-2.5 pl-4 text-xs ${badge[s]}">${s}</td></tr>`).join("");
+</script>
+</body>
+</html>

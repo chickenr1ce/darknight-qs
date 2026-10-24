@@ -59,6 +59,12 @@ Unlock authenticates through `PAM` with the system `login` configuration
 anywhere. PAM notices such as a faillock lockout are shown in the card, and a
 failed attempt shakes the field and counts the attempts after the first.
 
+One attempt answers exactly one PAM prompt, and the `login` stack asks for the
+password once. If PAM asks for a second response, as an account that needs a
+second factor does, the attempt fails with `Unsupported authentication prompt`
+and the conversation is aborted. The card has no second secret to send, and
+answering an empty string would hide the real reason.
+
 Fingerprint unlock would need a custom PAM config (`auth sufficient
 pam_fprintd.so` before `pam_unix.so`) and a change to `LockService`; the
 shipped screen is password-only.

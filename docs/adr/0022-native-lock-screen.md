@@ -55,9 +55,10 @@ The lock screen is a `WlSessionLock` in `shell.qml`, bound one-way to
   design's proportions on the 2560×1440 panel and on a smaller monitor. Shared
   cards take the same scale through `Card` padding and `PowerActionRow`'s
   `layoutScale`, with a default of 1 for their shell panels.
-- **The lock power card is the safe subset of the power menu.** It filters
-  `PowerLogic.actions()` to Suspend, Reboot, and Shutdown and reuses
-  `PowerLogic.press/confirm` and the argv strings, so no command is duplicated.
+- **The lock power card is the safe subset of the power menu.** It draws
+  `PowerLogic.rows("lock")`, the Suspend, Reboot, and Shutdown rows renumbered
+  1–3, and reuses `PowerLogic.press/confirm` and the argv strings, so no command
+  is duplicated.
   Lock is the current state; Logout would end the session without
   authentication; Reboot to Windows runs `pkexec`, and the polkit agent
   (ADR 0015) cannot draw over a session lock. While the card is open it owns
@@ -103,9 +104,9 @@ The lock screen is a `WlSessionLock` in `shell.qml`, bound one-way to
   `docs/user/lock.md` carries the TTY recovery steps.
 - The bar's power menu Lock now locks through IPC, so it works without hyprlock
   and without the compositor's locker chain.
-- The unlock card's reveal, message, attempt, and key rules live in
-  `services/LockLogic.js` and run under node in `scripts/test-lock.sh`; the
-  session lock itself is never exercised by the gate.
+- The unlock card's reveal, message, attempt, key, and session-transition rules
+  live in `services/LockLogic.js` and run under node in `scripts/test-lock.sh`;
+  the session lock itself is never exercised by the gate.
 - `WlSessionLock` and `WlSessionLockSurface` are session-wide, so a throwaway
   instance must never lock. The preview surface exists for visual work; live
   lock testing is a deliberate manual step on a session the user can recover.

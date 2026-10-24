@@ -184,10 +184,6 @@ Singleton {
         return true;
     }
 
-    function escapeLua(value: string): string {
-        return MonitorLogic.escapeLua(value);
-    }
-
     function applyMonitors(text: string): void {
         let parsed = null;
         try
@@ -233,7 +229,7 @@ Singleton {
         const monitor = root.monitorByName(name);
         if (!monitor)
             return;
-        const spec = MonitorLogic.setEnabledSpec(root.escapeLua(name), monitor, enabled, root.multiMonitor);
+        const spec = MonitorLogic.setEnabledSpec(HyprlandDispatch.escapeLua(name), monitor, enabled, root.multiMonitor);
         if (spec === null)
             return;
         root.toggleEpoch += 1;

@@ -229,94 +229,86 @@ Singleton {
     }
 
     // --- model plumbing ---
-    function buildModel(): var {
-        const entries = root.enabledMonitorInfo();
-        const windows = root.windowEntries(root.blocksFor(entries));
-        const activeIds = root.activeWorkspaceIds();
-        const focusedAddress = Hyprland.activeToplevel ? Hyprland.activeToplevel.address : "";
-        const focusedName = root.focusedMonitorName;
-        return root.monitorBlocks(entries, MonitorService.workspacesPerMonitor, windows, activeIds,
-            focusedName, focusedAddress);
+
+    // Every live read the model needs, captured once as plain data. The rules
+    // that turn it into the model live in WorkspaceLogic.
+    function snapshot(): var {
+        const snapshot = root.monitorsSnapshot();
+        snapshot.toplevels = root.toplevelsSnapshot();
+        snapshot.workspaces = root.workspacesSnapshot();
+        snapshot.focusedName = root.focusedMonitorName;
+        snapshot.focusedAddress = Hyprland.activeToplevel ? Hyprland.activeToplevel.address : "";
+        return snapshot;
     }
 
-    function blocksFor(entries): var {
-        const blocks = [];
-        for (let i = 0; i < entries.length; i++)
-            blocks.push({ first: entries[i].first, count: MonitorService.workspacesPerMonitor });
-        return blocks;
-    }
-
-    function enabledMonitorInfo(): var {
+    // The monitor half alone, for callers that need no window data.
+    function monitorsSnapshot(): var {
         const names = MonitorService.orderedMonitors;
         const enabled = MonitorService.enabledMonitors;
+        const enabledNames = [];
+        for (let i = 0; i < enabled.length; i++) {
+            if (enabled[i] && enabled[i].name)
+                enabledNames.push(enabled[i].name);
+        }
+        const firstWorkspace = {};
+        for (let i = 0; i < names.length; i++)
+            firstWorkspace[names[i]] = MonitorService.firstWorkspaceFor(names[i]);
         const hypr = root.hyprMonitors;
-        const byName = {};
+        const monitors = [];
         for (let i = 0; i < hypr.length; i++) {
             if (hypr[i] && hypr[i].name)
-                byName[hypr[i].name] = hypr[i];
+                monitors.push(root.monitorSnapshot(hypr[i]));
         }
-        const out = [];
-        for (let i = 0; i < names.length; i++) {
-            const name = names[i];
-            if (!root.isEnabled(name, enabled))
-                continue;
-            const source = byName[name];
-            if (!source)
-                continue;
-            out.push({ monitor: root.monitorSnapshot(source), first: MonitorService.firstWorkspaceFor(name) });
-        }
-        return out;
+        return {
+            monitorNames: names,
+            enabledNames: enabledNames,
+            monitors: monitors,
+            firstWorkspace: firstWorkspace,
+            perMonitor: MonitorService.workspacesPerMonitor
+        };
     }
 
-    function isEnabled(name, enabled): bool {
-        for (let i = 0; i < enabled.length; i++) {
-            if (enabled[i] && enabled[i].name === name)
-                return true;
-        }
-        return false;
-    }
-
-    function windowEntries(blocks): var {
+    function toplevelsSnapshot(): var {
         const tops = root.hyprToplevels;
-        const out = [];
+        const toplevels = [];
         for (let i = 0; i < tops.length; i++) {
             const top = tops[i];
             if (!top)
                 continue;
             const ipc = top.lastIpcObject ?? {};
             const workspace = ipc.workspace;
-            if (!root.inBlocks(workspace ? workspace.id : -1, blocks))
-                continue;
-            const cls = ipc["class"];
-            const name = cls === undefined || cls === null ? "" : String(cls);
-            out.push({
+            toplevels.push({
                 address: top.address ?? "",
-                cls: name,
-                title: ipc.title === undefined || ipc.title === null ? (top.title ?? "") : String(ipc.title),
-                app: AppService.appNameForClass(name),
-                icon: AppService.iconForClass(name),
-                at: ipc.at,
-                size: ipc.size,
-                floating: ipc.floating === true,
-                // Hyprland reports a mode: 0 none, 1 maximized, 2 fullscreen,
-                // 3 both. Maximized keeps its real (work-area) geometry.
-                fullscreen: ipc.fullscreen === true || Number(ipc.fullscreen) >= 2,
+                title: top.title ?? "",
                 urgent: top.urgent === true,
-                workspaceId: workspace.id
+                app: AppService.appNameForClass(ipc["class"]),
+                icon: AppService.iconForClass(ipc["class"]),
+                ipc: {
+                    class: ipc["class"],
+                    title: ipc.title,
+                    workspace: workspace ? { id: workspace.id } : null,
+                    at: ipc.at,
+                    size: ipc.size,
+                    floating: ipc.floating,
+                    fullscreen: ipc.fullscreen
+                }
             });
         }
-        return out;
+        return toplevels;
     }
 
-    function activeWorkspaceIds(): var {
+    function workspacesSnapshot(): var {
         const list = root.hyprWorkspaces;
-        const ids = [];
+        const workspaces = [];
         for (let i = 0; i < list.length; i++) {
-            const workspace = list[i];
-            if (workspace && workspace.active === true)
-                ids.push(workspace.id);
+            if (list[i])
+                workspaces.push({ id: list[i].id, active: list[i].active === true });
         }
-        return ids;
+        return workspaces;
+    }
+
+    function buildModel(): var {
+        return WorkspaceLogic.model(root.snapshot());
     }
 
     // --- window menu ---
@@ -325,12 +317,13 @@ Singleton {
     }
 
     function windowMoveTargets(record): var {
-        const entries = root.enabledMonitorInfo();
+        const snapshot = root.monitorsSnapshot();
+        const entries = WorkspaceLogic.monitorEntries(snapshot);
         const monitors = [];
         const blocks = [];
         for (let i = 0; i < entries.length; i++) {
             monitors.push({ name: entries[i].monitor.name });
-            blocks.push({ first: entries[i].first, count: MonitorService.workspacesPerMonitor });
+            blocks.push({ first: entries[i].first, count: snapshot.perMonitor });
         }
         const currentId = record ? record.workspaceId : -1;
         return WorkspaceLogic.moveTargets(monitors, blocks, currentId);
@@ -365,11 +358,8 @@ Singleton {
 
     // --- dispatch actions ---
     function switchTo(id): void {
-        const workspaceId = Math.round(Number(id));
-        if (!isFinite(workspaceId) || workspaceId < 1)
-            return;
         // The dashboard stays open so the map shows the switch land.
-        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${workspaceId} })`);
+        HyprlandDispatch.focusWorkspace(id);
     }
 
     function focusWindow(address): void {
@@ -381,45 +371,22 @@ Singleton {
     }
 
     function moveWindow(address, id): void {
-        const target = WorkspaceLogic.selector(address);
-        const workspaceId = Math.round(Number(id));
-        if (target === "" || !isFinite(workspaceId) || workspaceId < 1)
+        if (!HyprlandDispatch.moveWindowToWorkspace(address, id, false))
             return;
-        // Confirmed on Hyprland 0.56.2 with `hyprctl dispatch` against an
-        // unfocused window: it moved to workspace 9 while the active workspace
-        // and focus stayed put. Hyprland ≥0.56 evaluates IPC as Lua, so a
-        // legacy dispatcher string fails (as modules/Workspaces.qml notes). The
-        // confirmed call is:
-        //   hl.dsp.window.move({ workspace = N, follow = false, window = "address:0x<hex>" })
-        Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${workspaceId}, follow = false, window = "address:${target}" })`);
         Hyprland.refreshToplevels();
         root.scheduleRebuild();
     }
 
-    // Confirmed on Hyprland 0.56.2 with `hyprctl dispatch` against an
-    // unfocused window, by address: it toggled floating and left the active
-    // workspace and focus alone. Hyprland >=0.56 evaluates IPC as Lua, so the
-    // confirmed call is:
-    //   hl.dsp.window.float({ action = "toggle", window = "address:0x<hex>" })
     function toggleFloating(address): void {
-        const target = WorkspaceLogic.selector(address);
-        if (target === "")
+        if (!HyprlandDispatch.toggleFloating(address))
             return;
-        Hyprland.dispatch(`hl.dsp.window.float({ action = "toggle", window = "address:${target}" })`);
         Hyprland.refreshToplevels();
         root.scheduleRebuild();
     }
 
-    // Confirmed on Hyprland 0.56.2 with `hyprctl dispatch` against an
-    // unfocused window, by address: it toggled fullscreen and left the active
-    // workspace alone, but Hyprland moves focus to the fullscreened window.
-    // The confirmed call is:
-    //   hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", window = "address:0x<hex>" })
     function toggleFullscreen(address): void {
-        const target = WorkspaceLogic.selector(address);
-        if (target === "")
+        if (!HyprlandDispatch.toggleFullscreen(address, "fullscreen"))
             return;
-        Hyprland.dispatch(`hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", window = "address:${target}" })`);
         Hyprland.refreshToplevels();
         root.scheduleRebuild();
     }

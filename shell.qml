@@ -230,7 +230,7 @@ ShellRoot {
                 function defersDismissAt(x, y) {
                     for (let i = 0; i < idBarModules.slots.length; i++) {
                         const slot = idBarModules.slots[i];
-                        if (slot.shown && !(slot.key === "tray") && x >= slot.x && x < slot.x + slot.width && y >= slot.y && y < slot.y + slot.height)
+                        if (slot.shown && !slot.moduleOwnsTrayMenu && x >= slot.x && x < slot.x + slot.width && y >= slot.y && y < slot.y + slot.height)
                             return true;
                     }
                     return false;

@@ -16,7 +16,6 @@ Singleton {
     property int retryLeft: 0
     property string activeAddress: ""
     property bool snapshotPending: false
-    property var dispatchImpl: null
 
     function focusByTokens(rawTokens): bool {
         const keys = root.keysFor(rawTokens);
@@ -43,13 +42,10 @@ Singleton {
     }
 
     function focusAddress(rawAddress): bool {
-        const address = String(rawAddress ?? "");
+        const address = HyprlandDispatch.selector(rawAddress);
         if (address === "")
             return false;
-        const selectorAddress = address.startsWith("0x") ? address : "0x" + address;
-        if (selectorAddress === "0x")
-            return false;
-        root.requestQueue = root.requestQueue.concat([selectorAddress]);
+        root.requestQueue = root.requestQueue.concat([address]);
         root.pumpQueue();
         return true;
     }
@@ -124,13 +120,7 @@ Singleton {
                 }
             }
         }
-        const rawAddress = String(target.address ?? "");
-        if (!rawAddress)
-            return "";
-        const selectorAddress = rawAddress.startsWith("0x") ? rawAddress : "0x" + rawAddress;
-        if (selectorAddress === "0x")
-            return "";
-        return selectorAddress;
+        return HyprlandDispatch.selector(target.address);
     }
 
     function pumpQueue() {
@@ -148,13 +138,6 @@ Singleton {
         root.snapshotPending = true;
         idFocusWatchdog.restart();
         idCursorPosProcess.running = true;
-    }
-
-    function dispatch(payload: string) {
-        if (root.dispatchImpl)
-            root.dispatchImpl(payload);
-        else
-            Hyprland.dispatch(payload);
     }
 
     Process {
@@ -200,8 +183,7 @@ Singleton {
             root.snapshotPending = false;
             console.warn("HyprlandFocus: cursor snapshot timed out, focusing without restore");
             idCursorPosProcess.running = false;
-            if (!(root.activeAddress === ""))
-                root.dispatch(`hl.dsp.focus({ window = "address:${root.activeAddress}" })`);
+            HyprlandDispatch.focusWindow(root.activeAddress);
             root.activeAddress = "";
             root.pumpQueue();
         }
@@ -215,11 +197,11 @@ Singleton {
             if (!root.snapshotPending)
                 return;
             root.snapshotPending = false;
-            const match = idCursorPosCollector.text.trim().match(/(-?\d+)\s*,\s*(-?\d+)/);
-            root.dispatch(`hl.dsp.focus({ window = "address:${root.activeAddress}" })`);
+            const point = HyprlandDispatch.parseCursorPos(idCursorPosCollector.text);
+            HyprlandDispatch.focusWindow(root.activeAddress);
             root.activeAddress = "";
-            if (match)
-                root.dispatch(`hl.dsp.cursor.move({ x = ${match[1]}, y = ${match[2]} })`);
+            if (point)
+                HyprlandDispatch.moveCursor(point.x, point.y);
             root.pumpQueue();
         }
     }

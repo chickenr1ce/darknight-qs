@@ -11,150 +11,134 @@ import "PowerLogic.js" as PowerLogic
 Singleton {
     id: root
 
+    property var session: LockLogic.initialState()
+
+    property bool locked: false
+
     readonly property string userName: Quickshell.env("USER") || ""
     readonly property string userInitial: LockLogic.initial(root.userName)
     readonly property var powerActions: {
-        const chrome = {
-            suspend: Icons.powerSleep,
-            reboot: Icons.restart,
-            shutdown: Icons.power
-        };
-        const entries = LockLogic.powerActions(PowerLogic.actions());
-        const out = [];
-        for (let i = 0; i < entries.length; i++) {
-            const entry = entries[i];
-            out.push({
-                id: entry.id,
-                label: entry.label,
-                dangerous: entry.dangerous,
-                argv: entry.argv,
-                hint: entry.hint,
-                glyph: chrome[entry.id]
-            });
-        }
-        return out;
+        const rows = PowerLogic.rows("lock");
+        for (let i = 0; i < rows.length; i++)
+            rows[i].glyph = Icons[rows[i].glyph];
+        return rows;
+    }
+    readonly property string authState: root.session.authState
+    readonly property int attempts: root.session.attempts
+    readonly property string pamMessage: root.session.pamMessage
+    readonly property bool pamMessageIsError: root.session.pamMessageIsError
+    readonly property double lockedAt: root.session.lockedAt
+    readonly property bool powerOpen: root.session.powerOpen
+    readonly property string powerArmed: root.session.powerArmed
+    readonly property string powerQuestion: PowerLogic.question(root.session.powerArmed)
+    readonly property bool previewOpen: root.session.previewOpen
+    readonly property string previewPhase: root.session.previewPhase
+
+    function apply(result: var): void {
+        root.locked = result.state.locked;
+        root.session = result.state;
+        for (let i = 0; i < result.effects.length; i++)
+            root.applyEffect(result.effects[i]);
     }
 
-    property bool locked: false
-    property double lockedAt: 0
-    property string authState: "idle"
-    property int attempts: 0
-    property string pamMessage: ""
-    property bool pamMessageIsError: false
-    property string pendingPassword: ""
-    property string powerArmed: ""
-    property bool powerOpen: false
-    property bool previewOpen: false
-    property string previewPhase: "idle"
+    function dispatch(event: var): void {
+        root.apply(LockLogic.reduce(root.session, event));
+    }
+
+    function startAuth(password: string): void {
+        idPamAdapter.password = password;
+        if (root.session.previewOpen) {
+            Qt.callLater(() => root.dispatch({ kind: "pamCompleted", success: false }));
+            return;
+        }
+        if (idPam.start())
+            return;
+        idPamAdapter.password = "";
+        root.dispatch({ kind: "startFailed" });
+    }
+
+    function respondAuth(): void {
+        const password = idPamAdapter.password;
+        idPamAdapter.password = "";
+        if (!root.session.previewOpen)
+            idPam.respond(password);
+    }
+
+    function applyEffect(effect: var): void {
+        if (effect.kind === "pamStart") {
+            root.startAuth(effect.password);
+            return;
+        }
+        if (effect.kind === "pamRespond") {
+            root.respondAuth();
+            return;
+        }
+        if (effect.kind === "pamAbort") {
+            idPamAdapter.password = "";
+            if (!root.session.previewOpen)
+                idPam.abort();
+            return;
+        }
+        if (effect.kind === "pamReset") {
+            idPamAdapter.password = "";
+            return;
+        }
+        if (effect.kind === "restartFailureTimer") {
+            idFailureReset.restart();
+            return;
+        }
+        if (effect.kind === "stopFailureTimer") {
+            idFailureReset.stop();
+            return;
+        }
+        if (effect.kind === "run") {
+            idRunProcess.command = effect.argv;
+            idRunProcess.running = true;
+        }
+    }
 
     function lock(): void {
-        if (root.locked)
-            return;
-        root.lockedAt = Date.now();
-        root.authState = "idle";
-        root.attempts = 0;
-        root.pamMessage = "";
-        root.pamMessageIsError = false;
-        root.pendingPassword = "";
-        root.powerOpen = false;
-        root.powerArmed = "";
-        root.previewOpen = false;
-        root.previewPhase = "idle";
-        root.locked = true;
+        root.dispatch({ kind: "lock", now: Date.now() });
     }
 
-    function unlocked(): void {
-        root.authState = "idle";
-        root.attempts = 0;
-        root.pamMessage = "";
-        root.pamMessageIsError = false;
-        root.pendingPassword = "";
-        root.powerOpen = false;
-        root.powerArmed = "";
-        root.locked = false;
+    function canSubmit(password: string): bool {
+        return LockLogic.canSubmit(root.session, password);
     }
 
     function submit(password: string): void {
-        if (!root.locked || root.authState === "checking" || password === "")
-            return;
-        root.pendingPassword = password;
-        root.authState = "checking";
-        root.pamMessage = "";
-        root.pamMessageIsError = false;
-        if (idPam.start())
-            return;
-        root.pendingPassword = "";
-        root.authState = "failed";
-        root.attempts += 1;
-        idFailureReset.restart();
+        root.dispatch({ kind: "submit", password: password });
     }
 
     function clearFailure(): void {
-        if (!root.locked || root.authState !== "failed")
-            return;
-        idFailureReset.stop();
-        root.authState = "idle";
-        root.pamMessage = "";
-        root.pamMessageIsError = false;
-    }
-
-    function applyCompleted(result: int): void {
-        if (!root.locked) {
-            root.pendingPassword = "";
-            return;
-        }
-        root.pendingPassword = "";
-        if (result === PamResult.Success) {
-            root.unlocked();
-            return;
-        }
-        root.authState = "failed";
-        root.attempts += 1;
-        idFailureReset.restart();
+        root.dispatch({ kind: "failureReset" });
     }
 
     function togglePowerCard(): void {
-        if (root.powerOpen) {
-            root.closePower();
-            return;
-        }
-        root.powerOpen = true;
-        root.powerArmed = "";
+        root.dispatch({ kind: "togglePower" });
     }
 
     function closePower(): void {
-        root.powerOpen = false;
-        root.powerArmed = "";
+        root.dispatch({ kind: "closePower" });
     }
 
     function armPower(id: string): void {
-        root.powerArmed = PowerLogic.press({ armed: root.powerArmed }, id).state.armed;
+        root.apply(LockLogic.arm(root.session, PowerLogic.press({ armed: root.session.powerArmed }, id).state.armed));
     }
 
     function cancelPower(): void {
-        root.powerArmed = PowerLogic.cancel({ armed: root.powerArmed }).armed;
+        root.dispatch({ kind: "cancelPower" });
     }
 
     function confirmPower(): void {
-        const result = PowerLogic.confirm({ armed: root.powerArmed });
-        root.powerArmed = result.state.armed;
-        root.powerOpen = false;
-        if (result.run === null || !root.locked)
-            return;
-        idRunProcess.command = result.run;
-        idRunProcess.running = true;
+        root.apply(LockLogic.confirm(root.session, PowerLogic.confirm({ armed: root.session.powerArmed })));
     }
 
     function powerKey(key: string): string {
-        const route = LockLogic.powerRoute(root.powerActions, root.powerArmed, key);
-        if (route.kind === "arm")
-            root.powerArmed = route.id;
-        else if (route.kind === "confirm")
-            root.confirmPower();
-        else if (route.kind === "disarm")
-            root.cancelPower();
-        else if (route.kind === "close")
-            root.closePower();
+        const route = PowerLogic.route("lock", root.session.powerArmed, key);
+        const resolution = route.kind === "confirm"
+            ? PowerLogic.confirm({ armed: root.session.powerArmed })
+            : null;
+        root.apply(LockLogic.powerKey(root.session, route, resolution));
         return route.kind;
     }
 
@@ -177,23 +161,19 @@ Singleton {
     function showPreview(): void {
         if (Quickshell.env("QUICKSHELL_DEV_PROBE") !== "1")
             return;
-        root.previewOpen = !root.previewOpen;
-        root.previewPhase = "idle";
-        root.powerArmed = "";
-        if (root.previewOpen)
-            root.lockedAt = Date.now();
+        root.dispatch({ kind: "previewToggle", now: Date.now() });
     }
 
     function showPreviewPhase(phase: string): void {
         if (Quickshell.env("QUICKSHELL_DEV_PROBE") !== "1")
             return;
-        if (["idle", "typing", "checking", "failed", "power"].indexOf(phase) === -1)
-            return;
-        root.previewOpen = true;
-        root.previewPhase = phase;
-        root.lockedAt = Date.now();
-        root.powerArmed = "";
-        root.attempts = phase === "failed" ? 3 : 0;
+        root.dispatch({ kind: "previewPhase", phase: phase, now: Date.now() });
+    }
+
+    QtObject {
+        id: idPamAdapter
+
+        property string password: ""
     }
 
     PamContext {
@@ -203,16 +183,20 @@ Singleton {
 
         onPamMessage: {
             if (idPam.responseRequired) {
-                const password = root.pendingPassword;
-                root.pendingPassword = "";
-                idPam.respond(password);
+                root.dispatch({ kind: "pamPrompt" });
                 return;
             }
-            root.pamMessage = idPam.message;
-            root.pamMessageIsError = idPam.messageIsError;
+            root.dispatch({
+                kind: "pamMessage",
+                text: idPam.message,
+                isError: idPam.messageIsError
+            });
         }
 
-        onCompleted: result => root.applyCompleted(result)
+        onCompleted: result => root.dispatch({
+            kind: "pamCompleted",
+            success: result === PamResult.Success
+        })
     }
 
     Timer {

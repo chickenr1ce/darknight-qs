@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Headless gate for the native lock screen: the pure rules in
-# services/LockLogic.js (run under node through tests/qmljs.js), the lock
-# service's place in the session lock and PAM wiring, and the power menu's Lock
-# routing into LockService.
+# Headless gate for the native lock screen: the pure session transitions in
+# services/LockLogic.js and the power-menu rules in services/PowerLogic.js (both
+# run under node through tests/qmljs.js), the lock service's place in the
+# session lock and PAM wiring, and the power menu's Lock routing into
+# LockService.
 #
 # Nothing here locks: a WlSessionLock in a throwaway instance locks the real
-# compositor session, so the gate checks the wiring and the preview surface and
-# never calls `lock lock`.
+# compositor session, so the gate drives the transitions under node, checks the
+# wiring, and never calls `lock lock`.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,14 +40,32 @@ grep -q 'property bool locked: false' "$SVC" \
     || fail "LockService does not start unlocked"
 grep -q 'target: "lock"' "$SVC" || fail "LockService has no lock IPC target"
 
-LOCKS="$(grep -c 'root.locked = true' "$SVC" || true)"
-test "$LOCKS" = "1" || fail "LockService does not have exactly one lock() writer (found $LOCKS)"
+LOCKS="$(grep -c 'root\.locked =' "$SVC" || true)"
+test "$LOCKS" = "1" || fail "LockService does not have exactly one session-lock writer (found $LOCKS)"
 if grep -q 'locked = true' "$SURFACE" "$PREVIEW" "$SHELL"; then
     fail "a lock surface or the shell sets the session lock itself; only LockService.lock does it"
 fi
 if grep -q 'LockService.lock()' "$SURFACE" "$PREVIEW"; then
     fail "the lock surface or preview locks the session; only the IPC target and the power menu may"
 fi
+if grep -rq --exclude=test-lock.sh 'ipc call lock lock' "$ROOT/scripts"; then
+    fail "a script takes the session lock; the gate never locks the live session"
+fi
+
+# The password is the PAM adapter's, never part of the service's interface.
+if grep -rq 'pendingPassword' "$ROOT/services" "$ROOT/windows"; then
+    fail "the password is back on a public surface; the PAM adapter keeps it privately"
+fi
+# The transitions are pure: adapters (PAM, Process, Timer, the clock) live in
+# the service, and effects are data.
+if grep -qE 'PamContext|Process \{|Timer \{|Date\.now' "$LOGIC"; then
+    fail "LockLogic reaches an adapter; effects stay data and the service applies them"
+fi
+grep -q 'LockLogic.reduce' "$SVC" || fail "LockService does not dispatch events through LockLogic"
+test "$(grep -c 'PamContext {' "$SVC")" = "1" \
+    || fail "LockService does not keep exactly one PAM adapter"
+test "$(grep -c 'Process {' "$SVC")" = "1" \
+    || fail "LockService does not keep exactly one Process adapter"
 
 grep -q 'WlSessionLock {' "$SHELL" || fail "shell.qml has no WlSessionLock"
 grep -q 'locked: LockService.locked' "$SHELL" \
@@ -77,26 +96,208 @@ if grep -qE 'systemctl|playerctl|efibootmgr|hyprctl' "$LOGIC" "$SURFACE"; then
 fi
 grep -q 'PowerLogic.press' "$SVC" || fail "LockService does not reuse PowerLogic press rules"
 grep -q 'PowerLogic.confirm' "$SVC" || fail "LockService does not reuse PowerLogic confirm rules"
+grep -q 'PowerLogic.route' "$SVC" || fail "LockService does not route power keys through PowerLogic"
 
-# --- 2. the pure reveal, message, action and key rules run under node ---
+# --- 2. the session transitions run under node ---
 node - "$ROOT/tests/qmljs.js" "$LOGIC" "$POWERLOGIC" <<'NODEEOF'
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('lock');
 const ll = qmljs.load(process.argv[3]);
 const pl = qmljs.load(process.argv[4]);
 
-const IDLE = { fieldLength: 0, authState: 'idle', powerOpen: false, msSinceLastKey: 6000, idleMs: 6000 };
+const IDLE = ll.initialState();
+const kinds = result => result.effects.map(effect => effect.kind);
 
-check('reveal/idle-hidden', ll.revealShown(IDLE), false);
-check('reveal/just-typed', ll.revealShown({ ...IDLE, msSinceLastKey: 0 }), true);
-check('reveal/before-boundary', ll.revealShown({ ...IDLE, msSinceLastKey: 5999 }), true);
-check('reveal/at-boundary', ll.revealShown({ ...IDLE, msSinceLastKey: 6000 }), false);
-check('reveal/nonempty-holds', ll.revealShown({ ...IDLE, fieldLength: 3, msSinceLastKey: 99999 }), true);
-check('reveal/negative-elapsed', ll.revealShown({ ...IDLE, msSinceLastKey: -1 }), false);
-check('reveal/checking', ll.revealShown({ ...IDLE, authState: 'checking', msSinceLastKey: 99999 }), true);
-check('reveal/failed', ll.revealShown({ ...IDLE, authState: 'failed', msSinceLastKey: 99999 }), true);
-check('reveal/power-hides-typing', ll.revealShown({ ...IDLE, powerOpen: true, fieldLength: 2, msSinceLastKey: 0 }), false);
-check('reveal/power-hides-auth', ll.revealShown({ ...IDLE, powerOpen: true, authState: 'checking' }), false);
+// Lock arms one session: locked, stamped, and every prior field reset.
+const locked = ll.lock(IDLE, 1000);
+check('lock/locked', locked.state.locked, true);
+check('lock/locked-at', locked.state.lockedAt, 1000);
+check('lock/effects', kinds(locked), ['pamReset', 'stopFailureTimer']);
+check('lock/relock-keeps-stamp', ll.lock(locked.state, 2000).state.lockedAt, 1000);
+check('lock/relock-no-effects', ll.lock(locked.state, 2000).effects, []);
+
+// The one submit guard: no password, already checking, power card open, or not
+// in a session all refuse without an effect.
+const started = ll.submit(locked.state, 'hunter2');
+check('submit/checking', started.state.authState, 'checking');
+check('submit/effect', started.effects, [{ kind: 'pamStart', password: 'hunter2' }]);
+check('submit/clears-message', started.state.pamMessage, '');
+check('submit/empty', ll.submit(locked.state, '').effects, []);
+check('submit/double', ll.submit(started.state, 'again').effects, []);
+check('submit/unlocked', ll.submit(IDLE, 'hunter2').effects, []);
+check('submit/power-open', ll.submit({ ...locked.state, powerOpen: true }, 'hunter2').effects, []);
+check('submit/guard-can', ll.canSubmit(locked.state, 'hunter2'), true);
+check('submit/guard-checking', ll.canSubmit(started.state, 'hunter2'), false);
+check('submit/guard-empty', ll.canSubmit(locked.state, ''), false);
+check('submit/guard-unlocked', ll.canSubmit(IDLE, 'hunter2'), false);
+
+// One attempt answers one prompt. A second prompt asks for a secret the card
+// cannot collect, so the attempt fails and the conversation aborts.
+const first = ll.pamPrompt(started.state);
+check('prompt/first-effect', first.effects, [{ kind: 'pamRespond' }]);
+check('prompt/first-answered', first.state.pamAnswered, true);
+check('prompt/first-keeps-checking', first.state.authState, 'checking');
+const second = ll.pamPrompt(first.state);
+check('prompt/second-effects', kinds(second), ['pamAbort', 'restartFailureTimer']);
+check('prompt/second-failed', second.state.authState, 'failed');
+check('prompt/second-attempt', second.state.attempts, 1);
+check('prompt/second-message', second.state.pamMessage, 'Unsupported authentication prompt');
+check('prompt/second-error', second.state.pamMessageIsError, true);
+check('prompt/second-never-responds', second.effects.filter(e => e.kind === 'pamRespond').length, 0);
+check('prompt/prompt-idle-ignored', ll.pamPrompt(locked.state).effects, []);
+check('prompt/prompt-unlocked-ignored', ll.pamPrompt(IDLE).effects, []);
+
+// Completion only counts while a check is in flight, so a late result after
+// unlock, after a failure, or after a relock is inert.
+const failed = ll.pamCompleted(started.state, false);
+check('complete/fail-state', failed.state.authState, 'failed');
+check('complete/fail-attempt', failed.state.attempts, 1);
+check('complete/fail-effects', kinds(failed), ['pamReset', 'restartFailureTimer']);
+check('complete/fail-keeps-message', ll.pamCompleted({ ...started.state, pamMessage: 'notice' }, false).state.pamMessage, 'notice');
+const welcome = ll.pamCompleted(started.state, true);
+check('complete/success-unlocked', welcome.state.locked, false);
+check('complete/success-idle', welcome.state.authState, 'idle');
+check('complete/success-effects', kinds(welcome), ['pamReset', 'stopFailureTimer']);
+check('complete/late-after-unlock', ll.pamCompleted(welcome.state, false).state.attempts, 0);
+check('complete/late-after-unlock-effects', kinds(ll.pamCompleted(welcome.state, true)), ['pamReset']);
+check('complete/late-after-failure', ll.pamCompleted(failed.state, true).state.locked, true);
+check('complete/late-after-second-prompt', ll.pamCompleted(second.state, false).state.attempts, 1);
+check('complete/late-unlocked', ll.pamCompleted(IDLE, true).state.locked, false);
+
+// PAM's own notices show as given; failure styling is derived by messageIsError.
+const notice = ll.pamMessage(started.state, 'The account is temporarily locked', false);
+check('message/text', notice.state.pamMessage, 'The account is temporarily locked');
+check('message/error-flag', notice.state.pamMessageIsError, false);
+check('message/error-set', ll.pamMessage(started.state, 'bad', true).state.pamMessageIsError, true);
+check('message/error-coerced', ll.pamMessage(started.state, 'bad', 'yes').state.pamMessageIsError, false);
+
+// The failure timer only clears a live failure.
+const cleared = ll.failureReset({ ...failed.state, pamMessage: 'Wrong password' });
+check('reset/state', cleared.state.authState, 'idle');
+check('reset/message', cleared.state.pamMessage, '');
+check('reset/error-flag', cleared.state.pamMessageIsError, false);
+check('reset/effects', kinds(cleared), ['stopFailureTimer']);
+check('reset/ignored-idle', ll.failureReset(locked.state).effects, []);
+check('reset/ignored-unlocked', ll.failureReset({ ...failed.state, locked: false }).effects, []);
+
+// A PAM that will not start is a failed attempt, not a stuck spinner.
+const startFailed = ll.startFailed(started.state);
+check('start/failed', startFailed.state.authState, 'failed');
+check('start/attempt', startFailed.state.attempts, 1);
+check('start/effects', kinds(startFailed), ['pamReset', 'restartFailureTimer']);
+check('start/ignored-idle', ll.startFailed(locked.state).effects, []);
+
+// Unlock and relock both start clean: no stale attempt, message, arm or card.
+const dirty = {
+    ...failed.state,
+    attempts: 4,
+    powerOpen: true,
+    powerArmed: 'reboot',
+    pamMessageIsError: true
+};
+const out = ll.unlock(dirty);
+check('unlock/reset', [out.state.locked, out.state.authState, out.state.attempts, out.state.powerOpen, out.state.powerArmed], [false, 'idle', 0, false, '']);
+check('unlock/effects', kinds(out), ['pamReset', 'stopFailureTimer']);
+const relockDirty = { ...out.state, attempts: 4, powerArmed: 'reboot', powerOpen: true, pamMessage: 'x' };
+const relocked = ll.lock(relockDirty, 5000);
+check('relock/reset', [relocked.state.attempts, relocked.state.powerArmed, relocked.state.powerOpen, relocked.state.lockedAt], [0, '', false, 5000]);
+check('relock/message', relocked.state.pamMessage, '');
+check('relock/locked', relocked.state.locked, true);
+
+// The power card: toggle, arm, cancel, close.
+check('power/toggle-open', ll.togglePower(locked.state).state.powerOpen, true);
+check('power/toggle-disarms', ll.togglePower({ ...locked.state, powerArmed: 'reboot' }).state.powerArmed, '');
+check('power/toggle-close', ll.togglePower({ ...locked.state, powerOpen: true }).state.powerOpen, false);
+check('power/arm', ll.arm(locked.state, 'suspend').state.powerArmed, 'suspend');
+check('power/arm-same', ll.arm({ ...locked.state, powerArmed: 'suspend' }, 'suspend').state.powerArmed, 'suspend');
+check('power/cancel', ll.arm({ ...locked.state, powerArmed: 'suspend' }, '').state.powerArmed, '');
+check('power/close', [ll.closePower({ ...locked.state, powerOpen: true, powerArmed: 'suspend' }).state.powerOpen, ll.closePower({ ...locked.state, powerOpen: true, powerArmed: 'suspend' }).state.powerArmed], [false, '']);
+
+// Confirm runs the armed action's argv, and only inside a locked session.
+const armedLocked = { ...locked.state, powerOpen: true, powerArmed: 'reboot' };
+const confirmed = ll.confirm(armedLocked, pl.confirm({ armed: 'reboot' }));
+check('confirm/run', confirmed.effects, [{ kind: 'run', argv: pl.argv('reboot') }]);
+check('confirm/closes', confirmed.state.powerOpen, false);
+check('confirm/disarms', confirmed.state.powerArmed, '');
+check('confirm/idle', ll.confirm(armedLocked, pl.confirm({ armed: '' })).effects, []);
+check('confirm/unknown', ll.confirm({ ...armedLocked, powerArmed: 'nope' }, pl.confirm({ armed: 'nope' })).effects, []);
+check('confirm/no-resolution', ll.confirm(armedLocked, null).effects, []);
+
+// The lock card routes the digits PowerLogic gives it, and the card's drawn
+// hints are that context's own numbering.
+const lockRows = pl.rows('lock');
+check('card/ids', lockRows.map(row => row.id), ['suspend', 'reboot', 'shutdown']);
+check('card/hints', lockRows.map(row => row.hint), ['1', '2', '3']);
+const armedByKey = ll.powerKey(locked.state, pl.route('lock', '', '2'), null);
+check('card/key-arms', armedByKey.state.powerArmed, 'reboot');
+check('card/key-unknown-digit', ll.powerKey(locked.state, pl.route('lock', '', '4'), null).state.powerArmed, '');
+check('card/key-escape-disarms', ll.powerKey(armedByKey.state, pl.route('lock', armedByKey.state.powerArmed, 'Escape'), null).state.powerArmed, '');
+check('card/key-escape-closes', ll.powerKey(locked.state, pl.route('lock', '', 'Escape'), null).state.powerOpen, false);
+const keyConfirm = ll.powerKey(armedByKey.state, pl.route('lock', 'reboot', 'Return'), pl.confirm({ armed: 'reboot' }));
+check('card/key-confirms', keyConfirm.effects, [{ kind: 'run', argv: pl.argv('reboot') }]);
+check('card/key-confirm-closes', keyConfirm.state.powerOpen, false);
+
+// The dev preview runs the same transitions and never takes the session lock;
+// its adapter stubs auth, and a confirm there never runs a command.
+const typing = ll.previewPhase(IDLE, 'typing', 42);
+check('preview/typing-phase', typing.state.previewPhase, 'typing');
+check('preview/typing-auth', typing.state.authState, 'idle');
+check('preview/typing-open', typing.state.previewOpen, true);
+check('preview/typing-stamp', typing.state.lockedAt, 42);
+const checking = ll.previewPhase(IDLE, 'checking', 43);
+check('preview/checking-auth', checking.state.authState, 'checking');
+const previewFailed = ll.previewPhase(IDLE, 'failed', 44);
+check('preview/failed-state', [previewFailed.state.authState, previewFailed.state.attempts], ['failed', 3]);
+check('preview/failed-no-timer', previewFailed.effects, []);
+check('preview/failure-clears', ll.failureReset(previewFailed.state).state.authState, 'idle');
+const previewPower = ll.previewPhase(IDLE, 'power', 45);
+check('preview/power-open', previewPower.state.powerOpen, true);
+check('preview/unknown-phase', ll.previewPhase({ ...IDLE, previewPhase: 'typing' }, 'nope', 1).state.previewPhase, 'typing');
+check('preview/never-locks', [typing.state.locked, checking.state.locked, previewFailed.state.locked, previewPower.state.locked], [false, false, false, false]);
+check('preview/open', ll.previewToggle(IDLE, 9).state.previewOpen, true);
+check('preview/close', ll.previewToggle({ ...IDLE, previewOpen: true, authState: 'failed' }, 9).state.previewOpen, false);
+check('preview/submit-starts-check', ll.submit(typing.state, 'hunter2').state.authState, 'checking');
+const previewArmed = { ...previewPower.state, powerArmed: 'reboot' };
+check('preview/confirm-no-run', ll.confirm(previewArmed, pl.confirm({ armed: 'reboot' })).effects, []);
+check('preview/confirm-closes', ll.confirm(previewArmed, pl.confirm({ armed: 'reboot' })).state.powerOpen, false);
+
+// Closing the power card in the preview returns the phase to idle: the power
+// phase describes an open card, so `lock status` must not report a stale one.
+const previewClosed = ll.closePower(previewPower.state);
+check('preview/power-close-phase', previewClosed.state.previewPhase, 'idle');
+check('preview/power-close-closes', previewClosed.state.powerOpen, false);
+const previewToggledClosed = ll.togglePower(previewPower.state);
+check('preview/power-toggle-phase', previewToggledClosed.state.previewPhase, 'idle');
+check('preview/power-confirm-phase', ll.confirm(previewArmed, pl.confirm({ armed: 'reboot' })).state.previewPhase, 'idle');
+const previewCard = ll.togglePower(typing.state).state;
+check('preview/card-opens', previewCard.powerOpen, true);
+check('preview/toggle-keeps-unlocked', ll.previewToggle(previewCard, 9).state.locked, false);
+// While the real session is locked the preview is inert, so an in-flight check
+// is not reset and its completion still unlocks.
+const realChecking = ll.submit(locked.state, 'hunter2').state;
+check('preview/toggle-inert-while-locked', ll.previewToggle(realChecking, 9), { state: realChecking, effects: [] });
+check('preview/phase-inert-while-locked', ll.previewPhase(realChecking, 'failed', 9), { state: realChecking, effects: [] });
+check('preview/locked-check-still-unlocks', ll.pamCompleted(ll.previewToggle(realChecking, 9).state, true).state.locked, false);
+check('reduce/no-unauthenticated-unlock', ll.reduce(locked.state, { kind: 'unlock' }).state.locked, true);
+
+// reduce() is the one entry the service dispatches through.
+check('reduce/lock', ll.reduce(IDLE, { kind: 'lock', now: 7 }).state.lockedAt, 7);
+check('reduce/submit', ll.reduce(locked.state, { kind: 'submit', password: 'pw' }).state.authState, 'checking');
+check('reduce/unknown', ll.reduce(IDLE, { kind: 'nope' }).effects, []);
+
+// --- the selectors, unchanged ---
+const VIEW = { fieldLength: 0, authState: 'idle', powerOpen: false, msSinceLastKey: 6000, idleMs: 6000 };
+
+check('reveal/idle-hidden', ll.revealShown(VIEW), false);
+check('reveal/just-typed', ll.revealShown({ ...VIEW, msSinceLastKey: 0 }), true);
+check('reveal/before-boundary', ll.revealShown({ ...VIEW, msSinceLastKey: 5999 }), true);
+check('reveal/at-boundary', ll.revealShown({ ...VIEW, msSinceLastKey: 6000 }), false);
+check('reveal/nonempty-holds', ll.revealShown({ ...VIEW, fieldLength: 3, msSinceLastKey: 99999 }), true);
+check('reveal/negative-elapsed', ll.revealShown({ ...VIEW, msSinceLastKey: -1 }), false);
+check('reveal/checking', ll.revealShown({ ...VIEW, authState: 'checking', msSinceLastKey: 99999 }), true);
+check('reveal/failed', ll.revealShown({ ...VIEW, authState: 'failed', msSinceLastKey: 99999 }), true);
+check('reveal/power-hides-typing', ll.revealShown({ ...VIEW, powerOpen: true, fieldLength: 2, msSinceLastKey: 0 }), false);
+check('reveal/power-hides-auth', ll.revealShown({ ...VIEW, powerOpen: true, authState: 'checking' }), false);
 
 check('msg/idle-empty', ll.messageText('idle', '', false, 0), '');
 check('msg/checking', ll.messageText('checking', '', false, 0), 'Checking…');
@@ -109,28 +310,6 @@ check('msg/error-idle-error', ll.messageIsError('idle', 'bad', true), true);
 check('msg/error-empty', ll.messageIsError('idle', '', true), false);
 check('msg/error-checking', ll.messageIsError('checking', '', true), false);
 check('msg/error-failed', ll.messageIsError('failed', '', false), true);
-
-const actions = ll.powerActions(pl.table());
-check('actions/ids', actions.map(a => a.id), ['suspend', 'reboot', 'shutdown']);
-check('actions/hints', actions.map(a => a.hint), ['1', '2', '3']);
-check('actions/excludes-lock-logout-winboot',
-      actions.filter(a => a.id === 'lock' || a.id === 'logout' || a.id === 'winboot').length, 0);
-for (let i = 0; i < actions.length; i++)
-    check('actions/argv-' + actions[i].id, actions[i].argv, pl.argv(actions[i].id));
-const missing = ll.powerActions(pl.table().filter(entry => entry.id !== 'suspend'));
-check('actions/missing-keeps-hints', missing.map(a => [a.id, a.hint]), [['reboot', '2'], ['shutdown', '3']]);
-
-check('route/arm-1', ll.powerRoute(actions, '', '1'), { kind: 'arm', id: 'suspend' });
-check('route/arm-2', ll.powerRoute(actions, '', '2'), { kind: 'arm', id: 'reboot' });
-check('route/arm-3', ll.powerRoute(actions, '', '3'), { kind: 'arm', id: 'shutdown' });
-check('route/arm-out-of-range', ll.powerRoute(actions, '', '4'), { kind: 'none' });
-check('route/arm-zero', ll.powerRoute(actions, '', '0'), { kind: 'none' });
-check('route/enter-confirms', ll.powerRoute(actions, 'reboot', 'Return'), { kind: 'confirm' });
-check('route/enter-key-confirms', ll.powerRoute(actions, 'reboot', 'Enter'), { kind: 'confirm' });
-check('route/enter-idle', ll.powerRoute(actions, '', 'Return'), { kind: 'none' });
-check('route/escape-disarms', ll.powerRoute(actions, 'reboot', 'Escape'), { kind: 'disarm' });
-check('route/escape-closes', ll.powerRoute(actions, '', 'Escape'), { kind: 'close' });
-check('route/other-key', ll.powerRoute(actions, 'reboot', 'x'), { kind: 'none' });
 
 check('caps/letter-on', ll.capsLockAfterKey(false, false, true, true, false), true);
 check('caps/letter-off', ll.capsLockAfterKey(true, false, true, false, false), false);

@@ -42,29 +42,8 @@ services/CoalescedRun.qml BND-1 property var -- use a typed property (int, strin
 services/CoalescedRun.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
-services/HyprlandFocus.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
-services/LockService.qml BND-2 Imperative '=' on 'root.attempts' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.attempts' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.attempts' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.authState' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
+services/LockService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/LockService.qml BND-2 Imperative '=' on 'root.locked' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.locked' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.powerOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.previewOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.previewOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.previewOpen' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.previewPhase' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.previewPhase' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
-services/LockService.qml BND-2 Imperative '=' on 'root.previewPhase' destroys its binding -- use Qt.binding() to restore, or verify this is intentional
 services/MonitorService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/MonitorService.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety
 services/MprisPlayers.qml BND-1 property var -- use a typed property (int, string, etc.) for qmlsc compilation and type safety

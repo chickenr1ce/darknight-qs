@@ -589,9 +589,9 @@ runs the gate; bypass a single commit with `--no-verify`.
 Pure logic (parsing, formatting, ordering, clamping) lives in a `.pragma library`
 JS file beside its service: `services/WeatherLogic.js`, `SpotifyLogic.js`,
 `MprisLogic.js`, `MonitorLogic.js`, `SystemLogic.js`, `AudioLogic.js`,
-`SettingsLogic.js`, `CalendarLogic.js`, `PowerLogic.js`, `CoalescedRunLogic.js`,
-`AppLogic.js`, plus the shared `services/StateParsers.js` and
-`services/ThemeParsers.js`. The QML service
+`SettingsLogic.js`, `CalendarLogic.js`, `PowerLogic.js`, `LockLogic.js`,
+`CoalescedRunLogic.js`, `AppLogic.js`, plus the shared
+`services/StateParsers.js` and `services/ThemeParsers.js`. The QML service
 imports it and keeps its public functions as one-line delegates; a binding that
 reads service state passes that state in as an argument so it stays reactive.
 The delegates stay because they are the service's interface, not to satisfy a

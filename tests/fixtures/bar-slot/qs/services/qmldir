@@ -1,0 +1,3 @@
+module qs.services
+singleton BarLayoutService 1.0 BarLayoutService.qml
+singleton TrayMenuService 1.0 TrayMenuService.qml

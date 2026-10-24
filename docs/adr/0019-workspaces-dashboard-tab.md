@@ -60,7 +60,8 @@ workspace maps per enabled monitor, built from `windows/DashboardWorkspacesView.
   the same way through `AppService.iconForClass`, with the letter tile as
   fallback. `Copy window class` still copies the class itself.
 - **Mouse map.** Left press on a map switches to that workspace
-  (`hl.dsp.focus({ workspace = N })`, the call `modules/Workspaces.qml` uses) and
+  (`hl.dsp.focus({ workspace = N })`, built by
+  `services/HyprlandDispatchLogic.js` for `modules/Workspaces.qml`) and
   the dashboard stays open, so the `current` border shows the switch land. It
   fires on press, not release: the background has no drag to wait for. Left click
   on a window switches to its workspace the same way, without focusing the

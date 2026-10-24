@@ -92,7 +92,7 @@ grep -q 'panelSettleMs' "$ROOT/config/Globals.qml" \
 # qmllint resolves same-directory siblings, the runtime does not when the
 # directory is a qmldir module: every service file that names a sibling
 # type must import qs.services, and every sibling component must be in qmldir.
-for svc in CalendarService NotificationServer CavaService Panels PowerService SettingsService BarVisibilityService HyprlandFocus; do
+for svc in CalendarService NotificationServer CavaService Panels PowerService SettingsService BarVisibilityService HyprlandFocus PanelGrab; do
     grep -q '^import qs.services' "$ROOT/services/$svc.qml" \
         || fail "$svc.qml is missing its qs.services self-import"
 done
@@ -100,6 +100,173 @@ grep -q '^PanelState 1.0 PanelState.qml' "$ROOT/services/qmldir" \
     || fail "PanelState is not registered in services/qmldir"
 grep -q '^singleton PowerService 1.0 PowerService.qml' "$ROOT/services/qmldir" \
     || fail "PowerService is not registered in services/qmldir"
+
+# --- 3c. one owner of the Hyprland Lua IPC payloads ---
+# Hyprland >= 0.56 evaluates IPC as Lua. Every payload is a Lua string, the
+# window-address rule, the escaper, and the cursorpos parse live in
+# services/HyprlandDispatchLogic.js, and only services/HyprlandDispatch.qml
+# calls the live dispatcher. A comment naming the API is not a payload.
+DLOGIC="$ROOT/services/HyprlandDispatchLogic.js"
+DISPATCH="$ROOT/services/HyprlandDispatch.qml"
+test -f "$DLOGIC" \
+    || fail "services/HyprlandDispatchLogic.js is missing"
+grep -q '^\.pragma library' "$DLOGIC" \
+    || fail "HyprlandDispatchLogic.js is not a .pragma library"
+test -f "$DISPATCH" \
+    || fail "services/HyprlandDispatch.qml is missing"
+grep -q '^singleton HyprlandDispatch 1.0 HyprlandDispatch.qml' "$ROOT/services/qmldir" \
+    || fail "HyprlandDispatch is not registered in services/qmldir"
+RAW_PAYLOAD="$(grep -rn 'hl\.dsp\|Hyprland\.dispatch' \
+    --include='*.qml' --include='*.js' "$ROOT/modules" "$ROOT/windows" "$ROOT/services" \
+    "$ROOT/components" "$ROOT/config" "$ROOT/dev" \
+    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
+    | grep -v "services/HyprlandDispatchLogic.js:" \
+    | grep -v "services/HyprlandDispatch.qml:" || true)"
+test -z "$RAW_PAYLOAD" \
+    || fail "a raw Lua IPC payload or live Hyprland.dispatch outside the dispatch module: $RAW_PAYLOAD"
+
+# The module's payloads run for real under node: exact strings for every
+# builder, the one selector rule, the escaper, integer validation, the cursorpos
+# parse, and the recording seam.
+node - "$ROOT/tests/qmljs.js" "$DLOGIC" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const hd = qmljs.load(process.argv[3]);
+
+// selector: one 0x rule for every caller. A prefix is optional, the hex is
+// lowercased, and anything that is not a hex address is rejected so it cannot
+// reach the Lua source.
+check('selector/plain', hd.selector('a1b2c3d4'), '0xa1b2c3d4');
+check('selector/prefixed', hd.selector('0xa1b2c3d4'), '0xa1b2c3d4');
+check('selector/uppercase', hd.selector('0xA1B2C3D4'), '0xa1b2c3d4');
+check('selector/uppercase-plain', hd.selector('A1B2'), '0xa1b2');
+check('selector/empty', hd.selector(''), '');
+check('selector/prefix-only', hd.selector('0x'), '');
+check('selector/null', hd.selector(null), '');
+check('selector/undefined', hd.selector(undefined), '');
+check('selector/bad-quote', hd.selector('a1b2"c3'), '');
+check('selector/backslash', hd.selector('a1b2\\c3'), '');
+check('selector/non-hex', hd.selector('kitty'), '');
+check('selector/spaces', hd.selector(' a1b2 '), '');
+
+// focusWorkspace: an integer id, and no payload for anything else.
+check('focus-workspace/one', hd.focusWorkspace(1), 'hl.dsp.focus({ workspace = 1 })');
+check('focus-workspace/ten', hd.focusWorkspace(10), 'hl.dsp.focus({ workspace = 10 })');
+check('focus-workspace/numeric-text', hd.focusWorkspace('7'), 'hl.dsp.focus({ workspace = 7 })');
+check('focus-workspace/zero', hd.focusWorkspace(0), '');
+check('focus-workspace/negative', hd.focusWorkspace(-3), '');
+check('focus-workspace/nan', hd.focusWorkspace(NaN), '');
+check('focus-workspace/infinity', hd.focusWorkspace(Infinity), '');
+check('focus-workspace/float', hd.focusWorkspace(3.7), '');
+check('focus-workspace/text', hd.focusWorkspace('abc'), '');
+check('focus-workspace/null', hd.focusWorkspace(null), '');
+check('focus-workspace/boolean', hd.focusWorkspace(true), '');
+check('focus-workspace/injection', hd.focusWorkspace('1 }); hl.dsp.exit(); ({'), '');
+
+// focusWindow: the address rule, then the payload.
+check('focus-window/plain', hd.focusWindow('a1b2'), 'hl.dsp.focus({ window = "address:0xa1b2" })');
+check('focus-window/prefixed', hd.focusWindow('0xA1B2'), 'hl.dsp.focus({ window = "address:0xa1b2" })');
+check('focus-window/empty', hd.focusWindow(''), '');
+check('focus-window/bad', hd.focusWindow('a1"b2'), '');
+
+// moveWindowToWorkspace: the confirmed unfocused-window call, follow explicit.
+check('move-window/no-follow',
+      hd.moveWindowToWorkspace('0xa1b2', 9, false),
+      'hl.dsp.window.move({ workspace = 9, follow = false, window = "address:0xa1b2" })');
+check('move-window/follow',
+      hd.moveWindowToWorkspace('a1b2', 9, true),
+      'hl.dsp.window.move({ workspace = 9, follow = true, window = "address:0xa1b2" })');
+check('move-window/default-no-follow',
+      hd.moveWindowToWorkspace('a1b2', 9),
+      'hl.dsp.window.move({ workspace = 9, follow = false, window = "address:0xa1b2" })');
+check('move-window/bad-address', hd.moveWindowToWorkspace('', 9, false), '');
+check('move-window/bad-workspace', hd.moveWindowToWorkspace('a1b2', 0, false), '');
+
+// toggleFloating / toggleFullscreen: the confirmed by-address calls; a mode
+// other than maximized falls back to the fullscreen mode.
+check('toggle-floating', hd.toggleFloating('0xa1b2'),
+      'hl.dsp.window.float({ action = "toggle", window = "address:0xa1b2" })');
+check('toggle-floating/bad', hd.toggleFloating('0x'), '');
+check('toggle-fullscreen',
+      hd.toggleFullscreen('0xa1b2', 'fullscreen'),
+      'hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", window = "address:0xa1b2" })');
+check('toggle-fullscreen/default',
+      hd.toggleFullscreen('0xa1b2'),
+      'hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", window = "address:0xa1b2" })');
+check('toggle-fullscreen/maximized',
+      hd.toggleFullscreen('0xa1b2', 'maximized'),
+      'hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle", window = "address:0xa1b2" })');
+check('toggle-fullscreen/bad-mode',
+      hd.toggleFullscreen('0xa1b2', 'fullscreen" }); hl.dsp.exit(); ({'),
+      'hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", window = "address:0xa1b2" })');
+check('toggle-fullscreen/bad-address', hd.toggleFullscreen('nope', 'fullscreen'), '');
+
+// execOnWorkspace: the shell command as one escaped Lua string.
+check('exec/plain', hd.execOnWorkspace('kitty', 3),
+      'hl.dsp.exec_cmd("kitty", { workspace = 3 })');
+check('exec/quote', hd.execOnWorkspace('notify-send "hi"', 3),
+      'hl.dsp.exec_cmd("notify-send \\"hi\\"", { workspace = 3 })');
+check('exec/backslash', hd.execOnWorkspace('wine C:\\a\\b', 3),
+      'hl.dsp.exec_cmd("wine C:\\\\a\\\\b", { workspace = 3 })');
+check('exec/newline', hd.execOnWorkspace('a\nb', 3),
+      'hl.dsp.exec_cmd("a\\nb", { workspace = 3 })');
+check('exec/cr', hd.execOnWorkspace('a\rb', 3),
+      'hl.dsp.exec_cmd("a\\rb", { workspace = 3 })');
+check('exec/nul', hd.execOnWorkspace('a\0b', 3),
+      'hl.dsp.exec_cmd("a\\0b", { workspace = 3 })');
+check('exec/empty', hd.execOnWorkspace('', 3), '');
+check('exec/null', hd.execOnWorkspace(null, 3), '');
+check('exec/bad-workspace', hd.execOnWorkspace('kitty', 0), '');
+
+// escapeLua: quotes, backslashes, newlines, CR, NUL, and an empty value.
+check('lua/quote', hd.escapeLua('DP"1'), 'DP\\"1');
+check('lua/backslash', hd.escapeLua('a\\b'), 'a\\\\b');
+check('lua/newline', hd.escapeLua('a\nb'), 'a\\nb');
+check('lua/cr', hd.escapeLua('a\rb'), 'a\\rb');
+check('lua/nul', hd.escapeLua('a\0b'), 'a\\0b');
+check('lua/empty', hd.escapeLua(''), '');
+check('lua/null', hd.escapeLua(null), '');
+
+// moveCursor: whole-number coordinates, negative included, so a monitor left of
+// the origin restores too.
+check('cursor/plain', hd.moveCursor(123, 456), 'hl.dsp.cursor.move({ x = 123, y = 456 })');
+check('cursor/negative', hd.moveCursor(-5, -6), 'hl.dsp.cursor.move({ x = -5, y = -6 })');
+check('cursor/zero', hd.moveCursor(0, 0), 'hl.dsp.cursor.move({ x = 0, y = 0 })');
+check('cursor/numeric-text', hd.moveCursor('12', '34'), 'hl.dsp.cursor.move({ x = 12, y = 34 })');
+check('cursor/float', hd.moveCursor(12.5, 34), '');
+check('cursor/nan', hd.moveCursor(NaN, 34), '');
+check('cursor/text', hd.moveCursor('12', 'y'), '');
+check('cursor/null', hd.moveCursor(null, 34), '');
+
+// parseCursorPos: both hyprctl spacings, a trimmed line, and nothing for
+// garbage, so the caller keeps the cursor where it is.
+check('cursorpos/spaced', hd.parseCursorPos('123, 456'), { x: 123, y: 456 });
+check('cursorpos/tight', hd.parseCursorPos('123,456'), { x: 123, y: 456 });
+check('cursorpos/newline', hd.parseCursorPos('123, 456\n'), { x: 123, y: 456 });
+check('cursorpos/padded', hd.parseCursorPos('  12 , 34  '), { x: 12, y: 34 });
+check('cursorpos/negative', hd.parseCursorPos('-5, -6'), { x: -5, y: -6 });
+check('cursorpos/garbage', hd.parseCursorPos('nope'), null);
+check('cursorpos/empty', hd.parseCursorPos(''), null);
+check('cursorpos/null', hd.parseCursorPos(null), null);
+check('cursorpos/one-number', hd.parseCursorPos('123'), null);
+check('cursorpos/trailing-text', hd.parseCursorPos('123, 456 nope'), null);
+check('cursorpos/leading-text', hd.parseCursorPos('at 123, 456'), null);
+check('cursorpos/float', hd.parseCursorPos('12.5, 34'), null);
+
+// deliver: the recording seam. A valid payload reaches the adapter verbatim, an
+// empty one reaches neither path, and without an adapter it falls to the live
+// dispatcher.
+const recorded = [];
+check('deliver/recorded', hd.deliver('hl.dsp.focus({ workspace = 3 })', text => recorded.push(text)), true);
+check('deliver/recorded-text', recorded, ['hl.dsp.focus({ workspace = 3 })']);
+check('deliver/empty', hd.deliver('', text => recorded.push(text)), false);
+check('deliver/empty-recorded', recorded.length, 1);
+const live = [];
+check('deliver/live', hd.deliver('hl.dsp.focus({ workspace = 4 })', null, text => live.push(text)), true);
+check('deliver/live-text', live, ['hl.dsp.focus({ workspace = 4 })']);
+check('deliver/no-sink', hd.deliver('hl.dsp.focus({ workspace = 5 })', null, null), false);
+check('deliver/non-string', hd.deliver(7, text => recorded.push(text)), false);
+NODEEOF
 
 # --- 4. single invoke path for notification actions ---
 for pill in components/NotificationToast.qml components/NotificationRow.qml; do
@@ -247,10 +414,11 @@ EOF
 # orderMonitors and firstWorkspaceFor give the primary the first block; modeFor,
 # positionFor and scaleFor rebuild a disabled output's geometry; setEnabledSpec
 # returns no spec for a no-op, a last display or an unknown output.
-node - "$ROOT/tests/qmljs.js" "$ROOT/services/MonitorLogic.js" <<'NODEEOF'
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/MonitorLogic.js" "$ROOT/services/HyprlandDispatchLogic.js" <<'NODEEOF'
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('panel-logic');
 const ml = qmljs.load(process.argv[3]);
+const hd = qmljs.load(process.argv[4]);
 
 check('settings/primary-kept', ml.parseMonitorSettings('{"primary":"HDMI-A-1"}', 5).primary, 'HDMI-A-1');
 check('settings/primary-nonstring', ml.parseMonitorSettings('{"primary":7}', 5).primary, null);
@@ -306,15 +474,15 @@ check('display/mode-no-geometry', ml.modeFor(NODATA), 'preferred');
 check('display/position', ml.positionFor(OFF[1]), '2560x100');
 check('display/position-missing', ml.positionFor(NODATA), 'auto');
 check('display/scale-fallback', ml.scaleFor(NODATA), 1);
-check('display/escape', ml.escapeLua('DP"1'), 'DP\\"1');
-check('display/disable-spec', ml.setEnabledSpec(ml.escapeLua('DP-1'), norm(TWO[0]), false, true),
+check('display/escape', hd.escapeLua('DP"1'), 'DP\\"1');
+check('display/disable-spec', ml.setEnabledSpec(hd.escapeLua('DP-1'), norm(TWO[0]), false, true),
       'hl.monitor({ output = "DP-1", disabled = true })');
-check('display/enable-spec', ml.setEnabledSpec(ml.escapeLua('DP-2'), norm(OFF[1]), true, true),
+check('display/enable-spec', ml.setEnabledSpec(hd.escapeLua('DP-2'), norm(OFF[1]), true, true),
       'hl.monitor({ output = "DP-2", disabled = false, mode = "1920x1080@165", position = "2560x100", scale = 1 })');
-check('display/refuse-last', ml.setEnabledSpec(ml.escapeLua('DP-1'), norm(ONE[0]), false, false), null);
-check('display/refuse-noop-off', ml.setEnabledSpec(ml.escapeLua('DP-2'), norm(OFF[1]), false, true), null);
-check('display/refuse-noop-on', ml.setEnabledSpec(ml.escapeLua('DP-1'), norm(TWO[0]), true, true), null);
-check('display/refuse-unknown', ml.setEnabledSpec(ml.escapeLua('HDMI-A-1'), null, true, true), null);
+check('display/refuse-last', ml.setEnabledSpec(hd.escapeLua('DP-1'), norm(ONE[0]), false, false), null);
+check('display/refuse-noop-off', ml.setEnabledSpec(hd.escapeLua('DP-2'), norm(OFF[1]), false, true), null);
+check('display/refuse-noop-on', ml.setEnabledSpec(hd.escapeLua('DP-1'), norm(TWO[0]), true, true), null);
+check('display/refuse-unknown', ml.setEnabledSpec(hd.escapeLua('HDMI-A-1'), null, true, true), null);
 
 check('screen/focused', ml.pickScreenName('DP-2', 'DP-1', ['DP-1', 'DP-2']), 'DP-2');
 check('screen/no-focus-primary', ml.pickScreenName('', 'DP-2', ['DP-1', 'DP-2']), 'DP-2');
@@ -328,10 +496,12 @@ NODEEOF
 # The power menu is the most destructive path, so its rules live in
 # services/PowerLogic.js and run through tests/qmljs.js. The argv is data the
 # test inspects; nothing here starts a process.
-node - "$ROOT/tests/qmljs.js" "$ROOT/services/PowerLogic.js" <<'NODEEOF'
+node - "$ROOT/tests/qmljs.js" "$ROOT/services/PowerLogic.js" "$ROOT/config/Icons.qml" <<'NODEEOF'
+const fs = require('fs');
 const qmljs = require(process.argv[2]);
 const check = qmljs.checker('panel-logic');
 const pl = qmljs.load(process.argv[3]);
+const icons = fs.readFileSync(process.argv[4], 'utf8');
 
 const IDS = ['lock', 'suspend', 'logout', 'reboot', 'shutdown', 'winboot'];
 const DANGEROUS = { lock: false, suspend: false, logout: false, reboot: true, shutdown: true, winboot: true };
@@ -409,22 +579,76 @@ for (let i = 0; i < IDS.length; i++) {
 }
 check('power/label-unknown', pl.label('nope'), '');
 check('power/dangerous-unknown', pl.dangerous('nope'), false);
+
+// Rows: each card's context draws its own hints, in its own order, with the
+// argv and glyph key from the one table. The lock card is the ADR 0022 subset
+// renumbered from its row position.
+const BAR = pl.rows('bar');
+const LOCK = pl.rows('lock');
+check('rows/bar-ids', BAR.map(row => row.id), IDS);
+check('rows/bar-hints', BAR.map(row => row.hint), ['1', '2', '3', '4', '5', '6']);
+check('rows/bar-argv', BAR.map(row => row.argv), IDS.map(id => ARGV[id]));
+check('rows/lock-ids', LOCK.map(row => row.id), ['suspend', 'reboot', 'shutdown']);
+check('rows/lock-hints', LOCK.map(row => row.hint), ['1', '2', '3']);
+check('rows/lock-argv', LOCK.map(row => row.argv), ['suspend', 'reboot', 'shutdown'].map(id => ARGV[id]));
+check('rows/lock-subset', LOCK.filter(row => ['lock', 'logout', 'winboot'].indexOf(row.id) !== -1).length, 0);
+check('rows/unknown-context', pl.rows('nope'), []);
+check('rows/every-row-has-glyph', BAR.filter(row => row.glyph === '').concat(LOCK.filter(row => row.glyph === '')).length, 0);
+// A glyph is an Icons.qml property name, so a new action without one fails here
+// instead of drawing an empty box (the seventh-action bug).
+const GLYPHS = Array.from(new Set(BAR.map(row => row.glyph).concat(LOCK.map(row => row.glyph))));
+for (let i = 0; i < GLYPHS.length; i++)
+    check('rows/glyph-' + GLYPHS[i], new RegExp('property string ' + GLYPHS[i] + ':').test(icons), true);
+
+// Every drawn hint routes to its own row in both contexts, so the drawn key and
+// the routed key cannot drift.
+for (const context of ['bar', 'lock']) {
+    const rows = pl.rows(context);
+    for (let i = 0; i < rows.length; i++)
+        check('rows/' + context + '-hint-' + rows[i].hint, pl.route(context, '', rows[i].hint), { kind: 'arm', id: rows[i].id });
+}
+check('rows/lock-hides-bar-only', pl.route('lock', '', '4'), { kind: 'none' });
+check('rows/bar-sixth', pl.route('bar', '', '6'), { kind: 'arm', id: 'winboot' });
+check('route/unknown-context', pl.route('nope', '', '1'), { kind: 'none' });
+check('route/unknown-armed-confirm', pl.route('bar', 'nope', 'Return'), { kind: 'confirm' });
+check('route/idle-confirm', pl.route('bar', '', 'Enter'), { kind: 'none' });
+check('route/escape', pl.route('bar', 'reboot', 'Escape'), { kind: 'disarm' });
+
+// The card strings live here too, and an unknown id never throws.
+check('header/both', pl.header('box', '2 hours'), 'box · up 2 hours');
+check('header/host-only', pl.header('box', ''), 'box');
+check('header/up-only', pl.header('', '2 hours'), '2 hours');
+check('header/empty', pl.header('', ''), '');
+check('header/undefined', pl.header(undefined, undefined), '');
+check('question/idle', pl.question(''), 'Pick an action.');
+check('question/armed', pl.question('reboot'), 'Reboot? Confirm to run.');
+check('question/unknown', pl.question('nope'), '? Confirm to run.');
+check('keys/confirm', pl.confirmKeys(), ['Return', 'Enter']);
 NODEEOF
 
 # The rules live in PowerLogic; PowerService only delegates through a relative
-# self-import and keeps no action argv of its own, and the panel view keeps its
-# eight keyboard shortcuts.
+# self-import and keeps no action argv of its own. PowerCenter's shortcut wiring
+# is driven offscreen by tests/power-keys.qml below.
 PSVC="$ROOT/services/PowerService.qml"
 PCENTER="$ROOT/windows/PowerCenter.qml"
+LSURFACE="$ROOT/windows/LockSurface.qml"
 grep -q 'import "PowerLogic.js" as PowerLogic' "$PSVC" \
     || fail "PowerService does not delegate to PowerLogic"
 if grep -q 'systemctl reboot\|systemctl poweroff\|hyprlock\|efibootmgr' "$PSVC"; then
     fail "PowerService still carries the action argv; the table lives in PowerLogic"
 fi
-for key in '"1"' '"2"' '"3"' '"4"' '"5"' '"6"' '"Return"' '"Enter"'; do
-    grep -q "sequence: $key" "$PCENTER" \
-        || fail "PowerCenter misses keyboard sequence $key"
-done
+if grep -qE 'hint: "[0-9]"' "$PCENTER" "$LSURFACE"; then
+    fail "a power card draws a literal hint; PowerLogic.rows numbers the rows"
+fi
+grep -q 'PowerLogic.header' "$PSVC" || fail "PowerService does not take its header from PowerLogic"
+grep -q 'PowerLogic.question' "$PSVC" "$ROOT/services/LockService.qml" \
+    || fail "a power card copies the confirm question; PowerLogic.question owns it"
+if grep -qF 'Confirm to run' "$PCENTER" "$LSURFACE"; then
+    fail "a power card copies the confirm question string"
+fi
+if grep -qF 'up %2' "$PCENTER" "$LSURFACE"; then
+    fail "a power card copies the host header string"
+fi
 # Monochrome is deliberate: no red color anywhere in the panel or its
 # service (the `dangerous` model flag is data for label plus confirm only).
 if grep -qnE 'Colors\.(danger|red)|#ff5252' "$PCENTER" "$PSVC"; then
@@ -435,6 +659,29 @@ grep -q 'onVisibleChanged: root.armedAction = ""' "$PSVC" \
     || fail "PowerService does not clear the armed action when the panel hides"
 grep -q 'idPanelState.visible = false' "$PSVC" \
     || fail "the power run path does not hide the panel"
+
+# The bar card's shortcuts route the keys it draws. tests/power-keys.qml drives
+# the real components/PowerKeys.qml with a recorder PowerService whose routing is
+# the shipped PowerLogic.route: every drawn hint must arm its row, Return/Enter
+# must confirm, and Escape must disarm then close.
+QMLTESTRUNNER="${QMLTESTRUNNER:-/usr/lib/qt6/bin/qmltestrunner}"
+POWER_KEYS_TEST="$ROOT/tests/power-keys.qml"
+POWER_KEYS_FIXTURES="$ROOT/tests/fixtures/power-keys"
+test -f "$POWER_KEYS_TEST" \
+    || fail "tests/power-keys.qml is missing"
+if [ ! -x "$QMLTESTRUNNER" ]; then
+    echo "panel-logic: qmltestrunner not found, skipping the offscreen power-key test" >&2
+else
+    POWER_KEYS_OUT="$(mktemp)"
+    if env -u QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 \
+        "$QMLTESTRUNNER" -import "$POWER_KEYS_FIXTURES" -input "$POWER_KEYS_TEST" >"$POWER_KEYS_OUT" 2>&1; then
+        rm -f "$POWER_KEYS_OUT"
+    else
+        cat "$POWER_KEYS_OUT" >&2
+        rm -f "$POWER_KEYS_OUT"
+        fail "the offscreen power-key test failed"
+    fi
+fi
 
 # --- 8. dashboard shell: standalone visibility outside the exclusive registry ---
 DSVC="$ROOT/services/DashboardService.qml"
@@ -1181,6 +1428,87 @@ for file in windows/CavaCenter.qml windows/CalendarCenter.qml windows/Notificati
         fail "$file still binds a service visibility alias"
     fi
 done
+
+# --- 13b. panel keyboard handback and Escape policy: one tested module ---
+# PanelShell used to spread the policy over five handlers, with three live bugs
+# recorded only in its comments (pointer-lock rearm through the closing slide,
+# dead mouse-look after the handback, gamescope/CS2 replaying a held Escape).
+# The rules live in components/PanelKeyboardLogic.js and run for real under
+# node below; PanelShell keeps the window, the Shortcut, and the two
+# properties, and each handler applies the module's result.
+KLOGIC="$ROOT/components/PanelKeyboardLogic.js"
+test -f "$KLOGIC" \
+    || fail "components/PanelKeyboardLogic.js is missing"
+grep -q 'import "PanelKeyboardLogic.js" as PanelKeyboardLogic' "$PSHELL" \
+    || fail "PanelShell does not delegate to PanelKeyboardLogic"
+node - "$ROOT/tests/qmljs.js" "$KLOGIC" <<'NODEEOF'
+const qmljs = require(process.argv[2]);
+const check = qmljs.checker('panel-logic');
+const kb = qmljs.load(process.argv[3]);
+
+const idle = () => ({ keyboardTaken: false, escapeArmed: false });
+
+// focusMode: hidden asks for nothing; a mapped panel is exclusive until it
+// first takes the keyboard; the closing slide stays on-demand until unmapped.
+check('keyboard/hidden-none', kb.focusMode(false, false, false), 'none');
+check('keyboard/hidden-none-latched', kb.focusMode(false, true, true), 'none');
+check('keyboard/open-exclusive', kb.focusMode(true, true, false), 'exclusive');
+check('keyboard/open-taken-on-demand', kb.focusMode(true, true, true), 'onDemand');
+check('keyboard/closing-on-demand', kb.focusMode(true, false, false), 'onDemand');
+check('keyboard/closing-on-demand-latched', kb.focusMode(true, false, true), 'onDemand');
+
+// First open: no latch, and active only after the window is active.
+check('keyboard/open-resets', kb.panelVisibleChanged(true, false).state, idle());
+check('keyboard/open-no-close', kb.panelVisibleChanged(true, false).close, false);
+const firstActive = kb.windowActiveChanged(idle(), true, true);
+check('keyboard/active-latches', firstActive.state.keyboardTaken, true);
+check('keyboard/active-arm-stays-clear', firstActive.state.escapeArmed, false);
+check('keyboard/active-no-close', firstActive.close, false);
+
+// Reopen mid-slide rebuilds the latch from the window state and drops the arm.
+const reopened = kb.panelVisibleChanged(true, true);
+check('keyboard/reopen-mid-slide-latches', reopened.state.keyboardTaken, true);
+check('keyboard/reopen-mid-slide-clears-arm', reopened.state.escapeArmed, false);
+
+// A visibility change clears both properties, so the closed shell is inert.
+check('keyboard/close-resets', kb.panelVisibleChanged(false, true).state, idle());
+
+// Escape: the press arms only; the release closes and accepts the key.
+const armed = kb.escapePressed(idle());
+check('keyboard/press-arms', armed.state.escapeArmed, true);
+check('keyboard/press-keeps-latch', armed.state.keyboardTaken, false);
+check('keyboard/press-no-close', armed.close, false);
+const released = kb.keyReleased(armed.state, true, false);
+check('keyboard/release-closes', released.close, true);
+check('keyboard/release-accepted', released.accepted, true);
+
+// An autorepeat release is ignored, state and acceptance untouched.
+const repeat = kb.keyReleased(armed.state, true, true);
+check('keyboard/autorepeat-no-close', repeat.close, false);
+check('keyboard/autorepeat-not-accepted', repeat.accepted, undefined);
+check('keyboard/autorepeat-state', repeat.state, armed.state);
+
+// A release with nothing armed closes nothing and claims nothing.
+const stray = kb.keyReleased(idle(), true, false);
+check('keyboard/unarmed-release-no-close', stray.close, false);
+check('keyboard/unarmed-release-not-accepted', stray.accepted, undefined);
+check('keyboard/other-key-no-close', kb.keyReleased(armed.state, false, false).close, false);
+check('keyboard/other-key-not-accepted', kb.keyReleased(armed.state, false, false).accepted, undefined);
+
+// Focus lost while armed closes; without the arm it leaves the panel alone.
+const lostArmed = kb.windowActiveChanged(armed.state, false, true);
+check('keyboard/focus-lost-armed-closes', lostArmed.close, true);
+check('keyboard/focus-lost-armed-keeps-arm', lostArmed.state.escapeArmed, true);
+const lostIdle = kb.windowActiveChanged(idle(), false, true);
+check('keyboard/focus-lost-idle-no-close', lostIdle.close, false);
+check('keyboard/focus-lost-idle-state', lostIdle.state, idle());
+
+// The latch survives a later focus loss, so no second Exclusive grab; a gain
+// through the closing slide does not latch.
+const latched = kb.windowActiveChanged(idle(), true, true).state;
+check('keyboard/latch-survives-loss', kb.windowActiveChanged(latched, false, true).state.keyboardTaken, true);
+check('keyboard/gain-while-closing', kb.windowActiveChanged(idle(), true, false).state.keyboardTaken, false);
+NODEEOF
 
 # --- 14. theme service: palette model plus guarded colors.toml read ---
 # ThemeService answers "what is the palette right now" only. The palette is

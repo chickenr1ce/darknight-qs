@@ -28,8 +28,8 @@ Item {
 
     readonly property MprisPlayer player: MprisPlayers.activePlayer
     readonly property bool playing: root.player !== null && root.player.playbackState === MprisPlaybackState.Playing
-    readonly property string authState: root.preview ? LockService.previewPhase : LockService.authState
-    readonly property bool powerOpen: root.preview ? LockService.previewPhase === "power" : LockService.powerOpen
+    readonly property string authState: LockService.authState
+    readonly property bool powerOpen: LockService.powerOpen
     readonly property bool checking: root.authState === "checking"
     readonly property bool failed: root.authState === "failed"
     readonly property string messageText: LockService.messageText(root.authState, LockService.pamMessage, LockService.pamMessageIsError, LockService.attempts)
@@ -37,23 +37,6 @@ Item {
     readonly property string lockedSince: LockService.lockedAt > 0 ? Qt.formatDateTime(new Date(LockService.lockedAt), "HH:mm") : ""
     readonly property string volumeGlyph: AudioService.defaultSink ? AudioService.volumeGlyph(AudioService.defaultSink.audio) : Icons.volumeOff
     readonly property string volumeText: AudioService.defaultSink && AudioService.defaultSink.audio ? AudioService.percentText(AudioService.defaultSink.audio.volume) + "%" : ""
-    readonly property string armedLabel: {
-        const actions = LockService.powerActions;
-        for (let i = 0; i < actions.length; i++) {
-            if (actions[i].id === LockService.powerArmed)
-                return actions[i].label;
-        }
-        return "";
-    }
-    readonly property string powerHeaderSub: {
-        const host = PowerService.hostName;
-        const up = PowerService.uptime;
-        if (!(host === "") && !(up === ""))
-            return qsTr("%1 · up %2").arg(host).arg(up);
-        if (!(host === ""))
-            return host;
-        return up;
-    }
     readonly property bool revealShown: LockService.revealShown({
         fieldLength: idLockField.text.length,
         authState: root.authState,
@@ -93,8 +76,7 @@ Item {
     function noteInput(): void {
         root.lastKeyAt = Date.now();
         root.tick += 1;
-        if (!root.preview)
-            LockService.clearFailure();
+        LockService.clearFailure();
     }
 
     function noteKeyState(event): void {
@@ -105,47 +87,20 @@ Item {
         root.capsLock = LockService.capsLockAfterKey(root.capsLock, event.key === Qt.Key_CapsLock, isLetter, upper, shift);
     }
 
-    function togglePower(): void {
-        if (root.preview) {
-            LockService.showPreviewPhase(root.powerOpen ? "idle" : "power");
-            return;
-        }
-        LockService.togglePowerCard();
-    }
-
-    function closePowerAction(): void {
-        if (root.preview) {
-            LockService.showPreviewPhase("idle");
-            return;
-        }
-        LockService.closePower();
-    }
-
-    function cancelPowerAction(): void {
-        LockService.cancelPower();
-    }
-
-    function confirmPowerAction(): void {
-        LockService.confirmPower();
-        if (root.preview)
-            LockService.showPreviewPhase("idle");
-    }
-
     function submit(): void {
-        if (root.powerOpen || root.checking || idLockField.text === "")
-            return;
         const password = idLockField.text;
+        if (!LockService.canSubmit(password))
+            return;
         idLockField.text = "";
         root.noteInput();
-        if (!root.preview)
-            LockService.submit(password);
+        LockService.submit(password);
     }
 
     function handleTextKey(event): void {
         root.noteKeyState(event);
         root.noteInput();
         if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_P) {
-            root.togglePower();
+            LockService.togglePowerCard();
             event.accepted = true;
             return;
         }
@@ -158,7 +113,7 @@ Item {
     function handleKey(event): void {
         if (!root.powerOpen) {
             if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_P) {
-                root.togglePower();
+                LockService.togglePowerCard();
                 event.accepted = true;
             } else if (event.key === Qt.Key_Escape) {
                 idLockField.text = "";
@@ -167,7 +122,7 @@ Item {
             return;
         }
         if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_P) {
-            root.togglePower();
+            LockService.togglePowerCard();
             event.accepted = true;
             return;
         }
@@ -176,9 +131,8 @@ Item {
             key = "Escape";
         else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
             key = "Return";
-        const kind = key === "" ? "none" : LockService.powerKey(key);
-        if (root.preview && (kind === "close" || kind === "confirm"))
-            LockService.showPreviewPhase("idle");
+        if (key !== "")
+            LockService.powerKey(key);
         event.accepted = true;
     }
 
@@ -239,7 +193,7 @@ Item {
             if (root.powerOpen && inCard)
                 return;
             if (root.powerOpen)
-                root.closePowerAction();
+                LockService.closePower();
             else
                 root.focusField();
         }
@@ -402,7 +356,7 @@ Item {
                 icon: Icons.power
                 iconSize: root.px(Globals.fontPixelSize)
                 accessibleName: qsTr("Power")
-                onClicked: root.togglePower()
+                onClicked: LockService.togglePowerCard()
             }
         }
     }
@@ -1029,7 +983,7 @@ Item {
 
                 textFormat: Text.PlainText
                 elide: Text.ElideRight
-                text: root.powerHeaderSub
+                text: PowerService.headerSub
                 color: Colors.textSubtle
 
                 font {
@@ -1098,7 +1052,7 @@ Item {
 
                 textFormat: Text.PlainText
                 elide: Text.ElideRight
-                text: LockService.powerArmed === "" ? qsTr("Pick an action.") : qsTr("%1? Confirm to run.").arg(root.armedLabel)
+                text: LockService.powerQuestion
                 color: Colors.textSubtle
 
                 font {
@@ -1116,7 +1070,7 @@ Item {
                 disabled: LockService.powerArmed === ""
                 labelSize: root.px(Globals.uiPillSize)
                 text: qsTr("Cancel")
-                onClicked: root.cancelPowerAction()
+                onClicked: LockService.cancelPower()
             }
 
             PillButton {
@@ -1129,7 +1083,7 @@ Item {
                 highlighted: !(LockService.powerArmed === "")
                 labelSize: root.px(Globals.uiPillSize)
                 text: qsTr("Confirm")
-                onClicked: root.confirmPowerAction()
+                onClicked: LockService.confirmPower()
             }
         }
     }
@@ -1162,14 +1116,10 @@ Item {
 
         function onPreviewPhaseChanged(): void {
             const phase = LockService.previewPhase;
-            if (phase === "typing" || phase === "checking") {
-                idLockField.text = "preview";
-                root.noteInput();
-                return;
-            }
-            idLockField.text = "";
-            if (phase === "failed")
-                root.noteInput();
+            const typing = phase === "typing" || phase === "checking";
+            idLockField.text = typing ? "preview" : "";
+            if (typing || phase === "failed")
+                root.lastKeyAt = Date.now();
             else
                 root.lastKeyAt = 0;
             root.tick += 1;

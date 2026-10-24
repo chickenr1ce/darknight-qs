@@ -106,12 +106,10 @@ ModuleBox {
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton
 
-                    // Hyprland ≥0.56 evaluates IPC as Lua: the legacy "workspace N" string fails; use hl.dsp.focus.
+                    // Hyprland ≥0.56 evaluates IPC as Lua; services/HyprlandDispatch.qml builds the payload.
                     onClicked: mouse => {
-                        if (BarLayoutService.suppressClick)
-                            return;
                         if (mouse.button === Qt.LeftButton) {
-                            Hyprland.dispatch(`hl.dsp.focus({ workspace = ${idWorkspaceButton.workspaceId} })`);
+                            HyprlandDispatch.focusWorkspace(idWorkspaceButton.workspaceId);
                         }
                     }
                 }

@@ -93,6 +93,118 @@ function shouldCancelRelease(pointerY, barHeight, topMargin) {
     return Number(pointerY) > Number(topMargin) + 2 * Number(barHeight);
 }
 
+// --- press lifecycle --------------------------------------------------------
+//
+// The bar slot holds a passive DragHandler behind its module (ADR 0021), so
+// the press belongs to the module and the slot only sees grab transitions. A
+// passive grab starts the hold; the hold arms the reorder; an ungrab ends the
+// press. BarSlot maps PointerDevice.GrabTransition onto these event names
+// (a .pragma library cannot read the Qt enum) and applies the effects this
+// returns, which keeps the whole hold policy here instead of in a gate copy.
+
+var PRESS = "press";
+var HOLD = "hold";
+var DRAG_START = "drag-start";
+var DRAG_END = "drag-end";
+var RELEASE = "release";
+var ABANDON = "abandon";
+var OTHER = "other";
+
+var EFFECT_START_HOLD = "start-hold";
+var EFFECT_STOP_HOLD = "stop-hold";
+var EFFECT_BEGIN_DRAG = "begin-drag";
+var EFFECT_END_DRAG = "end-drag";
+var EFFECT_CANCEL_DRAG = "cancel-drag";
+var EFFECT_DISMISS_TRAY = "dismiss-tray";
+
+function pressState() {
+    return { pressed: false, armed: false, trayMenuOpenAtPress: false };
+}
+
+// UngrabPassive, CancelGrabPassive, UngrabExclusive and CancelGrabExclusive
+// all end the press; BarSlot maps each of them onto RELEASE.
+function isRelease(event) {
+    return event === RELEASE;
+}
+
+// pressTransition(state, event, context) -> { state, effects }
+//
+// context carries what the state cannot: handlerActive (the DragHandler holds
+// an exclusive grab, so the drag ends on DRAG_END rather than at the release),
+// ownsTrayMenu (this module owns the tray menu, so its press must not dismiss
+// it) and trayMenuVisible (snapshotted at the press).
+function pressTransition(state, event, context) {
+    const ctx = context || {};
+    const next = {
+        pressed: state.pressed === true,
+        armed: state.armed === true,
+        trayMenuOpenAtPress: state.trayMenuOpenAtPress === true
+    };
+    const effects = [];
+
+    if (event === PRESS) {
+        if (next.pressed)
+            return { state: next, effects: effects };
+        next.pressed = true;
+        next.armed = false;
+        next.trayMenuOpenAtPress = ctx.trayMenuVisible === true;
+        effects.push(EFFECT_START_HOLD);
+        return { state: next, effects: effects };
+    }
+
+    if (event === HOLD) {
+        if (next.pressed && !next.armed) {
+            next.armed = true;
+            effects.push(EFFECT_BEGIN_DRAG);
+        }
+        return { state: next, effects: effects };
+    }
+
+    if (event === DRAG_START) {
+        // The drag threshold was crossed before the hold elapsed: a twitchy
+        // click, not a reorder, and the pending hold must not arm later.
+        if (!next.armed)
+            effects.push(EFFECT_STOP_HOLD);
+        return { state: next, effects: effects };
+    }
+
+    if (event === DRAG_END) {
+        if (next.armed) {
+            next.armed = false;
+            effects.push(EFFECT_END_DRAG);
+        }
+        return { state: next, effects: effects };
+    }
+
+    if (event === ABANDON) {
+        effects.push(EFFECT_STOP_HOLD);
+        if (next.armed) {
+            next.armed = false;
+            effects.push(EFFECT_CANCEL_DRAG);
+        }
+        next.pressed = false;
+        next.trayMenuOpenAtPress = false;
+        return { state: next, effects: effects };
+    }
+
+    if (isRelease(event)) {
+        effects.push(EFFECT_STOP_HOLD);
+        if (next.armed && ctx.handlerActive !== true) {
+            next.armed = false;
+            effects.push(EFFECT_END_DRAG);
+        }
+        // The bar-wide dismiss area defers its tray-menu dismiss to this
+        // release; the tray's own module keeps its menu.
+        if (!next.armed && next.trayMenuOpenAtPress && ctx.ownsTrayMenu !== true)
+            effects.push(EFFECT_DISMISS_TRAY);
+        next.pressed = false;
+        next.trayMenuOpenAtPress = false;
+        return { state: next, effects: effects };
+    }
+
+    return { state: next, effects: effects };
+}
+
 function dropTarget(order, widths, visible, spacing, width, draggedKey, pointerX) {
     const section = pointerX < width / 2 ? "left" : "right";
     const keys = order[section];

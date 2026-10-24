@@ -16,6 +16,9 @@ ModuleBox {
 
     property string monitorName: ""
     property ShellScreen triggerScreen: null
+    // The bar defers its tray-menu dismiss to this module's release: the menu
+    // belongs to the icon the press lands on.
+    readonly property bool ownsTrayMenu: true
     enableMouseArea: false
     visible: BarVisibilityService.isVisible("tray") && Globals.onPrimaryMonitor(root.monitorName) && idTrayRepeater.count > 0
 
@@ -95,8 +98,6 @@ ModuleBox {
                 cursorShape: Qt.PointingHandCursor
 
                 onClicked: mouse => {
-                    if (BarLayoutService.suppressClick)
-                        return;
                     switch (mouse.button) {
                     case Qt.LeftButton:
                         // onlyMenu items have no activation action.

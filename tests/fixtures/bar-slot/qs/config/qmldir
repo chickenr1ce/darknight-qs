@@ -1,0 +1,3 @@
+module qs.config
+singleton Globals 1.0 Globals.qml
+singleton Colors 1.0 Colors.qml

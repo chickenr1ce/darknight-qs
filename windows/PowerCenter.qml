@@ -9,82 +9,13 @@ import qs.services
 PanelShell {
     id: root
 
-    readonly property string question: PowerService.armedAction === "" ? qsTr("Pick an action.") : qsTr("%1? Confirm to run.").arg(PowerService.armedLabel)
-    readonly property string headerSub: {
-        const host = PowerService.hostName;
-        const up = PowerService.uptime;
-        if (!(host === "") && !(up === ""))
-            return qsTr("%1 · up %2").arg(host).arg(up);
-        if (!(host === ""))
-            return host;
-        return up;
-    }
-
     panel: PowerService.panelState
     geometryName: "power.panel"
 
-    Shortcut {
-        id: idPowerKey1
+    PowerKeys {
+        id: idPowerKeys
 
-        enabled: root.panelVisible
-        sequence: "1"
-        onActivated: PowerService.arm("lock")
-    }
-
-    Shortcut {
-        id: idPowerKey2
-
-        enabled: root.panelVisible
-        sequence: "2"
-        onActivated: PowerService.arm("suspend")
-    }
-
-    Shortcut {
-        id: idPowerKey3
-
-        enabled: root.panelVisible
-        sequence: "3"
-        onActivated: PowerService.arm("logout")
-    }
-
-    Shortcut {
-        id: idPowerKey4
-
-        enabled: root.panelVisible
-        sequence: "4"
-        onActivated: PowerService.arm("reboot")
-    }
-
-    Shortcut {
-        id: idPowerKey5
-
-        enabled: root.panelVisible
-        sequence: "5"
-        onActivated: PowerService.arm("shutdown")
-    }
-
-    Shortcut {
-        id: idPowerKey6
-
-        enabled: root.panelVisible
-        sequence: "6"
-        onActivated: PowerService.arm("winboot")
-    }
-
-    Shortcut {
-        id: idPowerKeyReturn
-
-        enabled: root.panelVisible
-        sequence: "Return"
-        onActivated: PowerService.confirmArmed()
-    }
-
-    Shortcut {
-        id: idPowerKeyEnter
-
-        enabled: root.panelVisible
-        sequence: "Enter"
-        onActivated: PowerService.confirmArmed()
+        active: root.panelVisible
     }
 
     PanelHeader {
@@ -104,7 +35,7 @@ PanelShell {
         textFormat: Text.PlainText
         elide: Text.ElideRight
         maximumLineCount: 1
-        text: root.headerSub
+        text: PowerService.headerSub
         color: Colors.textSubtle
 
         font {
@@ -148,10 +79,10 @@ PanelShell {
                 label: modelData ? modelData.label : ""
                 glyph: modelData ? modelData.glyph : ""
                 hint: modelData ? modelData.hint : ""
-                armed: PowerService.isArmed(modelData ? modelData.actionId : "")
+                armed: PowerService.isArmed(modelData ? modelData.id : "")
                 separator: index < PowerService.actions.length - 1
 
-                onActivated: PowerService.arm(modelData ? modelData.actionId : "")
+                onActivated: PowerService.arm(modelData ? modelData.id : "")
             }
         }
     }
@@ -172,7 +103,7 @@ PanelShell {
 
             textFormat: Text.PlainText
             elide: Text.ElideRight
-            text: root.question
+            text: PowerService.question
             color: Colors.textSubtle
 
             font {

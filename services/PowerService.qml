@@ -19,32 +19,14 @@ Singleton {
     property string uptime: ""
 
     readonly property var actions: {
-        const chrome = {
-            lock: { glyph: Icons.lock, hint: "1" },
-            suspend: { glyph: Icons.powerSleep, hint: "2" },
-            logout: { glyph: Icons.logout, hint: "3" },
-            reboot: { glyph: Icons.restart, hint: "4" },
-            shutdown: { glyph: Icons.power, hint: "5" },
-            winboot: { glyph: Icons.windows, hint: "6" }
-        };
-        const table = PowerLogic.actions();
-        const out = [];
-        for (let i = 0; i < table.length; i++) {
-            const entry = table[i];
-            out.push({
-                actionId: entry.id,
-                label: entry.label,
-                glyph: chrome[entry.id].glyph,
-                hint: chrome[entry.id].hint,
-                dangerous: entry.dangerous
-            });
-        }
-        return out;
+        const rows = PowerLogic.rows("bar");
+        for (let i = 0; i < rows.length; i++)
+            rows[i].glyph = Icons[rows[i].glyph];
+        return rows;
     }
-
-    readonly property string armedLabel: PowerLogic.label(root.armedAction)
-
-    readonly property bool armedDangerous: PowerLogic.dangerous(root.armedAction)
+    readonly property var confirmKeys: PowerLogic.confirmKeys()
+    readonly property string headerSub: PowerLogic.header(root.hostName, root.uptime)
+    readonly property string question: PowerLogic.question(root.armedAction)
 
     PanelState {
         id: idPanelState
@@ -102,6 +84,18 @@ Singleton {
         function close(): void {
             idPanelState.closeFromOutside();
         }
+    }
+
+    function pressKey(key: string): void {
+        const route = PowerLogic.route("bar", root.armedAction, key);
+        if (route.kind === "arm")
+            root.arm(route.id);
+        else if (route.kind === "confirm")
+            root.confirmArmed();
+        else if (route.kind === "disarm")
+            root.cancel();
+        else if (route.kind === "close")
+            idPanelState.visible = false;
     }
 
     function arm(actionId: string) {

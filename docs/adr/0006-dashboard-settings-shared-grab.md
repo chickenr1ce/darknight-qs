@@ -65,6 +65,7 @@ dashboard does.
   `services/PanelGrab.qml` owns the single `HyprlandFocusGrab`, every
   `PanelShell` registers its window, and `PanelShell` no longer declares a
   grab. The window list is the always-visible bar plus the registered shells
-  whose `panelVisible` is true, so the owner never changes with open order.
+  whose `visible` is true, the closing slide included, so the owner never
+  changes with open order.
   This supersedes the "whitelist a second window into one owner" shape above,
   which could not stay order-independent.

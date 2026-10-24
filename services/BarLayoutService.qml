@@ -35,7 +35,6 @@ Singleton {
     property int dragIndex: 0
     property real pointerX: 0
     property real pointerY: 0
-    property bool suppressClick: false
     // True while the user is reordering and for one glide after, so slots
     // animate a reorder but snap on startup, layout load and width changes.
     property bool reorderMotion: false
@@ -135,7 +134,6 @@ Singleton {
         root.dragIndex = (root.dragSection === "left" ? root.left : root.right).indexOf(key);
         root.pointerX = pointerX;
         root.pointerY = pointerY;
-        root.suppressClick = true;
         idReorderMotionTimer.stop();
         root.reorderMotion = true;
         root.dragging = true;
@@ -182,15 +180,10 @@ Singleton {
         root.pointerX = 0;
         root.pointerY = 0;
         root.startReorderMotion();
-        Qt.callLater(() => root.clearClickSuppression());
     }
 
     function startReorderMotion(): void {
         root.reorderMotion = true;
         idReorderMotionTimer.restart();
-    }
-
-    function clearClickSuppression(): void {
-        root.suppressClick = false;
     }
 }

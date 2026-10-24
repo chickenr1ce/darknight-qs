@@ -48,11 +48,6 @@ function pickScreenName(focusedName, primaryName, names) {
     return names.length > 0 ? names[0] : "";
 }
 
-function escapeLua(value) {
-    return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")
-        .replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\0/g, "\\0");
-}
-
 function modeFor(monitor) {
     const width = Math.round(Number(monitor.width));
     const height = Math.round(Number(monitor.height));

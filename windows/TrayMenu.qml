@@ -10,6 +10,7 @@ import qs.services
 PanelWindow {
     id: root
 
+    // PanelGrab member: visible, panelVisible, screen, outsideClicked().
     readonly property PanelState panel: TrayMenuService.panelState
     readonly property bool panelVisible: root.panel.visible
     property bool loaded: false

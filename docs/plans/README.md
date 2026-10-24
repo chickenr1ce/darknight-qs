@@ -9,7 +9,9 @@ Active work lives in [`docs/dev/roadmap.md`](../dev/roadmap.md). The domain glos
 
 ## Active plans
 
-None.
+| # | Document | Status | Description |
+|---|---|---|---|
+| **16** | [`16-architecture-review.html`](16-architecture-review.html) | 🟢 6 of 8 done, 2 declined (branch `docs/architecture-review-16`) | 2026-10-24 architecture review at `440632f`: eight deepening cards from three independent explorers (DeepSeek V4.1 Flash, Muse Spark 1.3 Contributor, Opus 5.5), merged and re-checked against source. Top pick: card 01, lock session transitions into `LockLogic`. |
 
 ---
 
