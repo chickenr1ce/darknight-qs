@@ -19,6 +19,7 @@ singleton BarMarginService 1.0 BarMarginService.qml
 singleton BarLayoutService 1.0 BarLayoutService.qml
 singleton SystemInfo 1.0 SystemInfo.qml
 singleton SystemMonitor 1.0 SystemMonitor.qml
+singleton PerformanceHistory 1.0 PerformanceHistory.qml
 singleton AudioService 1.0 AudioService.qml
 singleton SpotifyService 1.0 SpotifyService.qml
 singleton WeatherService 1.0 WeatherService.qml

@@ -72,7 +72,17 @@ Singleton {
             if (screen === null)
                 return "error: no screen";
             root.ipcRequest = true;
-            root.toggleAppsAt(screen, screen.width / 2);
+            root.toggleTabAt("apps", screen, screen.width / 2);
+            root.ipcRequest = false;
+            return "ok";
+        }
+
+        function performance(): string {
+            const screen = MonitorService.focusedScreen();
+            if (screen === null)
+                return "error: no screen";
+            root.ipcRequest = true;
+            root.toggleTabAt("performance", screen, screen.width / 2);
             root.ipcRequest = false;
             return "ok";
         }
@@ -117,18 +127,18 @@ Singleton {
         idPanelState.openAt(screen, centerX);
     }
 
-    function toggleAppsAt(screen, centerX: real): void {
+    function toggleTabAt(key: string, screen, centerX: real): void {
         root.markOpenSource();
         if (!root.dashboardVisible) {
-            root.activeTab = "apps";
+            root.activeTab = key;
             idPanelState.openAt(screen, centerX);
             return;
         }
-        if (root.activeTab === "apps") {
+        if (root.activeTab === key) {
             idPanelState.toggle();
             return;
         }
-        root.activeTab = "apps";
+        root.activeTab = key;
     }
 
     function openDashboardAt(screen, centerX: real): void {

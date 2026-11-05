@@ -23,6 +23,7 @@ from its Documentation section.
 - [`user/power-menu.md`](user/power-menu.md) — the power menu keybind, anchored under the bar's power icon.
 - [`user/app-launcher.md`](user/app-launcher.md) — the dashboard Apps tab: keys, mouse, context menu, pin/hide/unhide, and the Super keybind.
 - [`user/audio.md`](user/audio.md) — the audio card: output, input with a level meter, per-app volume, and the mouse map.
+- [`user/performance-tab.md`](user/performance-tab.md) — the dashboard Performance tab: reading the lanes, the time range, and hover.
 - [`user/workspaces-tab.md`](user/workspaces-tab.md) — the dashboard Workspaces tab: the workspace maps, the mouse actions, and the window menu.
 - [`user/lock.md`](user/lock.md) — the native lock screen: how to lock, the PAM password check, the power card, and the crash recovery steps.
 

@@ -209,6 +209,11 @@ QtObject {
     readonly property int mixerIconSize: 28
     readonly property int mixerLabelWidth: 96
     readonly property int usageDetailWidth: 68
+    readonly property int performanceLaneHeight: 54
+    readonly property int performanceGutterWidth: 128
+    readonly property int performanceGridDivisions: 5
+    readonly property real performanceLineWidth: 1.5
+    readonly property real performanceOverLineWidth: 1
     readonly property int listSpacing: 6
     readonly property int rowSpacing: 8
     readonly property int fieldPadding: 5

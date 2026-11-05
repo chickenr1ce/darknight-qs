@@ -105,6 +105,37 @@ function cpuPercent(prevTotal, prevIdle, sample) {
     return Math.max(0, Math.min(100, (1 - deltaIdle / deltaTotal) * 100));
 }
 
+// parseThreadSamples reads the per-thread cpuN lines of /proc/stat, keyed by
+// name so a thread that goes offline between samples is simply skipped.
+function parseThreadSamples(text) {
+    const samples = {};
+    const lines = String(text).split("\n");
+    for (let i = 0; i < lines.length; i++) {
+        if (!/^cpu\d+\s/.test(lines[i]))
+            continue;
+        const name = lines[i].slice(0, lines[i].indexOf(" "));
+        const sample = parseCpuSample(lines[i]);
+        if (sample !== null)
+            samples[name] = sample;
+    }
+    return samples;
+}
+
+// peakThreadPercent returns the busiest thread's usage between two samples, or
+// null when no thread has a usable previous sample.
+function peakThreadPercent(previous, samples) {
+    let peak = null;
+    for (const name in samples) {
+        const before = previous[name];
+        if (before === undefined)
+            continue;
+        const percent = cpuPercent(before.total, before.idle, samples[name]);
+        if (percent !== null && (peak === null || percent > peak))
+            peak = percent;
+    }
+    return peak;
+}
+
 function parseRamPercent(text) {
     let total = 0;
     let available = -1;
@@ -192,6 +223,31 @@ function netRates(prevRx, prevTx, sample, seconds) {
         rx: Math.max(0, (sample.rx - prevRx) / seconds),
         tx: Math.max(0, (sample.tx - prevTx) / seconds)
     };
+}
+
+// parseDiskSample sums the read and written bytes of whole disks in
+// /proc/diskstats. Partitions, loop devices, and device-mapper volumes repeat
+// bytes a whole disk already counts, so they are skipped.
+function parseDiskSample(text) {
+    let read = 0;
+    let written = 0;
+    const lines = String(text).split("\n");
+    for (let i = 0; i < lines.length; i++) {
+        const fields = lines[i].trim().split(/\s+/);
+        if (fields.length < 10 || !/^(nvme\d+n\d+|mmcblk\d+|xvd[a-z]+|[shv]d[a-z]+)$/.test(fields[2]))
+            continue;
+        read += (Number(fields[5]) || 0) * 512;
+        written += (Number(fields[9]) || 0) * 512;
+    }
+    return { read: read, written: written };
+}
+
+// byteRate returns the per-second rate between two counter readings, or null
+// when there is no previous reading. A counter that went backwards reads as 0.
+function byteRate(previous, current, seconds) {
+    if (!(previous >= 0))
+        return null;
+    return Math.max(0, (current - previous) / seconds);
 }
 
 function formatGib(bytes) {

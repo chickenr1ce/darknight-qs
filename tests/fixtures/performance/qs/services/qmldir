@@ -1,0 +1,4 @@
+module qs.services
+singleton DashboardService 1.0 DashboardService.qml
+singleton SystemMonitor 1.0 SystemMonitor.qml
+singleton PerformanceHistory 1.0 PerformanceHistory.qml

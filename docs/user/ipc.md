@@ -76,6 +76,7 @@ sets it for its throwaway instance. They never lock. See
 | `toggle` | — | `ok` / `error: no screen` | Toggles the attached dashboard card on the focused monitor. |
 | `open` | — | `ok` / `error: no screen` | Opens the card on the Dashboard tab. |
 | `apps` | — | `ok` / `error: no screen` | Toggles the app launcher: opens on the Apps tab when closed, switches to Apps when open on another tab, closes when Apps is showing. |
+| `performance` | — | `ok` / `error: no screen` | Toggles the Performance tab: opens on it when closed, switches to it when open on another tab, closes when it is showing. |
 | `close` | — | `ok` | Closes the card. |
 | `settings` | `<section>` | `ok: <section>` / `error: no section <name>` / `error: no screen` | Opens the card on the Settings tab, deep-linked to a section. |
 

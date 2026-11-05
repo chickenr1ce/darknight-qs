@@ -14,6 +14,7 @@ Singleton {
     readonly property string gpuTempPath: "/sys/class/hwmon/hwmon1/temp1_input"
 
     property real cpuUsagePercent: 0
+    property real cpuPeakPercent: 0
     property real ramUsagePercent: 0
     property real ramUsedBytes: 0
     property real ramTotalBytes: 0
@@ -22,21 +23,40 @@ Singleton {
     property real gpuTempC: 0
     property real netRxBytesPerSec: 0
     property real netTxBytesPerSec: 0
+    property real diskReadBytesPerSec: 0
+    property real diskWriteBytesPerSec: 0
     property real previousTotal: -1
     property real previousIdle: 0
+    property var previousThreads: ({})
     property real previousRxBytes: -1
     property real previousTxBytes: -1
+    property real previousDiskRead: -1
+    property real previousDiskWritten: -1
 
     readonly property string ramUsedText: root.formatGib(root.ramUsedBytes) + "/" + root.formatGib(root.ramTotalBytes) + "G"
     readonly property string netRxText: root.formatRate(root.netRxBytesPerSec)
     readonly property string netTxText: root.formatRate(root.netTxBytesPerSec)
+
+    signal sampled()
 
     FileView {
         id: idCpuStatFile
 
         path: "/proc/stat"
         printErrors: false
-        onLoaded: root.applyCpuSample(root.parseCpuSample(idCpuStatFile.text()))
+        onLoaded: {
+            const text = idCpuStatFile.text();
+            root.applyThreadSamples(SystemLogic.parseThreadSamples(text));
+            root.applyCpuSample(root.parseCpuSample(text));
+        }
+    }
+
+    FileView {
+        id: idDiskStatsFile
+
+        path: "/proc/diskstats"
+        printErrors: false
+        onLoaded: root.applyDiskSample(SystemLogic.parseDiskSample(idDiskStatsFile.text()))
     }
 
     FileView {
@@ -88,6 +108,7 @@ Singleton {
         triggeredOnStart: true
         onTriggered: {
             idCpuStatFile.reload();
+            idDiskStatsFile.reload();
             idRamInfoFile.reload();
             idGpuBusyFile.reload();
             idNetDevFile.reload();
@@ -108,6 +129,27 @@ Singleton {
             root.cpuUsagePercent = percent;
         root.previousTotal = sample.total;
         root.previousIdle = sample.idle;
+        if (percent !== null)
+            root.sampled();
+    }
+
+    function applyThreadSamples(samples): void {
+        const peak = SystemLogic.peakThreadPercent(root.previousThreads, samples);
+        if (peak !== null)
+            root.cpuPeakPercent = peak;
+        root.previousThreads = samples;
+    }
+
+    function applyDiskSample(sample): void {
+        const seconds = root.pollMs / 1000;
+        const read = SystemLogic.byteRate(root.previousDiskRead, sample.read, seconds);
+        const written = SystemLogic.byteRate(root.previousDiskWritten, sample.written, seconds);
+        if (read !== null)
+            root.diskReadBytesPerSec = read;
+        if (written !== null)
+            root.diskWriteBytesPerSec = written;
+        root.previousDiskRead = sample.read;
+        root.previousDiskWritten = sample.written;
     }
 
     function parseRamPercent(text: string): real {

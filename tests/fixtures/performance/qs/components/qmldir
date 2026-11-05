@@ -1,0 +1,6 @@
+module qs.components
+Card 1.0 ../../../../../components/Card.qml
+Icon 1.0 ../../../../../components/Icon.qml
+PillButton 1.0 ../../../../../components/PillButton.qml
+PressScale 1.0 ../../../../../components/PressScale.qml
+SectionLabel 1.0 ../../../../../components/SectionLabel.qml

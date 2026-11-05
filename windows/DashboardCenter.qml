@@ -46,6 +46,7 @@ PanelShell {
         DevGeometry.register("dashboard.cpu", idDashboardCpu);
         DevGeometry.register("dashboard.volume", idDashboardVolume);
         DevGeometry.register("dashboard.settings", idDashboardSettingsView);
+        DevGeometry.register("dashboard.performance", idDashboardPerformanceView);
         idDashboardAppsView.registerProbe();
         idDashboardWorkspacesView.registerProbe();
     }
@@ -157,28 +158,12 @@ PanelShell {
         }
     }
 
-    Item {
-        id: idDashboardPlaceholder
+    DashboardPerformanceView {
+        id: idDashboardPerformanceView
 
         Layout.fillWidth: true
 
-        visible: DashboardService.activeTab !== "dashboard" && DashboardService.activeTab !== "settings" && DashboardService.activeTab !== "apps" && DashboardService.activeTab !== "workspaces"
-        implicitHeight: idPlaceholderLabel.implicitHeight + 4 * Globals.panelPadding
-
-        Text {
-            id: idPlaceholderLabel
-
-            anchors.centerIn: parent
-
-            textFormat: Text.PlainText
-            text: qsTr("Coming soon")
-            color: Colors.textSubtle
-
-            font {
-                family: Globals.uiFontFamily
-                pixelSize: Globals.uiBodySize
-            }
-        }
+        visible: DashboardService.activeTab === "performance"
     }
 
     DashboardAppsView {
